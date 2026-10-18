@@ -15,9 +15,7 @@
 /*=============================================================================
     Function Prototypes:
 =============================================================================*/
-void aihGenericEmptyFuelHandler(AITeam *team);
-void aihSwarmerEmptyFuelHandler(AITeam *team);
-void aihGenericFuelLowHandler(AITeam *team);
+// CAT: no fuel handlers (aihGenericEmptyFuelHandler, aihSwarmerEmptyFuelHandler, aihGenericFuelLowHandler)
 void aihHarassNumbersLowHandler(AITeam *team);
 void aihHarassFiringSingleShipHandler(AITeam *team);
 void aihHarassDisengageSingleShipHandler(AITeam *team);
@@ -40,6 +38,8 @@ void aihReconShipTeamDiedHandler(AITeam *team);
 void aihHarassTeamDiedHandler(AITeam *team);
 void aihPatrolTeamDiedHandler(AITeam *team);
 void aihRemoveTeamDiedHandler(AITeam *team);
+
+ShipType cat_aihRescueSupportType(AITeam *team);    // CAT (M2-R7): the support type that rescues, by the team's race
 
 
 #endif

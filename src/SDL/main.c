@@ -22,6 +22,7 @@
 #include "ColPick.h"
 #include "CommandLayer.h"
 #include "ConsMgr.h"
+#include "AISelfTest.h"     // HWI-TEST: /catAiTest (M2-R7 ai-orders-moves)
 #include "Debug.h"
 #include "Demo.h"
 #include "FastMath.h"     // HWI-EXPERIMENT: /oracleTableFsqrt (M2-R7 oracle-rung-aiship)
@@ -420,6 +421,15 @@ bool32 CatDockTestSet(char *string)
 bool32 CatBuildTestSet(char *string)
 {
     catBuildSelfTestSet(string);
+    return TRUE;
+}
+
+// HWI-TEST: port diagnostic: /catAiTest <ticks> (AISelfTest.c catAiSelfTestTick: the computer player gets a scripted
+//      factory, RUs and fleet on the headless Mission01 run and must form teams and issue attack, defence and recon
+//      moves, M2-R7 ai-orders-moves)
+bool32 CatAiTestSet(char *string)
+{
+    catAiSelfTestSet(string);
     return TRUE;
 }
 
@@ -1118,6 +1128,7 @@ commandoption commandOptions[] =
     // CAT: port diagnostic, not a Cataclysm option (NIS.c catNisRunParseSelfTest, M2-R6 nis-fow-camera)
     entryFnParam("/catNisParseTest",    CatNisParseTestSet, " <listfile> - load every NIS with its script and every animatic script named in listfile, check them, then exit."),
     entryFnParam("/catDockTest",        CatDockTestSet, " <ticks> - headless Mission01 run: dock, deposit, harvest and launch orders with no input, exit after <ticks> ticks."),
+    entryFnParam("/catAiTest",          CatAiTestSet, " <ticks> - headless Mission01 run: the computer player (player 1) gets a scripted factory, RUs and fleet and fleet control with no input, logs aitest lines (teams, orders, moves, commands), exit after <ticks> ticks."),
     entryFnParam("/catBuildTest",       CatBuildTestSet, " <ticks> - headless Mission01 run: the construction manager builds a docking bay module, a destroyer (both built externally) and an acolyte at a scripted mothership with no input, logs buildtest lines, exit after <ticks> ticks."),
     entryFnParam("/catCommandTest",     CatCommandTestSet, " <ticks> - headless Mission01 run: link, unlink, mimic, research, point orders and force-field formations with no input, exit after <ticks> ticks."),
     entryFnParam("/catHudTest",         CatHudTestSet, " <frames> - headless Mission01 run with the player's ships selected through the selection API: status bars, ship info panel, main overlay and pie plate drawn offscreen, logs the HUD counts, exit after <frames> ticks."),

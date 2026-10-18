@@ -38,16 +38,8 @@ void aieExecute(struct AITeam *team)
         aiplayerLog((aiIndex,"eventhandler: teamDied"));
         curMove->events.teamDied.handler(team);
     }
-    // ship died
-    else if (curMove->events.shipDied.handler &&
-             (!curMove->events.shipDied.oneShot ||
-              !curMove->events.shipDied.triggered) &&
-             aieCheckShipDied())
-    {
-        aiplayerLog((aiIndex,"eventhandler: shipDied"));
-        curMove->events.shipDied.triggered = TRUE;
-        curMove->events.shipDied.handler(team, ship);
-    }
+    // CAT: no shipDied check (aieExecute 0x00403a70 tests teamDied, then gettingRocked; HW1's aieCheckShipDied was
+    //      always FALSE)
     // gettingRocked
     else if (curMove->events.gettingRocked.handler &&
              (!curMove->events.gettingRocked.oneShot ||
@@ -139,26 +131,8 @@ void aieExecute(struct AITeam *team)
         curMove->events.numbersHigh.triggered = TRUE;
         curMove->events.numbersHigh.handler(team);
     }
-    // fuel low
-    else if (curMove->events.fuelLow.handler &&
-             (!curMove->events.fuelLow.oneShot ||
-              !curMove->events.fuelLow.triggered) &&
-             aieCheckFuelLow(team))
-    {
-        aiplayerLog((aiIndex,"eventhandler: fuelLow"));
-        curMove->events.fuelLow.triggered = TRUE;
-        curMove->events.fuelLow.handler(team);
-    }
-    // fuel high
-    else if (curMove->events.fuelHigh.handler &&
-             (!curMove->events.fuelHigh.oneShot ||
-              !curMove->events.fuelHigh.triggered) &&
-             aieCheckFuelHigh(team))
-    {
-        aiplayerLog((aiIndex,"eventhandler: fuelHigh"));
-        curMove->events.fuelHigh.triggered = TRUE;
-        curMove->events.fuelHigh.handler(team);
-    }
+    // CAT: no fuelLow / fuelHigh checks (no fuel in Cataclysm; aieExecute 0x00403a70 goes from numbersHigh to the
+    //      interrupt)
     //interrupt
     else if (curMove->events.interrupt.handler &&
              (!curMove->events.interrupt.oneShot ||
@@ -198,8 +172,7 @@ void aieHandlersClear (AITeamMove *move)
     move->events.healthHigh.handler     = NULL;
     move->events.numbersLow.handler     = NULL;
     move->events.numbersHigh.handler    = NULL;
-    move->events.fuelLow.handler        = NULL;
-    move->events.fuelHigh.handler       = NULL;
+    // CAT: 12 slots, no fuelLow / fuelHigh (aieHandlersClear 0x00403eb0)
     move->events.shipDied.handler       = NULL;
     move->events.teamDied.handler       = NULL;
     move->events.interrupt.handler      = NULL;
@@ -278,23 +251,7 @@ void aieHandlerSetNumbersHigh (AITeamMove *move, sdword watchPercentage, sdword 
     move->events.numbersHigh.handler = handler;
 }
 
-void aieHandlerSetFuelLow (AITeamMove *move, sdword watchPercentage, bool8 watchIndividual, bool8 oneShot, aieHandlerSimple handler)
-{
-    move->events.fuelLow.watchPercentage = watchPercentage;
-    move->events.fuelLow.watchIndividual = watchIndividual;
-    move->events.fuelLow.oneShot = oneShot;
-    move->events.fuelLow.triggered = 0;
-    move->events.fuelLow.handler = handler;
-}
-
-void aieHandlerSetFuelHigh (AITeamMove *move, sdword watchPercentage, bool8 watchIndividual, bool8 oneShot, aieHandlerSimple handler)
-{
-    move->events.fuelHigh.watchPercentage = watchPercentage;
-    move->events.fuelHigh.watchIndividual = watchIndividual;
-    move->events.fuelHigh.oneShot         = oneShot;
-    move->events.fuelHigh.triggered       = 0;
-    move->events.fuelHigh.handler         = handler;
-}
+// CAT: no aieHandlerSetFuelLow / aieHandlerSetFuelHigh (no fuel events in Cataclysm)
 
 void aieHandlerSetShipDied (AITeamMove *move, bool8 oneShot, aieHandlerShip handler)
 {
@@ -558,73 +515,7 @@ sdword aieCheckNumbersHigh(AITeam *team)
                 team->curMove->events.numbersHigh.watchBaseCount));
 }
 
-//
-//  return true iff the entire group (or one individual, if specified)
-//  is below a certain level of fuel
-//
-sdword aieCheckFuelLow(AITeam *team)
-{
-    sdword i;
-    real32 maxFuel = 0.0;
-    real32 actualFuel = 0.0;
-    bool32 watchIndividual = team->curMove->events.fuelLow.watchIndividual;
-
-    for (i = 0; i < team->shipList.selection->numShips; ++i)
-    {
-        if (watchIndividual)
-        {
-            if ((100.0 * team->shipList.selection->ShipPtr[i]->fuel) <
-                (team->curMove->events.fuelLow.watchPercentage *
-                 team->shipList.selection->ShipPtr[i]->staticinfo->maxfuel))
-                return TRUE;
-        }
-        else // accummulate
-        {
-            maxFuel += team->shipList.selection->ShipPtr[i]->staticinfo->maxfuel;
-            actualFuel += team->shipList.selection->ShipPtr[i]->fuel;
-        }
-    }
-    if (!watchIndividual)
-    {
-        if ((100.0 * actualFuel) < (team->curMove->events.fuelLow.watchPercentage * maxFuel))
-            return TRUE;
-    }
-    return FALSE;
-}
-
-//
-//  return true iff the entire group (or one individual, if specified)
-//  is below a certain level of fuel
-//
-sdword aieCheckFuelHigh(AITeam *team)
-{
-    sdword i;
-    real32 maxFuel = 0.0;
-    real32 actualFuel = 0.0;
-    bool32 watchIndividual = team->curMove->events.fuelHigh.watchIndividual;
-
-    for (i = 0; i < team->shipList.selection->numShips; ++i)
-    {
-        if (watchIndividual)
-        {
-            if ((100.0 * team->shipList.selection->ShipPtr[i]->fuel) >
-                (team->curMove->events.fuelHigh.watchPercentage *
-                 team->shipList.selection->ShipPtr[i]->staticinfo->maxfuel))
-                return TRUE;
-        }
-        else // accummulate
-        {
-            maxFuel += team->shipList.selection->ShipPtr[i]->staticinfo->maxfuel;
-            actualFuel += team->shipList.selection->ShipPtr[i]->fuel;
-        }
-    }
-    if (!watchIndividual)
-    {
-        if ((100.0 * actualFuel) > (team->curMove->events.fuelHigh.watchPercentage * maxFuel))
-            return TRUE;
-    }
-    return FALSE;
-}
+// CAT: no aieCheckFuelLow / aieCheckFuelHigh (no fuel events in Cataclysm)
 
 sdword aieCheckShipDied(void)
 {
@@ -672,8 +563,6 @@ void aiePreFixAIEvents(struct AITeamMove *move)
     move->events.healthHigh.handler     = (aieHandlerSimple)aieHandlerToNum(move->events.healthHigh.handler);
     move->events.numbersLow.handler     = (aieHandlerSimple)aieHandlerToNum(move->events.numbersLow.handler);
     move->events.numbersHigh.handler    = (aieHandlerSimple)aieHandlerToNum(move->events.numbersHigh.handler);
-    move->events.fuelLow.handler        = (aieHandlerSimple)aieHandlerToNum(move->events.fuelLow.handler);
-    move->events.fuelHigh.handler       = (aieHandlerSimple)aieHandlerToNum(move->events.fuelHigh.handler);
     move->events.shipDied.handler       = (aieHandlerShip)aieHandlerToNum((aieHandlerSimple)move->events.shipDied.handler);
     move->events.teamDied.handler       = (aieHandlerSimple)aieHandlerToNum(move->events.teamDied.handler);
     move->events.interrupt.handler      = (aieHandlerInt)aieHandlerToNum((aieHandlerSimple)move->events.interrupt.handler);
@@ -690,8 +579,6 @@ void aieFixAIEvents(struct AITeamMove *move)
     move->events.healthHigh.handler     = aieNumToHandler((sdword)move->events.healthHigh.handler);
     move->events.numbersLow.handler     = aieNumToHandler((sdword)move->events.numbersLow.handler);
     move->events.numbersHigh.handler    = aieNumToHandler((sdword)move->events.numbersHigh.handler);
-    move->events.fuelLow.handler        = aieNumToHandler((sdword)move->events.fuelLow.handler);
-    move->events.fuelHigh.handler       = aieNumToHandler((sdword)move->events.fuelHigh.handler);
     move->events.shipDied.handler       = (aieHandlerShip)aieNumToHandler((sdword)move->events.shipDied.handler);
     move->events.teamDied.handler       = aieNumToHandler((sdword)move->events.teamDied.handler);
     move->events.interrupt.handler      = (aieHandlerInt)aieNumToHandler((sdword)move->events.interrupt.handler);

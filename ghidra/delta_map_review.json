@@ -2,28 +2,28 @@
  "0x00401000": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "drops the aieHandlerSetFuelLow(newMove,15,...) handler (no fuel in Cataclysm); team died handler is aihReconaissanceTeamDiedHandler",
-  "note": "recon team loop otherwise as HW1"
+  "change": "no fuel-low handler",
+  "note": "recon team loop otherwise as HW1 [review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported"
  },
  "0x004011d0": {
   "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "no HW1 test on the dropped type(s) ResourceController (the type ids do not exist in Cataclysm); r6 excludes the frigate types 0x10 sProcessor, 0x2d bDFGFrigate, 0x33 bProcessor, 0x3c kAdvanceSupportFrigate, 0x4a tAdvanceSupportFrigate, 0x4e tDFGFrigate (whole body read); the tree still has the HW1 pair of aliases: stage 4 AI",
-  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "confidence": "high",
+  "change": "CLASS_MonsterShip dangerous too; the non-dangerous frigates are sProcessor, bDFGFrigate, bProcessor, k/tAdvanceSupportFrigate, tDFGFrigate",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun [review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
   "sample": "port-R4"
  },
  "0x00401b50": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "ship-type count table is 145 entries and the team-making tests use Cataclysm ship types and extra pairings (two alternatives for the BIG fleet); the last two tests (GRAVWELL/CLOAKGEN slots, different types) run only when singlePlayerGame",
-  "note": "aiaGenerateNewAttackOrder inlined (aitCreate + aiaGenerateAttackType); HW1 four tests, Cataclysm seven",
+  "change": "one order per call from Cataclysm's pairs (sDreadnought + sDestroyer or bHeavyCruiser + bIonArrayFrigate: huge; sRammingFrigate + sMultiBeam/sHiveFrigate: big), the Taiidan pairs and the k/t grav well / cloak generators only in single player",
+  "note": "aiaGenerateNewAttackOrder inlined (aitCreate + aiaGenerateAttackType); HW1 four tests, Cataclysm seven [review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
   "sample": "reread-R2"
  },
  "0x00402aa0": {
   "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "no HW1 test on the dropped type(s) ResourceController (two tests) (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read, type tests only)",
-  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "confidence": "high",
+  "change": "guards sWorker, sProcessor, bWorker, bProcessor, k/tAdvanceSupportFrigate, tResourceCollector",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun [review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
   "sample": "port-R4"
  },
  "0x00403820": {
@@ -43,8 +43,8 @@
  "0x00403eb0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "clears 12 handler slots, not 14: fuelLow/fuelHigh are gone from AITeamMove.events (no fuel; the teamDied slot moves to +0x13c)",
-  "note": "systemic no-fuel change, struct layout in AITeam.h",
+  "change": "clears 12 handler slots (no fuelLow / fuelHigh)",
+  "note": "systemic no-fuel change, struct layout in AITeam.h [review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIEvents.c; AIEvents.h asserts the 0x88-byte block",
   "sample": "reread-R2"
  },
  "0x00403f00": {
@@ -148,22 +148,22 @@
  "0x00405d20": {
   "class": "IDENTICAL",
   "confidence": "high",
-  "change": "",
-  "note": "handlerTable index",
+  "change": "code identical; table as aieHandlerToNum",
+  "note": "handlerTable index [review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): reviewed",
   "sample": "reread-R2"
  },
  "0x00406880": {
   "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "no HW1 test on the dropped type(s) ResourceController (aiuRescueShipType) (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read)",
-  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "confidence": "high",
+  "change": "rescue type by the team ship's race (k/tAdvanceSupportFrigate, s/bProcessor); the advanced attack keeps a single-player script team's tactics (team +0x74); the resourcer to rescue by the AI's race (tResourceCollector, sWorker, bWorker)",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun [review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
   "sample": "port-R4"
  },
  "0x00406af0": {
   "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "no HW1 test on the dropped type(s) ResourceController (aiuRescueShipType) (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read)",
-  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "confidence": "high",
+  "change": "rescue type by race as the fast handler; script-team tactics; corvette kamikaze by the first ship's class",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun [review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
   "sample": "port-R4"
  },
  "0x00406e30": {
@@ -188,10 +188,10 @@
   "sample": "reread-R2"
  },
  "0x00407330": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "InitNewMove macro expanded",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "InitNewMove macro expanded [review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
   "sample": "uniform/IDENTICAL"
  },
  "0x004073d0": {
@@ -273,23 +273,23 @@
  },
  "0x00409c50": {
   "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "no HW1 test on the dropped type(s) ResourceController (aiuRescueShipType) (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read)",
-  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "confidence": "high",
+  "change": "the invader attack is Aggressive (HW1 Neutral); the rescue type by the team ship's race",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun [review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
   "sample": "port-R4"
  },
  "0x0040ad00": {
-  "class": "IDENTICAL",
-  "confidence": "medium",
-  "change": "",
-  "note": "[review: M2-R5 layout-dock audit] the only edit is the dock purpose constant: the exe passes 3 (deposit) at both aiuWrapDock calls (0x0040ad00), the tree CAT_DOCK_DEPOSIT_RESOURCES; body otherwise not re-compared",
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a multiplayer game without harvesting ends the move; the AI's resourcing marks are Ship words (+0x1D8 catResourcing, +0x1D4 catResourceFinished)",
+  "note": "[review: M2-R5 layout-dock audit] the only edit is the dock purpose constant: the exe passes 3 (deposit) at both aiuWrapDock calls (0x0040ad00), the tree CAT_DOCK_DEPOSIT_RESOURCES; body otherwise not re-compared [review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL)",
   "sample": "audit-R5-layout-dock-sync"
  },
  "0x0040b4b0": {
   "class": "IDENTICAL",
   "confidence": "high",
-  "change": "",
-  "note": "aimCreateMineVolumeNoAdd inlined (InitNewMove, MOVE_MINEVOLUME 0x27); aiumemFree",
+  "change": "identical; its inlined mine-volume creator stores Aggressive (aimCreateMineVolumeNoAdd ported)",
+  "note": "aimCreateMineVolumeNoAdd inlined (InitNewMove, MOVE_MINEVOLUME 0x27); aiumemFree [review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): reviewed",
   "sample": "reread-R2"
  },
  "0x0040b5e0": {
@@ -482,10 +482,10 @@
   "sample": "reread-R2"
  },
  "0x0040ced0": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "aimCreateActiveMineNoAdd inlined + listAddNode",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "aimCreateActiveMineNoAdd inlined + listAddNode [review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
   "sample": "uniform/IDENTICAL"
  },
  "0x0040cf60": {
@@ -510,10 +510,10 @@
   "sample": "reread-R2"
  },
  "0x0040d050": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "aimCreateDeleteTeamNoAdd inlined",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "aimCreateDeleteTeamNoAdd inlined [review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
   "sample": "reread-R2"
  },
  "0x0040d0c0": {
@@ -573,31 +573,31 @@
   "sample": "reread-R2"
  },
  "0x0040e040": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "aimCreateFancyGetShipsNoAdd inlined; header-level: AlternativeShips is copied as 0x2a dwords (0xA8 bytes; HW1 0x20, MAX_NUM_ALTERNATIVES 12), so Cataclysm's AlternativeShips arrays are larger (AITeam.h)",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "aimCreateFancyGetShipsNoAdd inlined; header-level: AlternativeShips is copied as 0x2a dwords (0xA8 bytes; HW1 0x20, MAX_NUM_ALTERNATIVES 12), so Cataclysm's AlternativeShips arrays are larger (AITeam.h) [review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
   "sample": "reread-R2"
  },
  "0x0040e950": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "drops the fuel-low handler (aieHandlerSetFuelLow) on the defend-mothership move",
-  "note": "",
+  "change": "no fuel handler",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
   "sample": "uniform/MODIFIED"
  },
  "0x0040f550": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "race-dependent capture ship: kSalCapCorvette (Kushan) or tSalCapCorvette (Taiidan), same 3-7 count; any other race gets no GetShips move",
-  "note": "HW1 always requests SalCapCorvette",
+  "change": "kSalCapCorvette / tSalCapCorvette 3..7 by race, none else",
+  "note": "HW1 always requests SalCapCorvette [review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
   "sample": "reread-R2"
  },
  "0x0040f5d0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "only requests minelayer ships (aimCreateGetShips type 0x54) when the AI player's race is 3; mine and done moves always added",
-  "note": "",
+  "change": "tMinelayerCorvette 2..5 for Taiidan only",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
   "sample": "uniform/IDENTICAL"
  },
  "0x00411000": {
@@ -18838,7 +18838,7 @@
  "_notes_r2": [
   "Tool fixes in `tools/delta_map.py` (M2-R2), for the systemic misses the R1 audit found:",
   "",
-  "- **Linker-folded callees.** `ICF_FOLDED` lists HW1 functions whose release code is identical to another's, so the linker kept one copy: `SpaceObjRegistryGetShip`/`GetTarget` \u2192 `SpaceObjRegistryGetObj`, `aimInterceptShipDied` \u2192 `aimCaptureShipDied`, `aimAdvancedAttackClose` \u2192 `aimCloseKamikaze`. A call to the folded name now matches the surviving one (`calls_folded` in the features). The tool also prints candidate folds it finds in the data, but does not apply them: the 4 it lists are inlined or reworked callees, not folds.",
+  "- **Linker-folded callees.** `ICF_FOLDED` lists HW1 functions whose release code is identical to another's, so the linker kept one copy: `SpaceObjRegistryGetShip`/`GetTarget` → `SpaceObjRegistryGetObj`, `aimInterceptShipDied` → `aimCaptureShipDied`, `aimAdvancedAttackClose` → `aimCloseKamikaze`. A call to the folded name now matches the surviving one (`calls_folded` in the features). The tool also prints candidate folds it finds in the data, but does not apply them: the 4 it lists are inlined or reworked callees, not folds.",
   "- **Callee interface changes.** A bound callee whose Cataclysm prototype has real parameter names and another parameter count than its HW1 definition (`timTimer*`, `clCommandMessage`, `spMainScreen`, `hsStaticInit`...), or that the binary map extended with `cat_argN` arguments counted from caller stack cleanup (`clFormation`, `RemoveShipsFromDoingStuff`, `ApplyDamageToTarget`, `tutSetPointerTargetAIVolume`...), makes each caller MODIFIED. Over-declared prototypes are skipped when every call site passes register or stack garbage in the extra slots (`feCurrentScreenDelete(unaff_EDI, unaff_ESI)`), and under-declared ones when the callee reads `in_EAX`/`in_stack_` (`kniTransGrowVertexLists`). `param_N` prototypes are not used, because a double or a by-value struct splits into several slots (`rgluLookAt` 9 -> 12); so `trTextureRegister`'s real 4th argument is still caught only by hand review.",
   "- **One-parameter ETG/particle callables** that take a pointer to their argument slot are MODIFIED (the old rule needed two or more HW1 parameters).",
   "- **KAS hash keys.** A function that calls `kasfScopeName` in HW1 and tests the `0x80000000` hash bit in Cataclysm is MODIFIED.",
@@ -20230,5 +20230,523 @@
   "change": "drops calls selectMemDupSelection; drops strings \"duppaa\"; body 2.0x smaller than predicted",
   "note": "[review: M2-R7 oracle-rung-aiship] ported the aiuAttack ownership: the move's target list goes in, the returned duplicate replaces it and the original is freed (0x00408ca0)",
   "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00401120": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "returns at once without enough armada teams; refinds a target only when the target selection is empty; sends one recon team only while none is out",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x004012a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "huge fleet by the mothership's class; cloak / grav well generators by race (Kushan / Taiidan), TRUE with no order for another race",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x004016f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "attack types r % (singlePlayerGame ? 15 : 11); the done team looks for enemies within 30,000 (HW1 3,000)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00401df0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the cleanup skips an empty slot; recon and harass helpers inlined as HW1",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL): one NULL test",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00401fa0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the armada targets keep an emptied selection (the exe embeds it in AIPlayer)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00402010": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "feature tests over both races' types (huge: k/t/bHeavyCruiser, sDreadnought; capture: k/tSalCapCorvette; cloak, grav well: k/t); the resourcing-class test by class; the kamikaze threshold drawn before the roll",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x004028d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the seconds are rounded to nearest (fadd 1.5 * 2^52) for the interval test",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00402e00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "k/tProximitySensor by race (none else); the first interval test rounds, the alert reset truncates",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00403070": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no fuel-low handler; excludes CLASS_Mothership and CLASS_Carrier by class",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00403130": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a lone fighter never counts (the stream-6 draw is made and dropped); no fuel-low handlers; the defense team slot is refilled only when empty, with the count decremented",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x004035a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "inlined defendable count over Cataclysm types (carriers, Processors, support frigates count AID_RESCON_ASF_DEFENDABLE_MULTIPLIER; Workers, tResourceCollector, salvage corvettes one)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00403a70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no shipDied and no fuelLow / fuelHigh checks (the AITeamMove events block has 12 slots, +0xCC..+0x154); gettingRocked, enemy (not) nearby, firing, disengage, health, numbers checks and the interrupt as HW1 (inlined)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIEvents.c",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00405ce0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "code identical; the handler table it scans (0x0074a3a4) has 20 entries and no fuel handlers, the folded team-died handlers appearing twice",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): table ported, AIHandler.c",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00405d40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "replacement request by race: Sect 16 sAcolyte (alternatives sACV, sMimic), Beast 16 bHeavyCorvette (bInterceptor, bAttackBomber, researched bAcolyte / bACV); no request for another race (the exe re-adds the move-team node: CAT-FIX)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00405fd0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no kamikaze order when no ship qualifies (numShips > 0 test)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00406070": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "empty-team replacement by race: Sect 12 sAcolyte (sRecon, sACV, sMimic), Beast 12 bInterceptor (bHeavyCorvette, bRecon, bAttackBomber, researched bACV)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x004062d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "empty-team replacement by race: Sect 3 sMCV (sACV, sMCV, sMultiBeamFrigate, sHiveFrigate), Beast 3 bMultiGunCorvette (7 alternatives, three researched)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x004066d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the cooperating team's advanced attack is Aggressive (0x0040677c / 0x004067f6 push 2; HW1 Neutral)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00406f20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x004070d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x004071b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "inlined fancy get-ships (body as HW1); CAT-FIX in the tree: the dropped move allocation",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): reviewed",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00407440": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x004075b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x004076b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00407ac0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "reads and clears Ship.catResourceFinished (+0x1D4)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00407dd0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "in multiplayer the destination is clamped to +-smUniverseSize X / Y / Z",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x004083f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the advanced attack keeps a single-player script team's tactics; the hyperspace move is Aggressive",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00408d30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "script-team tactics for both advanced attacks",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x004094c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "script-team tactics; no fuel-low handler",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00409af0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the patrol move keeps a single-player script team's tactics (else Aggressive)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040a440": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no random tactics draw (HW1 drew stream 6): script-team tactics or Aggressive",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040a910": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "tests the numShips of the armada's target selection (kept in AIPlayer +0xCF8 in the exe); the flank attacks are Aggressive",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); the tree keeps an allocated selection (CAT-TODO M2-R7 AI player)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040b000": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the race's mothership and carrier (s/bMothership, s/bCarrier); the move-to moves are Aggressive",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040b3f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_aiuWrapCapture(ships, &onesel, 1): the second argument is the dontIssue flag, so no capture order is given; CAT-FIX: the target selection is freed",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040b890": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "either race's cloak generator gets the cloak cooperation",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040b9b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040ba50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040bcc0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040bd70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040c190": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040c280": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040c370": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040c3f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040c5f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040cd30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040ce20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040cfa0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040d130": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040d1b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040d370": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040d460": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040d510": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040d630": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040d6c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040df90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the new move's tactics is Aggressive (stores 2; HW1 Neutral); move types numbered without HW1's three swarm moves (fancy get-ships 0x16, dock 0x17, ... delete-team 0x2D)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported in AIMoves.c / AITeam.h",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040e160": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "guards by race: Sect / Beast tables (6 / 9 alternatives, researched Beast types), kHeavyDefender / tHeavyDefender with no alternatives (CAT-FIX: the exe passes uninitialised alternatives); no fuel handler",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040e3a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "one sAcolyte / bInterceptor with the race's alternatives (6 / 8 for the mothership recon, sMimic / bCloakedFighter for the active ones); no fuel handlers",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040e740": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "15 sAcolyte (sACV, sLeech, sMimic) or bInterceptor (bMultiGunCorvette, bAttackBomber, bCloakedFighter, researched bACV); no fuel handlers",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040e970": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "12 sAcolyte / bInterceptor with 6 / 8 race alternatives; no fuel handler",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040eb40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "3 sMultiBeamFrigate / bMultiGunCorvette with 8 / 10 race alternatives; no fuel handler",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040ed80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "an empty team asks for sCarrier / bCarrier (strike craft) or sProcessor / bProcessor (resource) by the team ship's race (CAT-FIX: the AI's race for an empty team, the exe reads ShipPtr[0] of it)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040ee70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "13 sAcolyte (9 alternatives) or 15 bAttackBomber (12); script-team tactics for the tempguard and armada; no fuel handlers",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040f110": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "9 sACV (7) or 9 bHeavyCorvette (12); script-team tactics; formations DELTA3D / WALL",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040f3a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "5 sHiveFrigate (sMultiBeamFrigate) or bIonArrayFrigate (researched frigates); script-team tactics; hyperspaceable",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040f620": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "either race's grav well generator (0x40 / 0x4f) gets the enemy-nearby handler; a missing static is skipped (no assertion)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040f6b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "3 sMultiBeamFrigate (11 alternatives) or bIonArrayFrigate (18); script-team tactics",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040f9c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "by race and by the mothership being the race's mothership or carrier; CAT-FIX: no order for another race (uninitialised compare in the exe)",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040fbc0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "guard team 10 sACV / bAttackBomber; main team one k/tHeavyCruiser, sDreadnought, bHeavyCruiser",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x0040ff90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "guard team 10 sACV / bAttackBomber; main team by the six Cataclysm motherships / carriers",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00410670": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no fuel handler",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00410700": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Sect / Beast targets only; the reserve test adds a dead (SOF_Dead) or Traders mothership; constraints by class; guess sMultiBeamFrigate / bIonArrayFrigate / tStandardFrigate / p1MissileCorvette",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00410920": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "danger radius 16,000; the secondary team from cat_statsRandomAttackShipStatic (stream 6, redrawn once above 20); no fuel handlers",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): ported, AIOrders.c (every alternative table read from the exe's stack stores)",
+  "sample": "port-R7-ai-orders-moves"
+ },
+ "0x00404210": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "converts 12 handler slots (no fuelLow / fuelHigh), as aieHandlersClear",
+  "note": "[review: M2-R7 ai-orders-moves audit] compared with the exe body (decompile: 12 aieHandlerToNum calls, +0xd0 .. +0x150): found modified (was IDENTICAL); the producer ported it without a review entry",
+  "sample": "audit-R7-ai-orders-moves"
+ },
+ "0x00404310": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "converts 12 handler slots (no fuelLow / fuelHigh), as aieHandlersClear",
+  "note": "[review: M2-R7 ai-orders-moves audit] compared with the exe body (decompile: 12 aieNumToHandler calls): found modified (was IDENTICAL); the producer ported it without a review entry",
+  "sample": "audit-R7-ai-orders-moves"
  }
 }

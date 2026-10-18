@@ -18,7 +18,6 @@
 #include "Stats.h"
 
 
-#define MAX_NUM_HARASS_TEAMS    2
 
 /*-----------------------------------------------------------------------------
     Name        : aiaPriorityShipsConstraints
@@ -37,6 +36,8 @@ static bool32 aiaPriorityShipsConstraints(Ship *ship)
 
     if (aiuShipIsntAnEnemyMothership(ship))
     {
+        // CAT: a monster ship is dangerous too, and the frigates that are not are both races' support frigates,
+        //      Processors and DFG frigates (aiaPriorityShipsConstraints 0x004011d0)
         switch (shipstatic->shipclass)
         {
             case CLASS_HeavyCruiser:
@@ -45,12 +46,22 @@ static bool32 aiaPriorityShipsConstraints(Ship *ship)
                 //take out this one
             case CLASS_Destroyer:
                 //dangerous as hell
+            case CLASS_MonsterShip:
                 dangerous = TRUE;
                 break;
             case CLASS_Frigate:
-                if ((shipstatic->shiptype != AdvanceSupportFrigate) && (shipstatic->shiptype != DFGFrigate))
+                switch (shipstatic->shiptype)
                 {
-                    dangerous = TRUE;
+                    case sProcessor:
+                    case bDFGFrigate:
+                    case bProcessor:
+                    case kAdvanceSupportFrigate:
+                    case tAdvanceSupportFrigate:
+                    case tDFGFrigate:
+                        break;
+                    default:
+                        dangerous = TRUE;
+                        break;
                 }
                 break;
             case CLASS_Corvette:
@@ -122,8 +133,8 @@ AITeam *aiaSendRecon(SelectCommand *ships)
 
     if (min_distsq < REALlyBig)
     {
+        // CAT: no fuel-low handler (aiaSendRecon 0x00401000)
         newMove = aimCreateShipReconNoAdd(best_team, ships, NO_FORMATION, Evasive, TRUE, TRUE);
-        aieHandlerSetFuelLow(newMove, 15, TRUE, TRUE, aihGenericFuelLowHandler);
         aieHandlerSetTeamDied(newMove, aihReconShipTeamDiedHandler);
         aimInsertMove(best_team, newMove);
         return best_team;
@@ -148,70 +159,30 @@ AITeam *aiaSendRecon(SelectCommand *ships)
 void aiaArmada(void)
 {
     vector dest_target;
-    AITeam *recon_team;
-    AITeamMove *recon_move;
-    SelectCommand *sel_target = NULL;
-    bool32 visibility;
     udword num_armada = aitFindNumTeamsWithFlag(TEAM_ARMADA);
 
-    //build up armada strength more if enemy player doesn't have many battle
-    //ships away from the mothership.  Then do a coordinated attack on mothership.
-    //Otherwise, smaller coordinated attacks on enemy buildups (other than the mothership)
-
-    if ((num_armada > aiCurrentAIPlayer->aiaArmada.numTeams) && (!aiCurrentAIPlayer->aiaArmada.targets))
-    {
-        visibility = aiuFindArmadaTarget(&dest_target, &sel_target, NULL/*team->shipList.selection*/);
-
-        aiCurrentAIPlayer->aiaArmada.targets    = sel_target;
-        aiCurrentAIPlayer->aiaArmada.visibility = visibility;
-
-        if (!visibility && sel_target)
-        {
-            aiCurrentAIPlayer->aiaArmada.recon_team = aiaSendRecon(sel_target);
-            return;
-        }
-    }
-    else if (num_armada <= aiCurrentAIPlayer->aiaArmada.numTeams)
+    // CAT: aiaArmada 0x00401120: with more armada teams than the level needs, a target is found whenever the armada
+    //      has none left (the exe tests the numShips of its target selection, so an emptied one is refound), and a
+    //      recon team is sent once to targets that are not visible while no recon team is out; HW1 re-sent the recon
+    //      team on every new target and kept an emptied target selection. The exe fills a selection buffer it keeps
+    //      in AIPlayer (+0xCF8); the tree keeps HW1's allocated selection (see aiuFindArmadaTarget)
+    if (num_armada <= aiCurrentAIPlayer->aiaArmada.numTeams)
     {
         return;
     }
 
-    //if the visibility flag is set, the armada targets are considered
-    //viable targets.
-    //if no visibility, check if the ships have been identified
-    if (aiCurrentAIPlayer->aiaArmada.targets && !aiCurrentAIPlayer->aiaArmada.visibility)
+    if ((aiCurrentAIPlayer->aiaArmada.targets == NULL) || (aiCurrentAIPlayer->aiaArmada.targets->numShips == 0))
     {
-        //check status of the recon team
-        recon_team = aiCurrentAIPlayer->aiaArmada.recon_team;
-        if (recon_team)
-        {
-            recon_move = recon_team->curMove;
-
-            if (recon_move->type == MOVE_SHIPRECON)
-            {
-                //check the ships the recon team has found to see if they are good
-                //enough to kill
-                if ((!recon_move->params.shiprecon.ships->numShips) &&
-                    (recon_move->params.shiprecon.foundships->numShips))
-                {
-//                    visibility = aiaAnalyseTargets(recon_move->params.shiprecon.foundships);
-                }
-                else if (recon_team->curMove->params.shiprecon.foundships->numShips)
-                {
-//                    visibility = aiaAnalysePartialTargets(recon_move->params.shiprecon.foundships);
-                }
-            }
-        }
-        else
-        {
-            //the recon team has died, create a new one
-            aiCurrentAIPlayer->aiaArmada.recon_team = aiaSendRecon(aiCurrentAIPlayer->aiaArmada.targets);
-            return;
-        }
+        aiumemFree(aiCurrentAIPlayer->aiaArmada.targets);
+        aiCurrentAIPlayer->aiaArmada.visibility = aiuFindArmadaTarget(&dest_target, &aiCurrentAIPlayer->aiaArmada.targets,
+                                                                      NULL/*team->shipList.selection*/);
     }
 
-    //analyse ships, then decide what to send their way, if at all...
-
+    if ((aiCurrentAIPlayer->aiaArmada.targets != NULL) && (aiCurrentAIPlayer->aiaArmada.targets->numShips > 0) &&
+        (!aiCurrentAIPlayer->aiaArmada.visibility) && (aiCurrentAIPlayer->aiaArmada.recon_team == NULL))
+    {
+        aiCurrentAIPlayer->aiaArmada.recon_team = aiaSendRecon(aiCurrentAIPlayer->aiaArmada.targets);
+    }
 }
 
 
@@ -300,7 +271,8 @@ bool32 aiaGenerateAttackType(AITeam *newteam, AttackType attacktype, bool32 Forc
             break;
         case ATTACK_FLEET_HUGE:
             if (aiuAttackFeatureEnabled(AIA_ATTACK_FLEET_HUGE) &&
-                ((aiCurrentAIPlayer->player->PlayerMothership && aiCurrentAIPlayer->player->PlayerMothership->shiptype == Mothership) || ForceBig))
+                ((aiCurrentAIPlayer->player->PlayerMothership &&
+                  (aiCurrentAIPlayer->player->PlayerMothership->staticinfo->shipclass == CLASS_Mothership)) || ForceBig))   // CAT: by class (0x00401389)
             {
                 ship = aiuFindEnemyMothership(aiCurrentAIPlayer->player); //temporary
                 if (ship)
@@ -382,17 +354,34 @@ bool32 aiaGenerateAttackType(AITeam *newteam, AttackType attacktype, bool32 Forc
                 return_value = TRUE;
             }
             break;
+        // CAT: the cloak and grav well generators of the player's race (kCloakGenerator / tCloakGenerator,
+        //      kGravWellGenerator / tGravWellGenerator); for any other race the exe creates no order and still
+        //      reports success (0x00401638 .. 0x0040169d)
         case CLOAKGEN:
             if (aiuAttackFeatureEnabled(AIA_CLOAKGEN))
             {
-                aioCreateSpecialDefense(newteam, CloakGenerator);
+                if (aiCurrentAIPlayer->player->race == RACE_Kushan)
+                {
+                    aioCreateSpecialDefense(newteam, kCloakGenerator);
+                }
+                else if (aiCurrentAIPlayer->player->race == RACE_Taiidan)
+                {
+                    aioCreateSpecialDefense(newteam, tCloakGenerator);
+                }
                 return_value = TRUE;
             }
             break;
         case GRAVWELL:
             if (aiuAttackFeatureEnabled(AIA_GRAVWELL))
             {
-                aioCreateSpecialDefense(newteam, GravWellGenerator);
+                if (aiCurrentAIPlayer->player->race == RACE_Kushan)
+                {
+                    aioCreateSpecialDefense(newteam, kGravWellGenerator);
+                }
+                else if (aiCurrentAIPlayer->player->race == RACE_Taiidan)
+                {
+                    aioCreateSpecialDefense(newteam, tGravWellGenerator);
+                }
                 return_value = TRUE;
             }
             break;
@@ -450,7 +439,9 @@ void aiaGenerateNewAttackTeam(sdword AttackTeamNumber)
     //upper limit to avoid weird infinite loops
     while ((!attack_type_found) && (i<100))
     {
-        randomAttack = (AttackType)(ranRandom(RANDOM_AI_PLAYER)%NUM_ATTACK_TYPES);
+        // CAT: a multiplayer computer player draws only the first 11 attack types (no capture, mine, cloak or grav
+        //      well generator team): r % (singlePlayerGame ? 15 : 11) (aiaProcessAttackTeams 0x0040176a)
+        randomAttack = (AttackType)(ranRandom(RANDOM_AI_PLAYER)%(singlePlayerGame ? NUM_ATTACK_TYPES : CAPTURE));
         probability_of_attack = ranRandom(RANDOM_AI_PLAYER)&255;
 
         if (probability_of_attack < aiCurrentAIPlayer->aiaAttackProbability[randomAttack])
@@ -499,7 +490,7 @@ void aiaProcessAttackTeams(void)
             {
                 if (aiCurrentAIPlayer->attackTeam[i]->shipList.selection->numShips > 0)
                 {
-                    enemyships = aiuFindNearbyEnemyShips(aiCurrentAIPlayer->attackTeam[i]->shipList.selection->ShipPtr[0],3000.0f);
+                    enemyships = aiuFindNearbyEnemyShips(aiCurrentAIPlayer->attackTeam[i]->shipList.selection->ShipPtr[0],30000.0f);   // CAT: 30,000 (0x004017f0; HW1 3,000)
                     MakeShipsOnlyFollowConstraints(enemyships,aiuShipIsntAnEnemyMothership);
                     if (enemyships->numShips)
                     {
@@ -670,76 +661,8 @@ void aiaTimeAttack(void)
 }
 
 
-/*-----------------------------------------------------------------------------
-    Name        : aiaProcessHarassTeams
-    Description : Directs harass teams - first gets all of them into a list
-                  then checks to see if they are in a mothership blob.  If so,
-                  pulls them away.
-    Inputs      :
-    Outputs     : Modifies team moves
-    Return      : void
-----------------------------------------------------------------------------*/
-void aiaProcessHarassTeams(void)
-{
-    AITeam *harassTeams[MAX_NUM_HARASS_TEAMS], *team;
-    AITeamMove *move;
-    udword i, team_num = 0, numAttTeams = aiCurrentAIPlayer->numAttackTeams, retreat_probability;
-    ShipPtr teamShip;
-    SelectCommand *shipList;
-    vector destination;
-
-    //put all harass teams into an array
-    if (aiCurrentAIPlayer->harassTeam)
-    {
-        harassTeams[team_num] = aiCurrentAIPlayer->harassTeam;
-        team_num++;
-    }
-
-    for (i=0;i<numAttTeams;i++)
-    {
-        team = aiCurrentAIPlayer->attackTeam[i];
-
-        if (bitTest(team->teamFlags, HARASS_TEAM))
-        {
-            harassTeams[team_num] = team;
-            team_num++;
-        }
-    }
-
-    //for each harass team, check how close it is to the enemy mothership
-    //if it's close, move it away - later: ignore if attacking research ships
-    for (i=0;i<team_num;i++)
-    {
-        shipList = harassTeams[i]->shipList.selection;
-
-        if ((shipList) && (shipList->numShips) &&
-            (!bitTest(harassTeams[i]->teamFlags, TEAM_RETREATING)) &&
-            (aiuShipsCloseToEnemyMothership(aiCurrentAIPlayer->player, shipList, 5500)))
-        {
-            retreat_probability = ranRandom(RANDOM_AI_PLAYER)&255;
-
-            if (retreat_probability < 200)
-            {
-                teamShip = shipList->ShipPtr[0];
-
-                //find a move location away from the mothership
-                destination = aiuFindSafestStandoffPoint(shipList, 20000);
-
-                //delete attack move if there is one
-                //clear moves until "harass attack"
-                aitDeleteMovesUntilMoveType(harassTeams[i], MOVE_HARASSATTACK);
-
-                move = aimCreateMoveTeamNoAdd(harassTeams[i], destination, SAME_FORMATION, TRUE, FALSE);
-                move->tactics = Evasive;    //temporary
-
-                aimInsertMove(harassTeams[i], move);
-
-                bitSet(harassTeams[i]->teamFlags, TEAM_RETREATING);
-            }
-        }
-    }
-}
-
+// CAT (M2-R7 ai-orders-moves): no aiaProcessHarassTeams: HW1 never called it (aiaAttackManager's call is commented out)
+//      and cataclysm.exe has no such code
 
 
 /*-----------------------------------------------------------------------------
@@ -776,7 +699,7 @@ bool32 aiaDivideNewShips(void)
     SelectCommand *NewShips = aiCurrentAIPlayer->newships.selection;
     udword numShipType[TOTAL_NUM_SHIPS];
     sdword i;
-    bool32 done = FALSE, newteam = FALSE;
+    bool32 newteam = FALSE;
 
     for (i=0;i<TOTAL_NUM_SHIPS;i++)
     {
@@ -788,45 +711,42 @@ bool32 aiaDivideNewShips(void)
         numShipType[NewShips->ShipPtr[i]->shiptype]++;
     }
 
-    while (!done)
+    // CAT: aiaDivideNewShips 0x00401b50: one order at most per call, from Cataclysm's pairs: an sDreadnought with an
+    //      sDestroyer or a bHeavyCruiser with a bIonArrayFrigate make a huge fleet, an sRammingFrigate with an
+    //      sMultiBeamFrigate or sHiveFrigate a big one; in single player only, also HW1's Taiidan pairs (tHeavyCruiser
+    //      and tMissileDestroyer: huge; tStandardDestroyer and two tStandardFrigates: big) and the Kushan / Taiidan
+    //      grav well and cloak generators
+    if (numShipType[sDreadnought] && numShipType[sDestroyer])
     {
-        //for now, just go for the basics.  Later expand for everything
-        //look for takeout Mo'ship huge
-        if (numShipType[HeavyCruiser] && ((numShipType[MissileDestroyer])))
-        {
-            newteam = aiaGenerateNewAttackOrder(ATTACK_FLEET_HUGE);
-
-            numShipType[HeavyCruiser]--;
-            numShipType[MissileDestroyer]--;
-            break;
-        }
-
-        if (numShipType[StandardDestroyer] && (numShipType[StandardFrigate] > 1))
-        {
-            newteam = aiaGenerateNewAttackOrder(ATTACK_FLEET_BIG);
-
-            numShipType[StandardDestroyer]--;
-            numShipType[StandardFrigate]--;
-            numShipType[StandardFrigate]--;
-            break;
-        }
-
-        if (numShipType[GravWellGenerator])
-        {
-            newteam = aiaGenerateNewAttackOrder(GRAVWELL);
-
-            numShipType[GravWellGenerator]--;
-            break;
-        }
-
-        if (numShipType[CloakGenerator])
-        {
-            newteam = aiaGenerateNewAttackOrder(CLOAKGEN);
-
-            numShipType[CloakGenerator]--;
-            break;
-        }
-        done = TRUE;
+        newteam = aiaGenerateNewAttackOrder(ATTACK_FLEET_HUGE);
+    }
+    else if (numShipType[sRammingFrigate] && (numShipType[sMultiBeamFrigate] || numShipType[sHiveFrigate]))
+    {
+        newteam = aiaGenerateNewAttackOrder(ATTACK_FLEET_BIG);
+    }
+    else if (numShipType[bHeavyCruiser] && numShipType[bIonArrayFrigate])
+    {
+        newteam = aiaGenerateNewAttackOrder(ATTACK_FLEET_HUGE);
+    }
+    else if (!singlePlayerGame)
+    {
+        newteam = FALSE;
+    }
+    else if (numShipType[tHeavyCruiser] && numShipType[tMissileDestroyer])
+    {
+        newteam = aiaGenerateNewAttackOrder(ATTACK_FLEET_HUGE);
+    }
+    else if (numShipType[tStandardDestroyer] && (numShipType[tStandardFrigate] > 1))
+    {
+        newteam = aiaGenerateNewAttackOrder(ATTACK_FLEET_BIG);
+    }
+    else if (numShipType[kGravWellGenerator] || numShipType[tGravWellGenerator])
+    {
+        newteam = aiaGenerateNewAttackOrder(GRAVWELL);
+    }
+    else if (numShipType[kCloakGenerator] || numShipType[tCloakGenerator])
+    {
+        newteam = aiaGenerateNewAttackOrder(CLOAKGEN);
     }
     return newteam;
 }
@@ -849,7 +769,8 @@ void aiaCleanupTeams(void)
     {
         team = aiCurrentAIPlayer->attackTeam[i];
 
-        if (aitTeamIsDone(team) && (!team->shipList.selection->numShips))
+        // CAT: an empty slot is skipped (aiaAttackManager 0x00401e10 tests the pointer)
+        if ((team != NULL) && aitTeamIsDone(team) && (!team->shipList.selection->numShips))
         {
 //            for (j=0;j<team->shipList.selection->numShips;j++)
 //            {
@@ -931,7 +852,8 @@ bool32 aiaPlayerCanBuildShipType(ShipType shiptype, AIPlayer *aiplayer)
         return FALSE;       // this ship static info not loaded, so can't build
     }
 
-    if ((shiptype == ResourceCollector) && (!singlePlayerGame) && (!bitTest(tpGameCreated.flag,MG_HarvestinEnabled)))
+    // CAT: any resourcing class ship, not HW1's one ResourceCollector (inlined in aiaInit 0x00402010)
+    if ((teststatic->shipclass == CLASS_Resource) && (!singlePlayerGame) && (!bitTest(tpGameCreated.flag,MG_HarvestinEnabled)))
     {
         return FALSE;
     }
@@ -982,15 +904,12 @@ void aiaTeamDied(struct AIPlayer *aiplayer,struct AITeam *team)
 
 bool32 aiaShipDied(struct AIPlayer *aiplayer, ShipPtr ship)
 {
-    if ((aiplayer->aiaArmada.targets) && (clRemoveShipFromSelection(aiplayer->aiaArmada.targets, ship)))
+    // CAT: the ship leaves the armada's targets, which stay allocated when empty (aiaShipDied 0x00401fa0 keeps them in
+    //      AIPlayer and aiaArmada refinds a target for an empty selection)
+    if ((aiplayer->aiaArmada.targets) && (aiplayer->aiaArmada.targets->numShips > 0) &&
+        (clRemoveShipFromSelection(aiplayer->aiaArmada.targets, ship)))
     {
         aiplayerLog((aiplayer->player->playerIndex, "Ship removed from Armada Targets"));
-
-        if (!aiplayer->aiaArmada.targets->numShips)
-        {
-            memFree(aiplayer->aiaArmada.targets);
-            aiplayer->aiaArmada.targets = NULL;
-        }
     }
 
     if ((aiplayer->Targets) && (clRemoveShipFromSelection(aiplayer->Targets, ship)))
@@ -1084,7 +1003,10 @@ void aiaInit(struct AIPlayer *aiplayer)
         case AI_ADVANCED:
             aiuEnableAttackFeature(AIA_ACTIVE_RECONAISSANCE);
 
-            if (aiaPlayerCanBuildShipType(HeavyCruiser, aiplayer))
+            // CAT: each feature with a ship of any race the player may build (aiaInit 0x00402010 tests the Kushan type,
+            //      then the Taiidan one, then Beast and Sect where they exist)
+            if (aiaPlayerCanBuildShipType(kHeavyCruiser, aiplayer) || aiaPlayerCanBuildShipType(tHeavyCruiser, aiplayer) ||
+                aiaPlayerCanBuildShipType(bHeavyCruiser, aiplayer) || aiaPlayerCanBuildShipType(sDreadnought, aiplayer))
             {
                 aiuEnableAttackFeature(AIA_ATTACK_FLEET_HUGE);
             }
@@ -1094,19 +1016,19 @@ void aiaInit(struct AIPlayer *aiplayer)
             aiuEnableAttackFeature(AIA_CORVETTE_STRIKE);
             aiuEnableAttackFeature(AIA_HARASS);
 
-            if (aiaPlayerCanBuildShipType(SalCapCorvette, aiplayer))
+            if (aiaPlayerCanBuildShipType(kSalCapCorvette, aiplayer) || aiaPlayerCanBuildShipType(tSalCapCorvette, aiplayer))
             {
                 aiuEnableAttackFeature(AIA_CAPTURE);
             }
-            if (aiaPlayerCanBuildShipType(MinelayerCorvette, aiplayer))
+            if (aiaPlayerCanBuildShipType(tMinelayerCorvette, aiplayer))
             {
                 aiuEnableAttackFeature(AIA_MINE);
             }
-            if (aiaPlayerCanBuildShipType(CloakGenerator, aiplayer))
+            if (aiaPlayerCanBuildShipType(kCloakGenerator, aiplayer) || aiaPlayerCanBuildShipType(tCloakGenerator, aiplayer))
             {
                 aiuEnableAttackFeature(AIA_CLOAKGEN);
             }
-            if (aiaPlayerCanBuildShipType(GravWellGenerator, aiplayer))
+            if (aiaPlayerCanBuildShipType(kGravWellGenerator, aiplayer) || aiaPlayerCanBuildShipType(tGravWellGenerator, aiplayer))
             {
                 aiuEnableAttackFeature(AIA_GRAVWELL);
             }
@@ -1128,9 +1050,14 @@ void aiaInit(struct AIPlayer *aiplayer)
             dbgAssertOrIgnore(FALSE);
     }
 
-    if (randyrandombetween(RANDOM_AI_PLAYER, 0, 100) < aiuRandomRange(AIA_KAMIKAZE_PROB[aiplayer->aiplayerDifficultyLevel], AIA_KAMIKAZE_RANGE[aiplayer->aiplayerDifficultyLevel]))
+    // CAT: the kamikaze threshold is drawn before the roll (0x00402726: aiuRandomRange's draw, then r % 101); the two
+    //      stream-6 draws are ordered explicitly, C leaves the operands' order open
     {
-        aiuEnableAttackFeature(AIA_KAMIKAZE);
+        udword kamikazeThreshold = aiuRandomRange(AIA_KAMIKAZE_PROB[aiplayer->aiplayerDifficultyLevel], AIA_KAMIKAZE_RANGE[aiplayer->aiplayerDifficultyLevel]);
+        if (randyrandombetween(RANDOM_AI_PLAYER, 0, 100) < kamikazeThreshold)
+        {
+            aiuEnableAttackFeature(AIA_KAMIKAZE);
+        }
     }
 }
 

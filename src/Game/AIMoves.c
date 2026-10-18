@@ -9,15 +9,18 @@
 #include "AIFeatures.h"
 #include "AIFleetMan.h"
 #include "AIHandler.h"
+#include "AIOrders.h"
 #include "AIPlayer.h"
 #include "AIUtilities.h"
 #include "CommandDefs.h"
 #include "CommandWrap.h"
 #include "FastMath.h"
+#include "MultiplayerGame.h"
 #include "Randy.h"
 #include "Salvage.h"
 #include "SaveGame.h"
 #include "Select.h"
+#include "Sensors.h"
 #include "SinglePlayer.h"
 #include "Tutor.h"
 #include "UnivUpdate.h"
@@ -91,7 +94,7 @@ AITeamMove *aimCreateGuardShips(AITeam *team, SelectCommand *ships, bool8 wait, 
     TypeOfFormation formation = SAME_FORMATION;
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "guardshipsmove", 0);
 
-    InitNewMove(newMove,MOVE_GUARDSHIPS,wait,remove,formation,Neutral,aimProcessGuardShips,aimShipDiedGuardShips,aimCloseGuardShips);
+    InitNewMove(newMove,MOVE_GUARDSHIPS,wait,remove,formation,Aggressive,aimProcessGuardShips,aimShipDiedGuardShips,aimCloseGuardShips);   // CAT: Aggressive (the exe's creators store 2)
 
     newMove->params.guardShips.ships  = ships;
 
@@ -185,14 +188,16 @@ AITeamMove *aimCreateGetShipsNoAdd(AITeam *team, ShipType shiptype, sbyte num_sh
 {
 //    TypeOfFormation formation = SAME_FORMATION;
     AlternativeShips alternatives;
-    AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "getshipsmove", 0);
+    AITeamMove *newMove;
 
+    // CAT-FIX: HW1 (and cataclysm.exe, aimCreateGetShipsNoAdd 0x004070d0) allocate a move here and drop it for the
+    //      fancy get-ships move; the tree does not allocate it
     SetNumAlternatives(alternatives, 0);
     newMove = aimCreateFancyGetShipsNoAdd(team, shiptype, num_ships, &alternatives, priority, wait, remove);
 
 /*    dbgAssertOrIgnore(num_ships > 0);
 
-    InitNewMove(newMove,MOVE_GETSHIPS,wait,remove,formation,Neutral,aimProcessGetShips,NULL,aimCloseGetShips);
+    InitNewMove(newMove,MOVE_GETSHIPS,wait,remove,formation,Aggressive,aimProcessGetShips,NULL,aimCloseGetShips);   // CAT: Aggressive (the exe's creators store 2)
 
     newMove->params.getShips.shipType = shiptype;
     newMove->params.getShips.numShips = num_ships;
@@ -248,7 +253,7 @@ AITeamMove *aimCreateVarWait(AITeam *team, char *varName, sdword value, bool8 wa
     TypeOfFormation formation = SAME_FORMATION;
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "varwaitmove", 0);
 
-    InitNewMove(newMove,MOVE_VARWAIT,wait,remove,formation,Neutral,aimProcessVarWait,NULL,NULL);
+    InitNewMove(newMove,MOVE_VARWAIT,wait,remove,formation,Aggressive,aimProcessVarWait,NULL,NULL);   // CAT: Aggressive (the exe's creators store 2)
 
     memStrncpy(newMove->params.varWait.varName, varName, AIVAR_LABEL_MAX_LENGTH);
 /*
@@ -293,7 +298,7 @@ AITeamMove *aimCreateVarDec(AITeam *team, char *varName, bool8 wait, bool8 remov
     TypeOfFormation formation = SAME_FORMATION;
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "vardecmove", 0);
 
-    InitNewMove(newMove,MOVE_VARDEC,wait,remove,formation,Neutral,aimProcessVarDec,NULL,NULL);
+    InitNewMove(newMove,MOVE_VARDEC,wait,remove,formation,Aggressive,aimProcessVarDec,NULL,NULL);   // CAT: Aggressive (the exe's creators store 2)
 
     memStrncpy(newMove->params.varDec.varName, varName, AIVAR_LABEL_MAX_LENGTH);
     /*
@@ -379,7 +384,7 @@ AITeamMove *aimCreateVarSet(AITeam *team, char *varName, sdword value, bool8 wai
     TypeOfFormation formation = SAME_FORMATION;
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "varsetmove", 0);
 
-    InitNewMove(newMove,MOVE_VARSET,wait,remove,formation,Neutral,aimProcessVarSet,NULL,NULL);
+    InitNewMove(newMove,MOVE_VARSET,wait,remove,formation,Aggressive,aimProcessVarSet,NULL,NULL);   // CAT: Aggressive (the exe's creators store 2)
 
     memStrncpy(newMove->params.varSet.varName, varName, AIVAR_LABEL_MAX_LENGTH);
     /*
@@ -421,7 +426,7 @@ AITeamMove *aimCreateVarDestroy(AITeam *team, char *varName, bool8 wait, bool8 r
     TypeOfFormation formation = SAME_FORMATION;
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "varsetmove", 0);
 
-    InitNewMove(newMove,MOVE_VARDESTROY,wait,remove,formation,Neutral,aimProcessVarDestroy,NULL,NULL);
+    InitNewMove(newMove,MOVE_VARDESTROY,wait,remove,formation,Aggressive,aimProcessVarDestroy,NULL,NULL);   // CAT: Aggressive (the exe's creators store 2)
 
     memStrncpy(newMove->params.varDestroy.varName, varName, AIVAR_LABEL_MAX_LENGTH);
     /*
@@ -903,134 +908,8 @@ void aimControlResourcesShipDied(AITeam *team, struct AITeamMove *move, ShipPtr 
 }
 
 
-/*-----------------------------------------------------------------------------
-    Name        : aimSwarmAttackShipDied
-    Description : Deals with a ship dying while a swarm attack is happening
-    Inputs      : team, move ship
-    Outputs     : removes the ship from one of the swarm attack structures
-    Return      : void
-----------------------------------------------------------------------------*/
-void aimSwarmAttackShipDied(AITeam *team, struct AITeamMove *move, ShipPtr ship)
-{
-    SelectCommand *targets = move->params.swarmatt.targets;
-    SelectCommand *othertargets = move->params.swarmatt.othertargets;
-    SelectCommand *teamShips = team->shipList.selection;
-
-    if (growSelectRemoveShip(&move->params.swarmatt.newSwarmers, ship))
-    {
-        aiplayerLog((team->aiplayerowner->player->playerIndex, "Removed Ship from swarm attack new swarmers"));
-        return;
-    }
-
-    if ((othertargets) && clRemoveShipFromSelection(othertargets, ship))
-    {
-        aiplayerLog((team->aiplayerowner->player->playerIndex, "Removed Ship from swarm attack othertargets"));
-        if (!othertargets->numShips)
-        {
-            aiumemFree(move->params.swarmatt.othertargets);
-        }
-    }
-
-    if ((targets) &&
-        (clRemoveShipFromSelection(targets, ship)))
-    {
-        aiplayerLog((team->aiplayerowner->player->playerIndex, "Removed Ship from swarm attack targets"));
-        if (!targets->numShips)
-        {
-//            aiumemFree(move->params.swarmatt.targets);
-//            targets = move->params.swarmatt.targets = aiuFindNearbyEnemyShips(ship, 1000);
-//            if (!targets->numShips)
-//            {
-                aiumemFree(move->params.swarmatt.targets);
-                return;
-//            }
-        }
-
-        if (teamShips->numShips)
-        {
-            //give attack command to all swarmers
-            if ((teamShips->numShips > 2*targets->numShips) &&
-                ((isShipOfClass(targets->ShipPtr[0], CLASS_Corvette)) ||
-                 (isShipOfClass(targets->ShipPtr[0], CLASS_Fighter))))
-            {
-                //split them if possible
-                aiuSplitAttack(teamShips, targets);
-            }
-            else
-            {
-                //group attack otherwise
-                aiuWrapAttack(teamShips, targets);
-            }
-        }
-        return;
-    }
-}
-
-
-/*-----------------------------------------------------------------------------
-    Name        : aimSwarmAttackClose
-    Description : Closes swarm attack move
-    Inputs      : team, move
-    Outputs     : frees a few structures
-    Return      : void
-----------------------------------------------------------------------------*/
-void aimSwarmAttackClose(AITeam *team, AITeamMove *move)
-{
-    growSelectClose(&move->params.swarmatt.newSwarmers);
-    aiumemFree(move->params.swarmatt.targets);
-    aiumemFree(move->params.swarmatt.othertargets);
-}
-
-
-/*-----------------------------------------------------------------------------
-    Name        : aimSwarmDefenseShipDied
-    Description : Deals with a ship dying while a swarm defense is happening
-    Inputs      : team, move ship
-    Outputs     : removes the ship from one of the swarm defense structures
-    Return      : void
-----------------------------------------------------------------------------*/
-void aimSwarmDefenseShipDied(AITeam *team, struct AITeamMove *move, ShipPtr ship)
-{
-    if (growSelectRemoveShip(&move->params.swarmdef.newSwarmers, ship))
-    {
-        aiplayerLog((team->aiplayerowner->player->playerIndex, "Removed Ship from swarm defense new swarmers"));
-        return;
-    }
-
-    if (move->params.swarmdef.guarding)
-    {
-        if (ship == move->params.swarmdef.guarding->ShipPtr[0])
-        {
-            bitClear(team->teamFlags, TEAM_AmIBeingWatched);
-        }
-        if (clRemoveShipFromSelection(move->params.swarmdef.guarding, ship))
-        {
-            aiplayerLog((team->aiplayerowner->player->playerIndex, "Removed Ship from swarm defense guarding"));
-            return;
-        }
-    }
-
-    if ((move->params.swarmdef.Pods) &&
-        (clRemoveShipFromSelection(move->params.swarmdef.Pods, ship)))
-    {
-        aiplayerLog((team->aiplayerowner->player->playerIndex, "Swarmer Pod killed"));
-    }
-}
-
-
-/*-----------------------------------------------------------------------------
-    Name        : aimSwarmDefenseClose
-    Description : Closes swarm defense move
-    Inputs      : team, move
-    Outputs     : frees a few structures
-    Return      : void
-----------------------------------------------------------------------------*/
-void aimSwarmDefenseClose(AITeam *team, AITeamMove *move)
-{
-    growSelectClose(&move->params.swarmdef.newSwarmers);
-    aiumemFree(move->params.swarmdef.guarding);
-    aiumemFree(move->params.swarmdef.Pods);
-}
+// CAT (M2-R7 ai-orders-moves): no P2 swarm move callbacks (aimSwarmAttackShipDied / Close, aimSwarmDefenseShipDied /
+//      Close): cataclysm.exe has no swarm moves (its move types go from MOVE_HARASSATTACK 0x15 to MOVE_FANCYGETSHIPS 0x16)
 
 
 /*-----------------------------------------------------------------------------
@@ -1072,12 +951,13 @@ void aimResourceVolumeResourceDied(AITeam *team, AITeamMove *move, Resource *res
     {
         for (i=0;i<team->shipList.selection->numShips;i++)
         {
-            if (bitTest(team->shipList.selection->ShipPtr[i]->shipOrDerelict.specialFlags, SPECIAL_Finished_Resource))
+            // CAT: the Ship word catResourceFinished (+0x1D4; aimResourceVolumeResourceDied 0x00407b2e), not HW1's bit
+            if (team->shipList.selection->ShipPtr[i]->shipOrDerelict.catResourceFinished)
             {
                 SelectCommand selone;
                 selone.numShips = 1;
                 selone.ShipPtr[0] = team->shipList.selection->ShipPtr[i];
-                bitClear(selone.ShipPtr[0]->shipOrDerelict.specialFlags, SPECIAL_Finished_Resource);
+                selone.ShipPtr[0]->shipOrDerelict.catResourceFinished = FALSE;
                 aiuWrapHalt(&selone);
             }
         }
@@ -1289,6 +1169,16 @@ sdword aimProcessHyperspace(AITeam *team)
             cost = hyperspaceCost(fsqrt(aiuFindDistanceSquared(current_location, thisMove->params.move.destination)), (SelectCommand *)&hyperspacingShips);
 
             aiCurrentAIPlayer->aifHyperSavings -= (sdword)cost;
+            // CAT: in a multiplayer game the destination is clamped into the universe box first (aimProcessHyperspace
+            //      0x00407dd0: +-smUniverseSizeX/Y/Z per axis)
+            if (!singlePlayerGame)
+            {
+                vector *dest = &thisMove->params.move.destination;
+
+                if (dest->x > smUniverseSizeX) dest->x = smUniverseSizeX; else if (dest->x < -smUniverseSizeX) dest->x = -smUniverseSizeX;
+                if (dest->y > smUniverseSizeY) dest->y = smUniverseSizeY; else if (dest->y < -smUniverseSizeY) dest->y = -smUniverseSizeY;
+                if (dest->z > smUniverseSizeZ) dest->z = smUniverseSizeZ; else if (dest->z < -smUniverseSizeZ) dest->z = -smUniverseSizeZ;
+            }
             clWrapMpHyperspace(&universe.mainCommandLayer, (SelectCommand *)&hyperspacingShips, current_location, thisMove->params.move.destination);
 
             aiplayerLog((aiIndex, "%x Hyperspacing NOW!  Cost = %i  Savings = %i", team, (sdword)cost, aiCurrentAIPlayer->aifHyperSavings));
@@ -1513,7 +1403,8 @@ sdword aimProcessFlankAttack(AITeam *team)
 
         //create an attack move to target ships
         //previously normal attack later change to general attack
-        newMove = aimCreateAdvancedAttackNoAdd(team, selectMemDupSelection(thisMove->params.flankatt.targets, "dupfla", 0), AIM_FLANK_ATTACK_FORMATION,Aggressive, TRUE, TRUE);
+        // CAT: a single-player script team attacks with its own tactics (aimProcessFlankAttack 0x004083f0)
+        newMove = aimCreateAdvancedAttackNoAdd(team, selectMemDupSelection(thisMove->params.flankatt.targets, "dupfla", 0), AIM_FLANK_ATTACK_FORMATION,aioCatAttackTactics(team), TRUE, TRUE);
         listAddNodeBefore(&(thisMove->listNode), &(newMove->listNode), newMove);
 
         //remove shipdied and close callbacks
@@ -1751,7 +1642,8 @@ sdword aimProcessHarassAttack(AITeam *team)
                         formation = AIM_HARASS_SINGLETARGET_FORMATION;
                     }
 
-                    newMove = aimCreateAdvancedAttackNoAdd(team, protection, formation,Aggressive,TRUE, TRUE);
+                    // CAT: a single-player script team attacks with its own tactics (aimProcessHarassAttack 0x00408d30)
+                    newMove = aimCreateAdvancedAttackNoAdd(team, protection, formation,aioCatAttackTactics(team),TRUE, TRUE);
                     newMove->events = thisMove->events;
                     if (aiuAttackFeatureEnabled(AIA_KAMIKAZE))
                     {
@@ -1773,7 +1665,7 @@ sdword aimProcessHarassAttack(AITeam *team)
                 memFree(protection);
                 target.numShips = 1;
                 //later change back to normal attack???
-                newMove = aimCreateAdvancedAttackNoAdd(team, selectMemDupSelection(&target, "duppha", 0), AIM_HARASS_SINGLETARGET_FORMATION,Aggressive, TRUE, TRUE);
+                newMove = aimCreateAdvancedAttackNoAdd(team, selectMemDupSelection(&target, "duppha", 0), AIM_HARASS_SINGLETARGET_FORMATION,aioCatAttackTactics(team), TRUE, TRUE);   // CAT: as above
                 newMove->events = thisMove->events;
                 if (aiuAttackFeatureEnabled(AIA_KAMIKAZE))
                 {
@@ -1904,8 +1796,9 @@ sdword aimProcessDefendMothership(AITeam *team)
     if (target->ShipPtr[0] != NULL)
     {
             target->numShips = 1;
-            newMove = aimCreateAdvancedAttackNoAdd(team, selectMemDupSelection(target, "duppdm", 0), AIM_DEF_MOTHERSHIP_ATTACK_FORMATION,Aggressive,TRUE, TRUE);
-            aieHandlerSetFuelLow(newMove, AID_DEFEND_MOTHERSHIP_FUEL_LOW, TRUE, TRUE, aihGenericFuelLowHandler);
+            // CAT: a single-player script team attacks with its own tactics, and there is no fuel-low handler
+            //      (aimProcessDefendMothership 0x004094c0)
+            newMove = aimCreateAdvancedAttackNoAdd(team, selectMemDupSelection(target, "duppdm", 0), AIM_DEF_MOTHERSHIP_ATTACK_FORMATION,aioCatAttackTactics(team),TRUE, TRUE);
             aitAddmoveBeforeAndMakeCurrent(team, newMove, thisMove);
 
             memFree(target);
@@ -2035,8 +1928,9 @@ sdword aimProcessActivePatrol(AITeam *team)
 
     if (patrolpath->numPoints > 0)
     {
+        // CAT: a single-player script team patrols with its own tactics (aimProcessActivePatrol 0x00409af0)
         newMove = aimCreatePatrolMoveNoAdd(team, patrolpath, 0,
-                                           thisMove->formation, Aggressive, TRUE, TRUE);
+                                           thisMove->formation, aioCatAttackTactics(team), TRUE, TRUE);
         newMove->events = thisMove->events;
         aitAddmoveBeforeAndMakeCurrent(team, newMove, thisMove);
     }
@@ -2114,7 +2008,8 @@ sdword aimProcessTempGuard(AITeam *team)
 
         if (invadingShips.numShips)
         {
-            newMove = aimCreateAdvancedAttackNoAdd(team, selectMemDupSelection((SelectCommand *)&invadingShips, "dupptg", 0), AIM_TEMP_GUARD_INVADER_FORMATION,Neutral, TRUE, TRUE);
+            // CAT: Aggressive, whatever the team (aimProcessTempGuard 0x00409c50 stores 2)
+            newMove = aimCreateAdvancedAttackNoAdd(team, selectMemDupSelection((SelectCommand *)&invadingShips, "dupptg", 0), AIM_TEMP_GUARD_INVADER_FORMATION,Aggressive, TRUE, TRUE);
             newMove->events = thisMove->events;
             aitAddmoveBeforeAndMakeCurrent(team, newMove, thisMove);
             thisMove->processing = FALSE;
@@ -2126,11 +2021,12 @@ sdword aimProcessTempGuard(AITeam *team)
     {
         selSelectionCopy((MaxAnySelection *)&distressShips, (MaxAnySelection *)aiCurrentAIPlayer->aidDistressShips);
 
-        if (aiuRescueShipType((SelectCommand *)&distressShips, team, AdvanceSupportFrigate))
+        // CAT: the race's support ship rescues (kAdvanceSupportFrigate, tAdvanceSupportFrigate, sProcessor,
+        //      bProcessor; none for another race; aimProcessTempGuard 0x00409c50)
+        if (aiuRescueShipType((SelectCommand *)&distressShips, team, cat_aihRescueSupportType(team)))
         {
             return FALSE;
         }
-        // CAT: no HW1 ResourceController to rescue (M2-R4 ships-b)
     }
 
     return FALSE;
@@ -2314,7 +2210,7 @@ sdword aimProcessActiveRecon(AITeam *team)
 {
     AITeamMove *thisMove = team->curMove, *newMove;
     vector destination;
-    udword chance_of_change_enemyrecon, num_enemy_blobs, tactics_chance;
+    udword chance_of_change_enemyrecon, num_enemy_blobs;
     TacticsType tactic;
     ShipPtr playerMothership = aiCurrentAIPlayer->player->PlayerMothership;
 
@@ -2328,20 +2224,9 @@ sdword aimProcessActiveRecon(AITeam *team)
 
     if (!thisMove->processing)
     {
-         tactics_chance = (udword)randyrandom(RANDOM_AI_PLAYER, 100);
-
-        if (tactics_chance < 2)
-        {
-            tactic = Aggressive;
-        }
-        else if (tactics_chance < 9)
-        {
-            tactic = Neutral;
-        }
-        else
-        {
-            tactic = Evasive;
-        }
+        // CAT: no random tactics (HW1 drew them from stream 6): a single-player script team keeps its own, every other
+        //      team goes Aggressive (aimProcessActiveRecon 0x0040a440)
+        tactic = aioCatAttackTactics(team);
 
         newMove = aimCreateMoveToNoAdd(team, aiuFindEnemyMothershipCoords(aiCurrentAIPlayer->player),
                                        5.0, TIME_LIMITED, SAME_FORMATION, tactic, TRUE, TRUE);
@@ -2525,7 +2410,9 @@ sdword aimProcessArmada(AITeam *team)
             bitSet(team->teamFlags, TEAM_ARMADA);
         }
 
-        if (aiCurrentAIPlayer->aiaArmada.targets)
+        // CAT: the armada has targets while its selection holds ships (aimProcessArmada 0x0040a910 tests the numShips of
+        //      the selection the exe keeps in AIPlayer; aiaShipDied leaves an emptied one in place)
+        if ((aiCurrentAIPlayer->aiaArmada.targets) && (aiCurrentAIPlayer->aiaArmada.targets->numShips > 0))
         {
             selSelectionCopy((MaxAnySelection *)&hyperspace, (MaxAnySelection *)team->shipList.selection);
             makeSelectionHyperspaceCapable((SelectCommand *)&hyperspace);
@@ -2552,7 +2439,7 @@ sdword aimProcessArmada(AITeam *team)
     else
     {
          //later must flesh this one out!!!
-        if (aiCurrentAIPlayer->aiaArmada.targets)
+        if ((aiCurrentAIPlayer->aiaArmada.targets) && (aiCurrentAIPlayer->aiaArmada.targets->numShips > 0))     // CAT: as above
         {
             aiplayerLog((aiIndex, "%x, Armada: Still targets %i left, redoing processing", team, aiCurrentAIPlayer->aiaArmada.targets->numShips));
             thisMove->processing = FALSE;
@@ -2605,456 +2492,7 @@ sdword aimProcessControlResources(AITeam *team)
 }
 
 
-/*-----------------------------------------------------------------------------
-    Name        : aimProcessSwarmAttack
-    Description : Controls the attack portion of the P2 swarm attack
-    Inputs      : team - the team that's swarming
-    Outputs     : Moves ships around
-    Return      : TRUE if the move is finished
-----------------------------------------------------------------------------*/
-sdword aimProcessSwarmAttack(AITeam *team)
-{
-    AITeamMove *thisMove = team->curMove;
-    SelectCommand *targets = thisMove->params.swarmatt.targets;
-    SelectCommand *teamShips = team->shipList.selection;
-    udword fuellow;
-    sdword i;
-
-    for (i=0;i<teamShips->numShips;)
-    {
-        ShipPtr ship;
-
-        if (aitMsgReceived(team, "DockNow"))
-        {
-            if (team->msgSender)
-            if (team->msgSender->shipList.selection->numShips)
-            {
-                aitDeleteAllTeamMoves(team);
-                team->curMove = aimCreateDock(team, dockmoveFlags_Stay|dockmoveFlags_AtShip, team->msgSender->shipList.selection->ShipPtr[0], TRUE, TRUE);
-                return FALSE;
-            }
-        }
-
-        //if we're already fighting,
-        if (targets)
-        {
-            //lower chance of refuelling
-            fuellow = randyrandombetween(RANDOM_AI_PLAYER, 14, 18);
-        }
-        else
-        {
-            //high chance of refuelling
-            fuellow = randyrandombetween(RANDOM_AI_PLAYER, 18, 25);
-        }
-        if (!aiuFuelAbove(teamShips->ShipPtr[i], fuellow) || !aiuHealthAbove(teamShips->ShipPtr[i], 50))
-        {
-            ship = teamShips->ShipPtr[i];
-
-            //put ship into defense team
-            aitAddShip(team->cooperatingTeam, teamShips->ShipPtr[i]);
-            //add the ship to the cooperating team's newSwarmers structure
-            growSelectAddShip(&team->cooperatingTeam->curMove->params.swarmdef.newSwarmers, teamShips->ShipPtr[i]);
-            //remove the ship from the current team
-            growSelectRemoveShipIndex(&team->shipList, i);
-            growSelectRemoveShip(&thisMove->params.swarmatt.newSwarmers, ship);
-            //aiplayerLog((1, "Attack %x: Ship moved from offense to defense", team));
-
-//            aitCheckShips(team->cooperatingTeam, ship);
-        }
-        else
-        {
-            i++;
-        }
-    }
-
-    if (!teamShips->numShips)
-    {
-        //we're either waiting for ships, or all ships are dead
-        return FALSE;
-    }
-
-    if (targets && targets->numShips &&
-        aiuShipsCloseToEnemyMothership(aiCurrentAIPlayer->player, targets, 4400))
-    {
-        aiumemFree(targets);
-    }
-
-    //if targets are dead, get the next targets
-    if (!targets || !targets->numShips)
-    {
-        targets = aiuFindSwarmerTarget(team);
-
-        if (targets)
-        {
-            //if there are globally assigned targets
-            if (bitTest(team->teamFlags, TEAM_SwarmTarget))
-            {
-                //copy them locally, delete them and clear the swarmtargets flag
-                thisMove->params.swarmatt.othertargets = selectMemDupSelection(aiCurrentAIPlayer->Targets, "othertarg", 0);
-                aiumemFree(aiCurrentAIPlayer->Targets);
-                bitClear(team->teamFlags, TEAM_SwarmTarget);
-            }
-        }
-        else if (spGetCurrentMission() == MISSION_8_THE_CATHEDRAL_OF_KADESH)
-        {
-            //uses normal code to find swarm targets in mission 8
-            targets = aiuFindSwarmTargets(teamShips, randyrandombetween(RANDOM_AI_PLAYER, 1, 3), FALSE);
-        }
-        else
-        {
-            //uses harass code to find target in MISSION_7_GARDENS_OF_KADESH
-            targets = aiuFindSwarmTargets(teamShips, 1, TRUE);
-        }
-
-
-        if (targets && targets->numShips)
-        {
-            //set the target type
-//            thisMove->params.swarmatt.targettype = targets->ShipPtr[0]->shiptype;
-
-            //give attack command to all swarmers
-            if ((isShipOfClass(targets->ShipPtr[0], CLASS_Corvette)) ||
-                (isShipOfClass(targets->ShipPtr[0], CLASS_Fighter)))
-            {
-                aiuSplitAttack(teamShips, targets);
-            }
-            else
-            {
-                aiuWrapAttack(teamShips, targets);
-            }
-            thisMove->params.swarmatt.targets = targets;
-        }
-        else
-        {
-            //temporary... maybe move the ships back to the guards
-            thisMove->params.swarmatt.targets = NULL;
-
-        }
-    }
-    else if (thisMove->params.swarmatt.newSwarmers.selection->numShips)
-    {
-        //give attack move to new swarmers
-        //old swarmers continue what they're doing
-        aiuWrapAttack(thisMove->params.swarmatt.newSwarmers.selection, targets);
-    }
-    thisMove->params.swarmatt.newSwarmers.selection->numShips = 0;
-
-    return FALSE;
-}
-
-
-/*-----------------------------------------------------------------------------
-    Name        : aimProcessSwarmDefense
-    Description : Controls the defense portion of the swarm attack
-    Inputs      : team - the team that's defense swarming
-    Outputs     : Moves ships around
-    Return      : TRUE if the move is finished
-----------------------------------------------------------------------------*/
-sdword aimProcessSwarmDefense(AITeam *team)
-{
-    AITeamMove *thisMove = team->curMove;
-    SelectCommand *teamShips = team->shipList.selection;
-    MaxSelection dockships, guardships;
-    paramsSwarmDefense *params = &thisMove->params.swarmdef;
-    AITeam *newPodTeam;
-    ShipPtr ship;
-    udword fuellow;
-    sdword i;
-
-    if (!teamShips->numShips)
-    {
-        //we're either waiting for ships, or all ships are dead
-        return FALSE;
-    }
-
-    if (aitMsgReceived(team, "DockNow"))
-    {
-        if (team->msgSender)
-        if (team->msgSender->shipList.selection->numShips)
-        {
-            aitDeleteAllTeamMoves(team);
-            team->curMove = aimCreateDock(team, dockmoveFlags_Stay|dockmoveFlags_AtShip, team->msgSender->shipList.selection->ShipPtr[0], TRUE, TRUE);
-            return FALSE;
-        }
-    }
-
-    if (!params->Pods->numShips)
-    {
-        //pod has been destroyed, find another
-        newPodTeam = aitFindNewPod(team);
-
-        if (newPodTeam)
-        {
-              selSelectionCopy((MaxAnySelection *)params->Pods, (MaxAnySelection *)newPodTeam->shipList.selection);
-//            aitMoveSwarmersToNewPod(team, newPodTeam);
-//            return TRUE;
-        }
-        else
-        {
-            return FALSE;
-        }
-    }
-
-    dockships.numShips  = 0;
-    guardships.numShips = 0;
-
-    for (i=0; i<teamShips->numShips;i++)
-    {
-        ship = teamShips->ShipPtr[i];
-
-        fuellow = randyrandombetween(RANDOM_AI_PLAYER, 45, 65);
-
-        //if the swarmer isn't already docking and it's fuel is below fuellow
-        //                                          or it's health is below 50
-        //                                          or the defense swarm is in full refuel mode
-        //                                              and the swarmer's fuel is below 85
-        if ((!ship->dockvars.dockship) &&
-            ((!aiuFuelAbove(ship, fuellow) ||
-              !aiuHealthAbove(teamShips->ShipPtr[i], 50)  ||
-              (params->full_refuel && !aiuFuelAbove(ship, 85)))))
-        {
-            //add the swarmer to a list of to be dockers
-            selSelectionAddSingleShip(&dockships, ship);
-
-            //if the ship was guarding, remove it from the guarding list
-            if (params->guarding) clRemoveShipFromSelection(params->guarding, ship);
-        }
-        //else if the swarmer isn't already guarding the pod
-        else if ((!ship->dockvars.dockship) && ((!params->guarding) || (!ShipInSelection(params->guarding, ship))))
-        {
-            selSelectionAddSingleShip(&guardships, ship);
-        }
-    }
-
-    if (dockships.numShips)
-    {
-        if (dockships.numShips > 7)
-        {
-            tutGameMessage("Swarm_BigDock");
-        }
-        aiuSwarmDock((SelectCommand *)&dockships, params->Pods);
-    }
-    if (guardships.numShips)
-    {
-        params->guarding = selectMergeTwoSelections(params->guarding, (SelectCommand *)&guardships, DEALLOC1);
-        aiuWrapProtect((SelectCommand *)&guardships, params->Pods);
-    }
-
-    // if there are guarding ships and
-    //if swarmers are on full attack or new ships have arrived or the attacking team has targets
-    if (params->guarding &&
-        ((params->full_attack) ||
-         (params->newSwarmers.selection->numShips) ||
-         (team->cooperatingTeam->curMove->params.swarmatt.targets) ||
-         (team->cooperatingTeam->curMove->params.swarmatt.othertargets)))
-    {
-        //give attackers all the guarding ships
-        for (i=0;/*(i<params->newSwarmers.selection->numShips)&&*/(params->guarding->numShips);i++)
-        {
-            aitMoveSwarmShipDefenseToAttack(team->cooperatingTeam, team, params->guarding->ShipPtr[0]);
-        }
-        params->newSwarmers.selection->numShips = 0;
-    }
-
-    if (params->guarding && ((params->full_attack)||
-        ((team->cooperatingTeam->curMove->params.swarmatt.targets)&&(!team->cooperatingTeam->shipList.selection->numShips))))
-    {
-        //just put the remaining guarding ships into attack team
-        for (i=0;i<params->guarding->numShips;)
-        {
-            aitMoveSwarmShipDefenseToAttack(team->cooperatingTeam, team, params->guarding->ShipPtr[0]);
-        }
-    }
-    return FALSE;
-}
-
-
-
-/*-----------------------------------------------------------------------------
-    Name        : aimProcessSwarmPod
-    Description : Moves the P2 Pod around and acts as a control center for the
-                  other swarmer teams
-    Inputs      : team - the pod team
-    Outputs     : Moving and silly things like that
-    Return      : TRUE if the move is finished
-----------------------------------------------------------------------------*/
-sdword aimProcessSwarmPod(AITeam *team)
-{
-    AITeam *attackSwarm = team->cooperatingTeam, *defenseSwarm = team->cooperatingTeam->cooperatingTeam;
-//    paramsSwarmDefense *defParams = &defenseSwarm->curMove->params.swarmdef;
-    AITeamMove *thisMove = team->curMove, *newMove;
-    SelectCommand /**enemyShips,*/ *targets;
-//    udword numShips, i;
-    vector current_location, target_location, destination; //, zerovec = {0,0,0};
-    real32 avg_size, dist;
-
-    aiuFindArmadaTarget(&target_location, &targets, team->shipList.selection);
-    current_location = selCentrePointComputeGeneral((MaxSelection *)team->shipList.selection, &avg_size);
-
-    if (team->shipList.selection->numShips)
-    {
-        if (aitMsgReceived(team, "P2MothershipBlowin"))
-        {
-            MaxSelection filtered;
-
-            filtered.numShips = 0;
-            aiuFilterDisabledShips(team->shipList.selection, &filtered);
-            RemoveShipsFromDoingStuff(&universe.mainCommandLayer,(SelectCommand *)&filtered,0);  // CAT: no exe counterpart of this call (aimProcessSwarmPod, stage 4 AI): reason 0
-            spHyperspaceSelectionOut((SelectCommand *)&filtered);
-            spHyperspaceDelay = 0.0f;
-            return TRUE;
-        }
-
-        // mothership assault code
-/*        if (spGetCurrentMission() == MISSION_8_CATHEDRAL_OF_KADESH)
-        {
-            if (!thisMove->processing)
-            {
-                //first move - move the ship towards the armada (mothership or powerbase)
-
-                //find the flanking coordinates
-                destination = aiuGenerateFlankCoordinates(target_location, current_location, zerovec, 10000);
-
-                //create a move to move to those coordinates (with a wait)
-                newMove = aimCreateMoveTeamNoAdd(team, destination, NO_FORMATION, FALSE, TRUE);
-                aitAddmoveBeforeAndMakeCurrent(team, newMove, thisMove);
-
-                thisMove->processing = TRUE;
-            }
-            else if (!vecIsZero(team->shipList.selection->ShipPtr[0]->moveTo))
-            {
-                //the pod is moving
-
-                //when near the armada, stop the pod and refuel all the swarmers
-                if (aiuFindDistanceSquared(target_location, current_location) < 225000000)
-                {
-                    aiuWrapHalt(team->shipList.selection);
-
-                    defParams->full_refuel = TRUE;
-                    thisMove->params.swarmpod.first_attack = TRUE;
-                }
-            }
-            else if (thisMove->params.swarmpod.first_attack)
-            {
-                if (defParams->guarding)
-                {
-                    numShips = defParams->guarding->numShips;
-                }
-                else
-                {
-                    numShips = 0;
-                }
-
-                //if all swarmers have fueled up
-                if (numShips == defenseSwarm->shipList.selection->numShips)
-                {
-                    defParams->full_refuel = FALSE;
-
-                    //if all other defense swarmers are ready to attack
-                    if (aitAllDefenseSwarmersFull())
-                    {
-                        thisMove->params.swarmpod.first_attack    = FALSE;
-                        defParams->full_attack = TRUE;
-
-                        //move the swarmers to the attack team
-                        for (i=0; i<numShips; i++)
-                        {
-                            aitMoveSwarmShipDefenseToAttack(attackSwarm, defenseSwarm, defParams->guarding->ShipPtr[0]);
-                        }
-
-                        //move the attack swarmers into the battle area.  Boom boom bang bang!
-                        if (attackSwarm->shipList.selection->numShips)
-                        {
-                            newMove = aimCreateMoveTeamNoAdd(attackSwarm, target_location, NO_FORMATION, FALSE, TRUE);
-                            aitAddmoveBeforeAndMakeCurrent(attackSwarm, newMove, attackSwarm->curMove);
-                        }
-                    }
-                }
-                //the enemy is too close for comfort
-                else if (aiuFindDistanceSquared(target_location, current_location) < 80000000)
-                {
-                    defParams->full_refuel = FALSE;
-                    thisMove->params.swarmpod.first_attack = FALSE;
-                    defParams->full_attack = TRUE;
-
-                    aitMoveAllSwarmShipsDefenseToAttack(defenseSwarm, attackSwarm);
-
-                    newMove = aimCreateMoveTeamNoAdd(attackSwarm, target_location, NO_FORMATION, FALSE, TRUE);
-                    aitAddmoveBeforeAndMakeCurrent(attackSwarm, newMove, attackSwarm->curMove);
-                }
-            }
-        }
-        else
-        {*/
-
-        // we treat the pod as a simple support ship
-        if (!thisMove->processing)
-        {
-            aitMoveAllSwarmShipsDefenseToAttack(defenseSwarm, attackSwarm);
-            thisMove->processing = TRUE;
-        }
-        destination = selCentrePointComputeGeneral((MaxSelection *)attackSwarm->shipList.selection, &avg_size);
-        dist = aiuFindDistanceSquared(destination, team->shipList.selection->ShipPtr[0]->obj.posinfo.position);
-
-        if (dist > 225000000)
-        {
-            newMove = aimCreateMoveToNoAdd(team, destination, 5000.0, DISTANCE_LIMITED, NO_FORMATION, Evasive, TRUE, TRUE);
-            newMove->events = thisMove->events;
-            aitAddmoveBeforeAndMakeCurrent(team, newMove, thisMove);
-        }
-//            if ((aiCurrentAIPlayer->aiplayerFrameCount & 31) == 0)
-//            {
-//                thisMove->processing = FALSE;
-//            }
-/*        }*/
-
-
-
-/*        enemyShips = aiuFindNearbyEnemyShips(team->shipList.selection->ShipPtr[0], 8000);
-
-        if (enemyShips->numShips)
-        {
-            if (!attackSwarm->shipList.selection->numShips && defenseSwarm->shipList.selection->numShips)
-            {
-                sdword numGuardingShips;
-                if (defParams->guarding)
-                {
-                    numGuardingShips = defParams->guarding->numShips;
-                }
-                else
-                {
-                    numGuardingShips = 0;
-                }
-
-                //temporary... later do something more secure
-                //obviously numShips will always be equal to numships
-                if ((numGuardingShips > 0) && (numShips <= numGuardingShips))
-                {
-                    for (i=0; i<numShips; i++)
-                    {
-                        aitMoveSwarmShipDefenseToAttack(attackSwarm, defenseSwarm, defParams->guarding->ShipPtr[0]);
-                    }
-                }
-            }
-        }
-        //if no enemies around at all, reset to the beginning
-        else if ((attackSwarm->shipList.selection->numShips) &&
-                 (attackSwarm->curMove->type == MOVE_SWARMATTACK) &&
-                 (!attackSwarm->curMove->params.swarmatt.targets))
-        {
-            ++thisMove->params.swarmpod.attack_delay;
-            if (thisMove->params.swarmpod.attack_delay > 5)
-            {
-                aitMoveAllSwarmShipsAttackToDefense(attackSwarm, defenseSwarm);
-                defParams->full_attack = FALSE;
-                thisMove->params.swarmpod.attack_delay = 0;
-                thisMove->processing = FALSE;
-            }
-        }*/
-    }
-
-    return FALSE;
-}
+// CAT (M2-R7 ai-orders-moves): no aimProcessSwarmAttack / SwarmDefense / SwarmPod (no P2 race in Cataclysm)
 
 
 /*-----------------------------------------------------------------------------
@@ -3074,6 +2512,12 @@ sdword aimProcessResourceVolume(AITeam *team)
     sdword i;
 
     if (team->shipList.selection->numShips == 0)
+    {
+        return TRUE;
+    }
+
+    // CAT: a multiplayer game without harvesting ends the move at once (aimProcessResourceVolume 0x0040ad1f)
+    if ((!singlePlayerGame) && (!bitTest(tpGameCreated.flag, MG_HarvestinEnabled)))
     {
         return TRUE;
     }
@@ -3111,7 +2555,7 @@ sdword aimProcessResourceVolume(AITeam *team)
 
                     //maybe this isn't the best way to do it... what if the resource collector gets killed?
                     selSelectionAddSingleShip((MaxSelection *)thisMove->params.resvolume.takenResources, (ShipPtr)resource);
-                    bitSet(ship->shipOrDerelict.specialFlags, SPECIAL_Resourcing);
+                    ship->shipOrDerelict.catResourcing = TRUE;      // CAT: Ship +0x1D8 (0x0040ae4c), not HW1's bit
 //                    aiplayerLog((aiIndex, "Resourcer %i harvesting best fit", i));
                 }
                 else
@@ -3127,7 +2571,7 @@ sdword aimProcessResourceVolume(AITeam *team)
                     {
                         selone.ShipPtr[0] = ship;
                         aiuWrapCollectResource(&selone, biggestResource);
-                        bitSet(ship->shipOrDerelict.specialFlags, SPECIAL_Resourcing);
+                        ship->shipOrDerelict.catResourcing = TRUE;  // CAT: Ship +0x1D8 (0x0040adee)
 //                        aiplayerLog((aiIndex, "Resourcer %i harvesting biggest", i));
                     }
                 }
@@ -3137,7 +2581,7 @@ sdword aimProcessResourceVolume(AITeam *team)
                 //want to avoid having the ships go dock - so only do that when they're
                 //reasonably full
             }
-            else if (bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_Finished_Resource))
+            else if (ship->shipOrDerelict.catResourceFinished)     // CAT: Ship +0x1D4 (0x0040ae58)
             {
                 if (100*ship->resources/ship->staticinfo->maxresources > 90)
                 {
@@ -3145,7 +2589,7 @@ sdword aimProcessResourceVolume(AITeam *team)
                     aiuWrapDock(&selone, CAT_DOCK_DEPOSIT_RESOURCES, NULL);    // CAT: purpose 3 (0x0040ad00) [audit: M2-R5 layout-dock]
 //                    aiplayerLog((aiIndex, "Resourcer %i docking", i));
                 }
-                bitClear(ship->shipOrDerelict.specialFlags, SPECIAL_Finished_Resource);
+                ship->shipOrDerelict.catResourceFinished = FALSE;
             }
         }
     }
@@ -3212,10 +2656,26 @@ sdword aimProcessMothershipMove(AITeam *team)
     vector destination;
     real32 dist, time;
 
+    ShipType bigMothership = ShipType_Uninitialized, carrier = ShipType_Uninitialized;
+
     if (!aitNumTeamShips(team))
     {
         aiplayerLog((aiIndex, "Closing Mothership Move"));
         return TRUE;
+    }
+
+    // CAT: the race's mothership and carrier (aimProcessMothershipMove 0x0040b000: sMothership / sCarrier, bMothership /
+    //      bCarrier; for another race the exe compares with the team pointer, which never matches), and the moves go
+    //      Aggressive (the inlined creators store 2)
+    if (aiCurrentAIPlayer->player->race == RACE_Sect)
+    {
+        bigMothership = sMothership;
+        carrier = sCarrier;
+    }
+    else if (aiCurrentAIPlayer->player->race == RACE_Beast)
+    {
+        bigMothership = bMothership;
+        carrier = bCarrier;
     }
 
     if (!aiCurrentAIPlayer->airNumRControllers)
@@ -3224,13 +2684,13 @@ sdword aimProcessMothershipMove(AITeam *team)
 
         dist = aiuFindDistanceSquared(destination, aitApproxTeamPos(team));
 
-        if ((((aitTeamShipTypeIs(Mothership, team)) && (dist > 200000000)) ||  //sqrt(20) km
-             ((aitTeamShipTypeIs(Carrier, team)) && (dist > 50000000))) &&     //sqrt(10) km
+        if ((((aitTeamShipTypeIs(bigMothership, team)) && (dist > 200000000)) ||  //sqrt(20) km
+             ((aitTeamShipTypeIs(carrier, team)) && (dist > 50000000))) &&     //sqrt(10) km
             (aiuDestinationNotNearOtherMothership(destination, 800000000)))
 
         {
             time = frandyrandombetween(RANDOM_AI_PLAYER, 20.0, 35.0);
-            newMove = aimCreateMoveToNoAdd(team, destination, time, TIME_LIMITED, NO_FORMATION, Neutral, TRUE, TRUE);
+            newMove = aimCreateMoveToNoAdd(team, destination, time, TIME_LIMITED, NO_FORMATION, Aggressive, TRUE, TRUE);
             newMove->events = thisMove->events;
             aitAddmoveBeforeAndMakeCurrent(team, newMove, thisMove);
         }
@@ -3241,11 +2701,11 @@ sdword aimProcessMothershipMove(AITeam *team)
 
         dist = aiuFindDistanceSquared(destination, aitApproxTeamPos(team));
 
-        if ((((aitTeamShipTypeIs(Mothership, team)) && (dist > 400000000)) ||  //20 km
-             ((aitTeamShipTypeIs(Carrier, team)) && (dist > 100000000))) &&     //10 km
+        if ((((aitTeamShipTypeIs(bigMothership, team)) && (dist > 400000000)) ||  //20 km
+             ((aitTeamShipTypeIs(carrier, team)) && (dist > 100000000))) &&     //10 km
             (aiuDestinationNotNearOtherMothership(destination, 1600000000)))
         {
-            newMove = aimCreateMoveToNoAdd(team, destination, 40, TIME_LIMITED, NO_FORMATION, Neutral, TRUE, TRUE);
+            newMove = aimCreateMoveToNoAdd(team, destination, 40, TIME_LIMITED, NO_FORMATION, Aggressive, TRUE, TRUE);
             newMove->events = thisMove->events;
             aitAddmoveBeforeAndMakeCurrent(team, newMove, thisMove);
         }
@@ -3315,10 +2775,15 @@ sdword aimProcessActiveCapture(AITeam *team)
         else
         {
             //don't bother doing anything
+            memFree(target);    // CAT-FIX: the exe leaks the target selection
             return FALSE;
         }
 
-        aiuWrapSpecial(team->shipList.selection, &onesel);
+        // CAT: the capture order goes through cat_aiuWrapCapture, which the exe calls with the one-ship selection's
+        //      address in its dontIssue argument (aimProcessActiveCapture 0x0040b456: push 1; lea eax,[onesel]; push eax;
+        //      push ships), so no order is ever given; the target selection is freed (CAT-FIX: the exe leaks it)
+        cat_aiuWrapCapture(team->shipList.selection, (bool32)(&onesel != NULL), TRUE);
+        memFree(target);
 
         thisMove->processing = TRUE;
 
@@ -3331,7 +2796,8 @@ sdword aimProcessActiveCapture(AITeam *team)
     else if (!(((udword)universe.totaltimeelapsed) & 15))
     {
         // CAT (M2-R4 combat): the exe tests the Cataclysm salvager block's target (aimProcessActiveCapture 0x0040b3f0);
-        //      the rest of the move (the three-way capture target, cat_aiuWrapCapture) is the AI stage's (stage 4)
+        //      the rest of the move (the three-way capture target, cat_aiuWrapCapture) is ported above (M2-R7
+        //      ai-orders-moves) [audit: said it was left to stage 4]
         if (cat_salvageGetSalvagerInfo(team->shipList.selection->ShipPtr[0])->target == NULL)
         {
             thisMove->processing = FALSE;
@@ -3512,7 +2978,7 @@ sdword aimProcessSpecialDefense(AITeam *team)
         {
             team->cooperatingTeamDiedCB = aitSpecialDefenseCoopTeamDiedCB;
 
-            if (aitTeamShipTypeIs(CloakGenerator, team))
+            if (aitTeamShipTypeIs(kCloakGenerator, team) || aitTeamShipTypeIs(tCloakGenerator, team))     // CAT: either race's (aimProcessSpecialDefense 0x0040b890)
             {
                 bitSet(team->cooperatingTeam->teamFlags, TEAM_CloakCoop);
 //                dbgAssertOrIgnore(!team->cooperatingTeam->cooperatingTeam);
@@ -3552,7 +3018,7 @@ AITeamMove *aimCreateMoveTeamNoAdd(AITeam *team, vector destination, TypeOfForma
 {
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "moveteammove", 0);
 
-    InitNewMove(newMove,MOVE_MOVETEAM,wait,remove,formation,Neutral,aimProcessMove,NULL,NULL);
+    InitNewMove(newMove,MOVE_MOVETEAM,wait,remove,formation,Aggressive,aimProcessMove,NULL,NULL);   // CAT: Aggressive (the exe's creators store 2)
     newMove->params.move.destination = destination;
 
 //    aiplayerLog((aiIndex,"Created Move Team Move"));
@@ -3693,7 +3159,7 @@ AITeamMove *aimCreateHyperspaceNoAdd(AITeam *team, vector destination, TypeOfFor
 {
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "movehyperspace", 0);
 
-    InitNewMove(newMove,MOVE_HYPERSPACE,wait,remove,formation,Neutral,aimProcessHyperspace,NULL,NULL);
+    InitNewMove(newMove,MOVE_HYPERSPACE,wait,remove,formation,Aggressive,aimProcessHyperspace,NULL,NULL);   // CAT: Aggressive (inlined in aimProcessFlankAttack 0x004083f0)
     newMove->params.move.destination = destination;
 
     aiplayerLog((aiIndex,"%x Created Hyperspace Move", team));
@@ -3829,7 +3295,7 @@ AITeamMove *aimCreateCountShipsNoAdd(AITeam *team, bool8 wait, bool8 remove)
     TypeOfFormation formation = SAME_FORMATION;
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "countshipsmove", 0);
 
-    InitNewMove(newMove,MOVE_COUNTSHIPS,wait,remove,formation,Neutral,aimProcessCountShips,NULL,NULL);
+    InitNewMove(newMove,MOVE_COUNTSHIPS,wait,remove,formation,Aggressive,aimProcessCountShips,NULL,NULL);   // CAT: Aggressive (the exe's creators store 2)
 
 //    aiplayerLog((aiIndex,"Created Count Ships Move"));
 
@@ -3875,7 +3341,7 @@ AITeamMove *aimCreateFlankAttackNoAdd(AITeam *team, SelectCommand *targets, bool
 
     newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "FlankAttackmove", 0);
 
-    InitNewMove(newMove,MOVE_FLANKATTACK,wait,remove,formation,Neutral,aimProcessFlankAttack,aimFlankAttackShipDied,aimFlankAttackClose);
+    InitNewMove(newMove,MOVE_FLANKATTACK,wait,remove,formation,Aggressive,aimProcessFlankAttack,aimFlankAttackShipDied,aimFlankAttackClose);   // CAT: Aggressive (the exe's creators store 2)
     newMove->params.flankatt.targets    = targets;
     newMove->params.flankatt.hyperspace = hyperspace;
 
@@ -4045,7 +3511,7 @@ AITeamMove *aimCreateHarassAttack(AITeam *team, bool8 wait, bool8 remove)
     TypeOfFormation formation = SAME_FORMATION;
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "harassattackmove", 0);
 
-    InitNewMove(newMove,MOVE_HARASSATTACK,wait,remove,formation,Neutral,aimProcessHarassAttack,aimHarassAttackShipDied,NULL);
+    InitNewMove(newMove,MOVE_HARASSATTACK,wait,remove,formation,Aggressive,aimProcessHarassAttack,aimHarassAttackShipDied,NULL);   // CAT: Aggressive (the exe's creators store 2)
     newMove->params.harass.target = NULL;
 
 //    aiplayerLog((aiIndex,"Created Harass Attack Move"));
@@ -4081,7 +3547,7 @@ AITeamMove *aimCreateDockNoAdd(AITeam *team, sdword dockmoveFlags, ShipPtr dockA
     TypeOfFormation formation = AIM_DOCK_DEFAULT_FORMATION;
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "dockmove", 0);
 
-    InitNewMove(newMove, MOVE_DOCK, wait, remove,formation,Neutral, aimProcessDock, aimDockShipDied, aimDockClose);
+    InitNewMove(newMove, MOVE_DOCK, wait, remove,formation,Aggressive, aimProcessDock, aimDockShipDied, aimDockClose);   // CAT: Aggressive (the exe's creators store 2)
     newMove->params.dock.shipsDocking = NULL;
     newMove->params.dock.dockmoveFlags = dockmoveFlags;
     newMove->params.dock.dockAt = dockAt;
@@ -4138,7 +3604,7 @@ AITeamMove *aimCreateDefendMothershipNoAdd(AITeam *team, bool8 wait, bool8 remov
     TypeOfFormation formation = SAME_FORMATION;
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "defendmoshipmove", 0);
 
-    InitNewMove(newMove, MOVE_DEFMOSHIP, wait, remove, formation,Neutral,aimProcessDefendMothership, aimDefendMothershipShipDied, aimDefendMothershipClose);
+    InitNewMove(newMove, MOVE_DEFMOSHIP, wait, remove, formation,Aggressive,aimProcessDefendMothership, aimDefendMothershipShipDied, aimDefendMothershipClose);   // CAT: Aggressive (the exe's creators store 2)
     newMove->params.defmoship.targets = NULL;
 
 //    aiplayerLog((aiIndex,"Created Defend Mothership Move"));
@@ -4246,7 +3712,7 @@ AITeamMove *aimCreateActivePatrolNoAdd(AITeam *team, udword patroltype, bool8 wa
     TypeOfFormation formation = DELTA3D_FORMATION;
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "activepatrol", 0);
 
-    InitNewMove(newMove, MOVE_ACTIVEPATROL, wait, remove, formation,Neutral,aimProcessActivePatrol, NULL, NULL);
+    InitNewMove(newMove, MOVE_ACTIVEPATROL, wait, remove, formation,Aggressive,aimProcessActivePatrol, NULL, NULL);   // CAT: Aggressive (the exe's creators store 2)
     newMove->params.activepatrol.patroltype = patroltype;
 
 //    aiplayerLog((aiIndex,"Created Active Patrol Move"));
@@ -4590,154 +4056,7 @@ void aimLoad_ControlResources(AITeamMove *move)
 }
 
 
-/*-----------------------------------------------------------------------------
-    Name        : aimCreateSwarmAttack
-    Description : Creates a swarm attack of ships - special code for P2 pirates
-    Inputs      : team - the team swarm
-                  wait - whether to wait for the move to finish
-                  remove - whether the move gets deleted after it's done
-    Outputs     : Creates a new move
-    Return      : void
-----------------------------------------------------------------------------*/
-AITeamMove *aimCreateSwarmAttackNoAdd(AITeam *team, bool8 wait, bool8 remove)
-{
-    AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "swarmattack", 0);
-
-    InitNewMove(newMove, MOVE_SWARMATTACK, wait, remove, NO_FORMATION, Neutral,
-                aimProcessSwarmAttack, aimSwarmAttackShipDied, aimSwarmAttackClose);
-    growSelectInit(&newMove->params.swarmatt.newSwarmers);
-    newMove->params.swarmatt.targets      = NULL;
-    newMove->params.swarmatt.othertargets = NULL;
-
-//    aiplayerLog((aiIndex, "Created Swarm Attack Move"));
-
-    return newMove;
-}
-
-AITeamMove *aimCreateSwarmAttack(AITeam *team, bool8 wait, bool8 remove)
-{
-    AITeamMove *newMove;
-
-    newMove = aimCreateSwarmAttackNoAdd(team, wait, remove);
-
-    listAddNode(&(team->moves), &(newMove->listNode), newMove);
-
-    return newMove;
-}
-
-void aimFix_SwarmAttack(AITeamMove *move)
-{
-    FixMoveFuncPtrs(move,aimProcessSwarmAttack, aimSwarmAttackShipDied, aimSwarmAttackClose);
-}
-
-void aimSave_SwarmAttack(AITeamMove *move)
-{
-    SaveGrowSelection(&move->params.swarmatt.newSwarmers);
-    if (move->params.swarmatt.targets) SaveSelection((SpaceObjSelection *)move->params.swarmatt.targets);
-    if (move->params.swarmatt.othertargets) SaveSelection((SpaceObjSelection *)move->params.swarmatt.othertargets);
-}
-
-void aimLoad_SwarmAttack(AITeamMove *move)
-{
-    LoadGrowSelectionAndFix(&move->params.swarmatt.newSwarmers);
-    if (move->params.swarmatt.targets) move->params.swarmatt.targets = (SelectCommand *)LoadSelectionAndFix();
-    if (move->params.swarmatt.othertargets) move->params.swarmatt.othertargets = (SelectCommand *)LoadSelectionAndFix();
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : aimCreateSwarmDefense
-    Description : Creates a swarm defense - special code for P2 pirates to defend
-                  fuel pods
-    Inputs      : team - the team swarm
-                  pod - pointer to the fuel pod
-                  wait - whether to wait for the move to finish
-                  remove - whether the move gets deleted after it's done
-    Outputs     : Creates a new move
-    Return      : void
-----------------------------------------------------------------------------*/
-AITeamMove *aimCreateSwarmDefenseNoAdd(AITeam *team, SelectCommand *pods, bool8 wait, bool8 remove)
-{
-    AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "swarmdefense", 0);
-
-    InitNewMove(newMove, MOVE_SWARMDEFENSE, wait, remove, NO_FORMATION, Neutral,
-                aimProcessSwarmDefense, aimSwarmDefenseShipDied, aimSwarmDefenseClose);
-    growSelectInit(&newMove->params.swarmdef.newSwarmers);
-    newMove->params.swarmdef.guarding    = NULL;
-    newMove->params.swarmdef.Pods        = pods;
-    newMove->params.swarmdef.full_refuel = FALSE;
-    newMove->params.swarmdef.full_attack = FALSE;
-
-//    aiplayerLog((aiIndex, "Created Swarm Defense Move"));
-
-    return newMove;
-}
-
-AITeamMove *aimCreateSwarmDefense(AITeam *team, SelectCommand *pods, bool8 wait, bool8 remove)
-{
-    AITeamMove *newMove;
-
-    newMove = aimCreateSwarmDefenseNoAdd(team, pods, wait, remove);
-
-    listAddNode(&(team->moves), &(newMove->listNode), newMove);
-
-    return newMove;
-}
-
-void aimFix_SwarmDefense(AITeamMove *move)
-{
-    FixMoveFuncPtrs(move,aimProcessSwarmDefense, aimSwarmDefenseShipDied, aimSwarmDefenseClose);
-}
-
-void aimSave_SwarmDefense(AITeamMove *move)
-{
-    SaveGrowSelection(&move->params.swarmdef.newSwarmers);
-    if (move->params.swarmdef.guarding) SaveSelection((SpaceObjSelection *)move->params.swarmdef.guarding);
-    if (move->params.swarmdef.Pods)     SaveSelection((SpaceObjSelection *)move->params.swarmdef.Pods);
-}
-
-void aimLoad_SwarmDefense(AITeamMove *move)
-{
-    LoadGrowSelectionAndFix(&move->params.swarmdef.newSwarmers);
-    if (move->params.swarmdef.guarding) move->params.swarmdef.guarding = (SelectCommand *)LoadSelectionAndFix();
-    if (move->params.swarmdef.Pods)     move->params.swarmdef.Pods     = (SelectCommand *)LoadSelectionAndFix();
-}
-
-
-/*-----------------------------------------------------------------------------
-    Name        : aimCreateSwarmPod
-    Description : Creates a move to control the swarm pod
-    Inputs      : team, wait, remove
-    Outputs     : A new move is created
-    Return      : The new move
-----------------------------------------------------------------------------*/
-AITeamMove *aimCreateSwarmPodNoAdd(AITeam *team, bool8 wait, bool8 remove)
-{
-    AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "swarmpod", 0);
-
-    InitNewMove(newMove, MOVE_SWARMPOD, wait, remove, NO_FORMATION, Neutral,
-                aimProcessSwarmPod, NULL, NULL);
-    newMove->params.swarmpod.first_attack = FALSE;
-    newMove->params.swarmpod.attack_delay = 0;
-
-//    aiplayerLog((aiIndex, "Created Swarm Pod Move"));
-
-    return newMove;
-}
-AITeamMove *aimCreateSwarmPod(AITeam *team, bool8 wait, bool8 remove)
-{
-    AITeamMove *newMove;
-
-    newMove = aimCreateSwarmPodNoAdd(team, wait, remove);
-
-    listAddNode(&(team->moves), &(newMove->listNode), newMove);
-
-    return newMove;
-}
-
-void aimFix_SwarmPod(AITeamMove *move)
-{
-    FixMoveFuncPtrs(move,aimProcessSwarmPod, NULL, NULL);
-}
+// CAT (M2-R7 ai-orders-moves): no aimCreateSwarmAttack / SwarmDefense / SwarmPod and their fix / save / load functions
 
 
 /*-----------------------------------------------------------------------------
@@ -4845,7 +4164,7 @@ AITeamMove *aimCreateMothershipMoveNoAdd(AITeam *team, bool8 wait, bool8 remove)
 {
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "mothership", 0);
 
-    InitNewMove(newMove, MOVE_MOTHERSHIP, wait, remove, NO_FORMATION, Neutral,
+    InitNewMove(newMove, MOVE_MOTHERSHIP, wait, remove, NO_FORMATION, Aggressive,   // CAT: Aggressive (the exe's creators store 2)
                 aimProcessMothershipMove, aimMothershipMoveShipDied, NULL);
 
 //    aiplayerLog((aiIndex, "Created Mothership Move"));
@@ -4921,7 +4240,7 @@ AITeamMove *aimCreateActiveCaptureNoAdd(AITeam *team, bool8 wait, bool8 remove)
 {
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "activecapture", 0);
 
-    InitNewMove(newMove, MOVE_ACTIVECAPTURE, wait, remove, NO_FORMATION, Neutral,
+    InitNewMove(newMove, MOVE_ACTIVECAPTURE, wait, remove, NO_FORMATION, Aggressive,   // CAT: Aggressive (the exe's creators store 2)
                 aimProcessActiveCapture, NULL, NULL);
 
 //    aiplayerLog((aiIndex, "Created Active Capture"));
@@ -4957,7 +4276,7 @@ AITeamMove *aimCreateActiveMineNoAdd(AITeam *team, bool8 wait, bool8 remove)
 {
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "activemine", 0);
 
-    InitNewMove(newMove, MOVE_ACTIVEMINE, wait, remove, NO_FORMATION, Neutral,
+    InitNewMove(newMove, MOVE_ACTIVEMINE, wait, remove, NO_FORMATION, Aggressive,   // CAT: Aggressive (the exe's creators store 2)
                 aimProcessActiveMine, NULL, NULL);
 
 //    aiplayerLog((aiIndex, "Created Active Mine"));
@@ -4993,7 +4312,7 @@ AITeamMove *aimCreateMineVolumeNoAdd(AITeam *team, Volume volume, bool8 wait, bo
 {
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "minevol", 0);
 
-    InitNewMove(newMove, MOVE_MINEVOLUME, wait, remove, NO_FORMATION, Neutral,
+    InitNewMove(newMove, MOVE_MINEVOLUME, wait, remove, NO_FORMATION, Aggressive,   // CAT: Aggressive (inlined in aimProcessActiveMine 0x0040b4b0)
                 aimProcessMineVolume, NULL, NULL);
     newMove->params.minevolume.volume = volume;
 
@@ -5029,7 +4348,7 @@ AITeamMove *aimCreateSpecialDefenseNoAdd(AITeam *team, bool8 wait, bool8 remove)
 {
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "specdef", 0);
 
-    InitNewMove(newMove, MOVE_SPECIALDEFENSE, wait, remove, NO_FORMATION, Neutral,
+    InitNewMove(newMove, MOVE_SPECIALDEFENSE, wait, remove, NO_FORMATION, Aggressive,   // CAT: Aggressive (the exe's creators store 2)
                 aimProcessSpecialDefense, NULL, NULL);
 
 //    aiplayerLog((aiIndex, "Created Special Defense"));
@@ -5065,7 +4384,7 @@ AITeamMove *aimCreateDeleteTeamNoAdd(AITeam *team)
 {
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "delete", 0);
 
-    InitNewMove(newMove, MOVE_DELETETEAM, TRUE, TRUE, SAME_FORMATION, Neutral, NULL, NULL, NULL);
+    InitNewMove(newMove, MOVE_DELETETEAM, TRUE, TRUE, SAME_FORMATION, Aggressive, NULL, NULL, NULL);   // CAT: Aggressive (the exe's creators store 2)
 
 //    aiplayerLog((aiIndex, "Created Delete Team Move"));
 
@@ -5132,7 +4451,7 @@ AITeamMove *aimCreateGuardCooperatingTeamNoAdd(AITeam *team, bool8 wait, bool8 r
     TypeOfFormation formation = SAME_FORMATION;
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "guardcoopmove", 0);
 
-    InitNewMove(newMove,MOVE_GUARDCOOPTEAM,wait,remove,formation,Neutral,aimProcessGuardCooperatingTeam,NULL,NULL);
+    InitNewMove(newMove,MOVE_GUARDCOOPTEAM,wait,remove,formation,Aggressive,aimProcessGuardCooperatingTeam,NULL,NULL);   // CAT: Aggressive (the exe's creators store 2)
 
 //    aiplayerLog((aiIndex,"Created GuardCoop Move"));
 
@@ -5210,7 +4529,7 @@ AITeamMove *aimCreateLaunchNoAdd(AITeam *team, bool8 wait, bool8 remove)
 {
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "launchmove", 0);
 
-    InitNewMove(newMove,MOVE_LAUNCH,wait,remove,SAME_FORMATION,Neutral,aimProcessLaunch,NULL,NULL);
+    InitNewMove(newMove,MOVE_LAUNCH,wait,remove,SAME_FORMATION,Aggressive,aimProcessLaunch,NULL,NULL);   // CAT: Aggressive (the exe's creators store 2)
 
 //    aiplayerLog((aiIndex,"Created Launch Move"));
 
@@ -5271,7 +4590,7 @@ AITeamMove *aimCreateFormationNoAdd(AITeam *team, TypeOfFormation formationtype,
     TypeOfFormation formation = SAME_FORMATION;
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "formationmove", 0);
 
-    InitNewMove(newMove,MOVE_FORMATION,wait,remove,formation,Neutral,aimProcessFormation,NULL,NULL);
+    InitNewMove(newMove,MOVE_FORMATION,wait,remove,formation,Aggressive,aimProcessFormation,NULL,NULL);   // CAT: Aggressive (the exe's creators store 2)
 
     newMove->params.formation.formationtype = formationtype;
 
@@ -5308,7 +4627,7 @@ AITeamMove *aimCreateMoveDone(AITeam *team, bool8 wait, bool8 remove)
     TypeOfFormation formation = SAME_FORMATION;
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "movedone", 0);
 
-    InitNewMove(newMove,MOVE_DONE,wait,remove,formation,Neutral,aimProcessMoveDone,NULL,NULL);
+    InitNewMove(newMove,MOVE_DONE,wait,remove,formation,Aggressive,aimProcessMoveDone,NULL,NULL);   // CAT: Aggressive (the exe's creators store 2)
 
 //    aiplayerLog((aiIndex,"Created Move Done Move"));
 
@@ -5395,7 +4714,7 @@ AITeamMove *aimCreateAttackNoAdd(AITeam *team, SelectCommand *targets,TypeOfForm
 {
     AITeamMove *newMove = (AITeamMove *)memAlloc(sizeof(AITeamMove), "attackmove", 0);
 
-    InitNewMove(newMove,MOVE_ATTACK,wait,remove,formation,Neutral,aimProcessAttack,aimShipDiedAttack,aimCloseAttack);
+    InitNewMove(newMove,MOVE_ATTACK,wait,remove,formation,Aggressive,aimProcessAttack,aimShipDiedAttack,aimCloseAttack);   // CAT: Aggressive (the exe's creators store 2)
     newMove->params.attack.ships      = targets;
 
 //    aiplayerLog((aiIndex,"Created Attack Move"));
@@ -5924,7 +5243,7 @@ AITeamMove *aimCreateFancyGetShipsNoAdd(AITeam *team, ShipType shiptype, sbyte n
     }
 #endif
 
-    InitNewMove(newMove,MOVE_FANCYGETSHIPS,wait,remove,formation,Neutral,aimProcessFancyGetShips,NULL,aimCloseFancyGetShips);
+    InitNewMove(newMove,MOVE_FANCYGETSHIPS,wait,remove,formation,Aggressive,aimProcessFancyGetShips,NULL,aimCloseFancyGetShips);   // CAT: Aggressive (the exe's creators store 2)
 
     newMove->params.fancyGetShips.shipType = shiptype;
     newMove->params.fancyGetShips.numShips = num_ships;

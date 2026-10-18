@@ -20,6 +20,7 @@
 =============================================================================*/
 
 #include "ConsMgr.h"        // HWI-TEST: catBuildSelfTestTick (the build self-test, M2-R6 managers)
+#include "AISelfTest.h"     // HWI-TEST: catAiSelfTestTick (the computer player's self-test, M2-R7 ai-orders-moves)
 #include "Dock.h"           // CAT: catDockSelfTestTick (the dock self-test, M2-R5 dock)
 #include "render.h"         // CAT: catRenderSelfTestTick (the render self-test, M2-R5 render)
 #include "InfoOverlay.h"    // CAT: catHudSelfTestTick (the HUD self-test, M2-R5 hud)
@@ -652,6 +653,11 @@ bool32 oracleUnivUpdate(real32 phystimeelapsed)
     if (catBuildSelfTestRequested() && (universe.univUpdateCounter != before))
     {
         catBuildSelfTestTick();
+    }
+    // HWI-TEST (M2-R7 ai-orders-moves): the computer player's self-test the same way (AISelfTest.c catAiSelfTestTick)
+    if (catAiSelfTestRequested() && (universe.univUpdateCounter != before))
+    {
+        catAiSelfTestTick();
     }
 
     // HWI-FEATURE(motion-interp) measurement: the motion / nis modes' scripted ships and NIS (MotionTest.c)

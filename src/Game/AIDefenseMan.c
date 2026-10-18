@@ -121,15 +121,30 @@ udword aidCountDefendableShips(void)
     for (i=0;i<aiCurrentAIPlayer->airResourceReserves.selection->numShips;i++)
     {
         ship = aiCurrentAIPlayer->airResourceReserves.selection->ShipPtr[i];
-        if ((ship->shiptype == ResourceCollector) || (ship->shiptype == SalCapCorvette))
+        // CAT: Cataclysm's resourcers and capture corvettes count one, its carriers, Processors and support
+        //      frigates AID_RESCON_ASF_DEFENDABLE_MULTIPLIER (inlined in aidDefenseManager 0x004035a0 at 0x00403683)
+        switch (ship->shiptype)
         {
-            numdefships++;
-        }
-        else if ((ship->shiptype == AdvanceSupportFrigate) ||
-                 (ship->shiptype == Carrier))
-        {
-            //these ships count as two
-            numdefships += AID_RESCON_ASF_DEFENDABLE_MULTIPLIER;
+            case sCarrier:
+            case sProcessor:
+            case bCarrier:
+            case bProcessor:
+            case kAdvanceSupportFrigate:
+            case kCarrier:
+            case tAdvanceSupportFrigate:
+            case tCarrier:
+                //these ships count as two
+                numdefships += AID_RESCON_ASF_DEFENDABLE_MULTIPLIER;
+                break;
+            case sWorker:
+            case bWorker:
+            case kSalCapCorvette:
+            case tResourceCollector:
+            case tSalCapCorvette:
+                numdefships++;
+                break;
+            default:
+                break;
         }
     }
     return numdefships;
@@ -203,8 +218,9 @@ void aidCheckSphereOfInfluence(void)
 
     //calculates sphere of influence if there isn't one,
     //or every 15 seconds
+    // CAT: the seconds are rounded to the nearest integer (0x00402907: fadd 1.5 * 2^52), HW1 truncated
     if ((!aiCurrentAIPlayer->sphereofinfluence) ||
-        (!(((udword)universe.totaltimeelapsed) & AID_SPHERE_OF_INFLUENCE_INTERVAL)))
+        (!(cat_aiuRoundToUdword((double)universe.totaltimeelapsed) & AID_SPHERE_OF_INFLUENCE_INTERVAL)))
     {
         enemy_mothership = aiuFindEnemyMothership(aiCurrentAIPlayer->player);
         if (enemy_mothership == NULL)
@@ -266,7 +282,11 @@ void aidSetupResourceDefenseTeams(void)
     for (i=0;i<aiCurrentAIPlayer->airResourceReserves.selection->numShips;i++)
     {
         ship = aiCurrentAIPlayer->airResourceReserves.selection->ShipPtr[i];
-        if ((ship->shiptype == ResourceCollector) || (ship->shiptype == AdvanceSupportFrigate))
+        // CAT: both races' Workers and Processors, both support frigates, the tResourceCollector
+        //      (aidSetupResourceDefenseTeams 0x00402aa0)
+        if ((ship->shiptype == sWorker) || (ship->shiptype == sProcessor) || (ship->shiptype == bWorker) ||
+            (ship->shiptype == bProcessor) || (ship->shiptype == kAdvanceSupportFrigate) ||
+            (ship->shiptype == tAdvanceSupportFrigate) || (ship->shiptype == tResourceCollector))
         {
             if (!aitAnyTeamOfPlayerGuardingThisShip(aiCurrentAIPlayer,ship))
             {
@@ -438,6 +458,21 @@ void aidPositionProximitySensorGuard(udword index)
 
 
 
+// CAT: the proximity sensors of the player's race (kProximitySensor / tProximitySensor), none for another race
+//      (aidCloakDefense 0x00402e00, inlined at its three request sites)
+static void aidCatRequestProximitySensors(sdword num)
+{
+    if (aiCurrentAIPlayer->player->race == RACE_Kushan)
+    {
+        aifResourceManRequestsShipsCB(kProximitySensor, num, 0);
+    }
+    else if (aiCurrentAIPlayer->player->race == RACE_Taiidan)
+    {
+        aifResourceManRequestsShipsCB(tProximitySensor, num, 0);
+    }
+}
+
+
 /*-----------------------------------------------------------------------------
     Name        : aidCloakerDefense
     Description : Looks for cloakers, and reacts to their presence in a
@@ -466,7 +501,7 @@ void aidCloakDefense(void)
                 if (aiCurrentAIPlayer->aidProximitySensors &&
                     (aiCurrentAIPlayer->aidProximitySensors->numShips < 6))
                 {
-                    aifResourceManRequestsShipsCB(ProximitySensor, num_sensors - aiCurrentAIPlayer->NumProxSensorsRequested, 0);
+                    aidCatRequestProximitySensors(num_sensors - aiCurrentAIPlayer->NumProxSensorsRequested);
                     aiCurrentAIPlayer->NumProxSensorsRequested = num_sensors;
                 }
             }
@@ -481,7 +516,7 @@ void aidCloakDefense(void)
                     (aiCurrentAIPlayer->aidProximitySensors->numShips < 6))
                 {
                     aiCurrentAIPlayer->NumProxSensorsRequested = randyrandombetween(RANDOM_AI_PLAYER, 1,3);
-                    aifResourceManRequestsShipsCB(ProximitySensor, aiCurrentAIPlayer->NumProxSensorsRequested, 0);
+                    aidCatRequestProximitySensors(aiCurrentAIPlayer->NumProxSensorsRequested);
                 }
             }
             //make sure we have 1 or 2 proximity sensors
@@ -491,12 +526,13 @@ void aidCloakDefense(void)
     }
     else
     {
-        if ((!(((udword)universe.totaltimeelapsed) & AID_SPHERE_OF_INFLUENCE_INTERVAL)) &&
+        // CAT: rounded seconds here (0x00402f4f), truncated ones for the alert reset below (0x00402fc3 __ftol)
+        if ((!(cat_aiuRoundToUdword((double)universe.totaltimeelapsed) & AID_SPHERE_OF_INFLUENCE_INTERVAL)) &&
             (aiCurrentAIPlayer->aidProximitySensors) &&
             ((aiCurrentAIPlayer->NumProxSensorsRequested > aiCurrentAIPlayer->aidProximitySensors->numShips)) &&
             (aiCurrentAIPlayer->aidProximitySensors->numShips < 3))
         {
-            aifResourceManRequestsShipsCB(ProximitySensor, (aiCurrentAIPlayer->NumProxSensorsRequested - aiCurrentAIPlayer->aidProximitySensors->numShips), 0);
+            aidCatRequestProximitySensors(aiCurrentAIPlayer->NumProxSensorsRequested - aiCurrentAIPlayer->aidProximitySensors->numShips);
         }
 
         //reset Red alert status every every 15 seconds to check if it's still valid
@@ -554,8 +590,8 @@ SelectCommand *aidAddSlackerShips(void)
         {
 
             //add a defend mothership move
+            // CAT: no fuel-low handler (inlined in aidMothershipDefense 0x00403130)
             newMove = aimCreateDefendMothershipNoAdd(slackteam, TRUE, TRUE);
-            aieHandlerSetFuelLow(newMove, AID_DEFEND_MOTHERSHIP_FUEL_LOW, TRUE, TRUE, aihGenericFuelLowHandler);
             aimInsertMove(slackteam, newMove);
 
             slackerships = selectMergeTwoSelections(slackerships, aiCurrentAIPlayer->teams[i]->shipList.selection, DEALLOC1);
@@ -589,8 +625,8 @@ SelectCommand *aidAddGuardingShips(void)
             (aiuIsShipDangerous(guardteam->shipList.selection->ShipPtr[0])))
         {
             //add a defend mothership move
+            // CAT: no fuel-low handler (inlined in aidMothershipDefense 0x00403130)
             newMove = aimCreateDefendMothershipNoAdd(guardteam, TRUE, TRUE);
-            aieHandlerSetFuelLow(newMove, AID_DEFEND_MOTHERSHIP_FUEL_LOW, TRUE, TRUE, aihGenericFuelLowHandler);
             aimInsertMove(guardteam, newMove);
 
             guardships = selectMergeTwoSelections(guardships, guardteam->shipList.selection, DEALLOC1);
@@ -620,15 +656,16 @@ SelectCommand *aidAddAllShips(SelectCommand *enemyships)
 
         if ((team->teamType != ScriptTeam) &&
             (team->shipList.selection->numShips) &&
-            (team->shipList.selection->ShipPtr[0]->shiptype != Mothership) &&
-            (team->shipList.selection->ShipPtr[0]->shiptype != Carrier) &&
+            // CAT: by class, not HW1's two types (aidAddAllShips 0x00403070)
+            (team->shipList.selection->ShipPtr[0]->staticinfo->shipclass != CLASS_Mothership) &&
+            (team->shipList.selection->ShipPtr[0]->staticinfo->shipclass != CLASS_Carrier) &&
             (aiuIsShipDangerous(team->shipList.selection->ShipPtr[0])) &&
             (aitTeamIsntDefendingMothership(team, enemyships)) &&
             (aitTeamIsInMothershipRange(team)))
         {
             //add a defend mothership move
+            // CAT: no fuel-low handler (aidAddAllShips 0x00403070)
             newMove = aimCreateDefendMothershipNoAdd(team, TRUE, TRUE);
-            aieHandlerSetFuelLow(newMove, 5, TRUE, TRUE, aihGenericFuelLowHandler);
             aimInsertMove(team, newMove);
 
             newships = selectMergeTwoSelections(newships, team->shipList.selection, DEALLOC1);
@@ -669,9 +706,14 @@ void aidMothershipDefense(void)
     //they aren't just a single fighter scout or
     //a random (small chance) that it'll consider the enemy anyway,
     //despite the fact that it's a single fighter scout
+    // CAT: a lone fighter never counts: the exe still draws HW1's 3-in-256 chance from stream 6 and drops the result
+    //      (aidMothershipDefense 0x00403130: the ranRandomFn(6) at 0x004031a4 is followed by the no-attack branch)
+    if ((enemyships) && (enemyships->numShips == 1) && (isShipOfClass(enemyships->ShipPtr[0], CLASS_Fighter)))
+    {
+        (void)ranRandom(RANDOM_AI_PLAYER);
+    }
     if ((enemyships) &&
-        ((!((enemyships->numShips == 1) && (isShipOfClass(enemyships->ShipPtr[0], CLASS_Fighter)))) ||
-        ((ranRandom(RANDOM_AI_PLAYER)&255) < 3)))
+        (!((enemyships->numShips == 1) && (isShipOfClass(enemyships->ShipPtr[0], CLASS_Fighter)))))
 
     {
         aiumemFree(aiCurrentAIPlayer->shipsattackingmothership);
@@ -765,8 +807,12 @@ void aidMothershipDefense(void)
 
             aitDestroy(aiCurrentAIPlayer,mdteam,TRUE);
 
-            if (aiCurrentAIPlayer->mothershipdefteam != aiCurrentAIPlayer->numGuardTeams)
+            // CAT: the slot is refilled only when aidTeamDied left it empty, and then the count goes down too
+            //      (0x00403248); HW1 copied the NULLed last slot over the team aidTeamDied had just moved in
+            if ((aiCurrentAIPlayer->mothershipdefteam != aiCurrentAIPlayer->numGuardTeams) &&
+                (aiCurrentAIPlayer->guardTeams[aiCurrentAIPlayer->mothershipdefteam] == NULL))
             {
+                aiCurrentAIPlayer->numGuardTeams--;
                 aiCurrentAIPlayer->guardTeams[aiCurrentAIPlayer->mothershipdefteam] = aiCurrentAIPlayer->guardTeams[aiCurrentAIPlayer->numGuardTeams];
             }
             aiCurrentAIPlayer->mothershipdefteam = -1;

@@ -18,11 +18,12 @@
 #include "UnivUpdate.h"
 
 
+// CAT: the exe's table (0x0074a3a4, 20 entries and NULL; aieHandlerToNum 0x00405ce0): no fuel handlers, so the save
+//      numbers start at aihHarassNumbersLowHandler. The exe's linker folded aihReconShipTeamDiedHandler into
+//      aihReconaissanceTeamDiedHandler (entries 15 and 16 are both 0x00406e10) and aihRemoveTeamDiedHandler into
+//      aihPatrolTeamDiedHandler (18 and 19: 0x00406e80): the bodies are the same, the indices are kept
 aieHandlerSimple handlerTable[] =
 {
-    aihGenericEmptyFuelHandler,
-    aihSwarmerEmptyFuelHandler,
-    aihGenericFuelLowHandler,
     aihHarassNumbersLowHandler,
     aihHarassFiringSingleShipHandler,
     aihHarassDisengageSingleShipHandler,
@@ -39,6 +40,7 @@ aieHandlerSimple handlerTable[] =
     aihSlowDefenseTeamDiedHandler,
     aihGuardShipsTeamDiedHandler,
     aihReconaissanceTeamDiedHandler,
+    aihReconShipTeamDiedHandler,
     aihHarassTeamDiedHandler,
     aihPatrolTeamDiedHandler,
     aihRemoveTeamDiedHandler,
@@ -82,86 +84,8 @@ aieHandlerSimple aieNumToHandler(sdword num)
     }
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : aihGenericEmptyFuelHandler
-    Description : Scuttles any ship that runs out of fuel - this handler
-                  assumes it was called with the "watchIndividual" flag set to TRUE
-    Inputs      : team - the team with the ship that has no fuel
-    Outputs     : Kills a ship
-    Return      : void
-----------------------------------------------------------------------------*/
-void aihGenericEmptyFuelHandler(AITeam *team)
-{
-    sdword i;
-    SelectCommand scuttleship;
-
-    scuttleship.numShips = 1;
-
-    for (i = (team->shipList.selection->numShips-1); i >= 0; i--)
-    {
-        if (100.0 * team->shipList.selection->ShipPtr[i]->fuel /
-                team->shipList.selection->ShipPtr[i]->staticinfo->maxfuel
-                  < team->curMove->events.fuelLow.watchPercentage)
-        {
-            scuttleship.ShipPtr[0] = team->shipList.selection->ShipPtr[i];
-            aiuWrapScuttle(&scuttleship);
-        }
-    }
-}
-
-
-/*-----------------------------------------------------------------------------
-    Name        : aihSwarmerEmptyFuelHandler
-    Description : Sets the swarmers to SOF_Crazy when they are out of fuel.
-                  NOTE: Need to somehow blow those ships up as well...
-    Inputs      : team - the team with the ship that has no fuel
-    Outputs     : Kills a ship
-    Return      : void
-----------------------------------------------------------------------------*/
-void aihSwarmerEmptyFuelHandler(AITeam *team)
-{
-    sdword i, numShips = team->shipList.selection->numShips;
-    ShipPtr ship;
-
-    for (i = 0; i < numShips; i++)
-    {
-        ship = team->shipList.selection->ShipPtr[i];
-
-        if (!bitTest(ship->header.flags, SOF_Crazy) &&
-            (100.0 * ship->fuel / ship->staticinfo->maxfuel
-                  < team->curMove->events.fuelLow.watchPercentage))
-        {
-            bitSet(ship->header.flags, SOF_Crazy);
-            ship->deathtime = universe.totaltimeelapsed + frandyrandombetween(RANDOM_AI_PLAYER, 14.0, 20.0);
-            ApplyCareenRotationDirectly(ship);
-            ship->rotatable.rotinfo.rotspeed.x *= 1.5;
-            ship->rotatable.rotinfo.rotspeed.y *= 1.5;
-            ship->rotatable.rotinfo.rotspeed.z *= 1.5;
-        }
-    }
-}
-
-
-/*-----------------------------------------------------------------------------
-    Name        : aihGenericFuelLowHandler
-    Description : A generic handler function for the fuel low event
-    Inputs      : team - the team who's fuel is too low
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
-void aihGenericFuelLowHandler(AITeam *team)
-{
-    AITeamMove *thisMove = team->curMove, *newMove;
-
-    thisMove->processing = FALSE;
-    thisMove->events.fuelLow.triggered = FALSE;
-
-    //add a dock move before - if the ship runs out of fuel on the way, it's toast
-    newMove = aimCreateDockNoAdd(team, dockmoveFlags_Normal, NULL, TRUE, TRUE);
-    aieHandlerSetFuelLow(newMove, 0, TRUE, FALSE, aihGenericEmptyFuelHandler);
-    aitAddmoveBeforeAndMakeCurrent(team, newMove, thisMove);
-}
-
+// CAT: no aihGenericEmptyFuelHandler, aihSwarmerEmptyFuelHandler or aihGenericFuelLowHandler (no fuel in Cataclysm;
+//      the exe's handler table has none of them)
 
 
 /*-----------------------------------------------------------------------------
@@ -234,13 +158,30 @@ void aihHarassNumbersLowHandler(AITeam *team)
     newMove->tactics = Evasive;
     aitAddmoveBeforeAndMakeCurrent(team, newMove, thisMove);
 
-    SetNumAlternatives(alternatives,2);
-    SetAlternative(alternatives,0,HeavyInterceptor,HARASS_HEAVYINT_EQUIVNUM);
-    SetAlternative(alternatives,1,AttackBomber, HARASS_BOMBER_EQUIVNUM);
+    // CAT: Cataclysm's replacements by race (aihHarassNumbersLowHandler 0x00405d40): a Sect team asks for 16 sAcolytes
+    //      or sACVs / sMimics, a Beast team for 16 bHeavyCorvettes or bInterceptors, bAttackBombers, bAcolytes and bACVs
+    //      (the last two once researched); no request for any other race (CAT-FIX: the exe then re-adds the move-team
+    //      node it has just inserted)
+    if (aiCurrentAIPlayer->player->race == RACE_Sect)
+    {
+        SetNumAlternatives(alternatives,2);
+        SetAlternative(alternatives,0,sACV,14);
+        SetAlternative(alternatives,1,sMimic,14);
 
-    // CAT-TODO(stage 4 AI): HW1 asked for LightInterceptors (gone with the HW1-only types (M2-R4 ships-b)); the first alternative stands in
-    newMove = aimCreateFancyGetShipsNoAdd(team, HeavyInterceptor, 16, &alternatives, REQUESTSHIPS_HIPRI, TRUE, TRUE);
-    listAddNodeBefore(&(thisMove->listNode), &(newMove->listNode), newMove);
+        newMove = aimCreateFancyGetShipsNoAdd(team, sAcolyte, 16, &alternatives, REQUESTSHIPS_HIPRI, TRUE, TRUE);
+        listAddNodeBefore(&(thisMove->listNode), &(newMove->listNode), newMove);
+    }
+    else if (aiCurrentAIPlayer->player->race == RACE_Beast)
+    {
+        SetNumAlternatives(alternatives,4);
+        SetAlternative(alternatives,0,bInterceptor,14);
+        SetAlternative(alternatives,1,bAttackBomber,14);
+        SetAlternative(alternatives,2,aioCatEnabledOr(bAcolyte, bInterceptor),14);
+        SetAlternative(alternatives,3,aioCatEnabledOr(bACV, bAttackBomber),14);
+
+        newMove = aimCreateFancyGetShipsNoAdd(team, bHeavyCorvette, 16, &alternatives, REQUESTSHIPS_HIPRI, TRUE, TRUE);
+        listAddNodeBefore(&(thisMove->listNode), &(newMove->listNode), newMove);
+    }
 
     bitClear(team->teamFlags, TEAM_NEEDS_SUPPORT);
 }
@@ -288,8 +229,6 @@ void aihKamikazeHealthLowHandler(AITeam *team)
     sdword i;
     ShipPtr ship;
 
-    dbgAssertOrIgnore(team->shipList.selection->numShips);
-
     shipsToDie.numShips = 0;
 
     for (i=0;i<team->shipList.selection->numShips;i++)
@@ -304,9 +243,11 @@ void aihKamikazeHealthLowHandler(AITeam *team)
         }
     }
 
-    dbgAssertOrIgnore(shipsToDie.numShips);
-
-    aiuWrapSetKamikaze((SelectCommand *)&shipsToDie);
+    // CAT: no kamikaze order when no ship qualifies (aihKamikazeHealthLowHandler 0x00405fd0 tests numShips > 0)
+    if (shipsToDie.numShips > 0)
+    {
+        aiuWrapSetKamikaze((SelectCommand *)&shipsToDie);
+    }
 }
 
 
@@ -361,13 +302,34 @@ void aihFastDefenseNumbersLowHandler(AITeam *team)
     }
     else
     {
-        SetNumAlternativesFlags(alternatives,3, ALTERNATIVE_RANDOM)
-        SetAlternative(alternatives,0,HeavyDefender,14);
-        SetAlternative(alternatives,1,HeavyInterceptor,14);
-        SetAlternative(alternatives,2,AttackBomber,15);
+        // CAT: Cataclysm's replacement team by race (aihFastDefenseNumbersLowHandler 0x00406070): Sect 12 sAcolytes or
+        //      sRecons / sACVs / sMimics, Beast 12 bInterceptors or bHeavyCorvettes / bRecons / bAttackBombers / bACVs
+        //      (once researched); no request for any other race (CAT-FIX: the exe re-adds the move-team node)
+        if (aiCurrentAIPlayer->player->race == RACE_Sect)
+        {
+            SetNumAlternativesFlags(alternatives,3,ALTERNATIVE_RANDOM);
+            SetAlternative(alternatives,0,sRecon,20);
+            SetAlternative(alternatives,1,sACV,14);
+            SetAlternative(alternatives,2,sMimic,15);
 
-        // CAT-TODO(stage 4 AI): HW1 asked for LightInterceptors (gone with the HW1-only types (M2-R4 ships-b)); the first alternative stands in
-        newMove = aimCreateFancyGetShipsNoAdd(team, HeavyDefender, 12, &alternatives, 0, TRUE, FALSE);
+            newMove = aimCreateFancyGetShipsNoAdd(team, sAcolyte, 12, &alternatives, 0, TRUE, FALSE);
+        }
+        else if (aiCurrentAIPlayer->player->race == RACE_Beast)
+        {
+            SetNumAlternativesFlags(alternatives,4,ALTERNATIVE_RANDOM);
+            SetAlternative(alternatives,0,bHeavyCorvette,14);
+            SetAlternative(alternatives,1,bRecon,20);
+            SetAlternative(alternatives,2,bAttackBomber,15);
+            SetAlternative(alternatives,3,aioCatEnabledOr(bACV, bAttackBomber),14);
+
+            newMove = aimCreateFancyGetShipsNoAdd(team, bInterceptor, 12, &alternatives, 0, TRUE, FALSE);
+        }
+        else
+        {
+            thisMove->events.numbersLow.watchBaseCount = 0;
+            thisMove->processing = FALSE;
+            return;
+        }
     }
 
     thisMove->events.numbersLow.watchBaseCount = 0;
@@ -429,11 +391,39 @@ void aihSlowDefenseNumbersLowHandler(AITeam *team)
     }
     else
     {
-        SetNumAlternativesFlags(alternatives,2,ALTERNATIVE_RANDOM);     // CAT: the HW1-only types dropped (M2-R4 ships-b)
-        SetAlternative(alternatives,0,HeavyCorvette,12);
-        SetAlternative(alternatives,1,StandardFrigate,30);
+        // CAT: Cataclysm's replacement team by race (aihSlowDefenseNumbersLowHandler 0x004062d0): Sect 3 sMCVs or
+        //      sACVs / sMultiBeamFrigates / sHiveFrigates, Beast 3 bMultiGunCorvettes or bHeavyCorvettes /
+        //      bMissileCorvettes / bIonArrayFrigates / bAttackBombers and, once researched, bACVs, bMultiBeamFrigates,
+        //      bHiveFrigates; no request for any other race (CAT-FIX: the exe re-adds the move-team node)
+        if (aiCurrentAIPlayer->player->race == RACE_Sect)
+        {
+            SetNumAlternativesFlags(alternatives,4,ALTERNATIVE_RANDOM);
+            SetAlternative(alternatives,0,sACV,12);
+            SetAlternative(alternatives,1,sMCV,7);
+            SetAlternative(alternatives,2,sMultiBeamFrigate,30);
+            SetAlternative(alternatives,3,sHiveFrigate,30);
 
-        newMove = aimCreateFancyGetShipsNoAdd(team, MultiGunCorvette, 3, &alternatives, 0, TRUE, FALSE);
+            newMove = aimCreateFancyGetShipsNoAdd(team, sMCV, 3, &alternatives, 0, TRUE, FALSE);
+        }
+        else if (aiCurrentAIPlayer->player->race == RACE_Beast)
+        {
+            SetNumAlternativesFlags(alternatives,7,ALTERNATIVE_RANDOM);
+            SetAlternative(alternatives,0,bHeavyCorvette,12);
+            SetAlternative(alternatives,1,bMissileCorvette,7);
+            SetAlternative(alternatives,2,bIonArrayFrigate,30);
+            SetAlternative(alternatives,3,bAttackBomber,30);
+            SetAlternative(alternatives,4,aioCatEnabledOr(bACV, bAttackBomber),12);
+            SetAlternative(alternatives,5,aioCatEnabledOr(bMultiBeamFrigate, bIonArrayFrigate),30);
+            SetAlternative(alternatives,6,aioCatEnabledOr(bHiveFrigate, bMissileCorvette),30);
+
+            newMove = aimCreateFancyGetShipsNoAdd(team, bMultiGunCorvette, 3, &alternatives, 0, TRUE, FALSE);
+        }
+        else
+        {
+            thisMove->events.numbersLow.watchBaseCount = 0;
+            thisMove->processing = FALSE;
+            return;
+        }
     }
 
     thisMove->events.numbersLow.watchBaseCount = 0;
@@ -568,7 +558,7 @@ void aihGravWellEnemyNearbyHandler(AITeam *team, SelectCommand *ships)
                 if (team->cooperatingTeam)
                 {
                     //later maybe decide if the current move is more important or not
-                    newMove = aimCreateAdvancedAttackNoAdd(team->cooperatingTeam, selectMemDupSelection(ships, "gwenh", 0), SAME_FORMATION, Neutral /*later.. Evasive?*/, TRUE, TRUE);
+                    newMove = aimCreateAdvancedAttackNoAdd(team->cooperatingTeam, selectMemDupSelection(ships, "gwenh", 0), SAME_FORMATION, Aggressive, TRUE, TRUE);    // CAT: Aggressive (0x0040677c)
                     aimInsertMove(team->cooperatingTeam, newMove);
                 }
 
@@ -589,7 +579,7 @@ void aihGravWellEnemyNearbyHandler(AITeam *team, SelectCommand *ships)
                     }
                     else
                     {
-                        newMove = aimCreateAdvancedAttackNoAdd(team->cooperatingTeam, selectMemDupSelection(ships, "gwenh", 0), SAME_FORMATION, Neutral /*later.. Evasive?*/, TRUE, TRUE);
+                        newMove = aimCreateAdvancedAttackNoAdd(team->cooperatingTeam, selectMemDupSelection(ships, "gwenh", 0), SAME_FORMATION, Aggressive, TRUE, TRUE);    // CAT: Aggressive (0x004067f6)
                         aimInsertMove(team, newMove);
                     }
                 }
@@ -619,6 +609,23 @@ void aihGravWellEnemyNotNearbyHandler(AITeam *team)
 }
 
 
+// CAT: the rescue support type of a distress handler, by the race of the team's first ship (inlined in
+//      aihFastDefenseDistressHandler 0x00406880, aihSlowDefenseDistressHandler 0x00406af0 and aimProcessTempGuard
+//      0x00409c50); -1 (no rescue) for any
+//      other race, which the exe skips without calling aiuRescueShipType
+ShipType cat_aihRescueSupportType(AITeam *team)
+{
+    switch (team->shipList.selection->ShipPtr[0]->shiprace)
+    {
+        case RACE_Kushan:   return kAdvanceSupportFrigate;
+        case RACE_Taiidan:  return tAdvanceSupportFrigate;
+        case RACE_Sect:     return sProcessor;
+        case RACE_Beast:    return bProcessor;
+        default:            return ShipType_Uninitialized;
+    }
+}
+
+
 /*-----------------------------------------------------------------------------
     Name        : aihFastDefenseDistressHandler
     Description : Handles distress calls for fast defense teams
@@ -640,11 +647,12 @@ void aihFastDefenseDistressHandler(AITeam *team, udword *intvar)
     {
         selSelectionCopy((MaxAnySelection *)&distressShips, (MaxAnySelection *)aiCurrentAIPlayer->aidDistressShips);
 
-        if (aiuRescueShipType((SelectCommand *)&distressShips, team, AdvanceSupportFrigate))
+        // CAT: the support ship that rescues by the race of the team's first ship (0x004068bd / 0x00406b39): Kushan
+        //      kAdvanceSupportFrigate, Taiidan tAdvanceSupportFrigate, Sect sProcessor, Beast bProcessor, none else
+        if (aiuRescueShipType((SelectCommand *)&distressShips, team, cat_aihRescueSupportType(team)))
         {
             return;
         }
-        // CAT: no HW1 ResourceController to rescue (M2-R4 ships-b)
     }
 
     if (aiCurrentAIPlayer->aidInvadingShips)
@@ -674,7 +682,7 @@ void aihFastDefenseDistressHandler(AITeam *team, udword *intvar)
                     formation = AIH_FASTDEF_INVADER_FEW_FORMATION;
                 }
 
-                newMove         = aimCreateAdvancedAttackNoAdd(team, selectMemDupSelection(enemyShips, "fddh", 0), formation,Aggressive,TRUE, TRUE);
+                newMove         = aimCreateAdvancedAttackNoAdd(team, selectMemDupSelection(enemyShips, "fddh", 0), formation, aioCatAttackTactics(team), TRUE, TRUE);   // CAT: 0x00406a00
                 newMove->events = thisMove->events;
                 if (aiuAttackFeatureEnabled(AIA_KAMIKAZE))
                 {
@@ -693,9 +701,14 @@ void aihFastDefenseDistressHandler(AITeam *team, udword *intvar)
 
     if ((aiCurrentAIPlayer->aidDistressShips) && (distressShips.numShips))
     {
-        if (aiuRescueShipType((SelectCommand *)&distressShips, team, ResourceCollector))
+        // CAT: the resourcer to rescue by the AI player's race (0x004069b2): Taiidan tResourceCollector, Sect sWorker,
+        //      Beast bWorker, none else
+        switch (aiCurrentAIPlayer->player->race)
         {
-            return;
+            case RACE_Taiidan:  aiuRescueShipType((SelectCommand *)&distressShips, team, tResourceCollector); break;
+            case RACE_Sect:     aiuRescueShipType((SelectCommand *)&distressShips, team, sWorker);            break;
+            case RACE_Beast:    aiuRescueShipType((SelectCommand *)&distressShips, team, bWorker);            break;
+            default:            break;
         }
     }
 }
@@ -729,11 +742,12 @@ void aihSlowDefenseDistressHandler(AITeam *team, udword *intvar)
     {
         selSelectionCopy((MaxAnySelection *)&distressShips, (MaxAnySelection *)aiCurrentAIPlayer->aidDistressShips);
 
-        if (aiuRescueShipType((SelectCommand *)&distressShips, team, AdvanceSupportFrigate))
+        // CAT: the support ship that rescues by the race of the team's first ship (0x004068bd / 0x00406b39): Kushan
+        //      kAdvanceSupportFrigate, Taiidan tAdvanceSupportFrigate, Sect sProcessor, Beast bProcessor, none else
+        if (aiuRescueShipType((SelectCommand *)&distressShips, team, cat_aihRescueSupportType(team)))
         {
             return;
         }
-        // CAT: no HW1 ResourceController to rescue (M2-R4 ships-b)
     }
 
     if (aiCurrentAIPlayer->aidInvadingShips)
@@ -762,7 +776,7 @@ void aihSlowDefenseDistressHandler(AITeam *team, udword *intvar)
                     formation = AIH_SLOWDEF_INVADER_FEW_FORMATION;
                 }
 
-                newMove         = aimCreateAdvancedAttackNoAdd(team, selectMemDupSelection(enemyShips, "sddh", 0), formation,Aggressive,TRUE, TRUE);
+                newMove         = aimCreateAdvancedAttackNoAdd(team, selectMemDupSelection(enemyShips, "sddh", 0), formation, aioCatAttackTactics(team), TRUE, TRUE);   // CAT: 0x00406c9c
                 newMove->events = thisMove->events;
                 if (aiuAttackFeatureEnabled(AIA_KAMIKAZE))
                 {

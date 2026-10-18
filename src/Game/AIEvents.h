@@ -100,22 +100,9 @@ typedef struct {
         aieHandlerSimple    handler;
     } numbersHigh;  // team size rises above certain # of ships
 
-    struct {
-        sdword              watchPercentage;
-        bool8               watchIndividual;
-        bool8               oneShot;
-        bool8               triggered;
-        aieHandlerSimple    handler;
-    } fuelLow;  // team fuel drops below certain level
-
-    struct {
-        sdword              watchPercentage;
-        bool8               watchIndividual;
-        bool8               oneShot;
-        bool8               triggered;
-        aieHandlerSimple    handler;
-    } fuelHigh;  // team fuel rises above certain level
-
+    // CAT: no fuelLow / fuelHigh events (Cataclysm has no fuel): the exe's AITeamMove keeps 12 handler slots, the events
+    //      at +0xCC .. +0x154 with shipDied at +0x134 and teamDied at +0x13C (aieHandlersClear 0x00403eb0,
+    //      aieExecute 0x00403a70)
     struct {
         bool8               oneShot;
         bool8               triggered;
@@ -137,6 +124,14 @@ typedef struct {
 
 } AIEvents;
 
+#if defined(__i386__) || defined(_M_IX86)
+// CAT: the exe's event block (AITeamMove +0xCC .. +0x154; aieExecute 0x00403a70 reads every offset)
+_Static_assert(sizeof(AIEvents) == 0x88, "AIEvents is 0x88 bytes in cataclysm.exe (copied as 0x22 dwords by the handlers)");
+_Static_assert(offsetof(AIEvents, numbersLow) == 0x48, "numbersLow at AITeamMove +0x114 in cataclysm.exe");
+_Static_assert(offsetof(AIEvents, teamDied) == 0x70, "teamDied at AITeamMove +0x13C in cataclysm.exe");
+_Static_assert(offsetof(AIEvents, interrupt) == 0x74, "interrupt at AITeamMove +0x140 in cataclysm.exe");
+#endif
+
 sdword aieCheckGettingRocked(struct AITeam *team, SelectCommand **ships);
 sdword aieCheckEnemyNearby(struct AITeam *team, SelectCommand **ships);
 sdword aieCheckEnemyNotNearby(struct AITeam *team);
@@ -146,8 +141,6 @@ sdword aieCheckHealthLow(struct AITeam *team);
 sdword aieCheckHealthHigh(struct AITeam *team);
 sdword aieCheckNumbersLow(struct AITeam *team);
 sdword aieCheckNumbersHigh(struct AITeam *team);
-sdword aieCheckFuelLow(struct AITeam *team);
-sdword aieCheckFuelHigh(struct AITeam *team);
 sdword aieCheckShipDied(void);
 sdword aieCheckTeamDied(struct AITeam *team);
 sdword aieCheckInterrupt(struct AITeam *team);
@@ -165,8 +158,6 @@ void aieHandlerSetHealthHigh (struct AITeamMove *move, sdword watchPercentage, b
 //      using the number of ships in the team the first time the event is checked
 void aieHandlerSetNumbersLow(struct AITeamMove *move, sdword watchPercentage, sdword watchBaseCount, bool8 oneShot, aieHandlerSimple handler);
 void aieHandlerSetNumbersHigh (struct AITeamMove *move, sdword watchPercentage, sdword watchBaseCount, bool8 oneShot, aieHandlerSimple handler);
-void aieHandlerSetFuelLow(struct AITeamMove *move, sdword watchPercentage, bool8 watchIndividual, bool8 oneShot, aieHandlerSimple handler);
-void aieHandlerSetFuelHigh(struct AITeamMove *move, sdword watchPercentage, bool8 watchIndividual, bool8 oneShot, aieHandlerSimple handler);
 void aieHandlerSetShipDied(struct AITeamMove *move, bool8 oneShot, aieHandlerShip handler);
 void aieHandlerSetTeamDied(struct AITeamMove *move, aieHandlerSimple handler);
 void aieHandlerSetInterrupt(struct AITeamMove *move, udword *intvar, udword interval, bool8 oneShot, aieHandlerInt handler);

@@ -62,6 +62,10 @@ bool32 ShipAlreadyHyperspaceOut(Ship *ship);      // don't include singleplayer.
 
 #define aiuRandomRange(prob, range)     randyrandombetween(RANDOM_AI_PLAYER, ((prob)-(range)), ((prob)+(range)))
 
+// CAT (M2-R7): the exe's round-to-nearest integer conversion (fadd 1.5 * 2^52; AIUtilities.c, also the defense
+//      manager's sphere-of-influence and cloak-defense intervals)
+udword cat_aiuRoundToUdword(double value);
+
 #define aiuGameTimePassed(time)         (universe.totaltimeelapsed > (time))
 
 #define aiuEnableResourceFeature(x)     (bitSet(aiplayer->ResourceFeatures, (x)))
@@ -220,7 +224,6 @@ void aiuMakeShipsOnlyDangerousToMothership(SelectCommand *enemyships);
 vector aiuFindEnemyMothershipCoords(Player *player);
 
 //returns TRUE if ships are less than dist away from the current players' enemy mothership
-bool32 aiuShipsCloseToEnemyMothership(Player *player, SelectCommand *ships, real32 dist);
 
 //finds the safest point a given distance away from the center of the
 //selected ships
@@ -285,10 +288,8 @@ ShipPtr aiuFindHarassTarget(SelectCommand *teamShips);
 SelectCommand *aiuFindCaptureTarget(SelectCommand *capturingShips);
 
 //finds the nearest target from the aiCurrentAIPlayer->Targets list
-SelectCommand *aiuFindSwarmerTarget(struct AITeam *team);
 
-//finds targets for the P2 swarmers
-SelectCommand *aiuFindSwarmTargets(SelectCommand *teamShips, udword numTargets, bool32 harass);
+// CAT: no P2 swarm target finders
 
 //finds out if a point is within the sphere of influence
 bool32 aiuPointWithinSphereOfInfluence(vector point);
@@ -355,8 +356,7 @@ SelectCommand *aiuAttack(struct AITeam *team, SelectCommand *targets);
 //splits the attackers into smaller groups.  Recommended for strikecraft vs strikecraft battles only
 void aiuSplitAttack(SelectCommand *attackers, SelectCommand *targets);
 
-//special swarm dock command
-void aiuSwarmDock(SelectCommand *ships, SelectCommand *Pods);
+// CAT: no P2 swarm dock command
 
 bool32 aiuWrapAttack(SelectCommand *attackers, SelectCommand *targets);
 bool32 aiuWrapMove(SelectCommand *ships, vector destination);

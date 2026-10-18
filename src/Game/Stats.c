@@ -1683,6 +1683,32 @@ ShipStaticInfo *statsBestShipToBuyToKillFleet(ShipRace shipRace,statShipConstrai
     return maxshipstatic;
 }
 
+// CAT (M2-R7 ai-orders-moves): cat_statsRandomAttackShipStatic 0x00524d70: a random attack ship of the race, one
+//      stream-6 draw over the exe's per-race tables (0x0089700c Sect 5, 0x00897020 Beast 7, 0x0089703c Kushan 6,
+//      0x00897054 Taiidan 7, 0x00897070 P1 2: the P1 draw takes the low bit); NULL and no draw for any other race. The
+//      fancy takeout order picks its secondary team with it (aioCreateFancyTakeoutTarget 0x00410920)
+static const ShipType cat_statsRandomAttackSect[5]    = { sRammingFrigate, sMultiBeamFrigate, sHiveFrigate, sDreadnought, sDestroyer };
+static const ShipType cat_statsRandomAttackBeast[7]   = { bAttackBomber, bMultiGunCorvette, bHeavyCorvette, bIonArrayFrigate,
+                                                          bHeavyCruiser, bCruiseMissile, bMissileCorvette };
+static const ShipType cat_statsRandomAttackKushan[6]  = { kAttackBomber, kHeavyCorvette, kHeavyCruiser, kIonCannonFrigate,
+                                                          kMultiGunCorvette, kStandardDestroyer };
+static const ShipType cat_statsRandomAttackTaiidan[7] = { tAttackBomber, tHeavyCruiser, tIonCannonFrigate, tMissileDestroyer,
+                                                          tMultiGunCorvette, tStandardDestroyer, tStandardFrigate };
+static const ShipType cat_statsRandomAttackP1[2]      = { p1IonArrayFrigate, p1MissileCorvette };
+
+ShipStaticInfo *cat_statsRandomAttackShipStatic(ShipRace race)
+{
+    switch (race)
+    {
+        case RACE_Sect:     return GetShipStaticInfo(cat_statsRandomAttackSect[ranRandom(RANDOM_AI_PLAYER) % 5], race);
+        case RACE_Beast:    return GetShipStaticInfo(cat_statsRandomAttackBeast[ranRandom(RANDOM_AI_PLAYER) % 7], race);
+        case RACE_Kushan:   return GetShipStaticInfo(cat_statsRandomAttackKushan[ranRandom(RANDOM_AI_PLAYER) % 6], race);
+        case RACE_Taiidan:  return GetShipStaticInfo(cat_statsRandomAttackTaiidan[ranRandom(RANDOM_AI_PLAYER) % 7], race);
+        case RACE_P1:       return GetShipStaticInfo(cat_statsRandomAttackP1[ranRandom(RANDOM_AI_PLAYER) & 1], race);
+        default:            return NULL;
+    }
+}
+
 ShipStaticInfo *statsBestShipToBuyToKillFleetStatic(ShipRace shipRace,statShipConstraintsCB constraintsCB,SelectCommandStatic *targetFleetStatic)
 {
     sdword i;

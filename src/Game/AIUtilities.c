@@ -38,7 +38,7 @@
     aiuRateBlobs 0x0041fd90): the value rounded to the nearest integer, ties to even (the FPU's default rounding), where
     HW1's (udword) cast truncated
 ----------------------------------------------------------------------------*/
-static udword cat_aiuRoundToUdword(double value)
+udword cat_aiuRoundToUdword(double value)
 {
     double biased = value + 6755399441055744.0;
     uint64_t bits;
@@ -1262,46 +1262,8 @@ vector aiuFindEnemyMothershipCoords(Player *player)
 }
 
 
-// CAT-TODO(M2-R7 AI orders): aiuShipsCloseToEnemyMothership has no cataclysm.exe counterpart and its callers (AIAttackMan.c aiaProcessHarassTeams, the P2 swarm move in AIMoves.c) are absent from the export: remove it with them, or port the exe's inline test if one is found
-/*-----------------------------------------------------------------------------
-    Name        : aiuShipsCloseToEnemyMothership
-    Description : Returns TRUE if the ships are close to an enemy mothership
-    Inputs      : dist - the distance in kilometers that determines what "close" is
-    Outputs     :
-    Return      : TRUE if the ships are close to an enemy mothership
-----------------------------------------------------------------------------*/
-bool32 aiuShipsCloseToEnemyMothership(Player *player, SelectCommand *ships, real32 dist)
-{
-    blob *shipblob;
-    udword numShipsInBlob, i;
-    real32 moshipDistSq;
-    ShipPtr testship;
-
-    dbgAssertOrIgnore(ships->numShips);
-
-    shipblob       = aiuWrapGetCollBlob(ships);
-    if (!shipblob) return FALSE;
-
-    numShipsInBlob = shipblob->blobShips->numShips;
-
-    for (i=0;i<numShipsInBlob;i++)
-    {
-        testship = shipblob->blobShips->ShipPtr[i];
-
-        if ((testship->shiptype == Mothership) &&
-            (!allianceArePlayersAllied(testship->playerowner, player)))
-        {
-            moshipDistSq = aiuFindDistanceSquared(testship->obj.posinfo.position,
-                                                  ships->ShipPtr[0]->obj.posinfo.position);
-            if (moshipDistSq < (dist*dist))
-            {
-                return TRUE;
-            }
-        }
-    }
-    return FALSE;
-}
-
+// CAT (M2-R7 ai-orders-moves): no aiuShipsCloseToEnemyMothership: cataclysm.exe has none and its callers (HW1's
+//      aiaProcessHarassTeams, the P2 swarm attack) are gone with it
 
 
 /*-----------------------------------------------------------------------------
@@ -2389,168 +2351,7 @@ SelectCommand *aiuFindCaptureTarget(SelectCommand *capturingShips)
 
 
 
-/*-----------------------------------------------------------------------------
-    Name        : aiuFindSwarmerTarget
-    Description : Returns the nearest ship on the aiplayer->Targets list
-                  If the ships are strike craft, a list of the ships is returned
-    Inputs      : teamShips - the members of the swarmer team
-    Outputs     :
-    Return      : the ship(s) to attack
-----------------------------------------------------------------------------*/
-SelectCommand *aiuFindSwarmerTarget(AITeam *team)
-{
-    ShipPtr target = NULL, enemyMothership = NULL;
-    SelectCommand *swarm_targets;
-    SelectCommand *other_targets = team->curMove->params.swarmatt.othertargets;
-    SelectCommand *teamShips = team->shipList.selection;
-    MaxSelection temp;
-    udword i;
-
-    if (((other_targets) && (other_targets->numShips)) ||
-        ((aiCurrentAIPlayer->Targets) && (aiCurrentAIPlayer->Targets->numShips)))
-    {
-        //get targets (locally or globally)
-        if (other_targets)
-        {
-            swarm_targets = selectMemDupSelection(other_targets, "swarmtarg", Pyrophoric);
-            swarm_targets->numShips = 0;
-        }
-        else
-        {
-            swarm_targets = selectMemDupSelection(aiCurrentAIPlayer->Targets, "swarmtarg", Pyrophoric);
-            swarm_targets->numShips = 0;
-        }
-
-        //get the closest of the targets
-        target = aiuGetClosestShip(aiCurrentAIPlayer->Targets, teamShips->ShipPtr[0]);
-
-        //make sure the target isn't a resourcer docking with a mothership
-        enemyMothership = aiuFindEnemyMothership(aiCurrentAIPlayer->player);
-        while ((target) &&
-               (enemyMothership) &&
-               (target->shiptype == ResourceCollector) &&
-               (aiuFindDistanceSquared(target->obj.posinfo.position, enemyMothership->obj.posinfo.position) < 4500))
-        {
-            clRemoveShipFromSelection(aiCurrentAIPlayer->Targets, target);
-            target = aiuGetClosestShip(aiCurrentAIPlayer->Targets, teamShips->ShipPtr[0]);
-        }
-
-        if (target)
-        {
-            //get as many targets as needed (more than one for strikecraft)
-            selSelectionAddSingleShip((MaxSelection *)swarm_targets, target);
-            clRemoveShipFromSelection(aiCurrentAIPlayer->Targets, target);
-            if (isShipOfClass(target, CLASS_Corvette))
-            {
-                selSelectionCopyByClass(&temp, (MaxSelection *)aiCurrentAIPlayer->Targets, CLASS_Corvette);
-                for (i=4;(i<teamShips->numShips)&&(temp.numShips);i+=6)
-                {
-                    target = aiuGetClosestShip((SelectCommand *)&temp, teamShips->ShipPtr[0]);
-                    selSelectionAddSingleShip((MaxSelection *)swarm_targets, target);
-                    clRemoveShipFromSelection((SelectCommand *)&temp, target);
-                    clRemoveShipFromSelection(aiCurrentAIPlayer->Targets, target);
-                }
-            }
-            else if (isShipOfClass(target, CLASS_Fighter))
-            {
-                selSelectionCopyByClass(&temp, (MaxSelection *)aiCurrentAIPlayer->Targets, CLASS_Fighter);
-                for (i=2;(i<teamShips->numShips)&&(temp.numShips);i+=3)
-                {
-                    target = aiuGetClosestShip((SelectCommand *)&temp, teamShips->ShipPtr[0]);
-                    selSelectionAddSingleShip((MaxSelection *)swarm_targets, target);
-                    clRemoveShipFromSelection((SelectCommand *)&temp, target);
-                    clRemoveShipFromSelection(aiCurrentAIPlayer->Targets, target);
-                }
-            }
-        }
-        if (swarm_targets->numShips)
-        {
-            return swarm_targets;
-        }
-        else
-        {
-            aiumemFree(swarm_targets);
-        }
-    }
-
-    return NULL;
-}
-
-
-
-/*-----------------------------------------------------------------------------
-    Name        : aiuFindSwarmTarget
-    Description : Finds a/some ships for the swarmers to kill
-    Inputs      : teamShips - the members of the swarm team
-    Outputs     :
-    Return      : Selection of ships to attack
-----------------------------------------------------------------------------*/
-SelectCommand *aiuFindSwarmTargets(SelectCommand *teamShips, udword numTargets, bool32 harass)
-{
-    SelectCommand *returnShips;
-    SelectCommand *blobShips;
-    ShipPtr ship;
-    udword i;
-    blob *blob;
-
-    //harass takes highest priority
-    if (harass)
-    {
-        if ((ship = aiuFindHarassTarget(teamShips)) != NULL)
-        {
-            aiuNewSelection(returnShips, 1, "swarmharass");
-            returnShips->ShipPtr[0] = ship;
-            returnShips->numShips = 1;
-
-            return returnShips;
-        }
-    }
-
-    blob = aiuWrapGetCollBlob(teamShips);
-    if (!blob)
-    {
-        return NULL;
-    }
-
-    blobShips = selectMemDupSelection(blob->blobShips, "fstd", Pyrophoric);
-    MakeTargetsOnlyEnemyShips((SelectAnyCommand *)blobShips, aiCurrentAIPlayer->player);
-
-    if (blobShips->numShips)
-    {
-        if (blobShips->numShips <= numTargets)
-        {
-            return blobShips;
-        }
-        aiuNewSelection(returnShips, numTargets, "swarmtargets");
-
-        for (i=0;(i < numTargets) && (blobShips->numShips);)
-        {
-            returnShips->ShipPtr[i] = statsGetMostDangerousShip(blobShips);
-            clRemoveShipFromSelection(blobShips, returnShips->ShipPtr[i]);
-            if ((returnShips->ShipPtr[i]->shiptype != DFGFrigate) &&
-                (returnShips->ShipPtr[i]->shiptype != GravWellGenerator))
-            {
-                returnShips->numShips++;
-                i++;
-            }
-        }
-
-        memFree(blobShips);
-        return returnShips;
-    }
-
-    blobShips->numShips = 0;
-
-    if ((ship = aiuFindHarassTarget(teamShips)) != NULL)
-    {
-        blobShips->ShipPtr[0] = ship;
-        blobShips->numShips = 1;
-        return blobShips;
-    }
-
-    memFree(blobShips);
-    return NULL;
-}
+// CAT (M2-R7 ai-orders-moves): no aiuFindSwarmerTarget / aiuFindSwarmTargets (P2 swarm moves only; not in cataclysm.exe)
 
 
 /*-----------------------------------------------------------------------------
@@ -3794,7 +3595,7 @@ bool32 aiuFindArmadaTarget(vector *dest_target, SelectCommand **sel_target, Sele
     }
     // CAT: the mothership fallback needs a live mothership and its blob, and targets the mothership alone (HW1's
     //      "postfinal" ships within 9000 are gone): aiuFindArmadaTarget 0x0041e860 from 0x0041e9fa.
-    // CAT-TODO(M2-R7 AI orders): aiuFindArmadaTarget fills a selection buffer its caller owns (aiaArmada 0x00401120 passes one in AIPlayer; numShips 0 when nothing is found) where this tree allocates it: port with aiaArmada
+    // CAT-TODO(M2-R7 AI player): aiuFindArmadaTarget fills the MaxSelection the exe keeps in AIPlayer (ArmadaType at +0xCF4: numTeams byte, targets +0xCF8, visibility +0x1CA0, recon_team +0x1CA4; aiaArmada 0x00401120) where this tree allocates one: embed it with the AIPlayer layout and its save chunk (aiaArmada, aiaShipDied and aimProcessArmada already test numShips as the exe does, M2-R7 ai-orders-moves)
     else if ((aiCurrentAIPlayer->primaryEnemyPlayer->PlayerMothership != NULL) &&
              (!bitTest(aiCurrentAIPlayer->primaryEnemyPlayer->PlayerMothership->header.flags, SOF_Dead)) &&
              (mothership_blob != NULL))
@@ -4000,64 +3801,7 @@ void aiuSplitAttack(SelectCommand *ships, SelectCommand *targets)
 
 
 
-/*-----------------------------------------------------------------------------
-    Name        : aiuSwarmDock
-    Description : Finds the nearest pod to dock with that isn't busy
-    Inputs      : ships - the ships to dock, pods - the pods to dock at
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
-void aiuSwarmDock(SelectCommand *ships, SelectCommand *pods)
-{
-    extern real32 BUSY_ADD_TO_DISTANCE;
-    SelectCommand *dockgroups[20];
-    real32 dist, busyadddist, mindist = REALlyBig;
-    vector diff;
-    udword i, j, closestDockat = 0;
-    ShipPtr ship, dockat;
-
-    dbgAssertOrIgnore(pods->numShips);
-
-    if (pods->numShips == 1)
-    {
-        aiuWrapDock(ships, CAT_DOCK_SUPPORT, pods->ShipPtr[0]);
-        return;
-    }
-
-    for (i=0;i<pods->numShips;i++)
-    {
-        aiuNewPyroSelection(dockgroups[i], ships->numShips, "aswd");
-    }
-
-    for (i=0;i<ships->numShips;i++)
-    {
-        ship = ships->ShipPtr[i];
-
-        for (j=0;j<pods->numShips;j++)
-        {
-            dockat = pods->ShipPtr[j];
-
-            vecSub(diff,dockat->obj.posinfo.position,ship->obj.posinfo.position);
-            dist = fsqrt(vecMagnitudeSquared(diff));
-            // CAT (M2-R5 dock): no HW1 busyness term (DockInfo has none in the exe).
-            // CAT-TODO(M2-R7 AI orders): aiuSwarmDock, aiuFindSwarmerTarget and aiuFindSwarmTargets have no cataclysm.exe counterpart (the export has none of them and no aimProcessSwarm* move; HW1's fuel pods are gone): remove them with their callers, the P2 swarm moves in AIMoves.c
-
-            if (dist < mindist)
-            {
-                mindist = dist;
-                closestDockat = j;
-            }
-        }
-
-        selSelectionAddSingleShip((MaxSelection *)dockgroups[closestDockat], ship);
-    }
-    for (i=0;i<pods->numShips;i++)
-    {
-        aiuWrapDock(dockgroups[i], CAT_DOCK_SUPPORT, pods->ShipPtr[i]);
-        aiumemFree(dockgroups[i]);
-    }
-}
-
+// CAT (M2-R7 ai-orders-moves): no aiuSwarmDock (P2 swarm moves only; not in cataclysm.exe)
 
 
 /*-----------------------------------------------------------------------------

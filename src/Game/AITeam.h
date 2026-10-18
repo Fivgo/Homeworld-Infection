@@ -80,33 +80,33 @@ typedef enum {
     MOVE_FLANKATTACK,            //19
     MOVE_MOVEATTACK,             //20
     MOVE_HARASSATTACK,           //21
-    MOVE_SWARMATTACK,            //22
-    MOVE_SWARMDEFENSE,           //23
-    MOVE_SWARMPOD,               //24
-    MOVE_FANCYGETSHIPS,          //25
-    MOVE_DOCK,                   //26
-    MOVE_LAUNCH,                 //27
-    MOVE_REINFORCE,              //28
-    MOVE_VARSET,                 //29
-    MOVE_VARINC,                 //30
-    MOVE_VARDEC,                 //31
-    MOVE_VARWAIT,                //32
-    MOVE_VARDESTROY,             //33
-    MOVE_GUARDCOOPTEAM,          //34
-    MOVE_SUPPORT,                //35
-    MOVE_ARMADA,                 //36
-    MOVE_CONTROLRESOURCES,       //37
-    MOVE_RESVOLUME,              //38
-    MOVE_CAPTURE,                //39
-    MOVE_ACTIVECAPTURE,          //40
-    MOVE_ACTIVEMINE,             //41
-    MOVE_MINEVOLUME,             //42
-    MOVE_SPECIALDEFENSE,         //43
-    MOVE_ACTIVERES,              //44
-    MOVE_MOTHERSHIP,             //45
-    MOVE_KAMIKAZE,               //46
-    MOVE_HYPERSPACE,             //47
-    MOVE_DELETETEAM,             //48
+    // CAT (M2-R7 ai-orders-moves): no P2 swarm moves (HW1's MOVE_SWARMATTACK / SWARMDEFENSE / SWARMPOD, 22-24): the
+    //      exe's creators store 0x16 for fancy get-ships (aimCreateFancyGetShipsNoAdd 0x0040df90), 0x17 dock
+    //      (aimCreateDock 0x0040c280), 0x2B kamikaze (0x0040d970) and 0x2D delete-team (0x0040d050)
+    MOVE_FANCYGETSHIPS,          //22
+    MOVE_DOCK,                   //23
+    MOVE_LAUNCH,                 //24
+    MOVE_REINFORCE,              //25
+    MOVE_VARSET,                 //26
+    MOVE_VARINC,                 //27
+    MOVE_VARDEC,                 //28
+    MOVE_VARWAIT,                //29
+    MOVE_VARDESTROY,             //30
+    MOVE_GUARDCOOPTEAM,          //31
+    MOVE_SUPPORT,                //32
+    MOVE_ARMADA,                 //33
+    MOVE_CONTROLRESOURCES,       //34
+    MOVE_RESVOLUME,              //35
+    MOVE_CAPTURE,                //36
+    MOVE_ACTIVECAPTURE,          //37
+    MOVE_ACTIVEMINE,             //38
+    MOVE_MINEVOLUME,             //39
+    MOVE_SPECIALDEFENSE,         //40
+    MOVE_ACTIVERES,              //41
+    MOVE_MOTHERSHIP,             //42
+    MOVE_KAMIKAZE,               //43
+    MOVE_HYPERSPACE,             //44
+    MOVE_DELETETEAM,             //45
     NUMBER_OF_MOVETYPES    // must go last
 } AIMoveTypes;
 
@@ -305,28 +305,7 @@ typedef struct
     ShipPtr target;
 } paramsHarassAttack;
 
-typedef struct
-{
-    SelectCommand *targets;
-    SelectCommand *othertargets;
-    GrowSelection newSwarmers;
-//    ShipType      targettype;
-} paramsSwarmAttack;
-
-typedef struct
-{
-    GrowSelection newSwarmers;
-    SelectCommand *guarding;
-    SelectCommand *Pods;
-    bool32           full_attack;
-    bool32           full_refuel;
-} paramsSwarmDefense;
-
-typedef struct
-{
-    bool32 first_attack;
-    udword attack_delay;
-} paramsSwarmPod;
+// CAT (M2-R7 ai-orders-moves): no P2 swarm move parameters (paramsSwarmAttack / SwarmDefense / SwarmPod)
 
 #define dockmoveFlags_Normal            0
 #define dockmoveFlags_AtShip            1
@@ -453,9 +432,6 @@ typedef struct AITeamMove {
         paramsFlankAttack       flankatt;
         paramsMoveAttack        moveatt;
         paramsHarassAttack      harass;
-        paramsSwarmAttack       swarmatt;
-        paramsSwarmDefense      swarmdef;
-        paramsSwarmPod          swarmpod;
         paramsFancyGetShips     fancyGetShips;
         paramsDock              dock;
         paramsReinforce         reinforce;
@@ -491,6 +467,18 @@ typedef struct AITeamMove {
     TacticsType     tactics;
 
 } AITeamMove;
+
+#if defined(__i386__) || defined(_M_IX86)
+// CAT (M2-R7 ai-orders-moves): the exe's move (memAllocFunction(0x170) in every aimCreate*; type +0x10, params +0x14,
+//      events +0xCC, process / shipDied / close +0x154 / +0x158 / +0x15C, processing / wait / remove +0x164..+0x166,
+//      formation +0x168, tactics +0x16C)
+_Static_assert(sizeof(AITeamMove) == 0x170, "AITeamMove is 0x170 bytes in cataclysm.exe");
+_Static_assert(offsetof(AITeamMove, type) == 0x10, "AITeamMove.type at +0x10");
+_Static_assert(offsetof(AITeamMove, events) == 0xCC, "AITeamMove.events at +0xCC (aieHandlersClear 0x00403eb0)");
+_Static_assert(offsetof(AITeamMove, processFunction) == 0x154, "AITeamMove.processFunction at +0x154");
+_Static_assert(offsetof(AITeamMove, processing) == 0x164, "AITeamMove.processing at +0x164");
+_Static_assert(offsetof(AITeamMove, tactics) == 0x16C, "AITeamMove.tactics at +0x16C");
+#endif
 
 /*=============================================================================
     Macros:
@@ -579,15 +567,7 @@ void aitDeleteAllTeamMoves(AITeam *team);
 
 void aitAddShip(AITeam *team, ShipPtr ship);
 
-//swarm specific code
-void aitMoveSwarmShipDefenseToAttack(AITeam *attackSwarm, AITeam *defenseSwarm, ShipPtr ship);
-void aitMoveAllSwarmShipsDefenseToAttack(AITeam *defenseSwarm, AITeam *attackSwarm);
-void aitMoveAllSwarmShipsAttackToDefense(AITeam *attackSwarm, AITeam *defenseSwarm);
-void aitMoveAllSwarmShipsDefense(AITeam *destTeam, AITeam *sourceTeam);
-void aitMoveAllSwarmShipsAttack(AITeam *destTeam, AITeam *sourceTeam);
-AITeam *aitFindNewPod(AITeam *defenseTeam);
-void aitMoveSwarmersToNewPod(AITeam *defenseTeam, AITeam *podTeam);
-bool32 aitAllDefenseSwarmersFull(void);
+// CAT (M2-R7 ai-orders-moves): no P2 swarm team helpers
 
 void aitSpecialDefenseCoopTeamDiedCB(AITeam *team);
 void GenericCooperatingTeamDiedCB(AITeam *team);

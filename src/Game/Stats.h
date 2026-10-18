@@ -93,6 +93,7 @@ ShipStaticInfo *statsGetMostDangerousShipStaticConstraints(SelectCommandStatic *
 
 ShipStaticInfo *statsBestShipToBuyToKillShip(ShipRace shipRace,statShipConstraintsCB constraintsCB,ShipStaticInfo *targetstatic);
 ShipStaticInfo *statsBestShipToBuyToKillFleet(ShipRace shipRace,statShipConstraintsCB constraintsCB,SelectCommand *targetFleet);
+ShipStaticInfo *cat_statsRandomAttackShipStatic(ShipRace race);     // CAT: 0x00524d70 (M2-R7 ai-orders-moves)
 ShipStaticInfo *statsBestShipToBuyToKillFleetStatic(ShipRace shipRace,statShipConstraintsCB constraintsCB,SelectCommandStatic *targetFleetStatic);
 Ship *statsBestShipToUseToKillShip(SelectCommand *freeShips,ShipStaticInfo *targetstatic);
 Ship *statsBestShipToUseToKillFleet(SelectCommand *freeShips,SelectCommand *targetFleet);

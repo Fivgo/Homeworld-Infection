@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle|replay
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle|replay|ai
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -163,6 +163,17 @@
 #                    thread ends an ambience sound (SoundEvent.c soundover), on the wall clock even on SDL's dummy
 #                    driver, which made rng_all differ run to run from about tick 476. Needs --timeout of several
 #                    minutes under ASan
+#                    ai: /catAiTest <ticks> /oracleDump <run>/run.hwo (M2-R7 ai-orders-moves, docs/m2-r7-ai-orders-moves.md):
+#                    the headless Mission01 run of the mission mode, writing the oracle stream: at tick 16 the computer
+#                    player (player 1, AI_ADVANCED) gets a scripted factory (its race's mothership, made its
+#                    PlayerMothership) far from the level's ships, 30,000 RUs and a scripted fleet of its race handed to
+#                    the AI as new ships, and fleet control is turned on (singlePlayerGameInfo.giveComputerFleetControl,
+#                    as the missions' KAS call does); every tick the table of checks in src/Game/AISelfTest.c runs on the
+#                    AI's own structures: teams formed (attack, guard and recon teams), attack / defence / recon orders
+#                    (a move of that kind in a team's move list), moves issued (a team with ships past its get-ships
+#                    move) and commands given (a team ship with a command-layer order); "aitest: <check> tick=N ..."
+#                    the first tick each holds, "aitest: status" every 256 ticks, "aitest: done ... result=PASS|FAIL";
+#                    quits after <ticks> ticks (two runs must give byte-identical run.hwo streams)
 #   --recording NAME replay mode: the recorded game to replay (default oracle01)
 #   --oracle-ticks N oracle mode: universe ticks to run (default 512)
 #   --mission-ticks N mission mode: universe ticks to run (default 3000)
@@ -173,6 +184,7 @@
 #   --ui-ticks N     ui mode: the mission run's tick limit (default 400; the test quits by itself at tick 48 + 8 frames)
 #   --console-ticks N console mode: the mission run's tick limit (default 400; the test quits once the console is gone)
 #   --build-ticks N  build mode: universe ticks to run (default 7000; the jobs end near tick 5,000)
+#   --ai-ticks N     ai mode: universe ticks to run (default 400: the checks hold by tick 65, one AI update (16 ticks) a stage; docs/m2-r7-ai-orders-moves.md)
 #   --etg-ticks N    etg mode: ticks of the effect self-test (default 128; 0 = parse test only)
 #   --motion-ticks N motion mode: the run's last universe tick (default 224: a 160-tick window from tick 64)
 #   --nis SPEC       nis mode: NAME[:FROM:TO] (default n06:26:36: nis\n06.nis, NIS times 26 s to 36 s)
@@ -247,7 +259,7 @@ label=${1:?usage: m2_harness.sh <label> [--mode sp|fe] [--timeout N] [--driver D
 shift
 mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"; extra=()
 oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=3000; rframes=600; hframes=600; uticks=400
-conticks=400; bticks=7000
+conticks=400; bticks=7000; aiticks=400
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01
 while [[ $# -gt 0 ]]; do
 	case "$1" in
@@ -265,6 +277,7 @@ while [[ $# -gt 0 ]]; do
 		--ui-ticks) uticks=$2; shift ;;
 		--console-ticks) conticks=$2; shift ;;
 		--build-ticks) bticks=$2; shift ;;
+		--ai-ticks) aiticks=$2; shift ;;
 		--etg-ticks) etgticks=$2; shift ;;
 		--motion-ticks) motticks=$2; shift ;;
 		--nis) nisspec=$2; shift ;;
@@ -315,6 +328,8 @@ elif [[ "$mode" == console ]]; then
 	args+=(/catConsoleTest "$conticks")
 elif [[ "$mode" == build ]]; then
 	args+=(/catBuildTest "$bticks" /oracleDump "$out/run.hwo")
+elif [[ "$mode" == ai ]]; then
+	args+=(/catAiTest "$aiticks" /oracleDump "$out/run.hwo")
 elif [[ "$mode" == motion ]]; then
 	args+=(/catMotionFps "$vfps" /catMotionTest "$motticks" /catMotionDump "$out/motion.dump")
 elif [[ "$mode" == replay ]]; then
@@ -448,6 +463,7 @@ grep -q "stringstest: done" "$L" && milestone="strings self-test done"
 grep -q "keystest: done" "$L" && milestone="keys self-test done"
 grep -q "consoletest: done" "$L" && milestone="console self-test done"
 grep -q "buildtest: done" "$L" && milestone="build self-test done"
+grep -q "aitest: done" "$L" && milestone="ai self-test done"
 grep -q "nisparsetest: done" "$L" && milestone="nisparse self-test done"
 grep -q "motiontest: done" "$L" && milestone="motion self-test done"
 grep -q "toggletest: done" "$L" && milestone="toggle self-test done"
@@ -495,6 +511,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == strings ]] && echo "stringstest: $(grep -h 'stringstest: ' "$L" | grep -v 'stringstest: FAIL' | sed 's/^.*stringstest: //' | paste -sd';'); FAIL lines: $(grep -c 'stringstest: FAIL' "$L")"
 	[[ "$mode" == console ]] && echo "consoletest: $(grep -h 'consoletest: ' "$L" | grep -v 'consoletest: FAIL' | sed 's/^.*consoletest: //' | paste -sd';'); FAIL lines: $(grep -c 'consoletest: FAIL' "$L")"
 	[[ "$mode" == build ]] && echo "buildtest: $(grep -h 'buildtest: orders\|buildtest: queued\|buildtest: appeared\|buildtest: attached\|buildtest: finished\|buildtest: job\|buildtest: done' "$L" | sed 's/^.*buildtest: //' | paste -sd';'); FAIL lines: $(grep -c 'buildtest: FAIL' "$L")"
+	[[ "$mode" == ai ]] && echo "aitest: $(grep -h 'aitest: ' "$L" | grep -v 'aitest: status\|aitest: FAIL\|aitest: loaded' | sed 's/^.*aitest: //' | paste -sd';'); FAIL lines: $(grep -c 'aitest: FAIL' "$L")"
 	[[ "$mode" == nisparse ]] && echo "nisparsetest: $(grep -c . "$out/nis.list" 2>/dev/null) files listed; $(grep -h 'nisparsetest: done' "$L" | sed 's/^.*nisparsetest: //' | head -n 1); FAIL lines: $(grep -c 'nisparsetest: FAIL' "$L"); ignored keywords: $(grep -h 'nisparsetest: keyword' "$L" | sed "s/^.*: '//; s/' / /" | paste -sd',')"
 	[[ "$mode" == motion || "$mode" == nis ]] && echo "motiontest: $(grep -h 'motiontest: ' "$L" | sed 's/^.*motiontest: //' | paste -sd';'); dump $(ls "$out"/*.dump 2>/dev/null | head -n 1 | xargs -r -I{} sh -c 'echo "$(basename {}) $(grep -c "^F " {}) frames, sha256 $(sha256sum {} | cut -c1-16)"')"
 	[[ "$mode" == toggle ]] && echo "toggletest: $(grep -h 'toggletest: ' "$L" | grep -v 'toggletest: FAIL' | sed 's/^.*toggletest: //' | paste -sd';'); FAIL lines: $(grep -c 'toggletest: FAIL' "$L")"
