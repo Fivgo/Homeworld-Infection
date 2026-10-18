@@ -22,7 +22,8 @@
 #   CommandLayer.h (CommandToDo 0x330 with the waypoint MoveCommand 0x108), Formation.h (FormationCommand 0x60) and
 #   Tactics.h (TacticsInfo; docs/m2-r5-command-tactics.md); since M2-R6 mainrgn-popup also PopupMenu.h (CatPopupItem
 #   0x3C) and ShipSelect.h (CatTargetActions 0x29 dwords; docs/m2-r6-mainrgn-popup.md); since M2-R6 frontend also
-#   FEFlow.h (the .fib screen 20, link 12, atom 0x4C; docs/m2-r6-frontend.md). Prints the ILP32 sizes on success.
+#   FEFlow.h (the .fib screen 20, link 12, atom 0x4C; docs/m2-r6-frontend.md); since M2-R6 startup-keys also
+#   KeyBindings.h (CatKbBinding 0x10, CatKbCommandBindings 0x34; docs/m2-r6-startup-keys.md). Prints the ILP32 sizes on success.
 #   No 32-bit libc is needed: an empty gnu/stubs-32.h shim is created in a temporary directory.
 # Exit status: 0 if every assert holds, 1 otherwise.
 set -euo pipefail
@@ -56,6 +57,7 @@ cat > "$tmp/layout.c" <<'EOF'
 #include "PopupMenu.h"
 #include "ShipSelect.h"
 #include "FEFlow.h"
+#include "KeyBindings.h"
 char (*cat_ssi)[sizeof(ShipStaticInfo)] = 1;
 char (*cat_gs)[sizeof(GunStatic)] = 1;
 char (*cat_csh)[sizeof(CustShipHeader)] = 1;
@@ -85,6 +87,7 @@ char (*cat_fc)[sizeof(FormationCommand)] = 1;
 char (*cat_ti)[sizeof(TacticsInfo)] = 1;
 char (*cat_pmi)[sizeof(CatPopupItem)] = 1;
 char (*cat_tga)[sizeof(CatTargetActions)] = 1;
+char (*cat_kbc)[sizeof(CatKbCommandBindings)] = 1;
 EOF
 cc=(clang -m32 -fsyntax-only -std=gnu11 -D_X86 -malign-double -DHW_GAME_HOMEWORLD -DHW_BUILD_FOR_DISTRIBUTION
 	-D_LINUX_FIX_ME -D_GNU_SOURCE -I"$root/src/Game" -I"$root/src/SDL" -I"$root/src/Ships"
@@ -97,7 +100,7 @@ if grep -q "error" <<<"$out"; then
 	exit 1
 fi
 "${cc[@]}" -Wint-conversion "$tmp/layout.c" 2>&1 | grep -o "'char (\*)\[[0-9]*\]'" | tr -d "'" |
-	paste -sd' ' | sed 's/^/ILP32 sizes (ShipStaticInfo GunStatic CustShipHeader polygonobject texreg SENTENCELUT ClampInfo StaticCollInfo AlternativeShips MilitaryParadeCommand ranstream SaveChunk particle eboltSystem Player Universe PlayerStats TechStatics shipinprogress Ship Missile Bullet Derelict Asteroid CommandToDo FormationCommand TacticsInfo CatPopupItem CatTargetActions): /'
+	paste -sd' ' | sed 's/^/ILP32 sizes (ShipStaticInfo GunStatic CustShipHeader polygonobject texreg SENTENCELUT ClampInfo StaticCollInfo AlternativeShips MilitaryParadeCommand ranstream SaveChunk particle eboltSystem Player Universe PlayerStats TechStatics shipinprogress Ship Missile Bullet Derelict Asteroid CommandToDo FormationCommand TacticsInfo CatPopupItem CatTargetActions CatKbCommandBindings): /'
 # M2-R3 ships-a: the ship files whose specifics/statics sizes are pinned under __i386__ (asserts in the files); M2-R4
 # ships-b added the Cataclysm-only ships (docs/m2-r4-ships-b.md)
 ships=(AdvanceSupportFrigate Carrier DFGFrigate DefaultShip FloatingCity GenericDefender GenericInterceptor

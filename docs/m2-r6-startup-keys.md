@@ -1,7 +1,10 @@
-<!-- done: options, keys, console, overlay -->
+<!-- done: options, keys, console, overlay, startup, review -->
 # M2-R6 startup-keys: start-up, main, utility, key bindings, console
 
-Status: IN PROGRESS (producer 3 of M2-R6; base commit `142a8e2`; nothing committed, the auditor checkpoints).
+Status: DONE (producer 3 of M2-R6; base commit `142a8e2`; the first session was cut off by the usage limit and left the
+WIP snapshot `57ae3b4` with options, keys, console and overlay done; this session continued it with startup and review
+and the gate runs; nothing committed by the producer, the auditor checkpoints). `docs/PLAN.md` in `git diff 142a8e2` is
+commit `404e74e` (another agent), not this producer's.
 
 Subsystems (in this order): `options` (the options file Cataclysm.cfg: utility.c's table at the exe's, debugwnd.h,
 the harness's home template), `keys` (Key.c, KeyBindings.c: `cat_kb*`, the key names, the key dispatch;
@@ -184,3 +187,173 @@ message, debugwnd.c), `review` (delta-map review entries).
 - `src/SDL/debugwnd.c` / `cat_dd*` (`cat_ddDelete` 0x005567a0, `cat_ddCreate` 0x005567f0, `cat_ddActivate`
   0x005568d0, `cat_ddErrorString` 0x00556990): the Win32 DirectDraw debug window, not applicable (SDL, decision 28;
   debugwnd.c is not in the build).
+
+## startup (done)
+
+Read against the r6 decompile and disassembly (`tools/m2_fdec.py`, `tools/m2_fdis.py`, `tools/m2_exedata.py`).
+
+- `src/SDL/main.c`:
+  - start-up (`WinMain` 0x005631f0): `main()` already had the exe's order (single-instance check on Win32, options
+    file, `opKeyboardLoad`, command line, `utyGameSystemsPreInit`, window, `utyGameSystemsInit`, the loop dispatching
+    tasks and the options timer); a comment lists what SDL does not have (the "CloseCataclysm" message, the registry
+    copy of the command line, `glCapNT` / `glCap95` / `cat_glCapWin2K`, device enumeration and rGL / Glide selection,
+    the loop's `CataclysmPatch.exe` launch, the message box titled "Emergence"). The window title is the exe's
+    "Emergence" (class / title 0x008b85b8 / 0x008b85c4; `windowTitle`, render.c `CAT_RND_WINDOW_TITLE`). The R2
+    workaround list stays empty: every run below is the plain harness.
+  - `ProcessCommandLine` 0x0055f880: a switch whose parameter is missing, or whose function fails, prints the help
+    and ends the start-up (-1; HW1 / GoK went on with the next token). The exe's 63-row table 0x008b8870 (dumped from
+    the exe) compared with the tree's: rows added `/prepath` (`cat_mainPrependPathSet` 0x0055f3d0, WIP), `/CDpath`
+    through `cat_mainCDROMPathSet` 0x0055f3f0 (GoK's `fileCDROMPathSet` keeps the Win32 drive test and the exe's
+    message; a set path stops the CD search), `/SaveMPGames` / `/LoadMPGame` (`cat_mainLoadMPGameSet` 0x0055f500, WIP),
+    the hidden `/d3dDeviceCRC` (0x008b8c00, `mainOutputCRC`), `/aiplayerLog` also in release builds (row 0x008b8d20 is
+    visible; HW1 had it only in debug builds); `/NoBind` gone (WIP). The tree's other rows are GoK's (`/settingspath`,
+    `/bigoverride`, `/ignoreBigfiles`, ...) or HWI diagnostics. `DebugHelpDefault` 0x0055f6c0 is HW1's over that table
+    (GoK prints it to stdout).
+  - `networkVersion` "Emergence 1" and the new `minorBuildVersion` "01" (0x008b8850 / 0x008b8860; GoK
+    "GardensOfKadesh" / `HOMEWORLD_BUILD_VERSION`; mainswitches.h declares it).
+  - `HandleEvent` (`WindowProc` 0x00561f10): Escape now ends its case (GoK fell through into F11's); every key down
+    goes to `cat_consoleKeyPress` (WIP). The Bink stop on Escape, the Shift+Ctrl+F11 / F12 renderer resets and the
+    rGL / Glide cases stay GoK's SDL handling (decision 28).
+  - `mainCloseRender`: comment for the exe's copies (inlined in `mainLoadGL` 0x00561570, `mainRestoreRender`
+    0x00560ba0, `WindowProc`), which also free the glcompat textures (not built) and the plug texture:
+    `CAT-TODO(M2-R7 render)` for `rndLoadShamelessPlug(FALSE)` 0x00579fa0 with `rndShamelessPlug`'s port.
+    `mainResetRender` 0x00560420 has the exe's order with the three unloads (WIP); `mainOpenRender`,
+    `mainRestoreSoftware`, `mainLoadGL`, `mainLoadParticularRGL` get them through it.
+  - `DeactivateMe` 0x0055fb90: comment only (minimise, renderer deactivation and `binkPause` are SDL's and GoK's movie
+    player's, which has no pause).
+- `src/SDL/utility.c`:
+  - `gameStart` 0x005a9290, read in full (it was "not reviewed in full"): the tutorial is Sect against Beast and a
+    single-player game Sect (player 0) against Beast whatever race was picked; a skirmish gives player 0 the picked
+    race and the others the other race and the picked one by turns; player 1's colour only for Sect / Beast; the
+    current player's research / construction / launch managers closed first (`rmCloseIfOpen` / `cmCloseIfOpen` /
+    `lmCloseIfOpen`); `sensorLevel` always 0; a skirmish computer's AI level is the stored level itself
+    (`opCPUDifficulty` stores it by radio button; `ConvertSliderToAIPlayerDifficulty` would map 0..2 all to
+    beginner); the first research init uses the word 0x00a75240, which has no writer in the exe (three reads, all in
+    gameStart), so 0; a computer player gets five times the starting resources (2000 for the "none" setting) when flag
+    bit 5 is set, and there is no harvesting `rmEnableShip` pass; `universeSwitchToPlayer(curPlayer)` after the level
+    or load; after the sync number every player's tech set again (`cat_rmTechSetInit`: everything in a non-tutorial
+    skirmish / multiplayer game with research off, else nothing; the human player keeps its set while the
+    single-player warp is on) with `cat_playerUpdateUpgradesFromResearch`; at the end of a new game every ship gets
+    `cat_shipApplyUpgrades` and a host with clamped objects `updateClampedObject`; the tutorial plays track 0x12; no
+    `universeFlagEverythingNeeded` for the stats switches; `bobInitProperties` is 0x00425ca0, a jump to
+    `bobResetProperties` (Blobs.c: no mission-6 blob radius). Each of the tech-set pass and the upgrade pass was first
+    built as an experiment and its 6,000-tick Mission01 stream compared: IDENTICAL to R5 (`r6sk-exp-tech-mission`,
+    `r6sk-exp-upg-mission`), so both are ported. Not ported, re-targeted (one line, owner first):
+    `CAT-TODO(stage 6 level load)` the start-position shuffle (20 swaps of a table 0x00ab77e0 with two
+    `ranRandomFn(0)` picks each, read by `scriptSetMissionSphereCB` 0x004a2420 / `scriptPreMissionSphereCB` 0x004a2820:
+    it would draw 40 numbers from stream 0 in Mission01 too and its reader is the level loader's);
+    `CAT-TODO(stage 6 single player)` the task bar (the exe has no `tbStartup` / `tbShutdown`; Objectives.c,
+    SinglePlayer.c and KASFunc.c still call into the task bar's regions); `CAT-TODO(stage 4 AI)` `cat_aisReset`
+    0x00433d30 and the `aiplayerStartup` arguments; `CAT-TODO(stage 5 LAN)` the colour checksum 0x00ab7658 (the fourth
+    ring word `netcheckFillInChecksum` sends). Not applicable: `glcActivate` (glcompat). The support-unit clear and the
+    `/LoadMPGame` file (WIP), the console start-up (WIP) and GoK's `cameraJoystickReset` (HWI, decision 28) stay.
+  - `gameEnd` 0x005a9f40: no `writeGameStatsToFile`; ends with `opOptionsSaveSettings` (options file and keys.cfg)
+    and the pause flag 0x00a6ed74 (`catUnivFrameStep`) cleared. `universeStaticClose` is empty in the exe too (the
+    folded empty function 0x0049ae30); `tbShutdown` stays with gameStart's task-bar CAT-TODO; `glcActivate` N/A.
+  - `utyNewGameStart` 0x005ab180: `shiplagtotals` cleared in every game (HW1: multiplayer only);
+    `CAT-TODO(M2-R6 NIS/camera)` for its end (`cat_mcSetMode` / `cat_mcResetRequest` on the motion cues 0x00c49400
+    while `catMotionCues` is set).
+  - `utyGameQuit` 0x005ab570: `soundEventStopMusic(0.5)` and `soundEventPause(TRUE)` before the quit command.
+  - `utyGameSystemsPreInit` 0x005ab810: no `bigCRC` (the CRCs stay 0); the version string ends with
+    `minorBuildVersion`; `fmathInit` not needed (decision 23: fsqrt stays sqrtf); HW_Data, the CD search, the big
+    files and the heap stay GoK's file layer.
+  - `utyGameSystemsPreShutdown` 0x005ac690 and `utyGameSystemsShutdown` 0x005ac710: compared, no change beyond the
+    console's (WIP): the dropped calls of the delta map (`keyClose`, `battleChatterShutdown`, `bsShutdown`,
+    `dmgShutdown`, ...) are calls to empty functions the linker folded into 0x0049ae30; the options file is written
+    inline (`utyOptionsFileWrite` here); the registry rows and `glcShutdown` N/A; `tbShutdown` see above.
+  - `versionNumDraw` 0x005a8250: "<Version> Emergence 1.01".
+  - `utySinglePlayerOptions` 0x005aa580 (an IDENTICAL found modified): sets `whichRaceSelected` back to the Sect after
+    starting Create_new_game. `utySinglePlayerGameStart` 0x005aaf80: identical but GoK's
+    `spResetMissionSequenceToBeginning` (`CAT-TODO(stage 6 single player)`, kept until `singlePlayerInit` is ported).
+  - `utyFatalErrorWaitLoop` 0x005a91d0: Ghidra's body runs past `exit()` into gameStart (the "added calls" of the delta
+    map); the real body is HW1's, GoK's SDL version kept.
+  - HW1 race aliases `R1` / `R2` retired in utility.c (`RACE_Sect` / `RACE_Beast`); main.c, KeyBindings.c, Key.c,
+    Console.c, screenshot.c, InfoOverlay.c and ShipPrint.c have none.
+  - From the WIP: `cat_utyGameQuitToMainOrStats` 0x005ab5b0 ("QuitToMain": outside single player the game-stats screen,
+    `cat_gameStatsBegin`, producer 1's; in single player `utyGameQuitToMain`), the six video-option toggles
+    `cat_utyDynamicCPV*` / `LensFlare*` / `Repairbots*` 0x005a8cb0 .. 0x005a8ec0, the credits track 0x29, no CSM_* /
+    PLM_* callback rows (the exe's table 0x008c0f80).
+- `src/Game/Blobs.c`: `bobInitProperties` = `bobResetProperties` (0x00425ca0 is a 5-byte jump).
+- `src/Game/KeyBindings.h` / `.c`: the two size asserts moved into the header (they were doubled in the .c) and
+  `tools/m2_layout32.sh` now includes KeyBindings.h (prints `CatKbCommandBindings` 52 = 0x34): `m2_layout32: OK`.
+
+## review (done)
+
+Every IDENTICAL body of the scope compared with the exe (60 unreviewed: Key.c 3, main.c 6, utility.c 51): one found
+modified (`utySinglePlayerOptions`, ported); the rest identical, or Win32 / rGL bodies where GoK's SDL version stays
+(`mainDevStatsInit`, `mainReinitRGL`, `utyBrowserExec` are not in GoK's tree; `mainSaveRender`, `mainSetupSoftware`,
+`mainCleanupAfterVideo`, `utyClientRectGet`, `utyClipMouse`, `utyToggleKeyStatesRestore`). `keyPressDown` /
+`keyRepeat` inline `keyBufferAdd` with the exe's no-buffer key list 0x00883268 (Win32 codes); the 2-bit `keystick`
+explains the `| 2 & 0xfb` / `& 0xf9` masks.
+
+`ghidra/delta_map.json`: 96 review entries `[review: M2-R6 startup-keys] ...` (appended to an existing note where there
+was one): Key.c 4 (`keyInit`, `keyPressDown`, `keyRepeat`, `keyClearAllStuckKeys`), KeyBindings.c 4 (all four),
+main.c 23 (every MODIFIED function and the six compared IDENTICALs), screenshot.c 1, utility.c 63 (12 MODIFIED: all but
+`utyForceTopmost` / `utyChangeResolution`, reviewed before; the 51 compared IDENTICALs incl. the Win32 ones), Blobs.c 1 (`bobResetProperties`: the
+jump). `done_subsystems` += `m2r6:startup-keys`; `counts.reviewed` 2460 -> 2549. debugwnd.c's functions were already
+reviewed as not built; `cat_dd*` (`cat_ddDelete` 0x005567a0, `cat_ddCreate` 0x005567f0, `cat_ddActivate`
+0x005568d0, `cat_ddErrorString` 0x00556990) are the Win32 DirectDraw debug window: not applicable (cat-new functions
+have no map rows; listed here).
+
+## Build
+
+`tools/build.sh --debug` and `tools/build.sh --release`: green, 0 warnings under -Werror (after every subsystem and
+at the end). `tools/m2_layout32.sh`: OK.
+
+## Plain-harness runs (final binary)
+
+| label | mode | milestone | first stop | ASan | notes |
+|---|---|---|---|---|---|
+| r6sk-fin-mission-a / -b / -p | mission_test.sh --ticks 6000 | oracle mission run done | none (rc 0) | 0 / 0 | MISSION TEST PASS: A and B byte-identical (sha256 `95bfbfa4afa117bb`), the perturbed run found at tick 1500 (rng10), the flipped copy at tick 2000 (ships_health) |
+| r6sk-fin-mission-rel | mission, release | oracle mission run done | none (rc 0) | n/a | IDENTICAL to R5 |
+| r6sk-fin2-mission | mission (after the assert move) | oracle mission run done | none (rc 0) | 0 | byte-identical to r6sk-fin-mission-a |
+| r6sk-fin-keys, r6sk-fin2-keys | keys | keys self-test done | none (rc 0) | 0 | `keystest: done rows=197 known=149 unknown=48 commands=147 bindings=149 startsave=1 saved=1 reload=1 reset=1 newkey=1 conflicts=1 shares=1 failures=0 result=PASS` |
+| r6sk-fin-console | console | console self-test done | none (rc 0) | 0 | `consoletest: done selected=154 frames=4 shown=29 set=22 commands=8 keys=32 closed=1 failures=0 result=PASS` |
+| r6sk-fin-fe | fe, 90 s | Main_game_screen | none: running at the timeout | 0 | 299 loads, the base's set (`r6sk-base-fe`) with Cataclysm.cfg for Homeworld.cfg; 0 fescreen UBSan |
+| r6sk-fin-sp | sp, 340 s | universe running, univUpdateCounter 1,248 | none: running at the timeout | 0 | base `r6sk-base-sp` (142a8e2): 1,248; loads 3,783 = the base's 3,782 + `FEMan\console.fib` (the console's start-up), Cataclysm.cfg for Homeworld.cfg; the same UBSan kinds; 0 fescreen UBSan |
+
+The sp run and the first mission / keys / console / fe runs used the binary from before the KeyBindings assert move
+(compile-time asserts only); `r6sk-fin2-*` repeat keys and mission on the final binary.
+
+The options file: every run reads `$HOME/.homeworld/Cataclysm.cfg` from the harness's home template (`TutorialNeeded
+0`, `PlayIntros 0`) and writes the run's `settings/Cataclysm.cfg`: the tutorial and the intros stay off.
+
+## Mission01 stream after
+
+`r6sk-fin-mission-a` (6,000 ticks, debug, ASan 0): sha256 `95bfbfa4afa117bb`, 1,476,370 B; `hwo_compare.py` against
+R5's `r5-integrate-mission-a` (sha256 `645f94c69d68319e`): `IDENTICAL: 6001 ticks and 0 packets compared (ticks
+0-6000), no difference` (header build identity 02e8e4da vs 57ae3b42 only). No oracle field moved. Release run: the
+same verdict.
+
+## New self-tests and harness modes
+
+`/catKeysTest` (harness mode `keys`) and `/catConsoleTest <ticks>` (harness mode `console`, `--console-ticks N`), both
+documented in `tools/m2_harness.sh`'s header (the keys and console sections above). The harness's home template now
+also holds `.homeworld/Cataclysm.cfg` (function `options_template`, header lines 121-123).
+
+## CAT-TODOs
+
+Closed (26 removed lines in `git diff 142a8e2 -- src`): `CAT-TODO(M2-R6 key bindings)` x17, `(M2-R6 key bindings /
+console)` x2, `(M2-R6 console)`, `(M2-R6 start-up)` (the options table), `(M2-R6 HUD messages)` (the screenshot
+message), `CAT-TODO(stage 3)` x2 (Key.c `cat_keyNameStringsInit`; utility.c's "the exe goes to the game stats screen", now `cat_utyGameQuitToMainOrStats`). No `CAT-TODO` / `CAT-PROVISIONAL` in
+`src/` names an M2-R6 key-bindings / console / start-up owner any more.
+
+Re-targeted or new (each on one line, owner first): `CAT-TODO(stage 6 level load)` the start-position shuffle;
+`CAT-TODO(stage 6 single player)` x3 (the task bar, `spResetMissionSequenceToBeginning`, `DifficultySetting`'s readers
+and setter from the WIP); `CAT-TODO(stage 6 KAS)` x2 (the console's KAS command, the letterbox
+amount of the time keys); `CAT-TODO(stage 4 AI)` x2 (`cat_aisReset`, `aiplayerStartup`'s arguments);
+`CAT-TODO(stage 5 LAN)` (the colour checksum); `CAT-TODO(M2-R6 NIS/camera)` (the motion cues of `utyNewGameStart`);
+`CAT-TODO(M2-R7 render)` (`rndLoadShamelessPlug(FALSE)` in the close-render copies).
+
+## What is left (owner)
+
+- The start-position shuffle and its two readers: stage 6 level load (moves stream 0 when it lands).
+- The task bar's removal (`tbStartup` / `tbShutdown` and their callers): stage 6 single player.
+- `spResetMissionSequenceToBeginning` (GoK) and `DifficultySetting`'s readers: stage 6 single player.
+- `cat_consoleKasCommand` 0x0045f270 (the console's KAS line) and the letterbox word 0x00a4cb38 of the time / Pause
+  keys: stage 6 KAS.
+- `cat_aisReset` and `aiplayerStartup`'s arguments: stage 4 AI. The colour checksum 0x00ab7658: stage 5 LAN.
+- The motion cues at the end of `utyNewGameStart`: M2-R6 producer 5 (NIS / camera).
+- `rndLoadShamelessPlug` / `rndShamelessPlug`: M2-R7 render.
+- Not applicable (SDL / GoK, decision 28): the Win32 debug window `cat_dd*`, the registry, rGL / Glide
+  (`cat_mainRGLFeaturesSet`, `cat_glideIsLoaded`, `cat_glideShutdown`), glcompat, Bink pause / stop, the patch launch.

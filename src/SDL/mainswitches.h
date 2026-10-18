@@ -63,6 +63,7 @@ extern bool32 ShortCircuitWON;
 
 extern char versionString[];
 extern char networkVersion[];
+extern char minorBuildVersion[];                // CAT: 0x008b8860 "01" (main.c)
 extern char languageVersion[];
 
 extern bool32 autoSaveDebug;

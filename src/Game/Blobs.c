@@ -109,15 +109,9 @@ void bobResetProperties(void)
 ----------------------------------------------------------------------------*/
 void bobInitProperties(void)
 {
+    // CAT: bobInitProperties 0x00425ca0 is a jump to bobResetProperties 0x00425c90 (no mission-6 blob radius;
+    //      gameStart 0x005a9290 and the single-player mission start call it) [M2-R6 startup-keys]
     bobResetProperties();
-
-    if (singlePlayerGame)
-    {
-        if (spGetCurrentMission() == MISSION_6_DIAMOND_SHOALS)
-        {
-            collBlobProperties.bobBiggestRadius = SINGLEPLAYER_BOBBIGGESTRADIUS_LEVEL6;
-        }
-    }
 }
 
 /*-----------------------------------------------------------------------------

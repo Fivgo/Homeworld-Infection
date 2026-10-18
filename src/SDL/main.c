@@ -258,7 +258,11 @@ bool32 noMinimizeAltTab = FALSE;
 //options altered by a password function:
 bool32 mainCDCheckEnabled = TRUE;
 
-char networkVersion[MAX_NETWORKVERSION_STRING_LEN] = "GardensOfKadesh";
+// CAT: the exe's network version and minor build (0x008b8850 "Emergence 1", 0x008b8860 "01"; versionNumDraw
+//      0x005a8250 prints "<Version> Emergence 1.01", utyGameSystemsPreInit 0x005ab810 builds versionString from them;
+//      GoK "GardensOfKadesh" and HOMEWORLD_BUILD_VERSION). The network version is what a LAN peer compares.
+char networkVersion[MAX_NETWORKVERSION_STRING_LEN] = "Emergence 1";
+char minorBuildVersion[] = "01";
 
 char languageVersion[50] = "";    // constructed at beginning of program
 
@@ -626,6 +630,14 @@ static bool32 cat_mainPrependPathSet(char *string)
     return fileOverrideBigPathSet(string);
 }
 
+//      cat_mainCDROMPathSet 0x0055f3f0 (/CDpath): fileCDROMPathSet and its flag CDROMPathPrepended, which stops
+//      utyGameSystemsPreInit's CD-ROM search. HWI: the Win32 drive test and its message ("'%s' Is not a valid
+//      CD-ROM; path ignored." 0x008b9c10) are GoK's fileCDROMPathSet's; a set path stops the search there too
+static bool32 cat_mainCDROMPathSet(char *string)
+{
+    return fileCDROMPathSet(string);
+}
+
 //      cat_mainLoadMPGameSet 0x0055f500 (/LoadMPGame <file>): "savedGames\multiplayer\" + the file, loaded by the
 //      next multiplayer gameStart (utility.c). HWI: GoK's multiplayer saves directory
 char catMainLoadMPGamePath[0x100] = "";                     // 0x00b3a020
@@ -793,7 +805,7 @@ commandoption commandOptions[] =
     entryFnParam("/bigoverride",    fileOverrideBigPathSet,             " <path> - Sets path to search for opening files."),
     // CAT: the exe's name of that switch (row 0x008b88e8, cat_mainPrependPathSet 0x0055f3d0)
     entryFnParam("/prepath",        cat_mainPrependPathSet,             " <path> - Sets path to search for opening files."),
-    entryFnParam("/CDpath",         fileCDROMPathSet,                   " <path> - Sets path to CD-ROM in case of ambiguity."),
+    entryFnParam("/CDpath",         cat_mainCDROMPathSet,               " <path> - Sets path to CD-ROM in case of ambiguity."),
     entryFnParam("/settingspath",   fileUserSettingsPathSet,            " <path> - Sets the path to store settings, saved games, and screenshots (defaults to ~/.homeworld)."),
 #if MAIN_MOUSE_FREE
 #ifdef HW_BUILD_FOR_DEBUGGING
@@ -870,6 +882,8 @@ commandoption commandOptions[] =
     entryVr("/nohint",              mainNoPerspective, TRUE,            " - disable usage of OpenGL perspective correction hints."),
     entryVrHidden("/noPause",             noPauseAltTab, TRUE,                " - don't pause when you alt-tab."),
     entryVrHidden("/noMinimize",          noMinimizeAltTab, TRUE,             " - don't minimize when you alt-tab."),
+    // CAT: the exe's hidden /d3dDeviceCRC row (0x008b8c00: the device CRC file switch, rinit.c's mainOutputCRC)
+    entryVrHidden("/d3dDeviceCRC",  mainOutputCRC, TRUE,                " - generate d3dDeviceCRC.txt for video troubleshooting."),
 
 #ifdef HW_BUILD_FOR_DEBUGGING
     entryComment("CHEATS AND SHORTCUTS"),         //-----------------------------------------------------
@@ -888,6 +902,10 @@ commandoption commandOptions[] =
     entryVrHidden("/disableAVI",    enableAVI,FALSE,                    " - don't display intro sequences."),
     // CAT: the exe's multiplayer save switches (rows 0x008b8d38 / 0x008b8d50: the autosave switch 0x00a74dac of
     //      univUpdate, UnivUpdate.c; the file of cat_mainLoadMPGameSet 0x0055f500)
+#ifndef HW_BUILD_FOR_DEBUGGING
+    // CAT: the exe's release table has /aiplayerLog (row 0x008b8d20, visible; HW1 only in debug builds)
+    entryVr("/aiplayerLog",         aiplayerLogEnable, TRUE,            " - enable AI Player Logging"),
+#endif
     entryVr("/SaveMPGames",         catMultiplayerAutoSave, TRUE,       " - periodically save multiplayer games"),
     entryFnParam("/LoadMPGame",     cat_mainLoadMPGameSet,              "..."),
 
@@ -1157,14 +1175,19 @@ sdword ProcessCommandLine (int argc, char* argv[])
                     {                                       //does the function take next token as a parameter?
                         if (++i == argc)                    //get next token
                         {                                   //if no next token
-                            break;                          //print usage
+                            // CAT: a missing parameter prints the help and ends the start-up (ProcessCommandLine
+                            //      0x0055f880; HW1 went on with the next token)
+                            DebugHelpDefault(string);
+                            return(-1);
                         }
                         string = argv[i];
                     }
                     if(!commandOptions[index].function(string))
                     {
                         //error occured in parsing function
-                        break;
+                        // CAT: so does a function that fails (0x0055f880: the help names the failed parameter)
+                        DebugHelpDefault(string);
+                        return(-1);
                     }
                 }
                 break;
@@ -1329,6 +1352,9 @@ void DeactivateMe()
     keyBufferClear();
     systemActive = FALSE;
 
+    // CAT: DeactivateMe 0x0055fb90 also minimises a full-screen window unless /noMinimize, deactivates the renderer
+    //      (hwActivate / rGL) and pauses a playing Bink movie (binkPause): SDL and GoK's movie player (no pause)
+    //      handle those (decision 28)
 #if 0	/* Bink stuff... */
     if (!binkDonePlaying)
     {
@@ -1619,6 +1645,9 @@ void mainResetRender(void)
 ----------------------------------------------------------------------------*/
 void mainCloseRender(void)
 {
+    // CAT: the exe's copies (inlined in mainLoadGL 0x00561570, mainRestoreRender 0x00560ba0, WindowProc 0x00561f10)
+    //      also free the glcompat textures (glcFreeTextures: not in the SDL build) and, after cpPreviewImageDelete,
+    //      the plug texture. CAT-TODO(M2-R7 render): rndLoadShamelessPlug(FALSE) 0x00579fa0 there, with rndShamelessPlug's port (render.c)
     partShutdown();
     ferReset();
     cpTexturesPurge();
@@ -1943,6 +1972,8 @@ void HandleEvent(SDL_Event const* pEvent) {
                     {
                         keyPressUp(pEvent->key.keysym.scancode);
                     }
+                    break;      // CAT: Escape ends there (WindowProc 0x00561f10; GoK fell through to F11's case).
+                                //      The exe stops a playing Bink movie on Escape: GoK's movie player stays (28)
 #if MAIN_MOUSE_FREE
                 case SDLK_F11:                              //toggle clipped cursor
                     if (keyIsHit(CONTROLKEY))
@@ -2381,6 +2412,14 @@ int main (int argc, char* argv[])
         }
     }
 #endif  /* Support for other platforms? */
+
+    // CAT (M2-R6 startup-keys): the start-up order is WinMain 0x005631f0's: the single-instance check (above, Win32
+    //      only), the options file (Cataclysm.cfg), opKeyboardLoad, the command line, utyGameSystemsPreInit, the
+    //      window, utyGameSystemsInit, the message loop dispatching tasks and the options timer. Not applicable to
+    //      SDL: the "CloseCataclysm" window message, the registry copy of the command line (the CmdLine value under
+    //      SOFTWARE/Sierra On-Line/Cataclysm), the OS tests (glCapNT / glCap95 / cat_glCapWin2K), the device enumeration and rGL /
+    //      Glide selection (GoK's GL backend, decision 28), the loop's patch launch (CataclysmPatch.exe) and the
+    //      error message box titled "Emergence" (stderr here)
 
     // set audio resampling to highest quality
     SDL_SetHint(SDL_HINT_AUDIO_RESAMPLING_MODE, "3");

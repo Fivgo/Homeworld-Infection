@@ -49,6 +49,7 @@
 #include "Key.h"
 #include "KeyBindings.h"
 #include "Console.h"
+#include "Clamp.h"
 #include "LaunchMgr.h"
 #include "LevelLoad.h"
 #include "Light.h"
@@ -152,6 +153,7 @@ extern bool32 debugScreenshots;
 #define CD_VALIDATION_ENABLED  0            // toggle checking CD is in drive and anti-piracy checks
 
 #define CAT_MUSIC_CREDITS    0x29                // CAT: Cataclysm's credits track (HW1 RollCredits 28; SpeechEvent.c's CAT_MUSIC_NIS_VOLUME)
+#define CAT_MUSIC_TUTORIAL   0x12                // CAT: the tutorial's track (gameStart 0x005a9290)
 #define UTY_CONFIG_FILENAME  "Cataclysm.cfg"      // CAT: the exe's options file (string 0x008b6f80, utyOptionsFileRead 0x005a83a0 / utyOptionsFileWrite 0x005a84f0; HW1 "Homeworld.cfg")
 
 extern SDL_Window *sdlwindow;
@@ -453,8 +455,8 @@ void opCountdownNo(char* name, featom* atom);
 
 sdword utyPlayerDroppedDisplay=-1;
 
-// R1 or R2, modified in utyNewGameRace callback
-ShipRace whichRaceSelected = R1;
+// RACE_Sect or RACE_Beast, modified in utyNewGameRace callback (CAT: HW1 aliases R1 / R2 retired)
+ShipRace whichRaceSelected = RACE_Sect;
 
 fecallback utyCallbacks[] =
 {                                                           //base front-end callbacks
@@ -850,7 +852,7 @@ void versionNumDraw(featom *atom, regionhandle region)
     strcat(versionstr, " ");
     strcat(versionstr, networkVersion);
     strcat(versionstr, ".");
-    strcat(versionstr, HOMEWORLD_BUILD_VERSION);
+    strcat(versionstr, minorBuildVersion);                  // CAT: "Emergence 1" "." "01" (versionNumDraw 0x005a8250)
 
     dbgAssertOrIgnore(strlen(versionstr) < 70);
 
@@ -1682,6 +1684,10 @@ void gameStart(char *loadfilename)
         utyTeaserEnd();
     }
 */
+    // CAT: gameStart 0x005a9290 starts no task bar (the exe has no tbStartup / tbShutdown: TaskBar.c keeps
+    //      tbBumperProcess and the helpers, never set up) and clears the trade flag only (0x00c37494); its
+    //      glcActivate(FALSE) is the glcompat layer's (not in the SDL build, decision 28).
+    //      CAT-TODO(stage 6 single player): drop tbStartup / tbShutdown with their last users (Objectives.c tbObjectivesListAddItem, SinglePlayer.c tbButtonListRefresh / tbForceTaskbar, KASFunc.c tbForceTaskbar): they dereference the task bar's regions
     tbStartup();                                            //start the task bar
 
     wkTradeStuffActive = FALSE;
@@ -1704,6 +1710,7 @@ void gameStart(char *loadfilename)
         {
             aiplayerChangeBigotry(tpGameCreated.aiplayerBigotry);
             aiplayerStartup(numPlayers, tpGameCreated.numPlayers, tpGameCreated.numComputers);
+            // CAT-TODO(stage 4 AI): gameStart 0x005a9290 passes the third argument as the dword at 0x008860d4 & 0xff (= numComputers) and the second as the high word of 0x008860ec; equal here, to be checked with the cat_ais* team code
         }
 
 
@@ -1751,12 +1758,12 @@ void gameStart(char *loadfilename)
                 universe.players[i].race = tpGameCreated.playerInfo[i].race;
                 if (i == 1 && cpColorsPicked)
                 {                                           //if second player is computer and player picked colors
-                    if (universe.players[1].race == R1)
+                    if (universe.players[1].race == RACE_Sect)
                     {                                       //choose color appropriate to that race
                         teTeamColorsSet(1, teRace1Default.base, teRace1Default.detail);
                     }
-                    else
-                    {
+                    else if (universe.players[1].race == RACE_Beast)
+                    {                                       // CAT: no colour for another race (0x005a9290)
                         teTeamColorsSet(1, teRace2Default.base, teRace2Default.detail);
                     }
                 }
@@ -1790,35 +1797,46 @@ void gameStart(char *loadfilename)
 
             if (tutorial==1)
             {
-                // !!! hack-o-rama (does not work with R2; Fix this Jason!)
-                //whichRaceSelected = R1;
-                universe.players[0].race = whichRaceSelected;
-                universe.players[1].race = (whichRaceSelected == R1) ? R2 : R1;
+                // CAT: the tutorial is always the Sect against the Beast (gameStart 0x005a9290; HW1 took the race
+                //      picked in the front end)
+                universe.players[0].race = RACE_Sect;
+                universe.players[1].race = RACE_Beast;
                 ComputerPlayerEnabled[1] = TRUE;
             }
             else
             {
                 useScenarioFile = spScenarios[spCurrentSelected].fileSpec;
 
-                //set race for player
-                universe.players[0].race = whichRaceSelected;
-
-#ifdef HW_BUILD_FOR_DEBUGGING
-                dbgMessagef("player is race %u", whichRaceSelected);
-#endif
-
-                otherRace = (whichRaceSelected == R1) ? R2 : R1;
-                for (i = 1; i < numPlayers; i++)
+                // CAT: gameStart 0x005a9290: a single-player game is always the Sect (player 0) against the Beast; a
+                //      skirmish gives player 0 the picked race and the others the other race and the picked one by
+                //      turns (HW1: every other player the other race)
+                if (singlePlayerGame)
                 {
-                    universe.players[i].race = otherRace;
-
-                }
-                if (universe.players[1].race == R1)
-                {                                       //choose color appropriate to that race
-                    teTeamColorsSet(1, teRace1Default.base, teRace1Default.detail);
+                    universe.players[0].race = RACE_Sect;
+                    otherRace = RACE_Beast;
                 }
                 else
                 {
+                    universe.players[0].race = (whichRaceSelected != RACE_Sect) ? RACE_Beast : RACE_Sect;
+                    otherRace = (whichRaceSelected == RACE_Sect) ? RACE_Beast : RACE_Sect;
+                }
+
+#ifdef HW_BUILD_FOR_DEBUGGING
+                dbgMessagef("player is race %u", universe.players[0].race);
+#endif
+
+                // CAT-TODO(stage 6 level load): gameStart 0x005a9290 here shuffles a start-position table (0x00ab77e0, the 8 indices 0..7) with 20 swaps of two ranRandomFn(stream 0) % spScenarios[].maxplayers picks, which scriptSetMissionSphereCB 0x004a2420 / scriptPreMissionSphereCB 0x004a2820 read outside multiplayer to map a sphere's player number; both come with the level loader's port (it draws 40 numbers from stream 0 in every non-tutorial new game, the Mission01 stream included)
+                for (i = 1; i < numPlayers; i++)
+                {
+                    universe.players[i].race = otherRace;
+                    otherRace = (otherRace == RACE_Sect) ? RACE_Beast : RACE_Sect;
+                }
+                if (universe.players[1].race == RACE_Sect)
+                {                                       //choose color appropriate to that race
+                    teTeamColorsSet(1, teRace1Default.base, teRace1Default.detail);
+                }
+                else if (universe.players[1].race == RACE_Beast)
+                {                                       // CAT: neither Sect nor Beast: no colour set (0x005a9290)
                     teTeamColorsSet(1, teRace2Default.base, teRace2Default.detail);
                 }
 
@@ -1890,8 +1908,7 @@ void gameStart(char *loadfilename)
         dbgAssertOrIgnore(loadfilename == NULL);        // can't load games when doing stats stuff
         if (showStatsFancyFight)
             FancyFightPreLoad();
-        else
-            universeFlagEverythingNeeded();
+        // CAT: no universeFlagEverythingNeeded for the other two (gameStart 0x005a9290)
     }
 
     /* pause sound engine */
@@ -1917,6 +1934,13 @@ void gameStart(char *loadfilename)
         {
             player = &universe.players[i];
 
+            if (player == universe.curPlayerPtr)
+            {                                               // CAT: the current player's managers closed first
+                rmCloseIfOpen();                            //      (gameStart 0x005a9290)
+                cmCloseIfOpen();
+                lmCloseIfOpen();
+            }
+
             player->PlayerMothership = NULL;
             player->resourceUnits = 0;
             player->autoLaunch = BIT0 | BIT1 | BIT2 | BIT3 | BIT4;
@@ -1929,12 +1953,12 @@ void gameStart(char *loadfilename)
             // Initialize research structure, only for computer players, and human players on this machine
 
             // ****** IMPORTANT we have changed the research so that it is deterministic on all machines.
-            // CAT: gameStart 0x005a9290: a human player gets everything when research is off (the tpGameCreated research
-            //      flag is read into a global at 0x00a75240 by the game-setup screens, stage 3: here the flag itself),
-            //      a computer player everything when research is off or in a non-tutorial single-player game;
-            //      otherwise an empty set (-1)
+            // CAT: gameStart 0x005a9290: a human player gets everything when the word at 0x00a75240 is set, a computer
+            //      player everything when it is set or in a non-tutorial single-player game; otherwise an empty set
+            //      (-1). M2-R6 startup-keys: that word has no writer in the exe (three reads, all in gameStart), so it is
+            //      0 here; the research-off case is the tech-set pass after the level starts (below)
             {
-                bool32 researchOff = (!singlePlayerGame) && (!bitTest(tpGameCreated.flag,MG_ResearchEnabled));
+                const bool32 researchOff = FALSE;           // 0x00a75240
                 sdword techLevel;
                 if (!ComputerPlayerEnabled[i])
                     techLevel = researchOff ? TECH_ALLTECHNOLOGY : TECH_NOTECHNOLOGY;
@@ -1945,26 +1969,16 @@ void gameStart(char *loadfilename)
                 rmInitializeResearchStruct(player, TRUE, techLevel);
             }
 
-    #if MAIN_SENSOR_LEVEL
-            if (multiPlayerGame)
-            {
-                player->sensorLevel = 0;
-            }
-            else
-            {
-                player->sensorLevel = (ubyte)initialSensorLevel;
-            }
-    #else //MAIN_SENSOR_LEVEL
-            player->sensorLevel = 0;
-    #endif //MAIN_SENSOR_LEVEL
+            player->sensorLevel = 0;                        // CAT: always 0 (gameStart 0x005a9290; no /sensorLevel)
             player->playerIndex = (uword)i;
             player->aiPlayer = NULL;
             if (ComputerPlayerEnabled[i])
             {
                 if (singlePlayerGame)
                     player->aiPlayer = aiplayerInit(player,AI_ADVANCED);
-                else
-                    player->aiPlayer = aiplayerInit(player,ConvertSliderToAIPlayerDifficulty(tpGameCreated.aiplayerDifficultyLevel));
+                else                                        // CAT: the level itself (gameStart 0x005a9290: the
+                                                            //      low byte; opCPUDifficulty sets it by radio button)
+                    player->aiPlayer = aiplayerInit(player,(AIPlayerLevel)tpGameCreated.aiplayerDifficultyLevel);
 
             }
             player->timeMoShipAttacked = universe.totaltimeelapsed;
@@ -1991,6 +2005,8 @@ void gameStart(char *loadfilename)
     {
         LoadGame(loadfilename);
     }
+
+    universeSwitchToPlayer(curPlayer);                      // CAT: gameStart 0x005a9290 (new or loaded game)
 
 #ifndef HW_GAME_DEMO
     // CAT: switch the speech set to the current player's race (gameStart 0x005a9290: after universeSwitchToPlayer,
@@ -2056,35 +2072,32 @@ void gameStart(char *loadfilename)
         if (loadfilename == NULL)
             for (i=0;i<universe.numPlayers;i++)
             {
+                // CAT: gameStart 0x005a9290: a computer player (an index past the humans) gets five times the
+                //      starting resources (2000 for the "none" setting) when flag bit 5 is set (HW1's
+                //      MG_HarvestinEnabled bit; Cataclysm has no harvesting switch and no rmEnableShip pass here)
+                sdword factor = 1;
+                universe.gameStats.startingResources = 10;
+                if ((i >= numPlayers - tpGameCreated.numComputers) && bitTest(tpGameCreated.flag,MG_HarvestinEnabled))
+                {
+                    factor = 5;
+                    universe.gameStats.startingResources = 2000;
+                }
                 switch (tpGameCreated.startingResources)
                 {
                     case MG_Small :
-                        universe.players[i].resourceUnits = resourceStartSmall;
-                        universe.gameStats.startingResources = resourceStartSmall;
+                        universe.gameStats.startingResources = resourceStartSmall * factor;
                     break;
                     case MG_Medium :
-                        universe.players[i].resourceUnits = resourceStartMedium;
-                        universe.gameStats.startingResources = resourceStartMedium;
+                        universe.gameStats.startingResources = resourceStartMedium * factor;
                     break;
                     case MG_Large :
-                        universe.players[i].resourceUnits = resourceStartLarge;
-                        universe.gameStats.startingResources = resourceStartLarge;
+                        universe.gameStats.startingResources = resourceStartLarge * factor;
                     break;
                     default:
-                        universe.players[i].resourceUnits = 10;
-                        universe.gameStats.startingResources = 10;
                     break;
                 }
+                universe.players[i].resourceUnits = universe.gameStats.startingResources;
             }
-
-        if (loadfilename == NULL)
-        {
-            if (!bitTest(tpGameCreated.flag,MG_HarvestinEnabled))
-            {
-                rmEnableShip(R1, ResourceCollector, FALSE);
-                rmEnableShip(R2, ResourceCollector, FALSE);
-            }
-        }
     }
 
     if (recordplayPacketsInGame)
@@ -2096,9 +2109,23 @@ void gameStart(char *loadfilename)
     {
         dbgMessagef("SYNC NUMBER: %u",gamerand());
 
-        // CAT: no rmAddTechToPlayer pass: the research-off case is rmInitializeResearchStruct's techlevel above
-        //      (gameStart 0x005a9290)
-
+        // CAT: no rmAddTechToPlayer pass; instead every player's tech set is set again (gameStart 0x005a9290, M2-R6
+        //      startup-keys): everything in a non-tutorial skirmish / multiplayer game with research off (flag bit 3
+        //      clear), else nothing (the 0x00a75240 word that would give everything has no writer); the human player
+        //      keeps its set while the single-player warp is on; then the upgrades the set gives
+        {
+            sdword techlevel = TECH_NOTECHNOLOGY;
+            if ((!singlePlayerGame) && (tutorial == 0) && !bitTest(tpGameCreated.flag, MG_ResearchEnabled))
+                techlevel = TECH_ALLTECHNOLOGY;
+            for (i=0;i<universe.numPlayers;i++)
+            {
+                if ((i != 0) || !cat_spWarpToLevelEnabled())
+                {
+                    cat_rmTechSetInit(universe.players[i].researchinfo.HasTechnology, techlevel);
+                    cat_playerUpdateUpgradesFromResearch(&universe.players[i]);
+                }
+            }
+        }
         for (i=0;i<universe.numPlayers;i++)
         {
             player = &universe.players[i];
@@ -2162,7 +2189,7 @@ abortloading:
 
 //    rmRemoveAllUnneededTech();
 
-    bobInitProperties();
+    bobInitProperties();                                    // CAT: 0x00425ca0, a jump to bobResetProperties (Blobs.c)
 
     if (loadfilename == NULL)
     {                                                       // CAT: a new game's mimic lists (gameStart 0x005a9a.. -> 0x005b9c60)
@@ -2179,10 +2206,29 @@ abortloading:
 
     if(tutorial==TUTORIAL_ONLY)
     {
-        soundEventPlayMusic(SongNumber);
+        soundEventPlayMusic(CAT_MUSIC_TUTORIAL);            // CAT: track 0x12 (gameStart 0x005a9290; HW1 SongNumber)
     }
-    
-    // reset any spurious joystick motion that's been recorded
+
+    // CAT: a new game applies the upgrades to every ship and moves what is clamped to a host (gameStart 0x005a9290:
+    //      cat_shipApplyUpgrades, then updateClampedObject for a ship whose clampInfo holds a clamped-object list)
+    if (loadfilename == NULL)
+    {
+        Node *shipnode;
+        for (shipnode = universe.ShipList.head; shipnode != NULL; shipnode = shipnode->next)
+        {
+            Ship *ship = (Ship *)listGetStructOfNode(shipnode);
+            cat_shipApplyUpgrades(ship);
+            ClampInfo *clampInfo = ((SpaceObjRotImpTargGuidance *)ship)->clampInfo;
+            if ((clampInfo != NULL) && (clampInfo->clampedObjs != NULL))
+            {
+                updateClampedObject((SpaceObjRotImpTargGuidance *)ship);
+            }
+        }
+    }
+    // CAT-TODO(stage 4 AI): cat_aisReset 0x00433d30 (the 8 cat_aisPlay times at 0x008dfc44 and the flag 0x00a2d9b8 cleared; gameStart 0x005a9290)
+    // CAT-TODO(stage 5 LAN): a multiplayer game sums the eight colour schemes' first words into 0x00ab7658, the fourth word of netcheckShow's ring that netcheckFillInChecksum sends (gameStart 0x005a9290)
+
+    // HWI: GoK's joystick camera (not in the exe; GoK's SDL input layer stays, decision 28)
     cameraJoystickReset();
 
     gameIsRunning = TRUE;
@@ -2203,6 +2249,9 @@ abortloading:
 void gameEnd(void)
 {
     sdword index;
+
+    // CAT: gameEnd 0x005a9f40 first re-activates the glcompat layer when a software renderer runs (glcActivate):
+    //      not in the SDL build (decision 28)
 
     //reset the colors schemes to prevent re-entrant bugs
     teReset();
@@ -2249,7 +2298,7 @@ void gameEnd(void)
         utyClear2(SS2_GameChat);
     }
 
-    writeGameStatsToFile(strGetString(strStatsGameEndStats));     //write game stats to a file for perusal
+    // CAT: no writeGameStatsToFile (gameEnd 0x005a9f40)
 
     universeClosePlayers();
 
@@ -2306,7 +2355,7 @@ void gameEnd(void)
 
     pingAllPingsDelete();
 
-    universeStaticClose();
+    universeStaticClose();                                  // CAT: an empty function in the exe too (0x0049ae30)
 
     universeSetZeroPlayers();
 
@@ -2332,7 +2381,7 @@ void gameEnd(void)
     mrReset();                                              //reset the state of the main viewport region
 
     if (utyTest(SSA_TaskBar))
-    {
+    {                                                       // CAT: not in the exe (gameStart's task-bar CAT-TODO)
         tbShutdown();                                            //shut down the task bar
         utyClear(SSA_TaskBar);
     }
@@ -2342,6 +2391,11 @@ void gameEnd(void)
 
     //make sure the mouse is not erroneously clipped to anything
     mouseClipToRect(NULL);
+
+    // CAT: gameEnd 0x005a9f40 ends with the options saved (opOptionsSaveSettings: the options file and keys.cfg) and
+    //      the pause flag cleared (0x00a6ed74, the Pause key's: UnivUpdate.c)
+    opOptionsSaveSettings();
+    catUnivFrameStep = FALSE;
 }
 
 /*-----------------------------------------------------------------------------
@@ -2397,7 +2451,7 @@ void utyShowCredits(char *name, featom *atom)
     Name        : utyNewGameRace
     Description : Race select callback
     Inputs      : name - name of entry to envoke this function
-    Outputs     : modifies whichRaceSelected (== R1 or R2)
+    Outputs     : modifies whichRaceSelected (== RACE_Sect or RACE_Beast)
     Return      :
 ----------------------------------------------------------------------------*/
 #if 0
@@ -2409,10 +2463,10 @@ void utyNewGameRace(char *name, featom *atom)
 
     if (!FEFIRSTCALL(atom))
     {
-        whichRaceSelected = (!strcmp(name, "CB_NewGameRaceOne")) ? R1 : R2;
+        whichRaceSelected = (!strcmp(name, "CB_NewGameRaceOne")) ? RACE_Sect : RACE_Beast;
         if (whichRaceSelected != oldRace && (!cpColorsPicked))
         {                                                   //if new race selected and no colors picked
-            swap(teColorSchemes[0], teColorSchemes[1], tempScheme);//swap default R1/R2 color schemes
+            swap(teColorSchemes[0], teColorSchemes[1], tempScheme);//swap default Sect/Beast color schemes
             utyBaseColor = teColorSchemes[0].textureColor.base;
             utyStripeColor = teColorSchemes[0].textureColor.detail;
             cpColorsReset(&utyBaseColor, &utyStripeColor);
@@ -2420,8 +2474,8 @@ void utyNewGameRace(char *name, featom *atom)
         }
     }
     // ensure non-selected button Off, selected On
-    raceOne = (whichRaceSelected == R1) ? TRUE : FALSE;
-    raceTwo = (whichRaceSelected == R2) ? TRUE : FALSE;
+    raceOne = (whichRaceSelected == RACE_Sect) ? TRUE : FALSE;
+    raceTwo = (whichRaceSelected == RACE_Beast) ? TRUE : FALSE;
 /*    if (!FEFIRSTCALL(atom))
     {
         // ... or we'll be toggled elsewhere again
@@ -2737,6 +2791,7 @@ void utySinglePlayerOptions(char *name, featom *atom)
     
     feScreenDisappear(NULL,NULL);
     feScreenStart(ghMainRegion, "Create_new_game");
+    whichRaceSelected = RACE_Sect;                          // CAT: the race picked back to the Sect (0x005aa580)
 }
 
 /*-----------------------------------------------------------------------------
@@ -3020,6 +3075,7 @@ void utySinglePlayerGameStart(char *name, featom *atom)
     curPlayer = 0;      // player 0 is human
     strcpy(playerNames[0],"Player");
 
+    // CAT-TODO(stage 6 single player): utySinglePlayerGameStart 0x005aaf80 has no mission-sequence reset (GoK's spResetMissionSequenceToBeginning, kept until SinglePlayer.c's singlePlayerInit 0x00518c50 is ported)
     spResetMissionSequenceToBeginning();
     singlePlayerInit();
 
@@ -3126,13 +3182,12 @@ void utyNewGameStart(char *name, featom *atom)
     }
 
     feAllScreensDelete();
+    for (i=0;i<TOTAL_NUM_SHIPS;i++)
+    {                                                       // CAT: in every game (utyNewGameStart 0x005ab180)
+        shiplagtotals[i] = 0;
+    }
     if (multiPlayerGame)
     {
-        for (i=0;i<TOTAL_NUM_SHIPS;i++)
-        {
-            shiplagtotals[i] = 0;
-        }
-
         dbgMessagef("sigsPlayerIndex %u",sigsPlayerIndex);
         for (i=0;i<MAX_MULTIPLAYER_PLAYERS;i++)
         {
@@ -3229,6 +3284,7 @@ void utyNewGameStart(char *name, featom *atom)
         }
 #endif
 
+    // CAT-TODO(M2-R6 NIS/camera): with the motion cues on (catMotionCues 0x008b8844) utyNewGameStart 0x005ab180 ends with cat_mcSetMode(&cues 0x00c49400, 1) and cat_mcResetRequest(&cues) (the cat_mc* port)
 }
 
 /*-----------------------------------------------------------------------------
@@ -3244,6 +3300,10 @@ void utyGameQuit(char *name, featom *atom)
     dbgMessagef("Quit game, baby!");
 #endif
 
+    // CAT: utyGameQuit 0x005ab570 fades the music out and pauses the sound first, then posts the quit command
+    //      (WM_COMMAND 0x65 -> utyCloseOK)
+    soundEventStopMusic(0.5f);
+    soundEventPause(TRUE);
 #if defined(HW_GAME_DEMO) || defined(HW_GAME_RAIDER_RETREAT)
     if (enableAVI)
     {
@@ -3674,7 +3734,7 @@ void PrepareVersionStringStuff()
     strcat(versionString,"\t");
     strcat(versionString,languageVersion);
     strcat(versionString,"\t");
-    strcat(versionString,HOMEWORLD_BUILD_VERSION);
+    strcat(versionString,minorBuildVersion);                // CAT: the exe's minor build (utyGameSystemsPreInit 0x005ab810)
 }
 
 /*-----------------------------------------------------------------------------
@@ -3797,6 +3857,9 @@ char* utyGameSystemsPreInit(void)
 
     memset(utyStartedBits, 0, SSA_NumberBits);              //clear all module startup bits
     globalsInit();
+
+    // CAT: utyGameSystemsPreInit 0x005ab810 then fills the fast square-root tables (fmathInit 0x004728c0); not
+    //      needed here: fsqrt stays sqrtf (decision 23)
 
     keyInit();
 
@@ -4094,10 +4157,8 @@ char* utyGameSystemsPreInit(void)
         HomeworldCRC[2] = 0;
         HomeworldCRC[3] = 0;
 
-        if (!IgnoreBigfiles)
-        {
-            bigCRC((udword *)HomeworldCRC, sizeof(HomeworldCRC));
-        }
+        // CAT: no bigCRC of the big files' tables of contents (utyGameSystemsPreInit 0x005ab810 has none: the CRCs
+        //      stay 0)
 //  }
 
     PrepareVersionStringStuff();

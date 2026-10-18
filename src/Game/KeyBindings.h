@@ -44,6 +44,10 @@ typedef struct CatKbCommandBindings
     CatKbBinding binding[CAT_KB_MAX_BINDINGS];  // +0x04
 } CatKbCommandBindings;
 
+// the records hold only 32-bit words, so the ILP32 pins (tools/m2_layout32.sh) and the LP64 build agree
+_Static_assert(sizeof(CatKbBinding) == 0x10, "a key binding is 16 bytes in cataclysm.exe");
+_Static_assert(sizeof(CatKbCommandBindings) == 0x34, "a command's key bindings are 0x34 bytes in cataclysm.exe");
+
 // the key commands the other files name (the exe's rows of 0x008b5e60, in default_keys.cfg's order)
 #define CAT_KB_Move                 0x01
 #define CAT_KB_ShipSpecial          0x07

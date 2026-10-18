@@ -52,14 +52,6 @@ CatKbCommandBindings catKbBindings[CAT_KB_NUMBER_COMMANDS]; // 0x00a6ee90
 bool32 catKbBindingsLoaded = FALSE;                         // 0x00a70d3c: cat_kbSaveKeyBindings writes only after a load
 static sdword catKbVersion = 0;                             // 0x00a70d40: default_keys.cfg's version ("v 84")
 
-#if defined(__i386__) || defined(_M_IX86)
-_Static_assert(sizeof(CatKbBinding) == 0x10, "a key binding is 16 bytes in cataclysm.exe");
-_Static_assert(sizeof(CatKbCommandBindings) == 0x34, "a command's key bindings are 0x34 bytes in cataclysm.exe");
-#endif
-// the record holds only 32-bit words, so the LP64 build keeps the exe's sizes too
-_Static_assert(sizeof(CatKbBinding) == 0x10, "CatKbBinding is the exe's 16 bytes");
-_Static_assert(sizeof(CatKbCommandBindings) == 0x34, "CatKbCommandBindings is the exe's 0x34 bytes");
-
 // the commands' name and description string ids (the exe's table 0x008b5e58: {name, description} per command; the
 //      names are the rows of default_keys.cfg / keys.cfg; row 0 is {-1, -1})
 static const sdword catKbCommandNames[CAT_KB_NUMBER_COMMANDS][2] =
