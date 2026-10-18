@@ -1444,9 +1444,10 @@ void regRecursiveDisable(regionhandle reg)
 ----------------------------------------------------------------------------*/
 void regRegionDelete(regionhandle region)
 {
-    // CAT-TODO(stage 3 UI): regRegionDelete 0x004f0e10 first dirties the parents the region overlaps when the mouse
-    //      cursor is saved (feShouldSaveMouseCursor, primRectUnion2, regDirtyEverythingUpwardsSelectively); the rest is
-    //      HW1's with regLinkRemove inlined
+    // CAT [integrate: M2-R6]: regRegionDelete 0x004f0e10 first dirties the parents the region overlaps (primRectUnion2,
+    //      regDirtyEverythingUpwardsSelectively) only while feShouldSaveMouseCursor() 0x00472950 is set: the Win32
+    //      front-buffer cursor save GoK removed (decision 28, docs/m2-r6-frontend.md), never set in the SDL build, so the
+    //      branch is not taken; the rest is HW1's with regLinkRemove inlined (was a stage-3 UI CAT-TODO: closed)
     regionhandle child, nextChild;
     sdword index;
 

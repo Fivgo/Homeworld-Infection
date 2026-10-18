@@ -3024,7 +3024,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "inlined Load_shipsinprogress (no record of its own): each of the 145 progress entries also fixes up a ship pointer, and static info comes from GetShipStaticInfo(type) instead of ConvertRaceTypeToShipStaticInfo; enum: TOTAL_NUM_SHIPS 145",
-  "note": "SpaceObjRegistryGetShip folded into GetObj (not a delta); cmFillInCarrierXs inlined unchanged; audit reclassification checked by hand | [review: M2-R6 managers] 0x91 entries and the external ship from its ID (M2-R6 managers); the rest as the R2 note",
+  "note": "SpaceObjRegistryGetShip folded into GetObj (not a delta); cmFillInCarrierXs inlined unchanged; audit reclassification checked by hand | [review: M2-R6 managers] 0x91 entries and the external ship from its ID (M2-R6 managers); the rest as the R2 note | [review: M2-R6 oracle-mode-a] LoadConsMgr: the shipsinprogress / shipinprogress chunks and the carrier selections converted for a 0x10ad0027 save",
   "sample": "port-R6-managers"
  },
  "0x00460d60": {
@@ -9463,7 +9463,7 @@
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "dirties the parents the region overlaps when the mouse cursor is saved (feShouldSaveMouseCursor, primRectUnion2, regDirtyEverythingUpwardsSelectively)",
-  "note": "stage 3 UI",
+  "note": "stage 3 UI | [integrate: M2-R6] closed: the dirtying runs only while feShouldSaveMouseCursor() is set, the Win32 front-buffer cursor save GoK removed (decision 28); the rest is HW1's",
   "sample": "port-R4"
  },
  "0x004f0fe0": {
@@ -9562,7 +9562,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "no harvest sound; the beam length and the resource radius go to etgEffectCreate as real32 values (HW1: integers)",
-  "note": "M2-R4 combat: ported without the sound; the effect parameters stay integers until the ETG port (stage 3)"
+  "note": "M2-R4 combat: ported without the sound; the effect parameters stay integers until the ETG port (stage 3) | [integrate: M2-R6] re-targeted CAT-TODO(M2-R7 ETG): the real32 variable parameters are one ETG change for every etgEffectCreate caller"
  },
  "0x004f1d40": {
   "class": "MODIFIED",
@@ -9811,21 +9811,21 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "cat_missionTimerSave after the single-player chunk",
-  "note": "[review: M2-R5 hud] the call added (cat_saveGameMiscChunks is M2-R6's)",
+  "note": "[review: M2-R5 hud] the call added (cat_saveGameMiscChunks is M2-R6's) | [review: M2-R6 oracle-mode-a] SaveGame: the exe order (dmgStopEffect loop, cat_saveStateBlock, cat_saveGamePreGameTable after the blobs, cat_saveGameMiscChunks after SaveSinglePlayerGame) and the difficulty factor after the mission number",
   "sample": "port-R5-hud"
  },
  "0x004fdfc0": {
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "LoadVersionInfo and LoadPreGameInfo inlined; single-player saves carry a second number after currentMission (stored at 0x00894194); the per-player race number is stored as (value != 0) through Ghidra's HW1-layout Player field; HW1's MG_HarvestinEnabled rmEnableShip block at the end is gone",
-  "note": "version 0x10ad0027, song number, player names, colour schemes, tpGameCreated as HW1",
+  "note": "version 0x10ad0027, song number, player names, colour schemes, tpGameCreated as HW1 | [review: M2-R6 oracle-mode-a] PreLoadGame: compared and ported for the 0x10ad0027 file: the single-player difficulty health factor 0x00894194 after the mission number, the race word (!= 0 -> 1), tpGameCreated 0x2B0 read through the ILP32 table (first 0xC8 bytes HW1 layout, 0x48 Cataclysm bytes after), saveCat32Begin; the HW1 harvesting rmEnableShip branch is not in the exe and is gone",
   "sample": "reread-R2"
  },
  "0x004fe0e0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "cat_missionTimerLoad after the single-player chunk",
-  "note": "[review: M2-R5 hud] the call added",
+  "note": "[review: M2-R5 hud] the call added | [review: M2-R6 oracle-mode-a] LoadGame: rewritten in the exe order (dmgStopEffect(ship,3) on the live ships, cat_loadStateBlock 0x00c32c00, cat_rndFogLayerTextureLoad, the space objects, blobs, cat_loadGamePreGameTable, universe, ID tables, nebulae, cons mgr, AI, single player, cat_loadGameMiscChunks, cat_missionTimerLoad, KAS..., selections, background, lighting, smLoad, ranLoad (27 streams), flags, optional cons mgr, the fix-ups, cat_loadShipRecordTableFix, effect list, close, the Sect max-health post-pass); cat_kasAutoSaveOnLoad is CAT-TODO(stage 6 single player)",
   "sample": "port-R5-hud"
  },
  "0x004fe770": {
@@ -9839,7 +9839,7 @@
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "LoadSelection inlined per member; head matches",
+  "note": "LoadSelection inlined per member; head matches | [review: M2-R6 oracle-mode-a] LoadBlob: the 0x100 blob chunk converted ILP32 -> LP64",
   "sample": "IDENTICAL/medium"
  },
  "0x004ff3b0": {
@@ -9895,7 +9895,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "SpaceObjRegistryGetTarget inlined; a host clampInfo (host == NULL) also gets its new clamped-object list fixed up through the registry",
-  "note": "goes with clampObjToObj's per-host list",
+  "note": "goes with clampObjToObj's per-host list | [review: M2-R6 oracle-mode-a] FixClampInfo: FixSelection of the clamped objects when the host is NULL (a host -1 chunk carries a selection); SaveClampInfo writes it",
   "sample": "reread-R2"
  },
  "0x00500d60": {
@@ -9909,7 +9909,7 @@
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "CopyPointersFromRealDustCloudStaticInfo and LoadCloudSystem inlined (read to the cloud-system load)",
+  "note": "CopyPointersFromRealDustCloudStaticInfo and LoadCloudSystem inlined (read to the cloud-system load) | [review: M2-R6 oracle-mode-a] LoadDustCloud: compared; the DustCloud, its dynamic DustCloudStaticInfo and the 0x24 cloudSystem chunk converted ILP32 -> LP64",
   "sample": "reread-R2"
  },
  "0x00501050": {
@@ -10021,7 +10021,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "ConvertNumToPointerInList and SavePlayerIndexToPlayer inlined",
+  "note": "ConvertNumToPointerInList and SavePlayerIndexToPlayer inlined | [review: M2-R6 oracle-mode-a] Load_CameraCommand: compared; the 0x94 chunk and the 0x78 stack entries (count at 0x6C, head 0x74) converted",
   "sample": "reread-R2"
  },
  "0x00502db0": {
@@ -12970,7 +12970,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "creates the (NULL) mesh state for non-Asteroid0 asteroids; clears the new SpaceObj +0x80/+0x84",
-  "note": "M2-R4 univupdate: compared and ported"
+  "note": "M2-R4 univupdate: compared and ported | [review: M2-R6 oracle-mode-a] univAddAsteroid: catMimicShip = NULL for a new asteroid (CAT-FIX: the exe leaves the allocator word, a garbage pointer that univFindNearestResource followed at tick 7313 of the oracle01 replay)"
  },
  "0x00540c40": {
   "class": "IDENTICAL",
@@ -12983,7 +12983,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "clears the new SpaceObj +0x80/+0x84 fields at the end; the missile ID also goes into the ID table while a multiplayer game is being recorded (multiPlayerGame",
-  "note": ""
+  "note": "[review: M2-R6 oracle-mode-a] univAddMissile: the recorder condition is catNetworkGame() (multiPlayerGame or a recorded game, 0x00a75198 / 0x00a7519c)"
  },
  "0x00540f70": {
   "class": "IDENTICAL",
@@ -13051,7 +13051,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "7 arguments, adds the ship to the universe itself, 0x63C-byte ship with gun/mad/precise blocks, droids, damage points, upgrades, dock info, external build, mothership modules, experience, stealth, dissolve, names, FOW, mesh state; univCreateShip: the repair-droid array (droidCreateArray at 0x00542659 for a Sect static with nRepairDroids), cat_madAnimClear and the start state by built & 1 (0x00542a1a), and the FOW cube on the add path (cat_univAddShipModules, cat_univShipFOWActivate) ported",
-  "note": "M2-R4 univupdate: only the mesh state and +0x84 are ported (CAT-TODO block lists the rest for M2-R4 #2/#3/#4/#5); HW1 Drone/DefenseFighter/CryoTray cases removed | [review: M2-R5 layout-dock] CustShipInit now runs after the mesh-animation bindings as the exe orders it; the extra blocks start 8-aligned (CAT-FIX); kills zeroed + cat_shipUpdateExperienceLevel; catNavLightStatic/catDamageFactor/catMaxVelocity set (M2-R5 layout) | [review: M2-R5 render] damage points are dmgGetLights (called); the repair droids re-targeted to M2-R6 ships | [review: M2-R5 hud] the call added at 0x00542c21 | [review: M2-R6 nis-fow-camera] univCreateShip: the repair-droid array (droidCreateArray at 0x00542659 for a Sect static with nRepairDroids), cat_madAnimClear and the start state by built & 1 (0x00542a1a), and the FOW cube on the add path (cat_univAddShipModules, cat_univShipFOWActivate) ported",
+  "note": "M2-R4 univupdate: only the mesh state and +0x84 are ported (CAT-TODO block lists the rest for M2-R4 #2/#3/#4/#5); HW1 Drone/DefenseFighter/CryoTray cases removed | [review: M2-R5 layout-dock] CustShipInit now runs after the mesh-animation bindings as the exe orders it; the extra blocks start 8-aligned (CAT-FIX); kills zeroed + cat_shipUpdateExperienceLevel; catNavLightStatic/catDamageFactor/catMaxVelocity set (M2-R5 layout) | [review: M2-R5 render] damage points are dmgGetLights (called); the repair droids re-targeted to M2-R6 ships | [review: M2-R5 hud] the call added at 0x00542c21 | [review: M2-R6 nis-fow-camera] univCreateShip: the repair-droid array (droidCreateArray at 0x00542659 for a Sect static with nRepairDroids), cat_madAnimClear and the start state by built & 1 (0x00542a1a), and the FOW cube on the add path (cat_univAddShipModules, cat_univShipFOWActivate) ported | [review: M2-R6 oracle-mode-a] univCreateShip: the KasDerelict test uses catNetworkGame() (the recorded-game words ported)",
   "sample": "port-R6-nis-fow-camera"
  },
  "0x00543030": {
@@ -13249,13 +13249,13 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "real-time win/quit times; non-multiplayer games end only when nobody (skirmish) or player 0 (single player) is left; recorder test",
-  "note": "M2-R4 univupdate: ported except the recorder global (stage 3/5)"
+  "note": "M2-R4 univupdate: ported except the recorder global (stage 3/5) | [review: M2-R6 oracle-mode-a] CheckPlayerWin: returns while a recorded game plays back (0x00a751a0), the stage 3/5 recorder global ported"
  },
  "0x005487f0": {
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "reports results (cat_DeclarePlayerWinReportResults), multiplayer result handling",
-  "note": "M2-R4 univupdate: compared, not ported (stage 3/5)"
+  "note": "M2-R4 univupdate: compared, not ported (stage 3/5) | [integrate: M2-R6] re-targeted CAT-TODO(stage 5 LAN): the win message from the player names and cat_DeclarePlayerWinReportResults = cat_titanContestRecordResult(0x12, ...) are the multiplayer end of game; the function returns at once in single player"
  },
  "0x00548ad0": {
   "class": "MODIFIED",
@@ -13265,9 +13265,10 @@
  },
  "0x00548c70": {
   "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "closes construction/launch/research managers, hyperspace ether, 3-argument univKillPlayer",
-  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #5, stage 3)"
+  "confidence": "high",
+  "change": "index > 7 returns; closes the research/construction/launch managers for the current player; with MG_Hyperspace also counts the player's live ships in the hyperspace ether; passes Ship+0x60C as the kill credit to the 3-argument univKillPlayer",
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #5, stage 3) | [integrate: M2-R6] ported: the >7 index guard, the manager closes for the current player, the MG_Hyperspace (0x008860ec & 0x4000) look into singlePlayerGameInfo.ShipsInHyperspace, the kill credit from Ship+0x60C catKilledByPlayer (0..7, not the player itself) as univKillPlayer's third argument",
+  "sample": "integrate-R6"
  },
  "0x00548e00": {
   "class": "MODIFIED",
@@ -13482,9 +13483,10 @@
  },
  "0x0054ce20": {
   "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "3 arguments, closes construction/launch/research managers, no game stats file",
-  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #5, stage 3)"
+  "confidence": "high",
+  "change": "3 arguments (the third credits the kill to PlayerStats+0x7D0), closes the research/construction/launch managers for the current player, speech 0x200102d, no game stats file",
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #5, stage 3) | [integrate: M2-R6] ported: the third argument (the kill credited to PlayerStats+0x7D0 catStat7D0; -1 at the exe's two other sites, clProcessSyncPacket 0x00450e47 and singlePlayerMissionFailedCB 0x0051be8d), the current player's three manager closes, the exe's speech id 0x200102d, no stats file (the file name is still built and dropped); the rest HW1's",
+  "sample": "integrate-R6"
  },
  "0x00550770": {
   "class": "IDENTICAL",
@@ -16394,7 +16396,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "none in the game code (HWI-ORACLE instrumentation only: /oracleMission advances the task clock by one universe tick per frame under #if HWI_ORACLE, src/SDL/utility.c)",
-  "note": "[audit: M2-R4 rest-oracle] edited IDENTICAL without a review entry; body is HW1's utyTasksDispatch",
+  "note": "[audit: M2-R4 rest-oracle] edited IDENTICAL without a review entry; body is HW1's utyTasksDispatch | [audit: M2-R6 motion-interp] two more HWI-FEATURE(motion-interp) lines (taskSubTick from the millisecond remainder or the virtual clock; oracleVirtualFrameStep in a motion run), not a Cataclysm delta",
   "sample": "audit-R4-rest-oracle"
  },
  "0x005acd90": {
@@ -18784,21 +18786,21 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "FixShip: the repair droids made anew after the type's Fix (droidCreateArray for a Sect ship with nRepairDroids, else NULL); the rest of the body not compared here",
-  "note": "[review: M2-R6 nis-fow-camera] FixShip: the repair droids made anew after the type's Fix (droidCreateArray for a Sect ship with nRepairDroids, else NULL); the rest of the body not compared here",
+  "note": "[review: M2-R6 nis-fow-camera] FixShip: the repair droids made anew after the type's Fix (droidCreateArray for a Sect ship with nRepairDroids, else NULL); the rest of the body not compared here | [review: M2-R6 oracle-mode-a] FixShip: the whole body compared and rewritten in the exe order: the beast bindings, the salvage bindings (GetShipStaticInfo(type, RACE_Sect)), creator and queued target IDs, cat_univSetShipMaxHealth, the single-player difficulty factor 0x008941a4 on targetable.health",
   "sample": "port-R6-nis-fow-camera"
  },
  "0x005034c0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "SaveUniverse: cat_saveSavePlayerFOW 0x004ff6b0 in the player loop after the research info ported (the rest of the body not compared here)",
-  "note": "[review: M2-R6 nis-fow-camera] SaveUniverse: cat_saveSavePlayerFOW 0x004ff6b0 in the player loop after the research info ported (the rest of the body not compared here)",
+  "note": "[review: M2-R6 nis-fow-camera] SaveUniverse: cat_saveSavePlayerFOW 0x004ff6b0 in the player loop after the research info ported (the rest of the body not compared here) | [review: M2-R6 oracle-mode-a] SaveUniverse: the same exe order as LoadUniverse (record table prefix, blasts, record table, second grow selection, counters, frame-step INFO); univDeleteDead* stays CAT-TODO(stage 5 recorder)",
   "sample": "port-R6-nis-fow-camera"
  },
  "0x00503910": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "LoadUniverse: cat_saveLoadPlayerFOW 0x004ff7e0 in the player loop ported (the rest of the body not compared here)",
-  "note": "[review: M2-R6 nis-fow-camera] LoadUniverse: cat_saveLoadPlayerFOW 0x004ff7e0 in the player loop ported (the rest of the body not compared here)",
+  "note": "[review: M2-R6 nis-fow-camera] LoadUniverse: cat_saveLoadPlayerFOW 0x004ff7e0 in the player loop ported (the rest of the body not compared here) | [review: M2-R6 oracle-mode-a] LoadUniverse: rewritten in the exe order: the ship-record table prefix, no attack memory, cat_loadUniverseList5e288 (blasts, 0x74 records), cat_univRequestBulletEffectsRecreate, the ship-record table (100 x 0x70), the second grow selection, the player loop (research info + FOW), cat_loadShipCounters and the frame-step INFO 0x00a6ed74; the 0x3D9BC Universe chunk converted",
   "sample": "port-R6-nis-fow-camera"
  },
  "0x00517af0": {
@@ -18851,5 +18853,647 @@
   "change": "adds calls cat_mcResetRequest, cat_mcSetMode; constants 58 not in body; loops 5 -> 9",
   "note": "[review: M2-R6 startup-keys] ported: shiplagtotals cleared in every game; the motion cues (cat_mcSetMode / cat_mcResetRequest) are CAT-TODO(M2-R6 NIS/camera) | [audit: M2-R6 nis-fow-camera] the motion cues are ported now (catMotionCues on: cat_mcSetMode(&catMotionCueState, 1), cat_mcResetRequest at the end; utility.c)",
   "sample": "audit-R6-nis-fow-camera"
+ },
+ "0x00412400": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_kasVarLoad",
+  "note": "[review: M2-R6 oracle-mode-a] aiplayerLoad: the exe chunk walk ported for a cataclysm.exe save (aiplayerCat32Load: aivar, kasvar, AIPlayer 0x1D18, 1 + 2 x 145 selections, 6 lists, 2 selections, the optional selections at 0x1CB0 / 0x1CC0..0x1CCC, the max selection, 0x1CA8, the teams), then aiplayerInit at the saved difficulty; the AI state itself is CAT-TODO(stage 4 AI)"
+ },
+ "0x00425c90": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] 0x00425ca0 (bobInitProperties) is a 5-byte jump to it: Blobs.c's bobInitProperties now only calls it (no mission-6 blob radius)"
+ },
+ "0x00450910": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_clExternalBuildUpdate, cat_clLink, cat_clMimic, cat_clPointOrder, cat_clResearch, cat_clSetBeastSystem (+7); adds strings \"\\cataclysm\\exe\"; calls with a changed parameter count: clFormation 3->4; fields +ShipPtr, TargetID, curPlayerIndex, objNumber (+3) -AllianceMsgType, CurAlliance, NewAlliance, OnOff (+26); loops 2 -> 4; switch cases 23 -> 38",
+  "note": "[review: M2-R6 oracle-mode-a] clProcessSyncPacket: ported: the 0x1C header (NetSyncChecksums + catExtra, numberOfCommands at 0x18) and the receive side of the exe command types 1..27 by the exe offsets (CommandNetwork.c clPkt* readers); oracle01 holds move, attack, formation, dock, createship, collectresource, protect, buildship, misc (1, 2, 10, 11), alliance, research, extbuildupdate, upgrade"
+ },
+ "0x00451280": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 oracle-mode-a] clWaitSyncPacket: compared: identical (the playback branch reads the next recorded packet through recPackPlayGetNextPacket and hands it to clProcessSyncPacket)"
+ },
+ "0x00487020": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 oracle-mode-a audit] gcStartup: compared at the chat region: the exe passes the atom 0x00880f38 as regChildAlloc's user ID; the body is unchanged in Cataclysm, the tree widens GoK's (sdword) cast of that ID to smemsize (an LP64 CAT-FIX of the port, not a Cataclysm change)"
+ },
+ "0x0049ae40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] identical (keyBufferAdd inlined with the exe's no-buffer list 0x00883268 in Win32 key codes; | 2 & 0xfb sets the 2-bit keystick to 1)"
+ },
+ "0x0049af90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] identical (keyBufferAdd inlined)"
+ },
+ "0x0049b0c0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] identical (& 0xf9 clears the 2-bit keystick)"
+ },
+ "0x0049bca0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_kbKeyToString, feScreenStart; adds strings \"In_Game_Invalid_Key\"; \"Invalid_Key\"; calls with a changed parameter count: kbSetNewKey 1->2; globals +gameIsRunning; loops 3 -> 1",
+  "note": "[review: M2-R6 startup-keys] ported: the 150 commands, the captured key bound through cat_kbSetNewKey, the exe's invalid-key screen (KeyBindings.c)"
+ },
+ "0x0049be80": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "adds calls cat_kbReloadKeyBindings; body 3.7x smaller than predicted",
+  "note": "[review: M2-R6 startup-keys] ported: cat_kbReloadKeyBindings(TRUE)"
+ },
+ "0x004ae130": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[audit: M2-R6 motion-interp] edited IDENTICAL without a review entry: the only change is the HWI-FEATURE(motion-interp) miForget(pointer) line at the top (the interpolation side table drops a freed object), not a Cataclysm delta; the rest of the body is HW1's memFree as before"
+ },
+ "0x004cb7f0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 oracle-mode-a audit] nebLoad_Nebula: the exe body reads the nebula and tendril chunks as plain 0x58 / 0xFC copies (IDENTICAL kept); the tree adds only a refusal (dbgFatalf) when a cataclysm.exe save holds nebulae, whose 32-bit chunks are not converted yet (CAT-TODO(stage 6 level load))"
+ },
+ "0x004cbf00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 oracle-mode-a] recPackPlayGetNextPacket: compared: identical"
+ },
+ "0x004cc010": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 oracle-mode-a] recPackPlayInGameInit: compared: identical"
+ },
+ "0x004cc400": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 oracle-mode-a] netcheckShow: compared; the exe ring entry is 16 bytes (the sync packet catExtra 0x00ab7658 kept with each check, NetCheck.c catSyncExtra), otherwise identical"
+ },
+ "0x004fdf40": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 oracle-mode-a] VerifySaveFile: compared: identical (it walks the chunks of a cataclysm.exe save through saveCatLoadHook)"
+ },
+ "0x004fee50": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 oracle-mode-a] compared: identical"
+ },
+ "0x004ff3e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls SpaceObjRegistryGetObj; body 2.1x smaller than predicted; fields +collInfo, enginePosition, force, health (+10) -ShipPtr, dockingship, flashtimer, gunInfo (+19)",
+  "note": "[review: M2-R6 oracle-mode-a] FixAllSpaceObjs: the per-type cases compared; the asteroid case fixes catMimicShip (an ID in the file, SaveAsteroid writes it); the others as the exe"
+ },
+ "0x004ffd70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls SaveSelection, fileStream, memAllocFunction; drops calls to Save_madBindings (absent from Cataclysm); globals +savefile, savefilestatus; constants 48, 80, 240, 0x300, 0xe00 not in body; loops 8 -> 19",
+  "note": "[review: M2-R6 oracle-mode-a] SaveShip: compared; catDissolveEffect cleared in the copy, the beast infector/owner, salvage depot/big gun, creator and queued attack target written as IDs; formationcommand is written raw as the exe does; sizeship rounded to 8 like LoadShip (CAT-FIX)"
+ },
+ "0x00500490": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls LoadSelection, cat_gunStaticSetSoundTypes, listAddNode, listInit; drops calls to Load_madBindings (absent from Cataclysm); body 2.6x smaller than predicted; fields +next, numSpaceObjs, timeLastStatus -CustShip_Load, attackvars, bindings, clampInfo (+38); loops 1 -> 20",
+  "note": "[review: M2-R6 oracle-mode-a] LoadShip: compared; the 0x10ad0027 VARIABLE chunk (Ship 0x63C + specifics size32 - 4, + 0x7C PreciseSelection, + the madanim block with its curves) converted ILP32 -> LP64 by SaveCat32.c saveCat32ChunkShip, the dynamic ShipStaticInfo chunk converted, sizeship rounded to 8 (CAT-FIX), catDissolveEffect NULL at the end"
+ },
+ "0x00501540": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 oracle-mode-a] FixMissile: compared: identical"
+ },
+ "0x005025e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops calls LoadSelectionAndFix; fields +belongto, next, prev, structptr -ShipPtr, attack, attributes, buildingship (+15); loops 0 -> 8",
+  "note": "[review: M2-R6 oracle-mode-a] Load_CommandToDo: the 0x330 CommandToDo, its military parade (0x104) and slots (0x30) and attack atoms (head 0x24, count 0x1C) converted"
+ },
+ "0x00502f20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_playerUpdateUpgradesFromResearch; body 3.0x smaller than predicted; fields +prev -info, link, listoftopics",
+  "note": "[review: M2-R6 oracle-mode-a] Load_PlayerResearchInfo: the 0x1B48 chunk converted; ends with cat_playerUpdateUpgradesFromResearch(player) as the exe"
+ },
+ "0x0051bee0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls SaveInfoNumber, cat_spSaveMiscInfo; body 3.5x larger than predicted",
+  "note": "[review: M2-R6 oracle-mode-a] SaveSinglePlayerGame: the 10 INFOs, cat_spSaveMiscInfo 0x005b9df0 and the catSpBigGunAllowed INFO as the exe"
+ },
+ "0x0051bf90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls LoadInfoNumber, cat_spLoadMiscInfo, ioUpdateShipTotals, mouseCursorHide, mouseDisable, mrDisable (+1); body 5.2x larger than the file's size ratio predicts, with more branches; globals +selSelected",
+  "note": "[review: M2-R6 oracle-mode-a] LoadSinglePlayerGame: compared; the 0x54 struct converted, then 10 INFOs (spLockoutFlags, the NIS fade words, catNisBlackFadeFlag, nisFullyScissored, catSmShowMines), cat_spLoadMiscInfo 0x005b9e70-side and catSpBigGunAllowed (1 INFO); the real oracle01 file has 189 INFOs here for 2 players"
+ },
+ "0x0054ec60": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "adds calls cat_kbModifiersMatch; body 3.4x larger than the file's size ratio predicts, with more branches",
+  "note": "[review: M2-R6 startup-keys] ported: the binding table 0x00a6ee90 with the modifier test cat_kbModifiersMatch (KeyBindings.c)"
+ },
+ "0x0055f6c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds strings \" - Enable debug window.\"; \"/nodebugInt\"; \"Invalid or unrecognised command line ...\" (+1); loops 2 -> 19",
+  "note": "[review: M2-R6 startup-keys] identical to HW1 over the exe's table (one line per visible row); GoK prints it to stdout instead of the dialog box"
+ },
+ "0x0055f880": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds strings \"/nodebugInt\"; body 2.7x smaller than predicted; fields -flags, function, helpString, parameter (+2)",
+  "note": "[review: M2-R6 startup-keys] ported: a missing parameter or a failing parameter function prints the help and ends the start-up (-1); the exe's 64-row table 0x008b8870 [audit: was 63-row; 57 switches and 7 section rows, terminator 0x008b8e70] compared: /prepath, /CDpath (cat_mainCDROMPathSet), /SaveMPGames, /LoadMPGame, /d3dDeviceCRC added, /aiplayerLog also in release, /NoBind gone; the tree's other rows are GoK's or HWI diagnostics"
+ },
+ "0x0055f960": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] rGL device statistics (devstats.dat): not in GoK's tree, N/A (decision 28)"
+ },
+ "0x0055fb90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops calls binkPause; library calls +binkPause",
+  "note": "[review: M2-R6 startup-keys] compared: the minimise, hwActivate / rGL deactivation and binkPause are SDL's and GoK's movie player's (no pause; decision 28): comment only"
+ },
+ "0x0055fc70": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "calls with a changed parameter count: utyChangeResolution 3->2",
+  "note": "[review: M2-R6 startup-keys] compared: SetWindowPos and utyChangeResolution(w, h); GoK's SDL body kept (its utyChangeResolution takes the depth too)"
+ },
+ "0x0055fd00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops calls glCapLoadOpenGL; library calls +glCapLoadOpenGL -strlen; loops 0 -> 8",
+  "note": "[review: M2-R6 startup-keys] compared: rGL device loading through glCapLoadOpenGL; GoK's SDL GL backend (decision 28), nothing to port"
+ },
+ "0x005600c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops calls glCapLoadOpenGL; library calls +glCapLoadOpenGL -strcmp",
+  "note": "[review: M2-R6 startup-keys] compared: rGL device loading; GoK's SDL GL backend (decision 28)"
+ },
+ "0x005602f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds strings \"Emergence\"; drops strings \"Homeworld\"; body 2.2x smaller than predicted",
+  "note": "[review: M2-R6 startup-keys] the window class \"Emergence\": the SDL window's title (render.c CAT_RND_WINDOW_TITLE, main.c windowTitle); RegisterClass N/A"
+ },
+ "0x00560350": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds strings \"Emergence\"; drops strings \"Homeworld\"",
+  "note": "[review: M2-R6 startup-keys] the \"Emergence\" window re-created: SDL N/A"
+ },
+ "0x00560470": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_overlayIconsDiscardGL, cat_rndFogLayerTextureUnload, cat_rndLensFlareTextureUnload",
+  "note": "[review: M2-R6 startup-keys] its inlined mainResetRender's three unloads (overlay icons, lens flare, fog layer) are in mainResetRender (main.c)"
+ },
+ "0x005604e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] HW1's body (it also saves the renderer names); GoK's SDL version kept"
+ },
+ "0x00560550": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] HW1's body (rGL software device names); GoK's SDL version kept"
+ },
+ "0x005605f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_glideIsLoaded, cat_glideShutdown, cat_mainRGLFeaturesSet, cat_overlayIconsDiscardGL, cat_rndFogLayerTextureUnload, cat_rndLensFlareTextureUnload (+2); adds strings \"Emergence\"; drops strings \"glide2x.dll\"; globals +DebugWindow, ghInstance, opDeviceIndex; library calls +glCapLoadOpenGL -strcmp; constants 0x1001, 0x1002, 0x1003, 0x1004, 0x100b not in body; loops 1 -> 5",
+  "note": "[review: M2-R6 startup-keys] compared: Glide shutdown, cat_mainRGLFeaturesSet and the rGL device: N/A (decision 28); the three unloads come through mainLoadParticularRGL -> mainCloseRender -> mainResetRender"
+ },
+ "0x00560ba0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls btgLoadTextures, cat_glideIsLoaded, cat_glideShutdown, cmLoadTextures, frReloadGL, glcLoadTextures (+6); adds strings \"\\n-- load rGL device %s --\"; drops strings \"glide2x.dll\"; globals +showBorder; loops 2 -> 10",
+  "note": "[review: M2-R6 startup-keys] compared: the inlined close / open; glcompat and Glide N/A; rndLoadShamelessPlug(FALSE) is CAT-TODO(M2-R7 render) in mainCloseRender; the reloads match mainOpenRender"
+ },
+ "0x00561570": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_glideIsLoaded, cat_glideShutdown, cat_overlayIconsDiscardGL, cat_rndFogLayerTextureUnload, cat_rndLensFlareTextureUnload; adds strings \"Emergence\"; drops strings \"Homeworld\"; \"glide2x.dll\"; loops 2 -> 5",
+  "note": "[review: M2-R6 startup-keys] compared: the inlined close (with the three unloads, in mainResetRender) and the window re-creation (N/A); rndLoadShamelessPlug(FALSE): CAT-TODO(M2-R7 render)"
+ },
+ "0x00561920": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_glideIsLoaded, cat_glideShutdown, cat_mainRGLFeaturesSet, cat_overlayIconsDiscardGL, cat_rndFogLayerTextureUnload, cat_rndLensFlareTextureUnload (+2); adds strings \"Emergence\"; drops strings \"Homeworld\"; \"glide2x.dll\"; globals +showBorder; library calls +glCapLoadOpenGL; loops 2 -> 5",
+  "note": "[review: M2-R6 startup-keys] compared: as mainLoadGL; cat_mainRGLFeaturesSet (rGL features) N/A"
+ },
+ "0x00561e40": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] rGL only: not in GoK's tree, N/A"
+ },
+ "0x00561e80": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] identical"
+ },
+ "0x00561f10": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_consoleKeyPress, cat_glideIsLoaded, cat_glideShutdown, cat_overlayIconsDiscardGL, cat_rndFogLayerTextureUnload, cat_rndLensFlareTextureUnload (+4); drops calls to mouseLClick (absent from Cataclysm); adds strings \"couldn't initialize default rendering...\"; globals +MAIN_WindowDepth, MAIN_WindowHeight, MAIN_WindowWidth, glToSelect (+5) -dbgFatalErrorString, keyScanCode, mrDrawTactical, utyStartedBits; library calls +binkPause; switch cases 28 -> 48",
+  "note": "[review: M2-R6 startup-keys] compared with HandleEvent: every key down also to cat_consoleKeyPress (ported), Escape ends there (ported: GoK fell through), no caps-lock sync of the tactical overlay (ported); the Bink stop, the Shift+Ctrl+F11/F12 renderer resets and the rGL/Glide cases are GoK's SDL handling"
+ },
+ "0x005631a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] HW1's body (hwSetRes / hwCreateWindow); GoK's SDL version kept"
+ },
+ "0x005631f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_glCapWin2K; adds strings \"CataclysmPatch.exe\"; \"CloseCataclysm\"; \"Emergence\" (+2); drops strings \"Homeworld\"; library calls +glCapLoadOpenGL -strcmp, strlen; loops 1 -> 3",
+  "note": "[review: M2-R6 startup-keys] compared: main() keeps the exe's start-up order; the Win32 items (CloseCataclysm message, registry CmdLine, OS tests, device selection, CataclysmPatch.exe, the message box) are listed N/A in main.c"
+ },
+ "0x005a8060": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] Win32 registry / ShellExecute: not in GoK's tree, N/A"
+ },
+ "0x005a81a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical (glcompat calls N/A; the stipple GL calls are rGL-only)"
+ },
+ "0x005a8200": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a8250": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds strings \"Emergence 1\"; constants 70 not in body; loops 0 -> 19",
+  "note": "[review: M2-R6 startup-keys] ported: \"<Version> Emergence 1.01\" (networkVersion 0x008b8850, minorBuildVersion 0x008b8860)"
+ },
+ "0x005a83a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds strings \"Cataclysm.cfg\"; \"SOFTWARE\\Sierra On-Line\\Cataclysm\"; \"deviceCRC\" (+1); drops strings \"Homeworld.cfg\"; \"SOFTWARE\\Sierra On-Line\\Homeworld\"; fields -data, name; loops 1 -> 3",
+  "note": "[review: M2-R6 startup-keys] ported: Cataclysm.cfg, the exe's table 0x008c1478 row for row; the registry rows N/A"
+ },
+ "0x005a84f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds strings \"Cataclysm.cfg\"; \"SOFTWARE\\Sierra On-Line\\Cataclysm\"; \"deviceCRC\" (+3); fields -data, dataPtr, name, setVarCB (+1); library calls -strlen",
+  "note": "[review: M2-R6 startup-keys] ported: Cataclysm.cfg, \"%s    %d\" (0x008c2e7c); the registry rows N/A"
+ },
+ "0x005a8650": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a8670": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a86d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a8740": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a8790": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a87f0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a8840": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a88a0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a88f0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a8950": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a89a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical (glcompat calls N/A; the stipple GL calls are rGL-only)"
+ },
+ "0x005a8a30": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical (glcompat calls N/A; the stipple GL calls are rGL-only)"
+ },
+ "0x005a8aa0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a8b00": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a8b50": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a8bb0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a8c00": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a8c60": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a8f10": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a8f70": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a8fc0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a9020": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a9070": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a90d0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a9120": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a9190": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a91b0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005a91d0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "adds calls BountyInit, FancyFightPreLoad, GetMissionsDirAndFile, HorseRaceNext, LoadGame, PreLoadGame (+58); body 2.0x larger than predicted; uses fields HW1 never uses: supportUnitsUsed; fields +AllianceProposals, PlayerMothership, ShipList, aiPlayer (+25); globals +SongNumber, aiCurrentAIPlayer, cpColorsPicked, gameIsRunning (+14) -dbgFatalErrorString; library calls +sprintf; loops 2 -> 34",
+  "note": "[review: M2-R6 startup-keys] Ghidra's body runs past exit() into gameStart; the real body is HW1's (flush the messages, CID_ExitError, exit): GoK's SDL version kept"
+ },
+ "0x005a9f40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls opOptionsSaveSettings; drops calls to tbShutdown, universeStaticClose, writeGameStatsToFile (absent from Cataclysm)",
+  "note": "[review: M2-R6 startup-keys] ported: no writeGameStatsToFile, opOptionsSaveSettings and the pause flag 0x00a6ed74 cleared at the end; glcActivate N/A; universeStaticClose is the folded empty function 0x0049ae30; tbShutdown kept with gameStart's task-bar CAT-TODO"
+ },
+ "0x005aa140": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005aa160": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] [audit: was \"compared: identical\"] found modified: the credits track is 0x29 (HW1 RollCredits 28): ported (utility.c CAT_MUSIC_CREDITS)"
+ },
+ "0x005aa190": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005aa2c0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005aa580": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] found modified: it sets whichRaceSelected = 0 (the Sect) after starting Create_new_game: ported"
+ },
+ "0x005aa5c0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005aa5f0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005aaa50": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical | [review: M2-R6 oracle-mode-a] utyLoadMultiPlayerGameGivenFilename: called by gpLoadRecordedGameGivenName (LoadRecordedGame 0x00487cf0) for a replay"
+ },
+ "0x005aab80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005aaf50": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005aaf80": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] identical but GoK's spResetMissionSequenceToBeginning: CAT-TODO(stage 6 single player)"
+ },
+ "0x005ab150": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005ab570": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls soundEventPause, soundEventStopMusic",
+  "note": "[review: M2-R6 startup-keys] ported: soundEventStopMusic(0.5), soundEventPause(TRUE) before the quit"
+ },
+ "0x005ab6b0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] [audit: was \"compared: identical\"] found modified: the credits sequence plays track 0x29 (HW1 RollCredits 28): ported (utility.c CAT_MUSIC_CREDITS)"
+ },
+ "0x005ab780": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005ab810": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops calls fileBlockRead, fileClose, fileOpen, filePathPrepend, fileSeek, fileSizeGet; drops calls to bigCRC (absent from Cataclysm); adds strings \"BeastSpeech.vce\"; \"Cataclysm.big\"; \"Emergence 1\" (+2); drops strings \"Extra.big\"; globals +cat_utyBeastVoiceFilename; constants 18, 90, 0x29e00000, 0x2ad00000, 0x2c000000 not in body; loops 1 -> 37",
+  "note": "[review: M2-R6 startup-keys] compared: no bigCRC (ported); fmathInit not needed (decision 23); the version string ends with minorBuildVersion (ported); HW_Data, the CD search, the big files and the heap are GoK's file layer"
+ },
+ "0x005ac690": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops calls to keyClose (absent from Cataclysm)",
+  "note": "[review: M2-R6 startup-keys] identical (the dropped keyClose is the empty function folded into 0x0049ae30)"
+ },
+ "0x005ac710": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls btgStartup, cat_consoleShutdown; drops calls utyOptionsFileWrite; drops calls to battleChatterShutdown, bsShutdown, btgShutdown, dmgShutdown (+14) (absent from Cataclysm); adds strings \"Cataclysm.cfg\"; \"FEMan\\Front_end.fib\"; \"FEMan\\Sensors_manager.fib\" (+4); globals +loadedDevcaps, loadedDevcaps2, regOptionsList, utyOptionsList; library calls +fclose, fopen, fprintf; loops 1 -> 4",
+  "note": "[review: M2-R6 startup-keys] compared: the options written inline (utyOptionsFileWrite), the registry rows N/A, cat_consoleShutdown before cmShutdown (ported); the dropped shutdowns are calls to empty functions folded into 0x0049ae30; tbShutdown kept (gameStart's task-bar CAT-TODO); glcShutdown N/A"
+ },
+ "0x005acdc0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] Win32 body; GoK's SDL version kept"
+ },
+ "0x005ace90": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] Win32 ClipCursor body; GoK's SDL version kept"
+ },
+ "0x005ad040": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] Win32 keyboard-state body; GoK's (not built on Linux) kept"
+ },
+ "0x005ad170": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005ad1b0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005ad1e0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x005ad210": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R6 startup-keys] compared: identical"
  }
 }

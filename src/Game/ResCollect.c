@@ -746,8 +746,7 @@ void TurnHarvestEffectOn(Ship *ship,Resource *resource,vector *trajectory, real3
 #endif
     {
         // CAT: TurnHarvestEffectOn 0x004f1ac0 starts no harvest sound (HW1: Ship_ResourceAsteroid/DustCloud).
-        // CAT-TODO(stage 3): the exe passes the beam length and the resource radius to the effect as real32 values;
-        //      this tree's ETG still reads them as integers (SCALECAST), as all its etgEffectCreate callers do
+        // CAT-TODO(M2-R7 ETG): TurnHarvestEffectOn 0x004f1ac0 passes the beam length and the resource radius to etgEffectCreate as real32 values where this tree, like every other etgEffectCreate caller, passes SCALECAST integers (HW1's convention); the parameters land in the effect's variable block, which the effect script types, so the switch is one review of the ETG's variable parameters for all callers (ETG.c, a stage-2 file), not a UI item [integrate: M2-R6: re-targeted from stage 3]
         ship->rceffect = etgEffectCreate(stat, ship, &nozzleposition, &ship->obj.posinfo.velocity, &nozzlecoordsys, 1.0f, EAF_Velocity | EAF_NLips, 2, SCALECAST(intLength), SCALECAST(intWidth));
     }
     else

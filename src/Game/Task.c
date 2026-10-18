@@ -20,6 +20,7 @@
 #include "Globals.h"      // CAT: time compression
 #include "MultiplayerGame.h"      // CAT: time compression
 #include "Tutor.h"      // CAT: time compression
+#include "StringsOnly.h"      // CAT: the time-compression message [integrate: M2-R6]
 
 /*=============================================================================
     Data:
@@ -596,19 +597,20 @@ void cat_taskTimeCompressionApply(void)
 }
 
 // 0x0052a3a0: "1/%d %s" below 1, "%d %s" otherwise, as a command message (colour 0xffffffff, ported with the HUD's
-// clCommandMessage). CAT-TODO(stage 3): the %s argument (a string the decompiler does not show) [audit: the colour half
-// of this TODO was stale]
+// clCommandMessage). CAT [integrate: M2-R6]: the %s is MessageStrings[1519] = strTimesTimeCompression (the exe pushes
+// ds:0x00bb4ddc = the string table 0x00bb3620 + 4 * 1519 at 0x0052a3b6 / 0x0052a3dc); the exe formats into its global
+// 0x00a6b144 and truncates the factor with __ftol, as the casts here (was a stage-3 CAT-TODO: the %s argument)
 void cat_taskTimeCompressionPrint(void)
 {
     char buffer[64];
 
     if (cat_timeCompressionFactor < 1.0f)
     {
-        sprintf(buffer, "1/%d %s", (sdword)(1.0f / cat_timeCompressionFactor), "");
+        sprintf(buffer, "1/%d %s", (sdword)(1.0f / cat_timeCompressionFactor), strGetString(strTimesTimeCompression));
     }
     else
     {
-        sprintf(buffer, "%d %s", (sdword)cat_timeCompressionFactor, "");
+        sprintf(buffer, "%d %s", (sdword)cat_timeCompressionFactor, strGetString(strTimesTimeCompression));
     }
     clCommandMessage(buffer, 0xffffffff);
 }

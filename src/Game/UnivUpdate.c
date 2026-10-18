@@ -34,6 +34,8 @@
 #include "InfoOverlay.h"
 #include "FOW.h"              // CAT: the fog of war (M2-R6 nis-fow-camera)
 #include "LaunchMgr.h"
+#include "FEFlow.h"           // CAT: featom for ResearchGUI.h [integrate: M2-R6]
+#include "ResearchGUI.h"      // CAT: rmCloseIfOpen in the player-death path [integrate: M2-R6]
 #include "LevelLoad.h"
 #include "MadLinkIn.h"
 #include "MadLinkInDefs.h"
@@ -5516,8 +5518,7 @@ void CheckPlayerWin(void)
     }
 }
 
-// CAT-TODO(stage 3/5): DeclarePlayerWin 0x005487f0 reports the results (cat_DeclarePlayerWinReportResults
-//      0x00548750) and is twice HW1's size (multiplayer result screens).
+// CAT-TODO(stage 5 LAN): DeclarePlayerWin 0x005487f0 is twice HW1's size: the multiplayer win message is built from the player names (0x00c39640 + 0x12 * i) and the results are reported through cat_DeclarePlayerWinReportResults 0x00548750 = cat_titanContestRecordResult(0x12, ...), the WON contest API of stage 5; the function returns at once in single player, so none of it runs before stage 5 [integrate: M2-R6: re-targeted from stage 3/5]
 void DeclarePlayerWin(void)
 {
     udword numPlayersAlive = 0;
@@ -5667,60 +5668,101 @@ bool32 univFindBackupMothership(struct Player *player)
     return FALSE;
 }
 
-// CAT-TODO(stage 3): univKillOtherPlayersIfDead 0x00548c70 closes the construction, launch and research
-//      managers (cmCloseIfOpen, lmCloseIfOpen, rmCloseIfOpen), looks at the hyperspace ether too, and calls the
-//      three-argument univKillPlayer.
+// CAT [integrate: M2-R6]: univKillOtherPlayersIfDead 0x00548c70 (was a stage-3 CAT-TODO). A player index above 7
+//      returns at once. The mothership lost: in single player only player 0 dies (univKillPlayer(0, 0, -1) and
+//      CheckPlayerWin), another player just loses the pointer; in multiplayer a backup mothership (univFindBackupMothership)
+//      keeps the player, and without one the player plays on without a mothership unless the last-mothership option
+//      (tpGameCreated.flag & MG_LastMotherShip, 0x008860ec & 2) is set or no ship is left; then the current player's
+//      research, construction and launch managers are closed (rmCloseIfOpen / cmCloseIfOpen / lmCloseIfOpen). Not the
+//      mothership and no ship counted: in multiplayer only, and a live ship (not SOF_Dead) of the player on the ShipList,
+//      or with MG_Hyperspace (flag 0x4000) in the hyperspace ether (singlePlayerGameInfo.ShipsInHyperspace), keeps the
+//      player alive. The kill is credited (the third argument of univKillPlayer) to Ship+0x60C catKilledByPlayer when it
+//      names another player 0..7, else to nobody (-1).
 void univKillOtherPlayersIfDead(Ship *ship)
 {
-    bool32 aplayerdied=FALSE;
-    sdword i;
-    //for (i=0;i<universe.numPlayers;i++)
-    //{
+    Player *player;
+    Node *node;
+    Ship *other;
+    sdword i, killer;
+    bool32 alive;
+
     i = ship->playerowner->playerIndex;
-
-        if (ship == universe.players[i].PlayerMothership)
-        {
-            if (singlePlayerGame)
-            {
-                if (i != 0)
-                {
-                    // player 1 of single player game just lost mothership - but don't kill player
-                    universe.players[i].PlayerMothership = NULL;
-                }
-                else
-                {
-                    aplayerdied = TRUE;
-                    univKillPlayer(i,PLAYERKILLED_STANDARDDEATH);
-                }
-            }
-            else if (!univFindBackupMothership(&universe.players[i]))
-            {
-                if(tpGameCreated.flag & MG_LastMotherShip || universe.players[i].totalships == 0)
-                {
-                    aplayerdied = TRUE;
-                    univKillPlayer(i,PLAYERKILLED_STANDARDDEATH);
-                }
-                else
-                {
-                    universe.players[i].PlayerMothership = NULL;
-                }
-            }
-        }
-        else if(universe.players[i].totalships == 0)
-        {
-            if(!singlePlayerGame)
-            {
-                //all players ships are dead...he's dead
-                aplayerdied = TRUE;
-                univKillPlayer(i,PLAYERKILLED_STANDARDDEATH);
-            }
-        }
-
-    if (aplayerdied)
+    if (i > 7)
     {
-        CheckPlayerWin();
+        return;
     }
-    //}
+    player = &universe.players[i];
+
+    if (ship == player->PlayerMothership)
+    {
+        if (singlePlayerGame)
+        {
+            if (i == 0)
+            {
+                univKillPlayer(0, PLAYERKILLED_STANDARDDEATH, -1);
+                CheckPlayerWin();
+            }
+            else
+            {
+                // player 1 of single player game just lost mothership - but don't kill player
+                player->PlayerMothership = NULL;
+            }
+            return;
+        }
+        if (univFindBackupMothership(player))
+        {
+            return;
+        }
+        if (!(tpGameCreated.flag & MG_LastMotherShip) && player->totalships != 0)
+        {
+            if (player == universe.curPlayerPtr)
+            {
+                rmCloseIfOpen();
+                cmCloseIfOpen();
+                lmCloseIfOpen();
+            }
+            player->PlayerMothership = NULL;
+            return;
+        }
+    }
+    else
+    {
+        if (player->totalships != 0 || singlePlayerGame)
+        {
+            return;
+        }
+        alive = FALSE;
+        for (node = universe.ShipList.head; node != NULL; node = node->next)
+        {
+            other = (Ship *)listGetStructOfNode(node);
+            if (!bitTest(other->header.flags, SOF_Dead) && other->playerowner == player)
+            {
+                alive = TRUE;
+            }
+        }
+        if (tpGameCreated.flag & MG_Hyperspace)
+        {
+            for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = node->next)
+            {
+                other = ((InsideShip *)listGetStructOfNode(node))->ship;
+                if (!bitTest(other->header.flags, SOF_Dead) && other->playerowner == player)
+                {
+                    alive = TRUE;
+                }
+            }
+        }
+        if (alive)
+        {
+            return;
+        }
+    }
+    killer = ship->catKilledByPlayer;
+    if (killer < 0 || killer > 7 || killer == i)
+    {
+        killer = -1;
+    }
+    univKillPlayer(i, PLAYERKILLED_STANDARDDEATH, killer);
+    CheckPlayerWin();
 }
 
 /*-----------------------------------------------------------------------------
@@ -9915,12 +9957,17 @@ bool32 univUpdate(real32 phystimeelapsed)
     return FALSE;
 }
 
-// CAT-TODO(stage 3): univKillPlayer 0x0054ce20 takes a third argument, closes the construction, launch
-//      and research managers and no longer writes the game stats file.
-void univKillPlayer(sdword i,sdword playerdeathtype)
+// CAT [integrate: M2-R6]: univKillPlayer 0x0054ce20 takes a third argument, the index of the player credited with the
+//      kill (catKillerIndex; -1 = nobody: univKillOtherPlayersIfDead passes Ship+0x60C catKilledByPlayer, the exe's two
+//      other sites push -1: clProcessSyncPacket 0x00450e47, singlePlayerMissionFailedCB 0x0051be8d), whose PlayerStats
+//      +0x7D0 (catStat7D0, the stats screen's first row) goes up by one; the current player's research, construction and
+//      launch managers are closed first (rmCloseIfOpen / cmCloseIfOpen / lmCloseIfOpen, the exe's order); the speech event
+//      is the exe's 0x200102d; no game-stats file is written (the exe still builds HW1's "<name><strStatsDiedStats>" file
+//      name into a local and drops it). The defeat line is HW1's inlined (name, " " 0x0074e524, strPlayerHasDied
+//      0x00bb38e4, colour 0xff0000ff) and the big message is HW1's choice (strQuestIsLost 0x00bb38d8; strHaveBeenDefeated
+//      0x00bb38d4 or strHaveBeenDroppedOut 0x00bb38ec for death type -1). Was a stage-3 CAT-TODO.
+void univKillPlayer(sdword i,sdword playerdeathtype,sdword catKillerIndex)
 {
-    char filename[50];
-
     if (gatherStats|showStatsFight|showStatsFancyFight)
         return;     // just gathering stats, don't want to do the player win thing
 
@@ -9934,8 +9981,18 @@ void univKillPlayer(sdword i,sdword playerdeathtype)
         return;     // special player for autoguns, just exit
     }
 
+    if (&universe.players[i] == universe.curPlayerPtr)
+    {
+        rmCloseIfOpen();
+        cmCloseIfOpen();
+        lmCloseIfOpen();
+    }
     universe.players[i].PlayerMothership = NULL;
     universe.players[i].playerState = PLAYER_DEAD;
+    if (catKillerIndex != -1)
+    {
+        universe.gameStats.playerStats[catKillerIndex].catStat7D0++;
+    }
     universe.players[i].sensorLevel = 2;
     universe.gameStats.playerStats[i].timeOfDeath = universe.totaltimeelapsed;
     universe.gameStats.playerStats[i].typeOfPlayerDeath = playerdeathtype;
@@ -9945,8 +10002,7 @@ void univKillPlayer(sdword i,sdword playerdeathtype)
         smGhostMode = TRUE;
     }
 
-    /* This will only be played if its a Relic player that died */
-    speechEventFleet(STAT_F_RelicPlayerDies, i, SOUND_EVENT_DEFAULT);
+    speechEventQueue(NULL, 0x200102d, i, -1, 0, i, -1, 5.0f, -1);   // CAT: the exe's id (HW1: STAT_F_RelicPlayerDies)
 
     // player i has lost the game
     if (!singlePlayerGame) DisplayPlayerHasBeenDefeatedMessage(i);
@@ -9969,9 +10025,7 @@ void univKillPlayer(sdword i,sdword playerdeathtype)
             }
         }
     }
-    strcpy(filename,playerNames[i]);
-    strcat(filename,strGetString(strStatsDiedStats));
-    writeGameStatsToFile(filename);
+    // CAT: no writeGameStatsToFile (the exe builds HW1's file name into a local and does nothing with it)
 }
 
 

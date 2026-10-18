@@ -2895,7 +2895,7 @@ void clPlayerDropped(udword playerMask,udword verify)
         {
             if (universe.players[i].playerState != PLAYER_DEAD)
             {
-                univKillPlayer(i,PLAYERKILLED_DROPPEDOUT);
+                univKillPlayer(i,PLAYERKILLED_DROPPEDOUT,-1);   // CAT: nobody credited (clProcessSyncPacket 0x00450e47 pushes -1, -1, i)
                 aPlayerDied = TRUE;
             }
         }

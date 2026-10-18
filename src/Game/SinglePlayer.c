@@ -3967,7 +3967,7 @@ void singlePlayerMissionCompleteCB(void)
 
 void singlePlayerMissionFailedCB(void)
 {
-    univKillPlayer(0,PLAYERKILLED_LOSTMISSION);
+    univKillPlayer(0,PLAYERKILLED_LOSTMISSION,-1);   // CAT: nobody credited (singlePlayerMissionFailedCB 0x0051be8d pushes -1, 2, 0)
     CheckPlayerWin();
 }
 

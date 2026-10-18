@@ -176,7 +176,7 @@ void cat_univLimitProtectedShipSpeed(void);   // CAT: 0x00544e00
 #define PLAYERKILLED_CAPTUREDSHIP       1
 #define PLAYERKILLED_LOSTMISSION        2
 
-void univKillPlayer(sdword i,sdword playerdeathtype);
+void univKillPlayer(sdword i,sdword playerdeathtype,sdword catKillerIndex);   // CAT: the third argument credits the kill (-1: nobody)
 
 void CheckPlayerWin(void);
 
