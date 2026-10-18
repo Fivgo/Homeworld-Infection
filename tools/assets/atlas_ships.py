@@ -77,7 +77,7 @@ DEF_RETURN_ATLAS = os.path.join(ORIGINAL, 'assets-return-atlas')
 DEF_RETURN = os.path.join(ORIGINAL, 'assets-return')
 
 GUTTER = 8             # px at 1x around every slot (>= 4 required)
-MAX_PERIODS = 16       # baked repeats per axis
+MAX_PERIODS = 20       # baked repeats per axis (20 folds in the three 20-period tails)
 MAX_SLOT = 1024        # slot side at 1x, px
 HULL_MAX = 4096        # whole-hull atlas side at 1x, px
 PIECE_MAX = 8192       # a piece atlas that does not fit this is an error

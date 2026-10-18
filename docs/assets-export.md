@@ -257,7 +257,7 @@ python3 tools/assets/split_atlas.py [--dry-run]   # painted atlases -> separate 
 * **Baked repeats:** 15 % of LOD 0 faces tile their texture (GL_REPEAT, the loader never sets a wrap mode). Per
   material u0 = floor(min u), Nu = ceil(max u) - u0 (same for v; overshoots of at most 0.02 past a whole number are
   clamped first, moving 1,815 corners by at most 2.2 texels); the slot holds Nu x Nv copies and u' = (u - u0) / Nu.
-  One slot per (lit|glow, texture, Nu, Nv). Over 16 periods per axis or 1024 px per slot side stays out of the atlas
+  One slot per (lit|glow, texture, Nu, Nv). Over 20 periods per axis or 1024 px per slot side stays out of the atlas
   as its own material on the original PNG: 3 materials (`srm_tail_smooth` in `brammingfrigate` and
   `srammingfrigate`, 3 x 20; `rko0_engtopbot` in `drko`, 20 x 1). 21 colour-only materials are kept as they are;
   the 8 pieces without any texture get no atlas.
