@@ -1808,13 +1808,9 @@ void mgSkirmish(char *name, featom *atom)
     }
     LANGame = FALSE;
     IPGame = 1; // DO NOT USE TRUE for CPP reasons
+    // CAT: one computer player on every entry, as HW1 (mgSkirmish 0x004b9440); GoK kept the previous number
+    tpGameCreated.numComputers  = 1;
     tpGameCreated.numPlayers    = 1;
-    
-    // use the previous number of computer players unless it takes us over the limit
-    if (tpGameCreated.numComputers + tpGameCreated.numPlayers > MAX_MULTIPLAYER_PLAYERS) {
-        tpGameCreated.numComputers = 1;
-    }
-    
     mgShowScreen(MGS_Skirmish_Basic, TRUE);
 
 #ifdef _MACOSX_FIX_LAN

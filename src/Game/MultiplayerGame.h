@@ -284,6 +284,7 @@ struct ChatPacket;
 
 void mgStartMultiPlayerGameScreens(regionhandle region, sdword ID, udword event, udword data, bool32 AlreadyLoggedIn);
 void mgShutdownMultiPlayerGameScreens(void);
+void mgSkirmish(char *name, featom *atom);      // the MG_Skirmish button (HWI-TEST skirmish-start calls it, LevelLoad.c)
 
 void mgFailedToConnectToChannel(bool32 existing);
 

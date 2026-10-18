@@ -25,6 +25,7 @@
 #include "InfoOverlay.h"    // CAT: catHudSelfTestTick (the HUD self-test, M2-R5 hud)
 #include "PopupMenu.h"      // CAT: catUiSelfTestTick (the ui self-test, M2-R6 mainrgn-popup)
 #include "Console.h"        // CAT: catConsoleSelfTestTick (the console self-test, M2-R6 startup-keys)
+#include "LevelLoad.h"      // HWI-TEST: catSkirmishSelfTestTick (the skirmish self-test, skirmish-start)
 #include "OracleDump.h"
 #include "RepairDroid.h"     // HWI-TEST: catDroidUpdates (M2-R6 nis-fow-camera)
 #include "MotionTest.h"      // HWI-FEATURE(motion-interp): the motion / nis measurement modes
@@ -652,6 +653,11 @@ bool32 oracleUnivUpdate(real32 phystimeelapsed)
     if (catBuildSelfTestRequested() && (universe.univUpdateCounter != before))
     {
         catBuildSelfTestTick();
+    }
+    // HWI-TEST (skirmish-start): the skirmish self-test's judgement the same way (LevelLoad.c catSkirmishSelfTestTick)
+    if (catSkirmishSelfTestRequested() && (universe.univUpdateCounter != before))
+    {
+        catSkirmishSelfTestTick();
     }
 
     // HWI-FEATURE(motion-interp) measurement: the motion / nis modes' scripted ships and NIS (MotionTest.c)

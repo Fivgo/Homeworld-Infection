@@ -3092,7 +3092,7 @@
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match); [skirmish-start] the tree's HWI-FIX writes the fatal string to stderr before the deliberate fault or the exit (SDL has no message box); the body otherwise unchanged",
   "sample": "audit-R5-layout-dock-sync"
  },
  "0x00462ae0": {
@@ -16346,8 +16346,8 @@
  "0x005a9290": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "(not reviewed in full) a new game calls cat_mimicInitDisguiseTables",
-  "note": "[review: M2-R6 mainrgn-popup] only that call checked and added",
+  "change": "(not reviewed in full) a new game calls cat_mimicInitDisguiseTables; in a non-tutorial new game the start-position table 0x00ab77e0 is set to 0..7 and shuffled with 20 swaps of two ranRandomFn(0) % spScenarios[spCurrentSelected].maxplayers picks",
+  "note": "[review: M2-R6 mainrgn-popup] only that call checked and added; [review: skirmish-start] the table and its 0..7 fill ported (catStartPositions), the 40 stream-0 draws left to stage 6 (CAT-TODO)",
   "sample": "port-R6-mainrgn-popup"
  },
  "0x005aa5e0": {
@@ -20230,5 +20230,33 @@
   "change": "drops calls selectMemDupSelection; drops strings \"duppaa\"; body 2.0x smaller than predicted",
   "note": "[review: M2-R7 oracle-rung-aiship] ported the aiuAttack ownership: the move's target list goes in, the returned duplicate replaces it and the original is freed (0x00408ca0)",
   "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x004a2420": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the sphere's player number is a start position mapped through a local copy of an 8-entry table (gameStart's 0x00ab77e0 outside a network game, the bytes at tpGameCreated +0xC8 in one); a sphere whose position maps to no player of this game (table[p] >= numPlayers) is skipped and -1, the sphere of no owner, touches no player and gets the misc player 8 (HW1: assert playerNumber < numPlayers, then universe.players[p]); a MissionMan level gives the player the sphere's race only when it is none of Kushan / Taiidan / Sect / Beast (HW1: R1 / R2); PlayerDoesntHaveCapturableCapitalShip and GivePlayerCapitalShip inlined: the 16-type capital list (0x2d, 0x3c..0x5b) and the race's Hive Frigate (Sect 8, Beast 0x2a; another race takes an unset local) with a compiled-out message 'Giving Hive Frigate as default'",
+  "note": "[review: skirmish-start] whole body read in the decompile and the disassembly (the race test is unsigned, the rotation and constants are HW1's 1000.0 / PI/180 / PI/2); ported in LevelLoad.c (the network table is the identity until stage 5, CAT-TODO)",
+  "sample": "port-skirmish-start"
+ },
+ "0x004a2820": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the start-position mapping and skip of scriptSetMissionSphereCB 0x004a2420 (local copy of 0x00ab77e0 or of tpGameCreated +0xC8; table[p] >= numPlayers skipped); no assert; the sphere of no owner keeps the number -1 for the Ships preload; the race name is read and not used, as in HW1",
+  "note": "[review: skirmish-start] whole body read (decompile and disassembly), was IDENTICAL/medium; ported in LevelLoad.c",
+  "sample": "port-skirmish-start"
+ },
+ "0x004a2f30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "universe.players is indexed only after the test that the sphere's number is >= 0 (the no-owner sphere passes -1); no single-player Sect/Beast swap; colorScheme is parsed but no team colour is loaded; the capture-capital test on the 16-type list clears the need words 0x00a447ac / 0x00a447b0 for a player of race 2 / 3 (Kushan / Taiidan)",
+  "note": "[review: skirmish-start] whole body read; only the -1 lookup ported (LevelLoad.c), the other deltas CAT-TODO(stage 6 level load)",
+  "sample": "port-skirmish-start"
+ },
+ "0x004b9440": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: skirmish-start] compared with the disassembly: HW1's body (LANGame 0, IPGame 1, numComputers 1, numPlayers 1, the Skirmish_Basic screen); the tree had GoK's keep-the-previous-count change, HW1's line restored",
+  "sample": "port-skirmish-start"
  }
 }

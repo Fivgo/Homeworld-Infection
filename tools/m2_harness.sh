@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle|replay
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle|replay|skirmish
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -163,7 +163,23 @@
 #                    thread ends an ambience sound (SoundEvent.c soundover), on the wall clock even on SDL's dummy
 #                    driver, which made rng_all differ run to run from about tick 476. Needs --timeout of several
 #                    minutes under ASan
+#                    skirmish: /catSkirmishMap <map> /catSkirmishTest <ticks> /oracleDump <run>/run.hwo (skirmish-start,
+#                    docs/skirmish-start-fix.md): once the start-up has put up the main screen, a 2-player skirmish is
+#                    started through the front end's own button callbacks with no input (FE_Multiplayer_Game, MG_Skirmish:
+#                    one computer opponent, the map --skirmish-map picked as the scenario picker's OK does, with its
+#                    description's game type, the Sect as the colour screen's race, StartNewGame: gameStart and the
+#                    level loader's MissionSphere readers); the universe then runs on the mission mode's virtual clock
+#                    (one tick per frame), writing the oracle stream; at tick <ticks> the universe is judged (2 players,
+#                    player 0 human and player 1 computer, both with a mothership, player 0's an sMothership and the
+#                    Sect, the resource sphere's asteroids, every player alive, no ship of a player the map has a sphere
+#                    for but the game does not have): "skirmishtest:" log lines, "skirmishtest: done ticks=N ships=N
+#                    result=PASS|FAIL", then the mission run's quit (rc 0; two runs of one map must give byte-identical
+#                    run.hwo streams). About 20 s under ASan for 600 ticks. The default map is not in the front end's
+#                    list (multiPlayerMissions.script comments it out; the test adds its line); Armed8 is a listed one
 #   --recording NAME replay mode: the recorded game to replay (default oracle01)
+#   --skirmish-ticks N skirmish mode: universe ticks to run before the judgement (default 600)
+#   --skirmish-map NAME skirmish mode: the map, a MultiPlayer directory name (default LiveFireExercise2; Armed8 is an
+#                    8-player map, so its spheres 2..7 must be skipped)
 #   --oracle-ticks N oracle mode: universe ticks to run (default 512)
 #   --mission-ticks N mission mode: universe ticks to run (default 3000)
 #   --dock-ticks N   dock mode: universe ticks to run (default 5000; about 30 s under ASan on the virtual clock)
@@ -248,7 +264,7 @@ shift
 mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"; extra=()
 oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=3000; rframes=600; hframes=600; uticks=400
 conticks=400; bticks=7000
-motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01
+motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; skticks=600; skmap=LiveFireExercise2
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -270,6 +286,8 @@ while [[ $# -gt 0 ]]; do
 		--nis) nisspec=$2; shift ;;
 		--fps) vfps=$2; shift ;;
 		--recording) recording=$2; shift ;;
+		--skirmish-ticks) skticks=$2; shift ;;
+		--skirmish-map) skmap=$2; shift ;;
 		--perturb) perturb=$2; shift ;;
 		--hwo) hwo=1 ;;
 		--) shift; extra=("$@"); break ;;
@@ -315,6 +333,8 @@ elif [[ "$mode" == console ]]; then
 	args+=(/catConsoleTest "$conticks")
 elif [[ "$mode" == build ]]; then
 	args+=(/catBuildTest "$bticks" /oracleDump "$out/run.hwo")
+elif [[ "$mode" == skirmish ]]; then
+	args+=(/catSkirmishMap "$skmap" /catSkirmishTest "$skticks" /oracleDump "$out/run.hwo")
 elif [[ "$mode" == motion ]]; then
 	args+=(/catMotionFps "$vfps" /catMotionTest "$motticks" /catMotionDump "$out/motion.dump")
 elif [[ "$mode" == replay ]]; then
@@ -451,6 +471,7 @@ grep -q "buildtest: done" "$L" && milestone="build self-test done"
 grep -q "nisparsetest: done" "$L" && milestone="nisparse self-test done"
 grep -q "motiontest: done" "$L" && milestone="motion self-test done"
 grep -q "toggletest: done" "$L" && milestone="toggle self-test done"
+grep -q "skirmishtest: done" "$L" && milestone="skirmish self-test done"
 
 # first stop: the first fatal error / failed assertion / ASan report. UBSan runtime errors do not stop the engine; the
 # first one is reported separately (the misaligned-access reports on the packed front-end structs, GoK 64-bit artefacts
@@ -497,6 +518,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == build ]] && echo "buildtest: $(grep -h 'buildtest: orders\|buildtest: queued\|buildtest: appeared\|buildtest: attached\|buildtest: finished\|buildtest: job\|buildtest: done' "$L" | sed 's/^.*buildtest: //' | paste -sd';'); FAIL lines: $(grep -c 'buildtest: FAIL' "$L")"
 	[[ "$mode" == nisparse ]] && echo "nisparsetest: $(grep -c . "$out/nis.list" 2>/dev/null) files listed; $(grep -h 'nisparsetest: done' "$L" | sed 's/^.*nisparsetest: //' | head -n 1); FAIL lines: $(grep -c 'nisparsetest: FAIL' "$L"); ignored keywords: $(grep -h 'nisparsetest: keyword' "$L" | sed "s/^.*: '//; s/' / /" | paste -sd',')"
 	[[ "$mode" == motion || "$mode" == nis ]] && echo "motiontest: $(grep -h 'motiontest: ' "$L" | sed 's/^.*motiontest: //' | paste -sd';'); dump $(ls "$out"/*.dump 2>/dev/null | head -n 1 | xargs -r -I{} sh -c 'echo "$(basename {}) $(grep -c "^F " {}) frames, sha256 $(sha256sum {} | cut -c1-16)"')"
+	[[ "$mode" == skirmish ]] && echo "skirmishtest: $(grep -h 'skirmishtest: ' "$L" | grep -v 'skirmishtest: FAIL' | sed 's/^.*skirmishtest: //' | paste -sd';'); FAIL lines: $(grep -c 'skirmishtest: FAIL' "$L")"
 	[[ "$mode" == toggle ]] && echo "toggletest: $(grep -h 'toggletest: ' "$L" | grep -v 'toggletest: FAIL' | sed 's/^.*toggletest: //' | paste -sd';'); FAIL lines: $(grep -c 'toggletest: FAIL' "$L")"
 	[[ "$mode" == keys ]] && echo "keystest: $(grep -h 'keystest: ' "$L" | grep -v 'keystest: FAIL' | sed 's/^.*keystest: //' | paste -sd';'); FAIL lines: $(grep -c 'keystest: FAIL' "$L")"
 	[[ "$mode" == sound ]] && echo "soundtest: $(grep -h 'soundtest: ' "$L" | sed 's/^.*soundtest: //' | paste -sd';'); UBSan reports in fquant.c/fqcodec.c: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c 'fquant\.c\|fqcodec\.c'); PATCH reports: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c "struct PATCH")"

@@ -16,6 +16,11 @@
     #endif
 #endif
 
+#if !defined(_WIN32) && !defined(__SANITIZE_ADDRESS__)
+    #include <signal.h>                                     // HWI-FIX: dbgFatalSignalsInstall
+    #include <unistd.h>
+#endif
+
 #if defined _MSC_VER
 	#define  snprintf   _snprintf
 	#define vsnprintf  _vsnprintf
@@ -195,7 +200,11 @@ void dbgFatal(char *file, sdword line, char *string)
         snprintf(dbgFatalErrorString, DBG_BufferMax, "\n%s (%d): Fatal error - %s", file, line, string);
     }
 
-    dbgMessage(dbgFatalErrorString);
+    // HWI-FIX: the fatal string goes to stderr (unbuffered), after everything already printed, before the deliberate
+    //      fault or the exit, in every build: GoK's SDL utyFatalErrorWaitLoop has no message box to show it
+    fflush(stdout);
+    fprintf(stderr, "%s\n", dbgFatalErrorString);
+    fflush(stderr);
 
     if (dbgAllowInterrupts)
     {
@@ -225,6 +234,56 @@ void dbgFatalf(char *file, sdword line, char *format, ...)
     
     dbgFatal(file, line, message);
 }
+
+/*-----------------------------------------------------------------------------
+    Name        : dbgFatalSignalsInstall
+    Description : HWI-FIX: a build without AddressSanitizer reports a crash signal on stderr before the process dies:
+                    the release build had no handler, so a crash (or the deliberate fault of dbgFatal) ended the run
+                    with no line in the log. The debug build keeps ASan's own report (no handler installed there).
+    Inputs      :
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+#if !defined(_WIN32) && !defined(__SANITIZE_ADDRESS__)
+static void dbgFatalSignalHandler(int sig)
+{
+    static const char head[] = "\nhwi-engine: fatal signal ";
+    static const char tail[] = " (the engine crashed; any fatal error message is above)\n";
+    char number[4];
+    int n = 0;
+
+    if (sig >= 100) number[n++] = (char)('0' + (sig / 100) % 10);
+    if (sig >= 10)  number[n++] = (char)('0' + (sig / 10) % 10);
+    number[n++] = (char)('0' + sig % 10);
+    if (write(STDERR_FILENO, head, sizeof(head) - 1) < 0 ||
+        write(STDERR_FILENO, number, (size_t)n) < 0 ||
+        write(STDERR_FILENO, tail, sizeof(tail) - 1) < 0)
+    {
+        // nothing more can be done here
+    }
+    raise(sig);                                             // SA_RESETHAND: the default action ends the process as before
+}
+
+void dbgFatalSignalsInstall(void)
+{
+    static const int sigs[] = { SIGSEGV, SIGBUS, SIGFPE, SIGILL, SIGABRT };
+    struct sigaction action;
+    size_t i;
+
+    memset(&action, 0, sizeof(action));
+    action.sa_handler = dbgFatalSignalHandler;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = SA_RESETHAND | SA_NODEFER;
+    for (i = 0; i < sizeof(sigs) / sizeof(sigs[0]); i++)
+    {
+        sigaction(sigs[i], &action, NULL);
+    }
+}
+#else
+void dbgFatalSignalsInstall(void)
+{
+}
+#endif
 
 /*-----------------------------------------------------------------------------
     Name        : dbgNonFatal

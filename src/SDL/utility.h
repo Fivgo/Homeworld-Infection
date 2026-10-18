@@ -170,6 +170,7 @@ char *utyGameSystemsShutdown(void);
 udword utyCloseOK(regionhandle region, sdword ID, udword event, udword data);
 
 void gameStart(char *loadfilename);
+extern sdword catStartPositions[MAX_MULTIPLAYER_PLAYERS];     // CAT: gameStart's start-position table 0x00ab77e0
 void gameEnd(void);
 
 //query system timer and call task manager
@@ -185,6 +186,7 @@ void utyForceTopmost(bool32 bTopMost);
 void utyClipMouse(sdword clip);
 
 void utyNewGameStart(char *name, featom *atom);
+void utyMultiplayerGameStart(char *name, featom *atom);     // the FE_Multiplayer_Game button (HWI-TEST skirmish-start)
 void utyGameQuit(char *name, featom *atom);
 void utyGameQuitToMain(char *name, featom *atom);
 void cat_utyGameQuitToMainOrStats(char *name, featom *atom);          // CAT: 0x005ab5b0 (M2-R6 startup-keys)
