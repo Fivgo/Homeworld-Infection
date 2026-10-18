@@ -184,6 +184,17 @@ DEFINE_TASK(pingUpdateTask)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_pingListGet                                   0x004e8840
+    Description : CAT (M2-R7 r6-leftovers): the head of the ping list (mov eax, ds:0x00c300f0; the list's first word),
+                  for the sensors manager's pie plate lines (pieAllShipsToPiePlateDraw 0x004e6946)
+    Return      : the first ping's node, or NULL
+----------------------------------------------------------------------------*/
+Node *cat_pingListGet(void)
+{
+    return pingList.head;
+}
+
+/*-----------------------------------------------------------------------------
     Name        : pingStartup
     Description : Startup the ping module
     Inputs      :

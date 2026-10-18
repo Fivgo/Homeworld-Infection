@@ -282,9 +282,8 @@ void smSensorsCloseForGood(void);
 //kill an object if you're in the sensors manager
 void smObjectDied(void *object);
 
-//initializes the sensors manager weirdness for
-//single player missions 7 and 8
-void smSensorWeirdnessInit(void);
+// CAT (M2-R7 r6-leftovers): no smSensorWeirdnessInit (HW1's blob-render weirdness; kasfSensorsWeirdness only sets
+//      smSensorWeirdness, saved by smSave)
 
 //misc functions
 void *smStrchr(char *string, char character);

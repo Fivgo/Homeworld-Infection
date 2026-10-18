@@ -132,6 +132,7 @@ void pieShipDied(Ship *ship);
 void pieAllShipsToPiePlateDraw(real32 distance);
 void piePlaneDraw(real32 distance);
 void pieMovementCursorDraw(real32 distance);
+void cat_pieWaypointCursorDraw(real32 distance);    // CAT: 0x004e6e70 (not in the export's function list)
 void piePointModeToggle(sdword bOn);
 
 void pieStartup(void);

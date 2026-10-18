@@ -4278,9 +4278,10 @@ void kasfSpawnEffect(GrowSelection *ships, char *effectName, sdword parameter)
         }
 #endif
     }
-//    floatParameter = (real32)parameter;
-//    intParameter = TreatAsUdword(floatParameter);       //get the user parameter
-    intParameter = (udword)parameter;
+    // CAT (M2-R7 r6-leftovers): kasfSpawnEffect 0x00497cd5 converts the user parameter to real32 (fild / fstp) and
+    //      passes that value's word, as HW1's commented-out lines did (GoK passed the integer)
+    floatParameter = (real32)parameter;
+    intParameter = Real32ToUdword(floatParameter);      //get the user parameter
     count = ships->selection->numShips;
     shipPtr = ships->selection->ShipPtr;
     for (index = 0; index < count; index++, shipPtr++)

@@ -211,7 +211,9 @@ udword tbBumperProcess(regionhandle region, smemsize ID, udword event, udword da
         if (piePointSpecMode != PSM_Idle)
             return 0;
 
-        if ((mrHoldRight != mrNULL) && !tbForceTaskbarVar)
+        // CAT (M2-R7 r6-leftovers): HW1's task bar (the exe has none; stage 6 removes it, decision 41) reads the right
+        //      button's state word catMrRightMode 0x00a75288 in place of the retired mrHoldRight
+        if ((catMrRightMode != 0) && !tbForceTaskbarVar)
             return 0;
 
         if (tbBumpSmooth)

@@ -235,10 +235,12 @@ sdword memStartup(void *heapStart, sdword heapSize, memgrowcallback grow)
     dbgMessagef("Memory module init.  Heap = 0x%x, Length = %d", heapStart, heapSize);
 #endif //MEM_VERBOSE_LEVEL >= 2
 
-    // CAT-TODO(Memory.c): memStartup 0x004ad5f0 seeds the two fill patterns (memClearSetting / memFreeSetting) from
-    //      crc32 of the USERNAME and USERPROFILE environment strings, or from a ranRandomFn(26) draw each when they are
-    //      unset; this tree keeps GoK's constant patterns (MEM_ClearSetting / MEM_FreeSetting), which only matter under
-    //      MEM_VOLATILE_CLEARING
+    // CAT (M2-R7 r6-leftovers, settled): memStartup 0x004ad5f0 seeds the two fill patterns (memClearSetting /
+    //      memFreeSetting) from crc32 of the USERNAME and USERPROFILE environment strings, or from a ranRandomFn(26)
+    //      draw each when one is unset: the MEM_VOLATILE_CLEARING block below, which Memory.h turns on in every build
+    //      (RANDOM_ETG is stream 26), does exactly that, in the exe's order. GoK's constants MEM_ClearSetting /
+    //      MEM_FreeSetting are only the variables' initial values. Not the exe's: the cookie-size check (a 64-bit
+    //      layout guard) and the debug print of the two patterns
     memMainPool.wholePool = heapStart;
     memMainPool.pool = (ubyte *)(((memsize)((ubyte *)heapStart + sizeof(memcookie) - 1)) & (~(sizeof(memcookie) - 1)));
     memMainPool.poolLength = memMainPool.heapLength = heapSize;

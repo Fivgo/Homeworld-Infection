@@ -117,6 +117,7 @@ void pingReset(void);
 ping *pingCreate(vector *loc, SpaceObj *owner, pingeval evaluate, ubyte **userData, sdword userDataSize, SpaceObj *user);
 void pingObjectDied(SpaceObj *obj);
 void pingListDraw(Camera *camera, hmatrix *modelView, hmatrix *projection, rectangle *viewPort);
+Node *cat_pingListGet(void);                                // CAT: 0x004e8840 (the ping list's head; the pie plate's lines)
 
 void pingAnomalySelectionPingAdd(char *pingName, SelectCommand *selection);
 void pingAnomalyObjectPingAdd(char *pingName, SpaceObj *owner);

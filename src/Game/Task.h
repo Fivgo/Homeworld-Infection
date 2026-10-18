@@ -108,7 +108,7 @@ extern real32 taskTimeElapsed;                  //time elapsed, in seconds, sinc
 // CAT (M2-R4 rest-oracle): time compression (Task.c; cataclysm.exe 0x0052a350-0x0052a4c0, 0x0052a840)
 extern real32 cat_timeCompressionFactor;        // 0x00bb3268: scales the ticks taskExecuteAllPending gets
 extern real32 cat_taskRealTimeDelta;            // 0x00bb3274 (name chosen here)
-extern real32 cat_taskRealTimeElapsed;          // 0x00bb3270: unscaled task seconds since start (the build timers' clock)
+extern real32 cat_taskRealTimeElapsed;          // 0x00a6b20c (stored at 0x0052a8f4; audit M2-R7: was 0x00bb3270): unscaled task seconds since start (the build timers' clock)
 sdword cat_taskTimeCompressionMaxIndex(void);
 ubyte  cat_taskTimeCompressionDefaultIndex(void);
 void   cat_taskTimeCompressionIndexSet(ubyte index);  // HWI accessor (the key Toggle_Game_Speed)

@@ -45,6 +45,11 @@ real32 miRenderAlpha(void);                         // this frame's alpha (-1: n
 
 // the toggle (Options.c, Console.c, main.c)
 bool32 miSmoothMotionGet(void);                     // TRUE when either flag is on
-void miSmoothMotionSet(bool32 on);                  // both flags
+void miSmoothMotionSet(bool32 on);                  // both flags (a click ends a switch's run-only override)
+void miSwitchOff(bool32 obj, bool32 nis);           // /noInterp, /noNISInterp: off for the run only (main.c)
+void miOptionsFileValues(bool32 begin);             // utyOptionsFileWrite: the options file's values in / the run's back
+void miSwitchStateSave(void);                       // opOptionsSaveSettings: the switch state for Cancel
+void miSwitchStateRestore(void);                    // opRestoreSavedSettings
+bool32 miSwitchStands(void);                        // a switch's override stands (the toggle self-test)
 
 #endif // ___MOTIONINTERP_H

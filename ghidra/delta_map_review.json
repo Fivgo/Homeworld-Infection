@@ -6883,9 +6883,9 @@
  },
  "0x004ad5f0": {
   "class": "MODIFIED",
-  "confidence": "medium",
+  "confidence": "high",
   "change": "fill patterns seeded from USERNAME/USERPROFILE crc32 or ranRandomFn(26); no cookie-size check",
-  "note": "not ported: GoK's constants (MEM_VOLATILE_CLEARING only)",
+  "note": "not ported: GoK's constants (MEM_VOLATILE_CLEARING only) | [review: M2-R7 r6-leftovers] compared with the exe: the seeding (crc32 of USERNAME / USERPROFILE, else ranRandomFn(26) each) is the tree's MEM_VOLATILE_CLEARING block, on in every build (Memory.h): ported; not the exe's: the cookie-size check (64-bit layout guard) and the debug print; the previous note was stale; CAT-TODO(Memory.c) closed",
   "sample": "port-R4"
  },
  "0x004ad8b0": {
@@ -9155,7 +9155,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "two arguments (mode PIE_SPEC_*, the point function), the per-mode draw/callback tables, dbgFatalf for an unknown mode; no udLatestThingPush",
-  "note": "[review: M2-R5 hud] ported (PiePlate.c); callers that only turn it off pass mode 0 as the exe | [review: M2-R6 mainrgn-popup] the 0x00b39cbc flag renamed catPieWaypointMode (set by cat_mrWaypointsStart 0x00564e20)",
+  "note": "[review: M2-R5 hud] ported (PiePlate.c); callers that only turn it off pass mode 0 as the exe | [review: M2-R6 mainrgn-popup] the 0x00b39cbc flag renamed catPieWaypointMode (set by cat_mrWaypointsStart 0x00564e20) | [review: M2-R7 r6-leftovers] the waypoint mode's cursor callback is 0x004e6e70 (unlisted; ported as cat_pieWaypointCursorDraw), the line callback 0x004e6530 (unlisted; pieAllShipsToPiePlateDraw, ported); the movement GUI sound is Cataclysm's UI id 0x116 (HW1 UI_MovementGUIon 0x109)",
   "sample": "port-R5-hud"
  },
  "0x004e5e70": {
@@ -9183,7 +9183,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the big gun's damage falloff percent (cat_bigGunDamageFalloff), only with mrHoldRight, the screen x for both axes (as the exe)",
-  "note": "[review: M2-R5 hud] ported (PiePlate.c)",
+  "note": "[review: M2-R5 hud] ported (PiePlate.c) | [review: M2-R7 r6-leftovers] the right-button test reads catMrRightMode (0x00a75288; the mrHoldRight stand-in retired)",
   "sample": "port-R5-hud"
  },
  "0x004e6b90": {
@@ -9561,8 +9561,8 @@
  "0x004f1ac0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "no harvest sound; the beam length and the resource radius go to etgEffectCreate as real32 values (HW1: integers)",
-  "note": "M2-R4 combat: ported without the sound; the effect parameters stay integers until the ETG port (stage 3) | [integrate: M2-R6] re-targeted CAT-TODO(M2-R7 ETG): the real32 variable parameters are one ETG change for every etgEffectCreate caller"
+  "change": "no harvest sound; the beam length and the resource radius go to etgEffectCreate as the words of their real32 values",
+  "note": "M2-R4 combat: ported without the sound; the effect parameters stay integers until the ETG port (stage 3) | [integrate: M2-R6] re-targeted CAT-TODO(M2-R7 ETG): the real32 variable parameters are one ETG change for every etgEffectCreate caller | [review: M2-R7 r6-leftovers] the exe pushes the two real32 words (0x004f1bb0..0x004f1bb9); the tree passes Real32ToUdword (a bit copy, HW1 TreatAsUdword) of the same values: no change needed; CAT-TODO(M2-R7 ETG) closed. The review of all 47 etgEffectCreate call sites of the exe against the tree found one integer-for-real32 caller, kasfSpawnEffect"
  },
  "0x004f1d40": {
   "class": "MODIFIED",
@@ -14360,7 +14360,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "cat_overlayIconsDiscardGL",
-  "note": "[review: M2-R5 hud] the call added",
+  "note": "[review: M2-R5 hud] the call added | [review: M2-R7 r6-leftovers] rndLoadShamelessPlug(FALSE) after cpPreviewImageDelete (in mainCloseRender)",
   "sample": "port-R5-hud"
  },
  "0x00563a40": {
@@ -14549,7 +14549,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "cat_moRender, cat_shipPrintDraw, cat_ioUpdateHover, cat_shipPrintDragUpdate after the tick text; no toLegendDraw / mrCommandMessageDraw",
-  "note": "[review: M2-R5 hud] the HUD hooks added (the rest of mrRegionDraw is M2-R6's) | [review: M2-R6 mainrgn-popup] the band box, the cycled formations/tactics, the popup menu and the game-stats screen drawn",
+  "note": "[review: M2-R5 hud] the HUD hooks added (the rest of mrRegionDraw is M2-R6's) | [review: M2-R6 mainrgn-popup] the band box, the cycled formations/tactics, the popup menu and the game-stats screen drawn | [review: M2-R7 r6-leftovers] the point mode sets only the post-object callback (0x0056939a); HW1's per-frame reset of the three pie callbacks removed (it replaced the waypoint cursor)",
   "sample": "port-R5-hud"
  },
  "0x00569f80": {
@@ -15178,21 +15178,21 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] same TGA load; the exe wraps with GL_REPEAT where GoK uses GL_CLAMP_TO_EDGE (GoK's choice; NEAREST-filtered full images look the same)",
+  "note": "[review: M2-R5 render] same TGA load; the exe wraps with GL_REPEAT where GoK uses GL_CLAMP_TO_EDGE (GoK's choice; NEAREST-filtered full images look the same) | [review: M2-R7 r6-leftovers] HWI: the two colour-map words (file offsets 3 and 5) read through memcpy (UBSan reported the misaligned uword loads once the plug called it); values unchanged",
   "sample": "port-R5-render"
  },
  "0x00579fa0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] no counterpart: GoK has no shameless plug (a demo-build overlay)",
+  "note": "[review: M2-R5 render] no counterpart: GoK has no shameless plug (a demo-build overlay) | [review: M2-R7 r6-leftovers] ported from the exe body (render.c rndLoadShamelessPlug: plug.tga loaded, or its texture deleted); every exe caller passes FALSE (mainShutdownRenderer, mainLoadGL, mainRestoreRender, ...: mainCloseRender here); GoK had dropped it",
   "sample": "port-R5-render"
  },
  "0x00579ff0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] no counterpart: GoK has no shameless plug (a demo-build overlay)",
+  "note": "[review: M2-R5 render] no counterpart: GoK has no shameless plug (a demo-build overlay) | [review: M2-R7 r6-leftovers] ported from the disassembly (render.c): glGetIntegerv(GL_MATRIX_MODE) / glGetFloatv(GL_PROJECTION_MATRIX), ortho of the window, plug.tga at its own size against the right edge (MAIN_WindowWidth - 1.0) at the bottom, blended, unlit, no depth test, the matrices and states restored; the software-renderer branch (RGLtype 0: glDrawPixels) is decision 28",
   "sample": "port-R5-render"
  },
  "0x0057a300": {
@@ -15213,7 +15213,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "no mouseSelectCursorSetting; the front end's saved cursor (feShouldSaveMouseCursor, cat_mouseSaveCursorUnder / RestoreCursorUnder) skips the clear; shameless plug; screenshot from a flag; trNoPalResizePool after mainReinitRGL",
-  "note": "[review: M2-R5 render] render half as the tree; the front-end / mouse parts are a CAT-TODO(M2-R6 front end and mouse) in render.c | [review: M2-R6 mainrgn-popup] the mouse part ported: mouseSetCursorSetting only (no mouseSelectCursorSetting); the cursor save/restore is decision 28",
+  "note": "[review: M2-R5 render] render half as the tree; the front-end / mouse parts are a CAT-TODO(M2-R6 front end and mouse) in render.c | [review: M2-R6 mainrgn-popup] the mouse part ported: mouseSetCursorSetting only (no mouseSelectCursorSetting); the cursor save/restore is decision 28 | [review: M2-R7 r6-leftovers] the shameless plug drawn after the mouse while universePause (0x00a6c5b4) or the Pause flag (0x00a6ed74) is set (0x0057ab78)",
   "sample": "port-R5-render"
  },
  "0x0057ad80": {
@@ -20951,5 +20951,26 @@
   "change": "the armada targets are not freed (the exe keeps them embedded in AIPlayer +0xCF8); only Targets (+0x1CA8) is freed",
   "note": "recon / harass / attack team loops as HW1 [review: audit M2-R7 ai-player-skirmish] compared with the exe body (decompile): the producer embedded the armada targets and dropped their free in this body without a review entry; the exe frees only +0x1CA8 (memFree, cleared)",
   "sample": "audit-R7-ai-player-skirmish"
+ },
+ "0x00506550": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "one parameter (HW1 distance fed the compiled-out move-near-to code); not while the right button turns the camera (0x00a75288); hidden objects skipped; a ship nearer than the nearest so far, or with the sensors manager up (0x00a5b1c8) an ally or a ship cat_fowCanPlayerSeeShip(curPlayer, ship, 0) shows, without the distance test; non-ships taken without it; a clamped component names its host; allied / enemy ships keep the cursor object; no cursor-text expiry; derelicts: hyperspace gates and salvageable ones",
+  "note": "[review: M2-R7 r6-leftovers] ported from the exe body (decompile and disassembly); HW1's cursor-text expiry kept as HWI because the tree still draws HW1's cursor text (mouseCursorTextDraw from mrRegionDraw), which Cataclysm does not have",
+  "sample": "port-R7-r6-leftovers"
+ },
+ "0x00497cb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 r6-leftovers] compared with the exe: as ORIG (the KAS parameter converted to real32 and passed as its word, fild/fstp at 0x00497cd5); the tree had GoK's integer word, now ORIG's (KASFunc.c)",
+  "sample": "port-R7-r6-leftovers"
+ },
+ "0x005c22c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the target radius passed as the beam width is capped at 150.0 (fcomp 0x0072bfe4 at 0x005c230b, 0x43160000 stored)",
+  "note": "[review: audit M2-R7 r6-leftovers] compared with the exe body while re-checking the producer's review of every etgEffectCreate caller: the words passed are real32 as the tree's, but the exe caps the width at 150.0 where HW1 / the tree passed the radius as it is; ported (RepairCorvette.c, CAT comment)",
+  "sample": "audit-R7-r6-leftovers"
  }
 }

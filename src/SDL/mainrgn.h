@@ -79,8 +79,6 @@ extern real32 mrClosestDistance;
 //camera rendering in the main region
 extern Camera *mrCamera;
 
-extern void (*mrHoldLeft)(void);
-extern void (*mrHoldRight)(void);
 
 
 extern bool32 helpinfoactive;

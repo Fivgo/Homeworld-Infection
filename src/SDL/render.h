@@ -156,6 +156,12 @@ void rndEnvironmentMapConvex(vector* camera, vector* A, vector* B, vector* C,
 
 void rndSetScreenFill(sdword count, color c);
 
+// CAT (M2-R7 r6-leftovers): the shameless plug (plug.tga in the lower-right corner while the universe is paused or the
+//      Pause key's flag is set; rndRenderTask 0x0057a910 after the mouse) and its texture
+udword rndLoadTarga(char* filename, sdword* width, sdword* height);
+void rndLoadShamelessPlug(bool32 on);                       // 0x00579fa0
+void rndShamelessPlug(void);                                // 0x00579ff0
+
 
 void rndResetGLState(void);
 

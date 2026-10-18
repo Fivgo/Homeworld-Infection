@@ -16,6 +16,8 @@
 #include "FastMath.h"
 #include "font.h"
 #include "FontReg.h"
+#include "FOW.h"                // CAT: cat_fowCanPlayerSeeShip (pieAllShipsToPiePlateDraw)
+#include "Globals.h"
 #include "glinc.h"
 #include "LOD.h"
 #include "main.h"
@@ -27,13 +29,17 @@
 #include "Mothership.h"
 #include "prim2d.h"
 #include "prim3d.h"
+#include "Ping.h"               // CAT: cat_pingListGet (pieAllShipsToPiePlateDraw)
 #include "ProximitySensor.h"
+#include "Randy.h"
 #include "render.h"
 #include "Select.h"
 #include "Sensors.h"
+#include "ShipSelect.h"         // CAT: the cloak / mimic / detection tests (pieAllShipsToPiePlateDraw)
 #include "SoundEvent.h"
 #include "SoundEventDefs.h"
 #include "SpaceObj.h"
+#include "Task.h"
 #include "Tutor.h"
 #include "Tweak.h"
 #include "Undo.h"
@@ -229,7 +235,7 @@ void piePointModeOnOff(sdword mode, void (*callback)(vector *point))
     {
         return;
     }
-    soundEvent(NULL, UI_MovementGUIon);
+    soundEventPlay(NULL, 0x116, NULL);                      // CAT: Cataclysm's UI id (piePointModeOnOff 0x004e5ce5; HW1's UI_MovementGUIon 0x109)
     mouseCursorSet(MCM_Pointmode);
     piePointSpecMode = PSM_XY;
     piePointSpecMouseReset = FALSE;
@@ -265,10 +271,7 @@ void piePointModeOnOff(sdword mode, void (*callback)(vector *point))
             tutGameMessage("WaypointStart");
             pieLineDrawCallback = pieAllShipsToPiePlateDraw;
             piePlaneDrawCallback = piePlaneDraw;
-            // CAT-TODO(M2-R7 waypoint draw): the exe's waypoint cursor 0x004e6e70 (a function the export does not list:
-            //      the waypoints so far as lines and circles, with a jitter drawn from ranRandomFn(0) while 0x0088d7a8
-            //      is set); the waypoint mode's callers are ported (cat_mrWaypointsStart 0x00564e20)
-            pieMovementCursorDrawCallback = pieMovementCursorDraw;
+            pieMovementCursorDrawCallback = cat_pieWaypointCursorDraw;  // CAT: 0x004e6e70 (piePointModeOnOff 0x004e5e34)
             moveLineColor = pieWaypointLineColour;
             break;
         default:
@@ -557,7 +560,7 @@ void pieDistanceReadoutDraw(vector *movepoint, vector *origin, color c)
     //position is projected onto the screen in that case
     // CAT: the exe tests only the main region's right button (0x00a75288), and in the moving-camera case places
     //      the text from the projected point's screen x for both axes (as written)
-    if (mrHoldRight == mrNULL)
+    if (catMrRightMode == 0)                                // CAT: 0x00a75288 (M2-R7: was the mrHoldRight stand-in)
     {
         fontPrint((mouseCursorXPosition + PIE_DIST_READOUT_X_OFFSET),
                   (mouseCursorYPosition + PIE_DIST_READOUT_Y_OFFSET),
@@ -612,6 +615,18 @@ sdword piePlaneScreenPointIndex;
     Inputs      : distance - adjusted distance from camera to ship
     Outputs     : ..
     Return      : void
+    CAT (M2-R7 r6-leftovers): the exe's body (0x004e6530, a function the export does not list; the pie plate's line
+        callback, piePointModeOnOff 0x004e5d95), read from the disassembly: nothing while the sensors manager's "show
+        friendly ships" option is off (catSmViewPieplateLines 0x00892b64); the depth test off with the sensors manager
+        up (left off, as the exe); the universe's ship list (HW1: the render list); a ship is taken when it is alive,
+        not hidden, not a swarmer (sSwarmer, bSwarmer), not a component, and either the player's own, or cloaked and
+        detected by the player (cat_shipDetectedByPlayer), or a mimic that appears as itself, or any other ship but
+        the junk (dJunk1PartA .. dJunk3BoilerCasing) the player has detected; then it must be in the player's fog of
+        war view (cat_fowCanPlayerSeeShip(curPlayer, ship, 0)), not disabled by reason 1 in single player, and inside
+        the universe box (smUniverseSize*). With the sensors manager up, the pings (cat_pingListGet 0x004e8840: the
+        ping list's head; an anomaly ping always, the others where the fog of war shows their position) get a line
+        in their colour and a circle of their minimum screen size, and the crate derelicts a magenta line. The
+        closest-ship chime is Cataclysm's UI sound 0x118. The exe also computes HW1's discarded length (fsqrt).
 ----------------------------------------------------------------------------*/
 void pieAllShipsToPiePlateDraw(real32 distance)
 {
@@ -627,9 +642,17 @@ void pieAllShipsToPiePlateDraw(real32 distance)
     real32 screenX, screenY, screenRadius, radius;
     sdword nSegments;
 
-    objnode = universe.RenderList.head;                    //get first node in list
-
+    if (!catSmViewPieplateLines)                            // CAT: 0x00892b64
+    {
+        return;
+    }
     distance *= pieShipLineTickSize;                         //get distance-adjusted size
+
+    objnode = universe.ShipList.head;                       // CAT: the ship list (0x00b62af0)
+    if (smSensorsActive && glIsEnabled(GL_DEPTH_TEST))
+    {                                                       // CAT: not enabled again here (as the exe)
+        glDisable(GL_DEPTH_TEST);
+    }
 
     piePlaneScreenPointIndex = 0;
     while (objnode != NULL)
@@ -639,19 +662,54 @@ void pieAllShipsToPiePlateDraw(real32 distance)
         {
             goto nextnode;
         }
-
-        // CAT: no Drone skip, Cataclysm has no drones (M2-R4 ships-b retire)
-        if (ship->header.objtype != OBJ_ShipType)
+        if (ship->header.objtype != OBJ_ShipType || bitTest(ship->header.flags, SOF_Hide) ||
+            ship->shiptype == sSwarmer || ship->shiptype == bSwarmer || ship->staticinfo->shipclass == CLASS_Component)
         {
             goto nextnode;
         }
-
-        if (bitTest(ship->header.flags,SOF_Cloaked) && ship->playerowner != universe.curPlayerPtr)
-        {                                            //if ship is cloaked, don't draw this stuff
-            if(!proximityCanPlayerSeeShip(universe.curPlayerPtr, ship))
+        if (ship->playerowner != universe.curPlayerPtr)
+        {
+            if (cat_shipIsCloakedFully(ship))
             {
-                goto nextnode;
+                if (!cat_shipDetectedByPlayer(ship, universe.curPlayerPtr->playerIndex))
+                {
+                    goto nextnode;
+                }
             }
+            else if (bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic))
+            {
+                if (cat_mimicAppearsAsResource(ship, universe.curPlayerPtr) ||
+                    cat_mimicAppearsAlliedTo(ship, universe.curPlayerPtr) ||
+                    cat_mimicAppearsAsDerelict(ship, universe.curPlayerPtr))
+                {
+                    goto nextnode;
+                }
+            }
+            else
+            {
+                if (ship->shiptype >= dJunk1PartA && ship->shiptype <= dJunk3BoilerCasing)
+                {
+                    goto nextnode;
+                }
+                if (!cat_shipDetectedByPlayer(ship, universe.curPlayerIndex))
+                {
+                    goto nextnode;
+                }
+            }
+        }
+        if (!cat_fowCanPlayerSeeShip(universe.curPlayerPtr, ship, FALSE))
+        {
+            goto nextnode;
+        }
+        if (singlePlayerGame && ship->shipOrDerelict.catDisableReason[1] != 0)
+        {
+            goto nextnode;
+        }
+        if (ship->obj.posinfo.position.x < -smUniverseSizeX || ship->obj.posinfo.position.x > smUniverseSizeX ||
+            ship->obj.posinfo.position.y < -smUniverseSizeY || ship->obj.posinfo.position.y > smUniverseSizeY ||
+            ship->obj.posinfo.position.z < -smUniverseSizeZ || ship->obj.posinfo.position.z > smUniverseSizeZ)
+        {
+            goto nextnode;
         }
 
         shipPoint.x = planePoint.x = ship->obj.posinfo.position.x;
@@ -707,6 +765,55 @@ nextnode:
         objnode = objnode->next;
     }
 
+    if (smSensorsActive)
+    {                                                       // CAT: the pings (0x004e6946)
+        ping *thisPing;
+        vector pingPoint;
+
+        for (objnode = cat_pingListGet(); objnode != NULL; objnode = objnode->next)
+        {
+            thisPing = (ping *)listGetStructOfNode(objnode);
+            pingPoint = thisPing->centre;
+            planePoint.x = pingPoint.x;
+            planePoint.y = pingPoint.y;
+            planePoint.z = selCentrePoint.z;
+            if (thisPing->TOMask != PTOM_Anomaly && cat_selPositionHiddenByFOW(&thisPing->centre, FALSE))
+            {
+                continue;
+            }
+            primLine3(&planePoint, &pingPoint, thisPing->c);
+            length = fsqrt(((pingPoint.x - selCentrePoint.x) * (pingPoint.x - selCentrePoint.x) +
+                     (pingPoint.y - selCentrePoint.y) * (pingPoint.y - selCentrePoint.y)));
+            if (piePlaneScreenPointIndex < PIE_PlaneScreenPointIndex)
+            {
+                primCircleOutlineZ(&planePoint, thisPing->minScreenSize,
+                                   pieCircleSegmentsCompute(thisPing->minScreenSize), thisPing->c);
+            }
+        }
+    }
+    if (smSensorsActive)
+    {                                                       // CAT: the crates (0x004e6a3b)
+        Derelict *derelict;
+        vector derelictPoint;
+
+        for (objnode = universe.DerelictList.head; objnode != NULL; objnode = objnode->next)
+        {
+            derelict = (Derelict *)listGetStructOfNode(objnode);
+            if (derelict->derelicttype != Crate || cat_selPositionHiddenByFOW(&derelict->obj.posinfo.position, FALSE))
+            {
+                continue;
+            }
+            derelictPoint = derelict->obj.posinfo.position;
+            planePoint.x = derelictPoint.x;
+            planePoint.y = derelictPoint.y;
+            planePoint.z = selCentrePoint.z;
+            primLine3(&planePoint, &derelictPoint, 0xff00ffff);
+            length = fsqrt(((derelictPoint.x - selCentrePoint.x) * (derelictPoint.x - selCentrePoint.x) +
+                     (derelictPoint.y - selCentrePoint.y) * (derelictPoint.y - selCentrePoint.y)));
+        }
+    }
+    (void)length;
+
     if (closestShip != NULL)
     {
         if (closestDistance > max(distance, pieClosestDistance))
@@ -718,7 +825,7 @@ nextnode:
     /* play the movement gui click sound */
     if ((closestShip != NULL) && (pieLastClosestShip != closestShip) && !selShipInSelection(selSelected.ShipPtr, selSelected.numShips, closestShip) && bClosestHeightDrawn)
     {
-        soundEvent(NULL, UI_MoveChimes);
+        soundEventPlay(NULL, 0x118, NULL);                  // CAT: Cataclysm's UI id (HW1's UI_MoveChimes 0x10b)
     }
 
     pieLastClosestShip = closestShip;
@@ -810,6 +917,112 @@ bool32 pieNeedSpecialAttackAndMoveColor(void)
     if(j==selSelected.numShips)
         return FALSE;           //all strike craft...don't do special move attack!
     return TRUE;
+}
+
+/*-----------------------------------------------------------------------------
+    CAT (M2-R7 r6-leftovers): the waypoint cursor 0x004e6e70 (a function the export does not list; read from the
+    disassembly, its only reference is piePointModeOnOff's waypoint case 0x004e5e34). Its data: the circle radius
+    0x0088d774 (200.0), slices 0x0088d778 (32), spokes 0x00a50ce0 (.bss, never written: 0), circle colour 0x0088d77c,
+    line colour 0x0088d780 (white), spin rate bounds 0x0088d784 / 0x0088d788 (10 and 20 degrees a second), the first
+    draw's jitter flag 0x0088d7a8 (1 in .data, cleared by the jitter), the rotation axes 0x00a50b40 (21 vectors, .bss),
+    the angles 0x00a50c3c and the previous clock 0x00a50ce8.
+-----------------------------------------------------------------------------*/
+#define CAT_PIE_WP_RADIUS           200.0f          // 0x0088d774
+#define CAT_PIE_WP_SLICES           32              // 0x0088d778
+#define CAT_PIE_WP_SPOKES           0               // 0x00a50ce0
+#define CAT_PIE_WP_CIRCLE_COLOR     0xff5decef      // 0x0088d77c
+#define CAT_PIE_WP_LINE_COLOR       0xffffffff      // 0x0088d780
+#define CAT_PIE_WP_SPIN_MIN         10.0f           // 0x0088d784
+#define CAT_PIE_WP_SPIN_MAX         20.0f           // 0x0088d788
+#define CAT_PIE_WP_AXES             21              // 0x00a50b40 .. 0x00a50c3c
+#define CAT_PIE_WP_RAN_UNIT         (1.0 / 4294967296.0)  // 0x0072a4e0 (2^-32)
+static bool32 catPieWaypointJitter = TRUE;          // 0x0088d7a8
+static vector catPieWaypointAxis[CAT_PIE_WP_AXES];  // 0x00a50b40
+static real32 catPieWaypointAngle[CAT_MR_MAX_WAYPOINTS];    // 0x00a50c3c
+static real32 catPieWaypointLastTime = 0.0f;        // 0x00a50ce8
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_pieWaypointCursorDraw                         0x004e6e70
+    Description : CAT: the waypoint mode's cursor: a white line from the selection's centre to the first waypoint
+                  and on from waypoint to waypoint, three circles at each waypoint (one about each axis) turning
+                  about the waypoint's own axis at a random rate between 10 and 20 degrees a second drawn every
+                  frame (ranRandomFn(0) per waypoint and frame; the first draw of the run also jitters the 21 axes
+                  with three draws each), the path type's colour for the move line, then the movement cursor
+                  (pieMovementCursorDraw). The depth test is off while the sensors manager is up. The x87 sequences
+                  are reproduced in double with one rounding at each float store (render state only).
+                  Stream effect: every draw consumes stream-0 randoms, which the exe's simulation code also reads
+                  (univFindNearestResource, cat_leechDrainEffect, droidUpdateArray, ...: docs/m2-checksum-oracle.md
+                  2.6), so a game in which the player uses waypoints moves stream 0 as the exe's does.
+    Inputs      : distance - passed on to pieMovementCursorDraw
+----------------------------------------------------------------------------*/
+void cat_pieWaypointCursorDraw(real32 distance)
+{
+    static const vector origin = {0.0f, 0.0f, 0.0f};
+    real32 delta = 0.0f, now;
+    double angle;
+    bool32 depthOff = FALSE;
+    vector from, to;
+    sdword index, axis;
+
+    if (smSensorsActive && glIsEnabled(GL_DEPTH_TEST))
+    {
+        depthOff = TRUE;
+        glDisable(GL_DEPTH_TEST);
+    }
+    now = cat_taskRealTimeElapsed;                          // 0x00a6b20c
+    if (!(catPieWaypointLastTime > now) && catPieWaypointLastTime != 0.0f)
+    {
+        delta = (real32)((double)now - (double)catPieWaypointLastTime);
+    }
+    catPieWaypointLastTime = now;
+    if (catPieWaypointJitter)
+    {
+        for (index = 0; index < CAT_PIE_WP_AXES; index++)
+        {
+            catPieWaypointAxis[index].x = (real32)((double)ranRandom(RANDOM_STREAM_0) * CAT_PIE_WP_RAN_UNIT + (double)catPieWaypointAxis[index].x);
+            catPieWaypointAxis[index].y = (real32)((double)ranRandom(RANDOM_STREAM_0) * CAT_PIE_WP_RAN_UNIT + (double)catPieWaypointAxis[index].y);
+            catPieWaypointAxis[index].z = (real32)((double)ranRandom(RANDOM_STREAM_0) * CAT_PIE_WP_RAN_UNIT + (double)catPieWaypointAxis[index].z);
+            catHudCounts.waypointRandoms += 3;              // HWI-TEST (M2-R7 r6-leftovers): the hud self-test's count
+        }
+        catPieWaypointJitter = FALSE;
+    }
+    for (index = 0; index < catMrWaypointCount; index++)
+    {
+        from = (index == 0) ? selCentrePoint : catMrWaypoints[index - 1];
+        to = catMrWaypoints[index];
+        primLine3(&from, &to, CAT_PIE_WP_LINE_COLOR);
+        angle = (double)ranRandom(RANDOM_STREAM_0) * (double)(CAT_PIE_WP_SPIN_MAX - CAT_PIE_WP_SPIN_MIN);
+        catHudCounts.waypointRandoms++;                     // HWI-TEST (M2-R7 r6-leftovers)
+        angle = (angle * CAT_PIE_WP_RAN_UNIT + (double)CAT_PIE_WP_SPIN_MIN) * (double)delta + (double)catPieWaypointAngle[index];
+        catPieWaypointAngle[index] = (real32)angle;
+        if (angle > 360.0)
+        {
+            catPieWaypointAngle[index] = (real32)(angle - 360.0);
+        }
+        for (axis = X_AXIS; axis <= Z_AXIS; axis++)
+        {
+            glPushMatrix();
+            glTranslatef(catMrWaypoints[index].x, catMrWaypoints[index].y, catMrWaypoints[index].z);
+            glRotatef(catPieWaypointAngle[index], catPieWaypointAxis[index].x, catPieWaypointAxis[index].y,
+                      catPieWaypointAxis[index].z);
+            primCircleOutline3((vector *)&origin, CAT_PIE_WP_RADIUS, CAT_PIE_WP_SLICES, CAT_PIE_WP_SPOKES,
+                               CAT_PIE_WP_CIRCLE_COLOR, (uword)axis);
+            glPopMatrix();
+        }
+    }
+    switch (catMrWaypointMode)                              // 0x00a752b4: the path type's colour (as toDrawMoveToLine)
+    {
+        case 0: moveLineColor = 0xfff7b591; break;          // 0x0088d78c once
+        case 1: moveLineColor = 0xffcd59ac; break;          // 0x0088d790 a loop
+        case 2: moveLineColor = 0xffad7982; break;          // 0x0088d794 end to end
+        default: break;
+    }
+    catHudCounts.waypointDraws++;                           // HWI-TEST (M2-R7 r6-leftovers)
+    pieMovementCursorDraw(distance);
+    if (depthOff)
+    {
+        glEnable(GL_DEPTH_TEST);
+    }
 }
 
 /*-----------------------------------------------------------------------------

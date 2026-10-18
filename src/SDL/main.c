@@ -452,11 +452,16 @@ bool32 CatRenderTestSet(char *string)
 // HWI-FEATURE(motion-interp) measurement: /catMotionTest <ticks>, /catNisMotionTest <nis>[:<from>:<to>], /catMotionDump
 //      <file>, /catMotionFps <fps> (MotionTest.c: the motion and nis harness modes, docs/m2-r6-motion-interp.md)
 // HWI-FEATURE(motion-interp): /noInterp turns both interpolation flags off (MotionInterp.c); after the options file
-//      (utyOptionsFileRead runs before ProcessCommandLine), so the switch wins for the run; nothing is written back
+//      (utyOptionsFileRead runs before ProcessCommandLine), so the switch wins for the run; M2-R7 r6-leftovers: run-only,
+//      the options file keeps its own values (miSwitchOff, MotionInterp.c)
 bool32 NoInterpSet(char *string)                    // HWI-FEATURE(motion-interp)
 {                                                   // HWI-FEATURE(motion-interp)
-    objInterpolate = FALSE;                         // HWI-FEATURE(motion-interp)
-    nisInterpolate = FALSE;                         // HWI-FEATURE(motion-interp)
+    miSwitchOff(TRUE, TRUE);                        // HWI-FEATURE(motion-interp)
+    return TRUE;                                    // HWI-FEATURE(motion-interp)
+}                                                   // HWI-FEATURE(motion-interp)
+bool32 NoNISInterpSet(char *string)                 // HWI-FEATURE(motion-interp): /noNISInterp, run-only as /noInterp
+{                                                   // HWI-FEATURE(motion-interp)
+    miSwitchOff(FALSE, TRUE);                       // HWI-FEATURE(motion-interp)
     return TRUE;                                    // HWI-FEATURE(motion-interp)
 }                                                   // HWI-FEATURE(motion-interp)
 bool32 CatMotionTestSet(char *string)               // HWI-FEATURE(motion-interp)
@@ -1141,7 +1146,7 @@ commandoption commandOptions[] =
     entryVr("/catKeysTest",         catKeysSelfTest, TRUE, " - load, save, reload and reset the key bindings from the install's default_keys.cfg, then exit."),
     entryFnParam("/catUiTest",          CatUiTestSet, " <ticks> - headless Mission01 run: the player's fleet selected, the popup menu opened, every cat_ui* command run once, the game-stats screen shown, logs uitest lines and quits."),
     entryFn("/noInterp",                NoInterpSet, " - render-time motion interpolation off (objects, camera and NIS; the Smooth motion option)."),   // HWI-FEATURE(motion-interp)
-    entryVr("/noNISInterp",             nisInterpolate, FALSE, " - render-time interpolation of NIS cutscenes off (gameplay interpolation stays)."),   // HWI-FEATURE(motion-interp)
+    entryFn("/noNISInterp",             NoNISInterpSet, " - render-time interpolation of NIS cutscenes off (gameplay interpolation stays)."),   // HWI-FEATURE(motion-interp)
     entryFnParam("/catMotionTest",      CatMotionTestSet, " <ticks> - headless Mission01 run at the virtual frame rate (/catMotionFps, default 144): a focused, a crossing, a receding and a resting ship, per-frame screen positions to /catMotionDump, exit after <ticks> ticks."),   // HWI-FEATURE(motion-interp)
     entryFnParam("/catNisMotionTest",   CatNisMotionTestSet, " <nis>[:<from>:<to>] - headless Mission01 start, then nis\\<nis>.nis plays at the virtual frame rate; the frames between NIS times <from> and <to> go to /catMotionDump, then exit."),   // HWI-FEATURE(motion-interp)
     entryVr("/catToggleTest",           catToggleSelfTest, TRUE, " - the Smooth motion checkbox clicked, cancelled and accepted, its options-file rows read back, its console rows set, then exit."),   // HWI-FEATURE(motion-interp)
@@ -1747,12 +1752,13 @@ void mainCloseRender(void)
 {
     // CAT: the exe's copies (inlined in mainLoadGL 0x00561570, mainRestoreRender 0x00560ba0, WindowProc 0x00561f10)
     //      also free the glcompat textures (glcFreeTextures: not in the SDL build) and, after cpPreviewImageDelete,
-    //      the plug texture. CAT-TODO(M2-R7 render): rndLoadShamelessPlug(FALSE) 0x00579fa0 there, with rndShamelessPlug's port (render.c)
+    //      the plug texture (rndLoadShamelessPlug(FALSE) 0x00579fa0, below)
     partShutdown();
     ferReset();
     cpTexturesPurge();
     lmFreeTextures();
     cpPreviewImageDelete();
+    rndLoadShamelessPlug(FALSE);    // CAT: the plug texture (mainShutdownRenderer 0x00561288, mainLoadGL 0x005615a8)
     btgCloseTextures();
     cmCloseTextures();
     rmGUIShutdown();

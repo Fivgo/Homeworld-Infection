@@ -954,6 +954,7 @@ void utyOptionsFileWrite(void)
 
     sdword index;
     catUtyOptionsStagedWordsGet();
+    miOptionsFileValues(TRUE);                      // HWI-FEATURE(motion-interp): a switch's run-only flags stay out of the file
     for (index = 0; utyOptionsList[index].name != NULL; index++)
     {
         if (utyOptionsList[index].setVarCB == scriptSetUbyteCB) {
@@ -977,6 +978,7 @@ void utyOptionsFileWrite(void)
                     *((bool32 *)utyOptionsList[index].dataPtr) ? "TRUE" : "FALSE");
         }
     }
+    miOptionsFileValues(FALSE);                     // HWI-FEATURE(motion-interp): the run's flags back
     
     fileClose(cfgFile);
 }

@@ -12,6 +12,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "AIShip.h"
 #include "Animatic.h"
@@ -4455,10 +4456,13 @@ udword rndLoadTarga(char* filename, sdword* width, sdword* height)
     psdata = (uword*)pdata;
     head.imageHeight = FIX_ENDIAN_INT_16(*psdata);
 #else
-    head.colorMapStartIndex = *psdata;
+    // HWI (M2-R7 r6-leftovers): the colour-map words sit at file offsets 3 and 5, so they are read through memcpy (the
+    //      same values; the exe reads them in place on x86, UBSan reports a misaligned uword load here). The plug is
+    //      this function's first caller in the tree.
+    memcpy(&head.colorMapStartIndex, pdata, sizeof(uword));
     pdata += 2;
     psdata = (uword*)pdata;
-    head.colorMapNumEntries = *psdata;
+    memcpy(&head.colorMapNumEntries, pdata, sizeof(uword));
     pdata += 2;
     head.colorMapBitsPerEntry = *pdata++;
     psdata = (uword*)pdata;
@@ -4508,6 +4512,122 @@ udword rndLoadTarga(char* filename, sdword* width, sdword* height)
     memFree(data);
 
     return handle;
+}
+
+/*-----------------------------------------------------------------------------
+    CAT (M2-R7 r6-leftovers): the shameless plug. HW1's source has no body for it (GoK dropped it); both bodies are
+    read from cataclysm.exe's disassembly. The exe keeps the texture handle at 0x00a75dc0 and its size, as
+    rndLoadTarga writes it, at 0x00b37800 (width) / 0x00b377a0 (height).
+-----------------------------------------------------------------------------*/
+static udword rndPlugTexture = 0;                           // CAT: 0x00a75dc0
+static sdword rndPlugWidth = 0;                             // CAT: 0x00b37800
+static sdword rndPlugHeight = 0;                            // CAT: 0x00b377a0
+
+/*-----------------------------------------------------------------------------
+    Name        : rndLoadShamelessPlug
+    Description : CAT: rndLoadShamelessPlug 0x00579fa0: loads plug.tga (on) or deletes its texture (off). Every caller
+                  in the exe passes FALSE (mainShutdownRenderer, mainLoadGL, mainRestoreRender, ...: the texture
+                  frees of mainCloseRender here); rndShamelessPlug loads it on first use.
+    Inputs      : on - TRUE loads, FALSE frees
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+void rndLoadShamelessPlug(bool32 on)
+{
+    if (on)
+    {
+        rndPlugTexture = rndLoadTarga("plug.tga", &rndPlugWidth, &rndPlugHeight);
+    }
+    else if (rndPlugTexture != 0)
+    {
+        GLuint handle = (GLuint)rndPlugTexture;
+        glDeleteTextures(1, &handle);
+        rndPlugTexture = 0;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : rndShamelessPlug
+    Description : CAT: rndShamelessPlug 0x00579ff0: draws plug.tga at its own size against the right edge of the
+                  screen, at the bottom (an ortho projection of the window, y up), textured, alpha-blended, without
+                  lighting or depth test, and puts the matrices and the states back. The exe's software-renderer
+                  branch (RGLtype 0x00b3a700 == 0: glDrawPixels at a raster position) is not in this build (decision
+                  28); this is its GL branch (RGLtype != 0).
+    Inputs      :
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+void rndShamelessPlug(void)
+{
+    GLint matrixMode;
+    GLfloat projection[16];
+    real32 width, height, plugWidth, plugHeight, left;
+    bool32 blendOn, depthOn, lighting;
+
+    if (rndPlugTexture == 0)
+    {
+        rndPlugTexture = rndLoadTarga("plug.tga", &rndPlugWidth, &rndPlugHeight);
+    }
+    plugWidth  = (real32)rndPlugWidth;
+    plugHeight = (real32)rndPlugHeight;
+    width  = (real32)MAIN_WindowWidth;
+    height = (real32)MAIN_WindowHeight;
+
+    glGetIntegerv(GL_MATRIX_MODE, &matrixMode);
+    glGetFloatv(GL_PROJECTION_MATRIX, projection);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    rgluOrtho2D(0.0f, width, 0.0f, height);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    blendOn = glIsEnabled(GL_BLEND);
+    lighting = rndLightingEnable(FALSE);
+    depthOn = glIsEnabled(GL_DEPTH_TEST);
+    if (!blendOn)
+    {
+        glEnable(GL_BLEND);
+    }
+    if (depthOn)
+    {
+        glDisable(GL_DEPTH_TEST);
+    }
+
+    width -= 1.0f;                                          // the exe's right edge: MAIN_WindowWidth - 1.0
+    left = width - plugWidth;
+    rndTextureEnable(TRUE);
+    rndAdditiveBlends(FALSE);
+    trClearCurrent();
+    glBindTexture(GL_TEXTURE_2D, rndPlugTexture);
+    glColor4ub(255, 255, 255, 255);
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.0f, 1.0f);
+    glVertex2f(left, plugHeight);
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex2f(left, 0.0f);
+    glTexCoord2f(1.0f, 0.0f);
+    glVertex2f(width, 0.0f);
+    glTexCoord2f(1.0f, 1.0f);
+    glVertex2f(width, plugHeight);
+    glEnd();
+
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glLoadMatrixf(projection);
+    if (matrixMode == GL_MODELVIEW)
+    {
+        glMatrixMode(GL_MODELVIEW);
+    }
+    rndLightingEnable(lighting);
+    if (!blendOn)
+    {
+        glDisable(GL_BLEND);
+    }
+    if (depthOn)
+    {
+        glEnable(GL_DEPTH_TEST);
+    }
 }
 
 extern udword receivedPacketNumber;
@@ -5115,10 +5235,17 @@ DEFINE_TASK(rndRenderTask)
         //      ssSaveScreenshot) and the texture-pool resize after mainReinitRGL (trNoPalResizePool of the pool
         //      cat_trTextureMemorySet set) are GoK's screenshot and renderer-reinit paths (decision 28). The render half
         //      (clears, regions, scissor bars, subtitles, sync status, the fill counter) is as here.
-        //      CAT-TODO(M2-R7 render): rndShamelessPlug 0x00579ff0 (plug.tga in an ortho quad while 0x00a6c5b4 is set by cat_consoleOpen / cat_gameStatsBegin, or 0x00a6ed74 by a load): its GL quad is to be read from the disassembly; HW1's source has no body for it
         mouseSetCursorSetting();
         
         mouseDraw();                                        //draw mouse atop everything
+
+        // CAT (M2-R7 r6-leftovers): rndRenderTask 0x0057ab78 draws the shameless plug after the mouse while the
+        //      universe is paused (0x00a6c5b4: the console, the game-stats screen, a single-player pause) or the Pause
+        //      key's flag 0x00a6ed74 is set (rndShamelessPlug 0x00579ff0)
+        if (universePause || catUnivFrameStep)
+        {
+            rndShamelessPlug();
+        }
 
         if (universePause || !gameIsRunning) {
             fontMakeCurrent(selGroupFont2);

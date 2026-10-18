@@ -746,7 +746,11 @@ void TurnHarvestEffectOn(Ship *ship,Resource *resource,vector *trajectory, real3
 #endif
     {
         // CAT: TurnHarvestEffectOn 0x004f1ac0 starts no harvest sound (HW1: Ship_ResourceAsteroid/DustCloud).
-        // CAT-TODO(M2-R7 ETG): TurnHarvestEffectOn 0x004f1ac0 passes the beam length and the resource radius to etgEffectCreate as real32 values where this tree, like every other etgEffectCreate caller, passes SCALECAST integers (HW1's convention); the parameters land in the effect's variable block, which the effect script types, so the switch is one review of the ETG's variable parameters for all callers (ETG.c, a stage-2 file), not a UI item [integrate: M2-R6: re-targeted from stage 3]
+        // CAT (M2-R7 r6-leftovers): the exe pushes the beam length and the resource radius as the 32-bit words of their
+        //      real32 values (TurnHarvestEffectOn 0x004f1bb0..0x004f1bb9); intLength / intWidth are those words already
+        //      (Real32ToUdword copies the bits, HW1's TreatAsUdword), so the effect's variable block gets the same
+        //      values. The review of every etgEffectCreate caller against the exe's pushes found one caller that passed
+        //      an integer where the exe passes a real32: kasfSpawnEffect (KASFunc.c)
         ship->rceffect = etgEffectCreate(stat, ship, &nozzleposition, &ship->obj.posinfo.velocity, &nozzlecoordsys, 1.0f, EAF_Velocity | EAF_NLips, 2, SCALECAST(intLength), SCALECAST(intWidth));
     }
     else

@@ -45,7 +45,7 @@ real32 taskTimeElapsed = 0.0f;                  //time elapsed, in seconds, sinc
 // CAT (M2-R4 rest-oracle): Cataclysm's time compression (cataclysm.exe 0x0052a350-0x0052a4c0), which replaces HW1's
 //      universeTurbo: every tick count taskExecuteAllPending receives is scaled by cat_timeCompressionFactor
 //      (0x00bb3268), the table entry at cat_timeCompressionIndex (0x00bb326c; 0x0072bd14: 1/4, 1/2, 1, 2, 4, 6, 8; the
-//      default index 0x008aa6f0 is 2 = 1.0). The unscaled ticks also feed cat_taskRealTimeElapsed (0x00bb3270), the
+//      default index 0x008aa6f0 is 2 = 1.0). The unscaled ticks also feed cat_taskRealTimeElapsed (0x00a6b20c [audit M2-R7: was 0x00bb3270, taskNumberCalls]), the
 //      wall-clock task time the construction manager's build timers read.
 static const real32 cat_timeCompressionFactorTable[7] = { 0.25f, 0.5f, 1.0f, 2.0f, 4.0f, 6.0f, 8.0f };
 static const ubyte cat_timeCompressionDefaultIndex = 2;

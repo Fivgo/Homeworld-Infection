@@ -63,6 +63,7 @@
 #include "LinkedList.h"
 #include "Matrix.h"
 #include "NIS.h"
+#include "RepairDroid.h"                            // M2-R7 r6-leftovers: CatRepairDroidArray
 #include "SpaceObj.h"
 #include "Task.h"
 #include "Trails.h"
@@ -77,6 +78,15 @@ extern real32 nisPlayFactor;                        // NIS.c (the debug playback
 
 bool32 objInterpolate = TRUE;
 bool32 nisInterpolate = TRUE;
+// M2-R7 r6-leftovers: the switches' run-only state (miSwitchOff)
+static bool32 miObjSwitched = FALSE;                // /noInterp turned objInterpolate off for this run
+static bool32 miNisSwitched = FALSE;                // /noInterp or /noNISInterp turned nisInterpolate off
+static bool32 miObjFileValue = TRUE;                // the options file's values under the switches
+static bool32 miNisFileValue = TRUE;
+static bool32 miObjRunValue = TRUE;                 // the run's values while utyOptionsFileWrite writes
+static bool32 miNisRunValue = TRUE;
+static bool32 miSavedObjSwitched = FALSE;           // the switch state opOptionsSaveSettings keeps for Cancel
+static bool32 miSavedNisSwitched = FALSE;
 taskhandle universeTaskHandle = -1;
 
 #define MI_TELEPORT         2000.0f                 // more than this in one tick is a jump (hyperspace, placement)
@@ -118,6 +128,8 @@ static bool32 miDrawing = FALSE;                    // between miRenderBegin and
 static real32 miAlpha = -1.0f;
 static Camera miNisCamera;
 static bool32 miNisCameraValid = FALSE;
+
+static void miDroids(bool32 render, real32 alpha); // M2-R7 r6-leftovers: the repair droids (capture and frame)
 
 /*=============================================================================
     The side table:
@@ -305,6 +317,7 @@ void miCaptureTick(void)
         e->gen = miGen;
         e->has = miRead(obj, &e->pos, &e->coord, &e->coll, &e->engine);
     }
+    miDroids(FALSE, 0.0f);                          // M2-R7 r6-leftovers: the repair droids' owner-space positions
 }
 
 /*=============================================================================
@@ -429,6 +442,34 @@ static void miMarkNis(SpaceObj *obj)
     }
 }
 
+// one clamped object at its clamp offset in its host's (render) frame (cat_clampUpdateAttachedObjects' arithmetic)
+static void miClampedWrite(SpaceObj *host, SpaceObj *child)
+{
+    vector pos, coll, engine, tmp;
+    matrix coord;
+
+    if (miSave(child) == NULL)
+    {
+        return;
+    }
+    matMultiplyMatByVec(&tmp, &((SpaceObjRot *)host)->rotinfo.coordsys,
+                        &((SpaceObjRotImpTargGuidance *)child)->clampInfo->clampOffset);
+    vecAdd(pos, host->posinfo.position, tmp);
+    matMultiplyMatByMat(&coord, &((SpaceObjRot *)host)->rotinfo.coordsys,
+                        &((SpaceObjRotImpTargGuidance *)child)->clampInfo->clampCoordsys);
+    if (bitTest(child->header.flags, SOF_Impactable))
+    {
+        matMultiplyMatByVec(&tmp, &coord, &child->staticinfo->staticCollInfo.collsphereoffset);
+        vecAdd(coll, pos, tmp);
+    }
+    if (child->header.objtype == OBJ_ShipType)
+    {
+        matMultiplyMatByVec(&tmp, &coord, &((Ship *)child)->staticinfo->engineNozzleOffset[0]);
+        vecAdd(engine, pos, tmp);
+    }
+    miWriteTransform(child, MI_HAS_POS | MI_HAS_ROT | MI_HAS_COLL | MI_HAS_ENGINE, &pos, &coord, &coll, &engine);
+}
+
 // the objects clamped to an NIS ship follow its render transform (cat_clampUpdateAttachedObjects' arithmetic), or keep
 // the tick's when the NIS is not blended this frame
 static void miNisClamped(SpaceObj *host, bool32 write)
@@ -436,8 +477,6 @@ static void miNisClamped(SpaceObj *host, bool32 write)
     ClampInfo *info;
     sdword i;
     SpaceObj *child;
-    vector pos, coll, engine, tmp;
-    matrix coord;
 
     if (host->header.objtype != OBJ_ShipType ||
         (info = ((SpaceObjRotImpTargGuidance *)host)->clampInfo) == NULL || info->clampedObjs == NULL)
@@ -452,26 +491,108 @@ static void miNisClamped(SpaceObj *host, bool32 write)
             continue;
         }
         miMarkNis(child);
-        if (!write || miSave(child) == NULL)
+        if (write)
+        {
+            miClampedWrite(host, child);
+        }
+    }
+}
+
+// M2-R7 r6-leftovers: the objects clamped to a host the gameplay lerp blended (the Cataclysm motherships' modules, a
+// ship docked by clamping) are drawn at their clamp offset in the host's blended frame, not on their own blended
+// transforms (which turned a linear position against the host's blended rotation: a sub-unit arc error while the host
+// turns); the saved entries from <first> on are the gameplay lerp's of this frame
+static void miGameplayClamped(udword first)
+{
+    udword index, count = miSavedCount;
+    ClampInfo *info;
+    SpaceObj *host, *child;
+    MiEntry *e;
+    sdword i;
+
+    for (index = first; index < count; index++)
+    {
+        host = miSaved[index].obj;
+        if (host == NULL || host->header.objtype != OBJ_ShipType ||
+            (info = ((SpaceObjRotImpTargGuidance *)host)->clampInfo) == NULL || info->clampedObjs == NULL)
         {
             continue;
         }
-        matMultiplyMatByVec(&tmp, &((SpaceObjRot *)host)->rotinfo.coordsys,
-                            &((SpaceObjRotImpTargGuidance *)child)->clampInfo->clampOffset);
-        vecAdd(pos, host->posinfo.position, tmp);
-        matMultiplyMatByMat(&coord, &((SpaceObjRot *)host)->rotinfo.coordsys,
-                            &((SpaceObjRotImpTargGuidance *)child)->clampInfo->clampCoordsys);
-        if (bitTest(child->header.flags, SOF_Impactable))
+        for (i = 0; i < info->clampedObjs->numShips; i++)
         {
-            matMultiplyMatByVec(&tmp, &coord, &child->staticinfo->staticCollInfo.collsphereoffset);
-            vecAdd(coll, pos, tmp);
+            child = (SpaceObj *)info->clampedObjs->ShipPtr[i];
+            if (child == NULL || ((SpaceObjRotImpTargGuidance *)child)->clampInfo == NULL ||
+                ((SpaceObjRotImpTargGuidance *)child)->clampInfo->host != (SpaceObjRotImpTarg *)host)
+            {
+                continue;
+            }
+            e = miFind(child);
+            if (e != NULL && e->nisFrame == miFrame)
+            {
+                continue;                           // the NIS's this frame
+            }
+            miClampedWrite(host, child);            // the child's own blend, if any, is undone by the earlier save
         }
-        if (child->header.objtype == OBJ_ShipType)
+    }
+}
+
+// M2-R7 r6-leftovers: the repair droids (CatRepairDroidArray: Ship objects on no list, positions in the owner's object
+// space, drawn inside the owner's model matrix by cat_droidRenderArray, so they follow the blended owner already) also
+// blend their own owner-space walk between the last two ticks; a droid inside the ship is neither captured nor drawn
+static void miDroids(bool32 render, real32 alpha)
+{
+    Node *node;
+    Ship *ship;
+    CatRepairDroidArray *array;
+    SpaceObj *droid;
+    MiEntry *e;
+    MiSaved *s;
+    vector pos, coll, engine, d;
+    matrix coord;
+    ubyte has;
+    sdword i;
+
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if ((array = (CatRepairDroidArray *)ship->catRepairDroids) == NULL || array->droids == NULL)
         {
-            matMultiplyMatByVec(&tmp, &coord, &((Ship *)child)->staticinfo->engineNozzleOffset[0]);
-            vecAdd(engine, pos, tmp);
+            continue;
         }
-        miWriteTransform(child, MI_HAS_POS | MI_HAS_ROT | MI_HAS_COLL | MI_HAS_ENGINE, &pos, &coord, &coll, &engine);
+        for (i = 0; i < array->numDroids; i++)
+        {
+            droid = (SpaceObj *)array->droids[i].ship;
+            if (droid == NULL || array->droids[i].state == CAT_DROID_Inside)
+            {
+                continue;
+            }
+            if (!render)
+            {
+                if ((e = miInsert(droid)) != NULL)
+                {
+                    e->gen = miGen;
+                    e->has = miRead(droid, &e->pos, &e->coord, &e->coll, &e->engine);
+                }
+                continue;
+            }
+            e = miFind(droid);
+            if (e == NULL || e->gen != miGen)
+            {
+                continue;                           // launched this tick
+            }
+            vecSub(d, droid->posinfo.position, e->pos);
+            if (vecMagnitudeSquared(d) > MI_TELEPORT * MI_TELEPORT || (s = miSave(droid)) == NULL)
+            {
+                continue;
+            }
+            has = s->has & e->has & (MI_HAS_POS | MI_HAS_ROT);
+            miLerp(&pos, &e->pos, &s->pos, alpha);
+            if ((has & MI_HAS_ROT) && !miBlendCoordsys(&coord, &e->coord, &s->coord, alpha))
+            {
+                has &= (ubyte)~MI_HAS_ROT;
+            }
+            miWriteTransform(droid, has, &pos, &coord, &coll, &engine);
+        }
     }
 }
 
@@ -569,6 +690,7 @@ void miRenderBegin(void)
     vector pos, coll, engine, d;
     matrix coord;
     ubyte has;
+    udword first;
     nisplaying *nis = thisNisPlaying;
 
     miFrame++;
@@ -596,6 +718,7 @@ void miRenderBegin(void)
         return;                                     // paused, or at the current tick: the simulation's values
     }
     miAlpha = alpha;
+    first = miSavedCount;                           // M2-R7 r6-leftovers: the gameplay lerp's entries start here
     for (node = universe.SpaceObjList.head; node != NULL; node = node->next)
     {
         obj = (SpaceObj *)listGetStructOfNode(node);
@@ -647,6 +770,8 @@ void miRenderBegin(void)
             }
         }
     }
+    miGameplayClamped(first);                       // M2-R7 r6-leftovers: clamped objects in their host's blended frame
+    miDroids(TRUE, alpha);                          // M2-R7 r6-leftovers: the repair droids' own walk
 }
 
 void miRenderEnd(void)
@@ -699,4 +824,75 @@ void miSmoothMotionSet(bool32 on)
 {
     objInterpolate = on ? TRUE : FALSE;
     nisInterpolate = on ? TRUE : FALSE;
+    miObjSwitched = FALSE;                          // M2-R7 r6-leftovers: a click is the user's choice, saved as it is
+    miNisSwitched = FALSE;
+}
+
+/*-----------------------------------------------------------------------------
+    The switches are run-only (M2-R7 r6-leftovers, docs/m2-r6-motion-interp.md "What is left"): /noInterp and
+    /noNISInterp turn the flags off for the run and remember the values the options file gave them; while a switch
+    stands (until the Smooth motion checkbox is clicked), utyOptionsFileWrite writes those remembered values, so the
+    run's own opOptionsSaveSettings calls (an options screen opened, Accept, the end of a game) never persist the
+    switch. The console rows change the run's flags only, as the switch does, while it stands. Cancel puts the
+    switch state back with the flags (opRestoreSavedSettings).
+-----------------------------------------------------------------------------*/
+void miSwitchOff(bool32 obj, bool32 nis)
+{
+    if (obj)
+    {
+        if (!miObjSwitched)
+        {
+            miObjFileValue = objInterpolate;
+            miObjSwitched = TRUE;
+        }
+        objInterpolate = FALSE;
+    }
+    if (nis)
+    {
+        if (!miNisSwitched)
+        {
+            miNisFileValue = nisInterpolate;
+            miNisSwitched = TRUE;
+        }
+        nisInterpolate = FALSE;
+    }
+}
+
+void miOptionsFileValues(bool32 begin)
+{
+    if (begin)
+    {
+        miObjRunValue = objInterpolate;
+        miNisRunValue = nisInterpolate;
+        if (miObjSwitched)
+        {
+            objInterpolate = miObjFileValue;
+        }
+        if (miNisSwitched)
+        {
+            nisInterpolate = miNisFileValue;
+        }
+    }
+    else
+    {
+        objInterpolate = miObjRunValue;
+        nisInterpolate = miNisRunValue;
+    }
+}
+
+void miSwitchStateSave(void)
+{
+    miSavedObjSwitched = miObjSwitched;
+    miSavedNisSwitched = miNisSwitched;
+}
+
+void miSwitchStateRestore(void)
+{
+    miObjSwitched = miSavedObjSwitched;
+    miNisSwitched = miSavedNisSwitched;
+}
+
+bool32 miSwitchStands(void)
+{
+    return (miObjSwitched || miNisSwitched);
 }

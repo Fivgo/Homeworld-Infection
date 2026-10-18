@@ -843,121 +843,107 @@ extern sdword       mouseCursorEnemyPlayer;
     Name        : selShipUnderMouse
     Description : Handle the case of an object being under the mouse
     Inputs      : target - what object is under the mouse
-                  distance - distance to centre of selection circle
     Outputs     :
     Return      :
+    CAT (M2-R7 r6-leftovers): the exe's body (selShipUnderMouse 0x00506550, one parameter: HW1's distance fed only the
+        compiled-out PIE_MOVE_NEARTO block): not while the main region's right button turns the camera (its state
+        word 0x00a75288, catMrRightMode) or for a hidden object (SOF_Hide); a ship is taken only if it is nearer than
+        the nearest so far, except while the sensors manager is up (0x00a5b1c8 smSensorsActive), where an enemy ship
+        is taken only if the current player can see it (cat_fowCanPlayerSeeShip(curPlayer, target, 0)) and the
+        distance is not compared; any other object is taken without the distance test. The nearest distance is then
+        the object's (cameraDistanceSquared, also for an unsalvageable derelict). A component clamped to a host names
+        the host. An allied or enemy ship keeps the cursor object (HW1 cleared it). Cataclysm has no cursor text (the
+        ship type, its LOD byte and its owner are still written, unread in the exe); HW1's text expiry stays for the
+        tree's leftover cursor text (below).
 ----------------------------------------------------------------------------*/
-void selShipUnderMouse(SpaceObjRotImpTarg *target, sdword distance)
+void selShipUnderMouse(SpaceObjRotImpTarg *target)
 {
-#if PIE_MOVE_NEARTO
-    //process object for move near to command
-    if (piePointSpecMode == PSM_XY || piePointSpecMode == PSM_Z)
-    {                                                       //if in point spec mode
-        if ((target->header.objtype == OBJ_ShipType && ((Ship*)target)->staticinfo->shipclass != CLASS_Mothership)  ||   // CAT: by class (block is compiled out: PIE_MOVE_NEARTO 0)
-            (target->header.objtype == OBJ_AsteroidType/* &&
-             target->staticinfo->common.staticCollInfo.collspheresize > selAsteroidMoveNeartoSize*/))
-        {                                                   //if it's a valid object type
-            if (distance < smClosestDistance)
-            {
-                selClosestDistance = distance;
-                selClosestTarget = target;
-            }
-        }
-    }
-#endif
-    //process object for mouse-cursor action
-    // only the closest ship gets named
-    if (mrHoldRight == mrNULL)
-    {                                                       //if no mouse action going down
-        if (target->obj.cameraDistanceSquared < mouseCursorOverDistance)
-        {                                                   //if closer than previous close object
-            mouseCursorOverDistance = target->obj.cameraDistanceSquared;
+    Ship *targetShip;
 
-            if (target->header.objtype == OBJ_ShipType)
+    if (catMrRightMode != 0)                                // CAT: 0x00a75288, where HW1 tested mrHoldRight
+    {
+        return;
+    }
+    if (bitTest(target->header.flags, SOF_Hide))
+    {
+        return;
+    }
+    if (target->header.objtype == OBJ_ShipType)
+    {
+        if (smSensorsActive)
+        {
+            if (!allianceIsShipAlly((Ship *)target, universe.curPlayerPtr) &&
+                !cat_fowCanPlayerSeeShip(universe.curPlayerPtr, (Ship *)target, FALSE))
             {
-                Ship* targetShip = (Ship*)target;
-                // enemy ships are only identified as "enemy ship"
-                if ((targetShip->playerowner == universe.curPlayerPtr) ||
-                    (targetShip->shipOrDerelict.specialFlags & SPECIAL_FriendlyStatus) &&
-                        (tutorial != TUTORIAL_ONLY)) // ships with special friendly status are still considered enemies
-                                                     // in the tutorial
-                {
-                    mouseCursorOverShipType = targetShip->shiptype;
-                    mouseCursorObjPtr = &targetShip->obj;
-                    bitSet(mouseCursorMode, MCM_CursorOverObj);
-                } else {
-                    //the trader ship refuses not to be buggy in these "general" cases,
-                    //so I'll just put special case code for the trader, seeing as it's
-                    //a special case anyway.
-                    // CAT: the exe keeps the trader special case for trFloatingCity (selShipUnderMouse 0x00506550,
-                    //      shiptype 0x62)
-                    if (targetShip->shiptype == trFloatingCity)
-                    {
-                        mouseCursorOverShipType = trFloatingCity;
-                        mouseCursorObjPtr       = NULL;
-                        bitClear(mouseCursorMode, MCM_CursorOverObj);
-                    }
-                    else if (allianceIsShipAlly(targetShip, universe.curPlayerPtr))
-                    {
-                        mouseCursorOverShipType = MC_ALLIED_SHIP;
-                        mouseCursorObjPtr       = NULL;
-                        bitClear(mouseCursorMode, MCM_CursorOverObj);
-                    }
-                    else
-                    {
-                        mouseCursorOverShipType = MC_ENEMY_SHIP;
-                        mouseCursorObjPtr       = NULL;
-                        bitClear(mouseCursorMode, MCM_CursorOverObj);
-                    }
-                }
-                mouseCursorOverLODs     = target->obj.renderedLODs;
-                mouseCursorEnemyType    = targetShip->shiptype;
-                mouseCursorEnemyPlayer  = targetShip->playerowner->playerIndex;
-                mouseCursorTextExpire   = universe.totaltimeelapsed + TW_CURSORTEXT_DELAY_TIME;
-            }
-            else if (target->header.objtype == OBJ_DerelictType)
-            {
-                //since this is only used for salvaging,
-                //set shiptype only when a salvageable derelict is under the cursor
-/*                switch (((Derelict *)target)->derelicttype)
-                {
-                    case AngelMoon:
-                    case AngelMoon_clean:
-                    case Homeworld:
-                    case PlanetOfOrigin:
-                    case PlanetOfOrigin_scarred:
-                    case Scaffold:
-                    case Scaffold_scarred:
-                    case ScaffoldFingerA_scarred:
-                    case ScaffoldFingerB_scarred:
-                    case HyperspaceGate:
-                        //Don't salvage these
-                        break;
-                    default:
-                        mouseCursorOverShipType = MC_DERELICT;
-                        mouseCursorObjPtr       = &target->obj;
-                        bitSet(mouseCursorMode, MCM_CursorOverObj);
-                        break;
-                }*/
-                Derelict* derelict = (Derelict*)target;
-                if ((derelict->derelicttype == HyperspaceGate) || derelict->staticinfo->salvageable) {
-                    mouseCursorOverShipType = MC_DERELICT;
-                    mouseCursorObjPtr = &derelict->obj;
-                    bitSet(mouseCursorMode, MCM_CursorOverObj);
-                }
-            }
-            else
-            {
-                // CAT: every resource is a cursor object (selShipUnderMouse 0x00506550); HW1 took dust clouds only
-                //      while one of its resource-collector ships was selected
-                {
-                    mouseCursorOverShipType = MC_RESOURCE;
-                    mouseCursorObjPtr = &target->obj;
-                    bitSet(mouseCursorMode, MCM_CursorOverObj);
-                }
+                return;
             }
         }
+        else if (target->obj.cameraDistanceSquared > mouseCursorOverDistance)
+        {
+            return;
+        }
     }
+    mouseCursorOverDistance = target->obj.cameraDistanceSquared;
+
+    if (target->header.objtype == OBJ_ShipType)
+    {
+        targetShip = (Ship *)target;
+        if (targetShip->staticinfo->shipclass == CLASS_Component && targetShip->guidance.clampInfo != NULL &&
+            targetShip->guidance.clampInfo->host != NULL)
+        {                                                   // CAT: a module names its host
+            targetShip = (Ship *)targetShip->guidance.clampInfo->host;
+        }
+        // enemy ships are only identified as "enemy ship"
+        if ((targetShip->playerowner == universe.curPlayerPtr) ||
+            (bitTest(targetShip->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus) && (tutorial != TUTORIAL_ONLY)))
+        {
+            mouseCursorOverShipType = targetShip->shiptype;
+            mouseCursorObjPtr = &targetShip->obj;
+            bitSet(mouseCursorMode, MCM_CursorOverObj);
+        }
+        else if (targetShip->shiptype == trFloatingCity)    // CAT: the trader special case (shiptype 0x62)
+        {
+            mouseCursorOverShipType = trFloatingCity;
+            mouseCursorObjPtr       = NULL;
+            bitClear(mouseCursorMode, MCM_CursorOverObj);
+        }
+        else if (allianceIsShipAlly(targetShip, universe.curPlayerPtr))
+        {
+            mouseCursorOverShipType = MC_ALLIED_SHIP;
+            mouseCursorObjPtr       = &targetShip->obj;
+            bitClear(mouseCursorMode, MCM_CursorOverObj);
+        }
+        else
+        {
+            mouseCursorOverShipType = MC_ENEMY_SHIP;
+            mouseCursorObjPtr       = &targetShip->obj;
+            bitClear(mouseCursorMode, MCM_CursorOverObj);
+        }
+        mouseCursorOverLODs     = targetShip->obj.renderedLODs;
+        mouseCursorEnemyType    = targetShip->shiptype;
+        mouseCursorEnemyPlayer  = targetShip->playerowner->playerIndex;
+        // HWI: not in the exe (no cursor text in Cataclysm: the fields above are written and never read), kept because
+        //      this tree still draws HW1's cursor text (mouseCursorTextDraw from mrRegionDraw), which reads the expiry
+        mouseCursorTextExpire   = universe.totaltimeelapsed + TW_CURSORTEXT_DELAY_TIME;
+        return;
+    }
+    if (target->header.objtype == OBJ_DerelictType)
+    {
+        Derelict *derelict = (Derelict *)target;
+        if ((derelict->derelicttype != HyperspaceGate) && !derelict->staticinfo->salvageable)
+        {
+            return;
+        }
+        mouseCursorOverShipType = MC_DERELICT;
+    }
+    else
+    {
+        // CAT: every other object is a resource cursor object (HW1 took dust clouds only while one of its
+        //      resource-collector ships was selected)
+        mouseCursorOverShipType = MC_RESOURCE;
+    }
+    bitSet(mouseCursorMode, MCM_CursorOverObj);
+    mouseCursorObjPtr = &target->obj;
 }
 
 /*-----------------------------------------------------------------------------
@@ -1151,7 +1137,7 @@ void selCircleCompute(hmatrix *modelView, hmatrix *projection, SpaceObjRotImpTar
                     {
                         distance = ABS(primGLToScreenX(target->impactable.collInfo.selCircleX) - mouseCursorX()) +
                             ABS(primGLToScreenY(target->impactable.collInfo.selCircleY) - mouseCursorY());
-                        selShipUnderMouse(target, distance);
+                        selShipUnderMouse(target);
                     }
                     break;
                 }
@@ -1171,7 +1157,7 @@ void selCircleCompute(hmatrix *modelView, hmatrix *projection, SpaceObjRotImpTar
         {                                               //if under mouse
             distance = ABS(primGLToScreenX(collision->selCircleX) - mouseCursorX()) +
                 ABS(primGLToScreenY(collision->selCircleY) - mouseCursorY());
-            selShipUnderMouse(target, distance);
+            selShipUnderMouse(target);
 
         }
     }

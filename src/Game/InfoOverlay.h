@@ -115,6 +115,8 @@ typedef struct CatHudCounts
     udword supportUnits;        // cat_moSupportUnitsDraw panels drawn
     udword pieDraws;            // piePointSpecDraw calls
     udword compassDraws;        // cat_pieCompassDraw calls
+    udword waypointDraws;       // HWI-TEST (M2-R7 r6-leftovers): cat_pieWaypointCursorDraw calls
+    udword waypointRandoms;     // HWI-TEST (M2-R7 r6-leftovers): its ranRandomFn(0) draws
 } CatHudCounts;
 extern CatHudCounts catHudCounts;
 void catHudSelfTestSet(char *string);

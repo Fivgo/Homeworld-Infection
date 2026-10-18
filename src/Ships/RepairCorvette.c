@@ -52,6 +52,12 @@ void startRepairEffect(Ship *ship,SpaceObjRotImpTarg *target,vector *trajectory,
 
     matCreateCoordSysFromHeading(&coordsys,trajectory);
 
+    // CAT: the beam width is the target's radius capped at 150.0 (startRepairEffect 0x005c230b: fcomp 0x0072bfe4, then
+    //      0x43160000 stored; HW1 passed the radius as it is) [audit M2-R7 r6-leftovers]
+    if (targetRadius > 150.0f)
+    {
+        targetRadius = 150.0f;
+    }
     intLength = Real32ToUdword(distance);
     intWidth = Real32ToUdword(targetRadius);
 

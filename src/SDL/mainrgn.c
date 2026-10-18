@@ -118,8 +118,8 @@ sdword mrOldMouseX, mrOldMouseY;
 
 //logic handlers for main region
 void mrNULL(void);
-void (*mrHoldLeft)(void) = mrNULL;
-void (*mrHoldRight)(void) = mrNULL;
+// CAT (M2-R7 r6-leftovers): no mrHoldLeft / mrHoldRight (HW1's hold handlers): the exe keeps the mouse state in its
+//      state words catMrSelecting 0x00a75284 and catMrRightMode 0x00a75288, which every tester reads (decision 36)
 
 //flag indicating mouse has moved since right mouse button pressed
 sdword mrMouseHasMoved;
@@ -2049,7 +2049,6 @@ void cat_mrPressRight(void)                                 // 0x0056afe0: the c
     }
     piePointModePause(TRUE);
     catMrRightMode = 2;
-    mrHoldRight = mrCameraMotion;
     mrOldMouseX = mouseCursorX();
     mrOldMouseY = mouseCursorY();
     mouseCursorHide();
@@ -2091,7 +2090,6 @@ void cat_mrReleaseRight(sdword sensors)
             mouseCursorShow();
         }
         catMrRightMode = 0;
-        mrHoldRight = mrNULL;
         mouseClipToRect(NULL);
     }
     if (mrDisabled || (mrMouseHasMoved > MR_MouseMovementClickLimit))
@@ -5490,9 +5488,9 @@ void mrRegionDraw(regionhandle reg)
 
     if (piePointSpecMode != PSM_Idle)
     {                                                       //draw point spec
-        pieLineDrawCallback = pieAllShipsToPiePlateDraw;
-        piePlaneDrawCallback = piePlaneDraw;
-        pieMovementCursorDrawCallback = pieMovementCursorDraw;
+        // CAT (M2-R7 r6-leftovers): mrRegionDraw 0x0056939a sets only the post-object callback; the pie plate's
+        //      three draw callbacks stay as piePointModeOnOff set them (HW1 reset them to the move set here, which
+        //      replaced the waypoint cursor 0x004e6e70 and restored the lines of PIE_SPEC_MoveNoLines)
         rndPostObjectCallback = piePointSpecDraw;
     }
 
@@ -5713,7 +5711,6 @@ void mrReset(void)
     //      exe's software-renderer call (RGLtype 0) does not apply to this tree's GL
     catMrSelecting = FALSE;
     catMrRightMode = 0;
-    mrHoldRight = mrHoldLeft = mrNULL;
     mouseCursorShow();
     if (piePointSpecMode != PSM_Idle)
     {
@@ -5740,7 +5737,6 @@ void mrNISStarting(void)
     if (catMrRightMode != 0)
     {
         catMrRightMode = 0;
-        mrHoldRight = mrNULL;
     }
     mrSaveTactical = mrDrawTactical;                        //turn off the tactical overlay
     mrDrawTactical = FALSE;
@@ -5765,7 +5761,6 @@ void mrNISStopping(void)
     if (catMrRightMode != 0)
     {
         catMrRightMode = 0;
-        mrHoldRight = mrNULL;
     }
     mrDrawTactical = mrSaveTactical;                        //turn on the tactical overlay if it was on before
 }

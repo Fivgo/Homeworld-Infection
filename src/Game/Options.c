@@ -1470,6 +1470,7 @@ void opRestoreSavedSettings(void)
     opNoLODVal = opSaveNoLODVal;
     objInterpolate = opSaveObjInterpolate;          // HWI-FEATURE(motion-interp): the Smooth motion checkbox's flags
     nisInterpolate = opSaveNisInterpolate;          // HWI-FEATURE(motion-interp)
+    miSwitchStateRestore();                         // HWI-FEATURE(motion-interp): and a switch's run-only override
     opNumEffects = opSaveNumEffects;
     etgHistoryScalar = opNumEffects + etgHistoryScalarMin;
     for (i = 0; catOpSavedWords[i] != NULL; i++)
@@ -1768,6 +1769,7 @@ void opOptionsSaveSettings(void)
     opSaveNoLODVal = opNoLODVal;
     opSaveObjInterpolate = objInterpolate;          // HWI-FEATURE(motion-interp): the Smooth motion checkbox's flags
     opSaveNisInterpolate = nisInterpolate;          // HWI-FEATURE(motion-interp)
+    miSwitchStateSave();                            // HWI-FEATURE(motion-interp): and a switch's run-only override
     opSaveNumEffects = opNumEffects;
 
     opSaveMAIN_WindowWidth  = MAIN_WindowWidth;

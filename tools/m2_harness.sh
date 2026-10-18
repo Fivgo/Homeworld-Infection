@@ -67,7 +67,10 @@
 #                    refers to the first ship and the movement pie plate goes on; every frame then draws the status
 #                    bars, the info panel, the main overlay and the pie plate offscreen; M2-R6 managers: the last 120
 #                    frames are the sensors manager's (instant transition, the selection as hot-key group 1), drawn
-#                    through the Cataclysm scene (cat_sm*: "hudtest: sensors" counts); at the end "hudtest: counts"
+#                    through the Cataclysm scene (cat_sm*: "hudtest: sensors" counts); M2-R7 r6-leftovers: 60 frames
+#                    before those the waypoint mode starts (cat_mrWaypointsStart) with three waypoints, so the
+#                    waypoint cursor 0x004e6e70 draws to the end ("hudtest: waypoints" draws and stream-0 draws, which
+#                    must be 63 + 3 a draw, part of PASS); at the end "hudtest: counts"
 #                    lines and "hudtest: done ... result=PASS|FAIL"; quits after <frames> ticks (one tick a frame)
 #                    ui: /catUiTest <ticks> (M2-R6 mainrgn-popup, docs/m2-r6-mainrgn-popup.md): the headless Mission01
 #                    run of the mission mode: at tick 16 the player's fleet is selected through the selection API, at
@@ -146,6 +149,8 @@
 #                    read back through utyOptionsList; the in-game Video screen carries the control; the console rows
 #                    objInterpolate / nisInterpolate set each flag alone; "toggletest:" log lines, "toggletest: done ...
 #                    result=PASS|FAIL"; quits. Pass "-- /noInterp" or "-- /noNISInterp" to see the switches' start flags
+#                    (M2-R7 r6-leftovers: then the switch is checked run-only: the saves write the options file's
+#                    values, not the switch's, and Cancel restores the override; "toggletest: run-only" lines)
 #                    replay: /oracleReplay <name> /oracleDump <run>/run.hwo (M2-R6 oracle-mode-a, docs/m2-r6-oracle-mode-a.md,
 #                    oracle mode A): the recorded game --recording NAME (default oracle01: the user's reference recording)
 #                    and NAME.pkts are copied from original/game/SavedGames/RecordedGames into the harness data dir's

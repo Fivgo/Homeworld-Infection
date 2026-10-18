@@ -1215,7 +1215,7 @@ void cat_moTooltipDraw(void)
     sdword x, y;
 
     // the exe returns before restoring the font
-    if (mrHoldRight != mrNULL || catIoHover || CAT_POPUP_MENU_OPEN() || obj == NULL || mrDisabled)
+    if (catMrRightMode != 0 || catIoHover || CAT_POPUP_MENU_OPEN() || obj == NULL || mrDisabled)
     {
         return;
     }
@@ -3000,6 +3000,11 @@ bool32 cat_ioClick(bool32 select)
     "hudtest: sensors" lines and "hudtest: done ... result=PASS|FAIL" (PASS: at least one ship band-boxed, status bars,
     info panel, overlay frames, selection lines, messages, support units, pie plate and compass all drawn; the sensors
     frames drew scenes, range circles, ships and hot-key numbers).
+    HWI-TEST (M2-R7 r6-leftovers): 60 frames before the sensors frames the waypoint mode starts (cat_mrWaypointsStart,
+    as the [Waypoints] key) and three waypoints are added (cat_mrWaypointAdd, as the mode's click does), so the rest
+    of the run draws the waypoint cursor 0x004e6e70 (cat_pieWaypointCursorDraw), in the main view and then in the
+    sensors manager; "hudtest: waypoints" counts its draws and its stream-0 draws, which must be the first draw's 63
+    axis jitters plus one a waypoint and frame (PASS needs waypoint draws > 0 and that count).
     Nothing of this touches the simulation; the pie plate's sound event and the camera focus make this run no
     stream reference (the mission mode is).
 =============================================================================*/
@@ -3011,6 +3016,9 @@ static bool32 catHudSelfTestDone = FALSE;
 static sdword catHudSelfTestFormerPlayer = -1;
 static sdword catHudSelfTestBoxed = 0;
 static bool32 catHudSelfTestSensors = FALSE;
+static bool32 catHudSelfTestWaypoints = FALSE;      // HWI-TEST (M2-R7 r6-leftovers): the waypoint leg started
+static sdword catHudSelfTestWaypointType = -1;
+#define CAT_HUD_TEST_WAYPOINT_FRAMES 60             // HWI-TEST (M2-R7 r6-leftovers): the waypoint leg's frames before the sensors
 #define CAT_HUD_TEST_SENSORS_FRAMES 120             // HWI-TEST (M2-R6 managers): the last frames are the sensors manager's
 #define CAT_HUD_TEST_START_TICK     16
 #define CAT_HUD_TEST_SELECT_TICK    64
@@ -3118,6 +3126,27 @@ void catHudSelfTestTick(void)
                     (unsigned)universe.univUpdateCounter, (int)boxed, (int)playerShips, (int)selSelected.numShips,
                     (int)selSelecting.numTargets, (int)piePointSpecMode);
     }
+    // HWI-TEST (M2-R7 r6-leftovers): the waypoint leg (the waypoint cursor 0x004e6e70 and its stream-0 draws)
+    if (catHudSelfTestSelected && !catHudSelfTestWaypoints &&
+        (sdword)universe.univUpdateCounter >= catHudSelfTestTicks - CAT_HUD_TEST_SENSORS_FRAMES - CAT_HUD_TEST_WAYPOINT_FRAMES)
+    {
+        vector point;
+
+        catHudSelfTestWaypoints = TRUE;
+        cat_mrWaypointsStart();
+        catHudSelfTestWaypointType = (piePointSpecMode != PSM_Idle) ? piePointSpecType : -1;
+        for (index = 0; index < 3 && catHudSelfTestWaypointType == PIE_SPEC_Waypoint; index++)
+        {
+            point = selCentrePoint;
+            point.x += (index == 1 || index == 2) ? 2000.0f : 0.0f;
+            point.y += (index == 0 || index == 1) ? 2000.0f : 0.0f;
+            point.z += (index == 2) ? 500.0f : 0.0f;
+            cat_mrWaypointAdd(&point);
+        }
+        dbgMessagef("hudtest: waypoints start tick=%u type=%d waypoints=%d cursor=%s", (unsigned)universe.univUpdateCounter,
+                    (int)catHudSelfTestWaypointType, (int)catMrWaypointCount,
+                    (pieMovementCursorDrawCallback == cat_pieWaypointCursorDraw) ? "waypoint" : "other");
+    }
     // HWI-TEST (M2-R6 managers, sensors): the sensors frames: the selection becomes hot-key group 1 and the sensors
     //      manager opens with the instant transition (the test's settings) for the last frames, drawn through the
     //      Cataclysm scene (cat_smViewportRenderScene and the cat_sm* draws; catSmDrawCounts)
@@ -3153,6 +3182,13 @@ void catHudSelfTestTick(void)
         // the sensors frames drew the scene, the player's range circles, its ships and the hot-key numbers
         pass = pass && (catSmDrawCounts.scenes > 0) && (catSmDrawCounts.rangeCircles > 0) &&
                (catSmDrawCounts.shipPoints + catSmDrawCounts.meshes > 0) && (catSmDrawCounts.hotkeyNumbers > 0);
+        // HWI-TEST (M2-R7 r6-leftovers): the waypoint cursor drew, with 63 stream-0 draws for the first draw's axis
+        //      jitter and one a waypoint and frame (three waypoints)
+        pass = pass && (catHudSelfTestWaypointType == PIE_SPEC_Waypoint) && (catHudCounts.waypointDraws > 0) &&
+               (catHudCounts.waypointRandoms == 63 + 3 * catHudCounts.waypointDraws);
+        dbgMessagef("hudtest: waypoints draws=%u randoms=%u (expected %u) waypoints=%d mode=%d",
+                    catHudCounts.waypointDraws, catHudCounts.waypointRandoms, 63 + 3 * catHudCounts.waypointDraws,
+                    (int)catMrWaypointCount, (int)catMrWaypointMode);
         dbgMessagef("hudtest: sensors scenes=%u rangecircles=%u shippoints=%u meshes=%u icons=%u slipgatepaths=%u hotkeys=%u resources=%u mines=%u bounds=%u compass=%u",
                     catSmDrawCounts.scenes, catSmDrawCounts.rangeCircles, catSmDrawCounts.shipPoints, catSmDrawCounts.meshes,
                     catSmDrawCounts.icons, catSmDrawCounts.slipgatePaths, catSmDrawCounts.hotkeyNumbers,

@@ -728,6 +728,11 @@ void catMotionTestFrameEnd(void)
     control, and the two console rows. "toggletest:" log lines, "toggletest:
     done ... result=PASS|FAIL"; the flags are put back as the start-up left
     them (the options file and the switches /noInterp, /noNISInterp).
+    M2-R7 r6-leftovers: with a switch (-- /noInterp or -- /noNISInterp) the
+    switch is checked run-only first: the start-up's opOptionsSaveSettings
+    writes the options file's values (not the switch's) while the run's flags
+    stay off, Cancel brings the override back after a click, and at the end
+    the override is set up again as the start-up left it.
 =============================================================================*/
 bool32 catToggleSelfTest = FALSE;
 
@@ -827,6 +832,31 @@ static void mtToggleFile(bool32 value, const char *step)
     mtToggleCheck(objInterpolate == value && nisInterpolate == value, what);
 }
 
+// M2-R7 r6-leftovers: the options file's objInterpolate / nisInterpolate rows are <obj> / <nis> (no read back)
+static sdword mtToggleFileRows(bool32 obj, bool32 nis)
+{
+    char path[PATH_MAX], line[256];
+    FILE *f;
+    sdword rows = 0;
+    int v;
+
+    snprintf(path, sizeof(path), "%s", filePathPrepend("Cataclysm.cfg", FF_UserSettingsPath));
+    f = fopen(path, "r");
+    if (f != NULL)
+    {
+        while (fgets(line, sizeof(line), f) != NULL)
+        {
+            if ((sscanf(line, "objInterpolate %d", &v) == 1 && (bool32)v == obj) ||
+                (sscanf(line, "nisInterpolate %d", &v) == 1 && (bool32)v == nis))
+            {
+                rows++;
+            }
+        }
+        fclose(f);
+    }
+    return rows;
+}
+
 static void mtToggleConsole(char *name, char *argument, bool32 *flag, bool32 expect)
 {
     char buffer[512] = "", line[64], *reply = buffer, what[128];
@@ -841,17 +871,31 @@ static void mtToggleConsole(char *name, char *argument, bool32 *flag, bool32 exp
 void catToggleRunSelfTest(void)
 {
     bool32 startObj = objInterpolate, startNis = nisInterpolate;
+    bool32 switched = miSwitchStands(), fileObj, fileNis;
     featom *box, *label;
+    sdword rows;
 
-    dbgMessagef("toggletest: start objInterpolate=%d nisInterpolate=%d (the options file, then the switches)",
-                (int)startObj, (int)startNis);
+    miOptionsFileValues(TRUE);                      // M2-R7 r6-leftovers: the values the options file keeps
+    fileObj = objInterpolate;
+    fileNis = nisInterpolate;
+    miOptionsFileValues(FALSE);
+    dbgMessagef("toggletest: start objInterpolate=%d nisInterpolate=%d (the options file, then the switches) switch=%d file=%d/%d",
+                (int)startObj, (int)startNis, (int)switched, (int)fileObj, (int)fileNis);
     opOptionsSaveSettings();                        // the Cancel copies, as the options screens keep them
+    // M2-R7 r6-leftovers: the save wrote the file's values, not the switch's; the run's flags are untouched
+    rows = mtToggleFileRows(fileObj, fileNis);
+    dbgMessagef("toggletest: run-only save rows=%d objInterpolate=%d nisInterpolate=%d", (int)rows, (int)objInterpolate,
+                (int)nisInterpolate);
+    mtToggleCheck(rows == 2 && objInterpolate == startObj && nisInterpolate == startNis,
+                  "the start-up's save keeps the options file's values");
+    mtToggleCheck(!switched || (fileObj != startObj || fileNis != startNis), "a switch differs from the file (the harness file: 1/1)");
 
     // Cancel: a click, then the saved flags back
     mtToggleClick(!miSmoothMotionGet(), "cancel");
     opRestoreSavedSettings();
     dbgMessagef("toggletest: cancel restored objInterpolate=%d nisInterpolate=%d", (int)objInterpolate, (int)nisInterpolate);
     mtToggleCheck(objInterpolate == startObj && nisInterpolate == startNis, "cancel restores the flags");
+    mtToggleCheck(miSwitchStands() == switched, "cancel restores the switch's run-only state");   // M2-R7 r6-leftovers
 
     // Accept: off, persisted; then on, persisted
     mtToggleClick(FALSE, "accept-off");
@@ -874,9 +918,21 @@ void catToggleRunSelfTest(void)
     mtToggleConsole("objInterpolate", "1", &objInterpolate, TRUE);
     mtToggleConsole("nisInterpolate", "1", &nisInterpolate, TRUE);
 
-    objInterpolate = startObj;                      // as the start-up left them
-    nisInterpolate = startNis;
+    objInterpolate = switched ? fileObj : startObj; // as the start-up left them (M2-R7: a switch's override again)
+    nisInterpolate = switched ? fileNis : startNis;
+    if (switched)
+    {
+        miSwitchOff(startObj != fileObj, startNis != fileNis);
+    }
+    mtToggleCheck(objInterpolate == startObj && nisInterpolate == startNis && miSwitchStands() == switched,
+                  "the start-up's flags and switch state back");
     opOptionsSaveSettings();
+    if (switched)
+    {
+        rows = mtToggleFileRows(fileObj, fileNis);
+        dbgMessagef("toggletest: run-only final save rows=%d", (int)rows);
+        mtToggleCheck(rows == 2, "the final save keeps the options file's values");
+    }
     dbgMessagef("toggletest: done start=%d/%d fails=%d result=%s", (int)startObj, (int)startNis, (int)mtToggleFails,
                 (mtToggleFails == 0) ? "PASS" : "FAIL");
 }
