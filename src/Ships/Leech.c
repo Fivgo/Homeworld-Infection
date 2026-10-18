@@ -45,6 +45,15 @@ static ubyte leechMsgNoTarget = 0;             // 0x00a762dd
 static real32 leechMsgQuietUntil = 0.0f;       // 0x00a762e0
 static real32 leechMsgDue = 0.0f;              // 0x00a762e4
 
+// CAT (M2-R6 frontend): universeReset 0x0053df80 clears the four words (the two flags as one dword)
+void cat_leechMessagesReset(void)
+{
+    leechMsgQuietUntil = 0.0f;
+    leechMsgDue = 0.0f;
+    leechMsgTargetFound = 0;
+    leechMsgNoTarget = 0;
+}
+
 ubyte cat_leechGetAction(Ship *ship)                                                        // 0x005b6890
 {
     return ((LeechSpec *)ship->ShipSpecifics)->action;

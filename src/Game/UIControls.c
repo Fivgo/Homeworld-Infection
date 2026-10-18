@@ -1807,6 +1807,22 @@ void uicToggleDraw(regionhandle reg)
     Note        : can call user function with any region message if filter set
                     up properly.
 ----------------------------------------------------------------------------*/
+// CAT: uicToggleProcess 0x00534c00 plays its own sounds instead of UI_Click: on a press the colour picker's race
+//      toggles (atom names CP_RaceOne / CP_RaceTwo) play CAT_UI_RaceOne / Two, every other toggle (and a key press)
+//      CAT_UI_ToggleChecked or CAT_UI_ToggleUnchecked by its state before the toggle
+static sdword uicToggleSound(featom *atom, bool32 press)
+{
+    if (press && feNamesEqual(atom->name, "CP_RaceOne"))
+    {
+        return CAT_UI_RaceOne;
+    }
+    if (press && feNamesEqual(atom->name, "CP_RaceTwo"))
+    {
+        return CAT_UI_RaceTwo;
+    }
+    return bitTest(atom->status, FAS_Checked) ? CAT_UI_ToggleChecked : CAT_UI_ToggleUnchecked;
+}
+
 udword uicToggleProcess(regionhandle region, smemsize ID, udword event, udword data)
 {
     udword mask = 0;
@@ -1816,7 +1832,7 @@ udword uicToggleProcess(regionhandle region, smemsize ID, udword event, udword d
         case RPE_PressLeft:
             uicClearCurrent(region);
             uicSetCurrent(region, FALSE);
-            soundEvent(NULL, UI_Click);
+            soundEvent(NULL, uicToggleSound((featom *)region->userID, TRUE));
             mask |= RPR_Redraw;
         break;
 
@@ -1827,7 +1843,7 @@ udword uicToggleProcess(regionhandle region, smemsize ID, udword event, udword d
         break;
 
         case RPE_KeyDown:
-            soundEvent(NULL, UI_Click);
+            soundEvent(NULL, uicToggleSound((featom *)region->userID, FALSE));
             bitToggle(((featom *)region->userID)->status, FAS_Checked);
             ((buttonhandle)region)->processFunction(region, ID, CM_ButtonClick, 0);
             mask |= RPR_Redraw;
@@ -1870,7 +1886,7 @@ udword uicRadioButtonProcess(regionhandle region, smemsize ID, udword event, udw
         case RPE_PressLeft:
             uicClearCurrent(region);
             uicSetCurrent(region, FALSE);
-            soundEvent(NULL, UI_Click);
+            soundEvent(NULL, CAT_UI_RadioClick);            // CAT: uicRadioButtonProcess 0x00534dc0 (HW1: UI_Click)
             mask |= RPR_Redraw;
         break;
 
@@ -1879,7 +1895,7 @@ udword uicRadioButtonProcess(regionhandle region, smemsize ID, udword event, udw
             ((buttonhandle)region)->processFunction(region, ID, CM_ButtonClick, 0);
             atom = (featom *)region->userID;                    //get this atom
             feRadioButtonSet(atom->name, (sdword)atom->pData);  //set a certain radio button
-            if (event == RPE_KeyDown) soundEvent(NULL, UI_Click);
+            if (event == RPE_KeyDown) soundEvent(NULL, CAT_UI_RadioClick);  // CAT: as the press
             mask |= RPR_Redraw;
         break;
 
@@ -4098,11 +4114,11 @@ void uicTextEntryDraw(regionhandle reg)
             {
                 temp[i] = 'x';
             }
-            fontPrintN(entry->textRect.x0, y, entry->borderColor, temp, nCharacters);
+            fontPrintN(entry->textRect.x0, y, entry->borderColor, FALSE, temp, nCharacters);
         }
         else
         {
-            fontPrintN(entry->textRect.x0, y, entry->borderColor, entry->textBuffer + entry->iVisible, nCharacters);
+            fontPrintN(entry->textRect.x0, y, entry->borderColor, FALSE, entry->textBuffer + entry->iVisible, nCharacters);
         }
     }
     //now draw a flashing caret, if there is input focus

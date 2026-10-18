@@ -76,6 +76,40 @@ extern sdword opCPUAttack;
 
 // Homeworld.cfg configurable values
 
+// CAT (M2-R6 frontend): Cataclysm's own option words and callbacks (Options.c)
+struct tagfeatom;
+extern sdword catOpTextureDetail;                   // 0x0088be74
+extern sdword catOpGameFramerate;                   // 0x0088be98
+extern sdword catOpHardwareTL;                      // 0x00a4cc18
+extern sdword catOpTextureRequirementsSet;          // 0x00a76260
+void cat_opLODDetail(char *name, struct tagfeatom *atom);
+void cat_opSmallFonts(char *name, struct tagfeatom *atom);
+void cat_opHWTaskbar(char *name, struct tagfeatom *atom);
+void cat_opTaskbarButtons(char *name, struct tagfeatom *atom);
+void cat_opTaskbarBackdrop(char *name, struct tagfeatom *atom);
+void cat_opExperienceMessages(char *name, struct tagfeatom *atom);
+void cat_opHomeworldCSA(char *name, struct tagfeatom *atom);
+void cat_opRightClickCSA(char *name, struct tagfeatom *atom);
+void cat_opAutoFocusOnWaypoints(char *name, struct tagfeatom *atom);
+void cat_opAreaExplored(char *name, struct tagfeatom *atom);
+void cat_opSensorsSphere(char *name, struct tagfeatom *atom);
+void cat_opCompass(char *name, struct tagfeatom *atom);
+void cat_opSensorsWireframe(char *name, struct tagfeatom *atom);
+void cat_opResources(char *name, struct tagfeatom *atom);
+void cat_opDust(char *name, struct tagfeatom *atom);
+void cat_opBackground(char *name, struct tagfeatom *atom);
+void cat_opObjectivePointers(char *name, struct tagfeatom *atom);
+void cat_opSlipgatePaths(char *name, struct tagfeatom *atom);
+void cat_opCapitalShipOverlay(char *name, struct tagfeatom *atom);
+void cat_opHomeworldClassic(char *name, struct tagfeatom *atom);
+void cat_opCataclysmDefault(char *name, struct tagfeatom *atom);
+void cat_opTextureDetail(char *name, struct tagfeatom *atom);
+void cat_opSpeechTest(char *name, struct tagfeatom *atom);
+void cat_opSoundFXTest(char *name, struct tagfeatom *atom);
+void cat_opSetAllDefaults(sdword lowEnd);
+void cat_opCataclysmFramerate(char *name, struct tagfeatom *atom);
+void catOptionsRunSelfTest(void);                  // HWI: port diagnostic, /catFeScreensTest's options round trip
+
 extern udword opPauseOrders;
 extern udword opShipRecoil;
 

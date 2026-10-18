@@ -2906,11 +2906,10 @@ static const real32 cat_experienceThresholds[NUM_CLASSES][4] =                  
     { 10.0f, 30.0f, 60.0f, 100.0f },    // CLASS_Component
     {  2.0f,  4.0f,  6.0f,   8.0f },    // CLASS_Micro
 };
-// the exe's OP_ExperienceMessages option (0x00a5e248; its resets set 0, the saved options restore it).
-//      CAT-TODO(M2-R6 front end, Options.c): the front end's toggle (feToggleButtonSet OP_ExperienceMessages) and the
-//      saved option come with the Options screen [integrate: M2-R5; was an M2-R5 hud TODO: an Options control, not
-//      the HUD's]
-sdword cat_opExperienceMessages = 0;
+// the exe's OP_ExperienceMessages option (0x00a5e248; its resets set 0, the saved options restore it). The options
+//      screen's toggle is cat_opExperienceMessages 0x004d9ef0 (Options.c, M2-R6 frontend; the word was named after it
+//      before the function landed) and the options file's row is ExperienceMessages
+sdword catOpExperienceMessages = 0;
 
 void cat_shipUpdateExperienceLevel(Ship *ship)                      // 0x005147d0
 {
@@ -2932,7 +2931,7 @@ void cat_shipUpdateExperienceLevel(Ship *ship)                      // 0x005147d
         if (cat_experienceThresholds[shipclass][level] < experience)
         {
             ship->catExperienceLevel = level + 1;
-            if (cat_opExperienceMessages && (tutorial != 1) && (ship->playerowner == universe.curPlayerPtr) &&
+            if (catOpExperienceMessages && (tutorial != 1) && (ship->playerowner == universe.curPlayerPtr) &&
                 !ship->shipOrDerelict.catDisabled)
             {
                 char message[256];

@@ -19,7 +19,13 @@
 #include "FEFlow.h"
 #include "FontReg.h"
 #include "glinc.h"
+#include "Globals.h"
 #include "InfoOverlay.h"
+#include "LOD.h"
+#include "mainrgn.h"
+#include "PopupMenu.h"
+#include "ShipSelect.h"
+#include "SpeechEvent.h"
 #include "Key.h"
 #include "KeyBindings.h"
 #include "Memory.h"
@@ -123,8 +129,9 @@ void DoSmoothies(void);
 
 
 void opEQHelper(void);
+void opEffectsHelper(void);
+static void catOpTutorialGameplayDisable(void);
 void opUpdateAudioSettings(void);
-void opUpdateVideoSettings(void);
 
 void opOptionsEndHelper(char* linkName);
 void opOptionsEnd(void);
@@ -378,11 +385,11 @@ static sdword opOldDeviceIndex;
 udword opDeviceCRC = 0;
 sdword opDeviceIndex = -1;
 
-sdword opMusicVol=75;
+sdword opMusicVol=60;                   // CAT: the exe's default 60 (.data 0x0088be4c; HW1 75)
 sdword opSaveMusicVol;
 sdword opSFXVol=75;
 sdword opSaveSFXVol;
-sdword opSpeechVol=60;
+sdword opSpeechVol=75;                  // CAT: the exe's default 75 (.data 0x0088be54; HW1 60)
 sdword opSaveSpeechVol;
 sdword opNumChannels=SOUND_DEF_VOICES-SOUND_MIN_VOICES;
 sdword opSaveNumChannels;
@@ -410,7 +417,7 @@ sdword opSaveVoiceChat;
 #define OP_DETAIL_DIVISOR 22
 
 sdword opSaveDetailThresholdVal;
-udword opDetailThresholdVal = 100;
+udword opDetailThresholdVal = 10;       // CAT: a frame rate now (cat_lodSetTimeThreshold), the exe's default 10 (.data 0x0088be6c; HW1 100 polys/22)
 sdword opSaveBrightnessVal;
 sdword opBrightnessVal = 30;
 sdword opNoLODVal = 0;
@@ -458,6 +465,40 @@ sdword opSaveInfoOverlay = 1;
 
 sdword opNumEffects;
 sdword opSaveNumEffects;
+
+// CAT (M2-R6 frontend): Cataclysm's own options (the options-file rows TextureDetail, GameFramerateOption,
+//      HardwareTransformLighting, SetTextureRequirements). The toggles of the Gameplay and sensors pages live with their
+//      users (InfoOverlay.c catMo*, mainrgn.c catMr*, PopupMenu.c catPmLargeFont, Sensors.c catSmView*, ShipSelect.c
+//      catOpExperienceMessages, LOD.c catLodDetail, main.c enableCPV / enableLensFlare / enableRepairbots)
+sdword catOpTextureDetail = 50;                     // 0x0088be74: texture detail 0..100 (cat_trTextureMemorySet)
+sdword catOpGameFramerate = 1;                      // 0x0088be98: the OP_CataclysmFramerate radio (0 = the low-end set)
+sdword catOpHardwareTL = 0;                         // 0x00a4cc18: OP_HardwareTransformLighting's word (its callback is a
+                                                    //   nullsub; the accept helper compares it, the save / restore keep it)
+sdword catOpTextureRequirementsSet = 0;             // 0x00a76260: the start-up's memory test leaves the texture detail
+                                                    //   alone when the options file sets it (utyGameSystemsInit 0x005abe70)
+static regionhandle catOpTextureDetailRegion = NULL;    // 0x00a4cc1c: the texture-detail slider
+static regionhandle catOpEffectsRegion = NULL;      // 0x00a4cc60: the OP_Effects radio (opEffects 0x004d9cc0)
+
+// the words opOptionsSaveSettings 0x004d8d00 saves and opRestoreSavedSettings 0x004d7f80 puts back, beyond HW1's
+// (the dynamic CPV, lens flare, repair droid and LOD detail words go with the custom effects' set)
+static sdword *catOpSavedWords[] =
+{
+    &catOpHardwareTL, &catOpGameFramerate, (sdword *)&catPmLargeFont,
+    (sdword *)&catMoHWTaskbar, (sdword *)&catMoTaskbarButtons, (sdword *)&catMoTaskbarBackdrop,
+    (sdword *)&catMrHomeworldCSA, (sdword *)&catMrRightClickCSA, (sdword *)&catMrWaypointCentre, &catOpExperienceMessages,
+    (sdword *)&catSmViewAreasVisited, (sdword *)&catSmViewAreasOccupied, (sdword *)&catSmViewCompass,
+    (sdword *)&catSmViewPieplateLines, (sdword *)&catSmViewShipMeshes, (sdword *)&catSmViewResources,
+    (sdword *)&catSmViewMeteors, (sdword *)&catSmViewFOWRanges, (sdword *)&catSmViewDecorativeAsteroids,
+    (sdword *)&catSmViewBackground, (sdword *)&catSmViewIcons, (sdword *)&catSmViewObjectivePointers,
+    (sdword *)&catSmViewSlipgatePaths,
+    NULL
+};
+#define CAT_OP_NumSavedWords    23
+static sdword catOpSavedValues[CAT_OP_NumSavedWords];
+_Static_assert(sizeof(catOpSavedWords) / sizeof(catOpSavedWords[0]) == CAT_OP_NumSavedWords + 1, "the saved-word table and its count agree");
+static sdword catOpSaveTextureDetail;               // 0x00c30a38
+static sdword catOpSaveCPV, catOpSaveLensFlare, catOpSaveRepairbots;   // 0x00c30a84 / 0x00c30a34 / 0x00c30b5c
+static udword catOpSaveLodDetail;                   // 0x00c30b44
 
 // Game Options - Default Values
 udword opShipRecoil = 0;
@@ -542,26 +583,12 @@ void opOptionsInit(void)
 {
     opKeyboardFont = frFontRegister("hw_eurosecond_11.hff");
     opNumEffects = etgHistoryScalar - etgHistoryScalarMin;
-    kbInitKeyBindings();
+    // CAT: opOptionsInit 0x004d71a0 ends here: kbInitKeyBindings runs at the end of utyGameSystemsInit 0x005abe70 (after
+    //      cat_kbLoadKeyBindings), see utility.c
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : opSetDetailThreshold
-    Description : reset the autolod module w/ new LOD scalar
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-void opSetDetailThreshold(void)
-{
-    udword targetPolys, polyDelta;
-
-    alodGetTargetPolys(&targetPolys, &polyDelta);
-
-    targetPolys = OP_DETAIL_DIVISOR * opDetailThresholdVal;
-
-    alodSetTargetPolys(targetPolys, polyDelta);
-}
+// CAT: no opSetDetailThreshold: the detail threshold is a frame rate for cat_lodSetTimeThreshold 0x004a50e0 (LOD.c),
+//      not HW1's auto-LOD target of 22 polygons per step
 
 /*-----------------------------------------------------------------------------
     Name        : opUpdateSettings
@@ -572,7 +599,12 @@ void opSetDetailThreshold(void)
 ----------------------------------------------------------------------------*/
 void opUpdateSettings(void)
 {
-    opUpdateVideoSettings();
+    // CAT: opUpdateSettings 0x004d71d0: the effects, the frame-rate threshold of the LODs (HW1: the auto-LOD target
+    //      polygons), the gamma and the texture detail (HW1: trNoPalResizePool), then the save
+    opEffectsHelper();
+    cat_lodSetTimeThreshold(opDetailThresholdVal);
+    shGammaSet(opBrightnessVal);
+    cat_trTextureMemorySet(catOpTextureDetail);
     opOptionsSaveSettings();
 }
 
@@ -1299,8 +1331,10 @@ void opOptionsAcceptHelper(char* name, featom* atom, char* linkName)
 
     opReloading = FALSE;
 
-    alodGetTargetPolys(&opDetailThresholdVal, &temp);
-    opDetailThresholdVal /= OP_DETAIL_DIVISOR;
+    // CAT: no auto-LOD read-back (opOptionsAcceptHelper 0x004d76d0: the detail threshold is the frame-rate value the
+    //      slider set). The exe's device switch also reloads when OP_HardwareTransformLighting changed (catOpHardwareTL
+    //      against its saved copy); GoK's SDL device code above has no such device (decision 28)
+    (void)temp;
 
     //update saved settings
     opOptionsSaveSettings();
@@ -1314,6 +1348,7 @@ void opOptionsAccept(char* name, featom* atom)
 void opInGameOptionsAccept(char* name, featom* atom)
 {
     opOptionsAcceptHelper(name, atom, "Game_options");
+    catOpTutorialGameplayDisable();
 }
 
 
@@ -1384,6 +1419,10 @@ void opRestoreSavedEqualizerSettings(void)
 
 void opRestoreSavedCustomEffectsSettings(void)
 {
+    enableCPV = catOpSaveCPV;                               // CAT: see opOptionsSaveCustomEffectsSettings
+    enableLensFlare = catOpSaveLensFlare;
+    enableRepairbots = catOpSaveRepairbots;
+    catLodDetail = catOpSaveLodDetail;
     opEffectsVal = opSaveEffectsVal;
     texLinearFiltering = savetexLinearFiltering;
     showBackgrounds = saveshowBackgrounds;
@@ -1403,38 +1442,42 @@ void opRestoreSavedSettings(void)
 {
     //copy audio back
 
+    sdword i;
+
+    // CAT: opRestoreSavedSettings 0x004d7f80: the sound quality is not restored here (the advanced page's cancel does
+    //      it), the speaker setting's equalizer is applied (opEQHelper inlined) as in opUpdateAudioSettings
     opMusicVol =     opSaveMusicVol;
     opSFXVol =       opSaveSFXVol;
     opSpeechVol =    opSaveSpeechVol;
     opNumChannels =  opSaveNumChannels;
     opAutoChannel =  opSaveAutoChannel;
-    opSoundQuality = opSaveSoundQuality;
 //    opSpeakerSetting =  opSaveSpeakerSetting;
-
-    opRestoreSavedEqualizerSettings();
 
     opUpdateAudioSettings();
 
     //video
-    opNoPalMB = opSaveNoPalMB;
-    trNoPalResizePool(opNoPalMB);
+    // CAT: the hardware T&L word, the frame-rate threshold (cat_lodSetTimeThreshold) and the texture detail
+    //      (cat_trTextureMemorySet) instead of HW1's no-palette pool and auto-LOD polygons
     opDetailThresholdVal = opSaveDetailThresholdVal;
-    opSetDetailThreshold();
+    cat_lodSetTimeThreshold(opDetailThresholdVal);
+    catOpTextureDetail = catOpSaveTextureDetail;
+    cat_trTextureMemorySet(catOpTextureDetail);
     opBrightnessVal = opSaveBrightnessVal;
     shGammaSet(opBrightnessVal);
     opNoLODVal = opSaveNoLODVal;
     opNumEffects = opSaveNumEffects;
     etgHistoryScalar = opNumEffects + etgHistoryScalarMin;
+    for (i = 0; catOpSavedWords[i] != NULL; i++)
+    {                                                       //CAT: Cataclysm's options
+        *catOpSavedWords[i] = catOpSavedValues[i];
+    }
 
     opRestoreSavedCustomEffectsSettings();
 
     //gameplay
+    // CAT: no ioEnable / ioDisable here (the exe only restores the word; nothing else in the exe reads it)
     opMouseSens = opSaveMouseSens;
     opInfoOverlayVar = opSaveInfoOverlay;
-    if (opInfoOverlayVar)
-        ioEnable();
-    else
-        ioDisable();
 
     cameraSensitivitySet(opMouseSens);
 
@@ -1442,13 +1485,14 @@ void opRestoreSavedSettings(void)
     opAutodockFuelCheck = opSaveAutodockFuelCheck;
     opAutodockHealthVal = opSaveAutodockHealthVal;
     opAutodockFuelVal = opSaveAutodockFuelVal;
+    // CAT-TODO(M2-R6 key bindings): the exe ends with cat_kbReloadKeyBindings(FALSE) (0x004d7f80); the callers' kbRestoreSavedSettings stands in
 }
 
 void opOptionsCancelHelper(char* name, featom* atom, char* linkName)
 {
     opRestoreSavedSettings();
     opOptionsEndHelper(linkName);
-    kbRestoreSavedSettings();
+    kbRestoreSavedSettings();               // CAT-TODO(M2-R6 key bindings): the exe calls cat_kbReloadKeyBindings(FALSE) (opOptionsCancel 0x004d8370)
 }
 
 void opOptionsCancel(char* name, featom* atom)
@@ -1459,6 +1503,7 @@ void opOptionsCancel(char* name, featom* atom)
 void opInGameOptionsCancel(char* name, featom* atom)
 {
     opOptionsCancelHelper(name, atom, "Game_options");
+    catOpTutorialGameplayDisable();
 }
 
 void opEqualizerToAudioAccept(char* name, featom* atom)
@@ -1629,36 +1674,40 @@ void opOptionsSaveEqualizerSettings(void)
     soundEventMasterEQ((real32*)opEQReal);
 }
 
+// CAT: the advanced audio page keeps the voice switches, the battle chatter, the sound quality and the speaker
+//      setting with its equalizer (opAdvancedToAudioAccept 0x004d85e0 inline; no HW1 voice actors: no voice buttons)
 void opOptionsSaveAdvancedSettings(void)
 {
-    opSaveVoiceSetting = opVoiceSetting;
     opSaveVoiceComm = opVoiceComm;
     opSaveVoiceStat = opVoiceStat;
     opSaveVoiceChat = opVoiceChat;
-    opSaveVoice0On = opVoice0On;
-    opSaveVoice1On = opVoice1On;
-    opSaveVoice2On = opVoice2On;
-
     opSaveBattleChatter = opBattleChatter;
+    opSaveSoundQuality = opSoundQuality;
+    opOptionsSaveEqualizerSettings();                       //the speaker setting and the equalizer
     battleChatterFrequencySet(opBattleChatter);
 }
 
+// CAT: opAdvancedToAudioCancel 0x004d8690 inline: the voice switches, the sound quality, the speaker setting with its
+//      equalizer, then the battle chatter
 void opRestoreAdvancedSettings(void)
 {
-    opVoiceSetting = opSaveVoiceSetting;
     opVoiceComm = opSaveVoiceComm;
     opVoiceStat = opSaveVoiceStat;
+    opSoundQuality = opSaveSoundQuality;
     opVoiceChat = opSaveVoiceChat;
-    opVoice0On  = opSaveVoice0On;
-    opVoice1On  = opSaveVoice1On;
-    opVoice2On  = opSaveVoice2On;
-
+    opRestoreSavedEqualizerSettings();                      //the speaker setting and the equalizer
     opBattleChatter = opSaveBattleChatter;
     battleChatterFrequencySet(opBattleChatter);
 }
 
+// CAT: the custom effects' set also keeps the dynamic CPV, the lens flares, the repair droids and the LOD detail
+//      (opOptionsSaveCustomEffectsSettings 0x004d8c40, opEffectsToVideoCancel 0x004d8990)
 void opOptionsSaveCustomEffectsSettings(void)
 {
+    catOpSaveCPV = enableCPV;
+    catOpSaveLensFlare = enableLensFlare;
+    catOpSaveRepairbots = enableRepairbots;
+    catOpSaveLodDetail = catLodDetail;
     opSaveEffectsVal = opEffectsVal;
     savetexLinearFiltering = texLinearFiltering;
     saveshowBackgrounds = showBackgrounds;
@@ -1701,10 +1750,14 @@ void opOptionsSaveSettings(void)
     opUpdateAudioSettings();
 
     //video
-    opSaveNoPalMB = opNoPalMB;
-    alodGetTargetPolys(&opDetailThresholdVal, &i);
-    opDetailThresholdVal /= OP_DETAIL_DIVISOR;
+    // CAT: opOptionsSaveSettings 0x004d8d00: the hardware T&L word, the frame-rate threshold as the slider set it (no
+    //      auto-LOD read-back), the texture detail, the LOD detail and Cataclysm's toggles
     opSaveDetailThresholdVal = opDetailThresholdVal;
+    catOpSaveTextureDetail = catOpTextureDetail;
+    for (i = 0; catOpSavedWords[i] != NULL; i++)
+    {
+        catOpSavedValues[i] = *catOpSavedWords[i];
+    }
     opBrightnessVal = shGammaGet();
     opSaveBrightnessVal = opBrightnessVal;
     opSaveNoLODVal = opNoLODVal;
@@ -1730,7 +1783,7 @@ void opOptionsSaveSettings(void)
     opSaveAutodockHealthVal = opAutodockHealthVal;
     opSaveAutodockFuelVal = opAutodockFuelVal;
 
-    kbSaveSettings();
+    kbSaveSettings();                                       // CAT-TODO(M2-R6 key bindings): the exe calls cat_kbSaveKeyBindings here (0x004d8d00)
 
     // save settings to .cfg file
     utyOptionsFileWrite();
@@ -1775,9 +1828,32 @@ void opOptionsStart(char* name, featom* atom)
     opOptionsStartHelper(name, atom, "Audio_Options");
 }
 
+// CAT: in the tutorial the in-game options keep their Gameplay link disabled (opInGameOptionsStart 0x004d9280,
+//      opInGameOptionsAccept 0x004d7e50, opInGameOptionsCancel 0x004d83a0: RSF_RegionDisabled on the region of the
+//      Game_options screen's "Game_options-TO-Gameplay" atom when tutorial == 1)
+static void catOpTutorialGameplayDisable(void)
+{
+    fescreen *screen;
+    featom *gameplay;
+
+    if (tutorial == 1)
+    {
+        screen = feScreenFind("Game_options");
+        if (screen != NULL)
+        {
+            gameplay = feAtomFindInScreen(screen, "Game_options-TO-Gameplay");
+            if ((gameplay != NULL) && (gameplay->region != NULL))
+            {
+                bitSet(((regionhandle)gameplay->region)->status, RSF_RegionDisabled);
+            }
+        }
+    }
+}
+
 void opInGameOptionsStart(char* name, featom* atom)
 {
     opOptionsStartHelper(name, atom, "Game_options");
+    catOpTutorialGameplayDisable();
 }
 
 void opOptionsEndHelper(char* linkName)
@@ -1981,11 +2057,12 @@ void opDrawNumChannels(featom *atom, regionhandle region)
 
     currentFont = fontMakeCurrent(opKeyboardFont);
 
-    primRectSolid2(&region->rect, colBlack);
+    // CAT: opDrawNumChannels 0x004d9630: a slate background (0xff7a635a) and white digits (HW1: black, orange)
+    primRectSolid2(&region->rect, colRGB(0x5a, 0x63, 0x7a));
 
     soundGetVoiceLimits(&min, &max);
 
-    fontPrintf (region->rect.x0, region->rect.y0, colRGB(255,200,0), "%u", opNumChannels + min);
+    fontPrintf (region->rect.x0, region->rect.y0, colWhite, "%u", opNumChannels + min);
 
     fontMakeCurrent(currentFont);
 }
@@ -2082,6 +2159,22 @@ udword opBattleChatterProcess(regionhandle reg, sdword ID, udword event, udword 
     return (0);
 }
 
+// CAT: opNumEffectsProcess 0x004d9900: moving the effects slider off the high (all) or low (none) preset switches
+//      the OP_Effects radio to custom (2)
+static void catOpNumEffectsCustomCheck(void)
+{
+    if (((opEffectsVal == 0) && (opNumEffects != 256 - etgHistoryScalarMin)) ||
+        ((opEffectsVal == 1) && (opNumEffects != 0)))
+    {
+        opEffectsVal = 2;
+        if (catOpEffectsRegion != NULL)
+        {
+            feRadioButtonSet("OP_Effects", 2);
+            bitSet(catOpEffectsRegion->status, RSF_DrawThisFrame);
+        }
+    }
+}
+
 udword opNumEffectsProcess(regionhandle reg, sdword ID, udword event, udword data)
 {
     //dbgMessage(">");
@@ -2089,25 +2182,13 @@ udword opNumEffectsProcess(regionhandle reg, sdword ID, udword event, udword dat
     sliderhandle shandle = (sliderhandle)atom->region;
 
     opNumEffects = shandle->value;
+    catOpNumEffectsCustomCheck();
     etgHistoryScalar = opNumEffects + etgHistoryScalarMin;
     return (0);
 }
 
-udword opCPUDifficultyProcess(regionhandle reg, sdword ID, udword event, udword data)
-{
-    featom* atom = reg->atom;
-    sliderhandle shandle = (sliderhandle)atom->region;
-    tpGameCreated.aiplayerDifficultyLevel = shandle->value;
-    return (0);
-}
-
-udword opCPUAttacksProcess(regionhandle reg, sdword ID, udword event, udword data)
-{
-    featom* atom = reg->atom;
-    sliderhandle shandle = (sliderhandle)atom->region;
-    tpGameCreated.aiplayerBigotry = shandle->value;
-    return (0);
-}
+// CAT: no slider processes for the CPU difficulty and attacks: they are radio buttons (opCPUDifficulty 0x004db400,
+//      opCPUAttacks 0x004db440)
 
 udword opEqualizerProcess(regionhandle reg, sdword ID, udword event, udword data)
 {
@@ -2198,12 +2279,15 @@ void opEqualizerButton(char* name, featom* atom)
 }
 
 
+// CAT: opDetailThresholdProcess 0x004d9b20: the slider runs 0..21 against the frame rate 30..9 (HW1: polygons 50..101)
+#define CAT_OP_DetailFramerateTop   30
+#define CAT_OP_DetailSliderMax      21
 udword opDetailThresholdProcess(regionhandle reg, sdword ID, udword event, udword data)
 {
     featom *atom = reg->atom;
     sliderhandle shandle = (sliderhandle)atom->region;
-    opDetailThresholdVal = shandle->value + 50;
-    opSetDetailThreshold();
+    opDetailThresholdVal = CAT_OP_DetailFramerateTop - shandle->value;
+    cat_lodSetTimeThreshold(opDetailThresholdVal);
     return (0);
 }
 
@@ -2231,6 +2315,15 @@ void opEffectsHelper(void)
     switch (opEffectsVal)
     {
     case 0: //hi
+        // CAT: opEffectsHelper 0x004d9b90: the high preset also turns on the dynamic CPV, the lens flares, the repair
+        //      droids and all four effect kinds; the low one turns the first three off with the hit and fire effects
+        enableCPV = TRUE;
+        enableLensFlare = TRUE;
+        enableRepairbots = TRUE;
+        etgHitEffectsEnabled = TRUE;
+        etgDamageEffectsEnabled = TRUE;
+        etgFireEffectsEnabled = TRUE;
+        etgBulletEffectsEnabled = TRUE;
         texLinearFiltering = TRUE;
         showBackgrounds = TRUE;
         enableSmoothing = TRUE;
@@ -2251,6 +2344,11 @@ void opEffectsHelper(void)
         break;
 
     case 1: //lo
+        enableCPV = FALSE;                                  // CAT: as above
+        enableLensFlare = FALSE;
+        enableRepairbots = FALSE;
+        etgHitEffectsEnabled = FALSE;
+        etgFireEffectsEnabled = FALSE;
         texLinearFiltering = FALSE;
         showBackgrounds = FALSE;
         enableSmoothing = TRUE;
@@ -2279,13 +2377,8 @@ void opEffectsHelper(void)
     trFilterEnable(texLinearFiltering);
 }
 
-void opUpdateVideoSettings(void)
-{
-    opEffectsHelper();
-    opSetDetailThreshold();
-    shGammaSet(opBrightnessVal);
-    trNoPalResizePool(opNoPalMB);
-}
+// CAT: no opUpdateVideoSettings: opUpdateSettings 0x004d71d0 inlines the effects, the LOD frame rate, the gamma and
+//      the texture detail
 
 void opEffects(char* name, featom* atom)
 {
@@ -2293,6 +2386,7 @@ void opEffects(char* name, featom* atom)
 
     if (FEFIRSTCALL(atom))
     {
+        catOpEffectsRegion = atom->region;                  // CAT: opEffects 0x004d9cc0 keeps the radio's region
         feRadioButtonSet(name, opEffectsVal);
         reg = atom->region;
 #ifdef DEBUG_STOMP
@@ -2302,7 +2396,11 @@ void opEffects(char* name, featom* atom)
     }
     else
     {
-        opEffectsVal = (sdword)atom->pData;
+        if (FELASTCALL(atom))
+        {
+            catOpEffectsRegion = NULL;
+        }
+        opEffectsVal = (ubyte)(memsize)atom->pData;         // CAT: the exe reads pData's low byte
     }
 
     opEffectsHelper();
@@ -2353,11 +2451,10 @@ void opDetailThreshold(char* name, featom* atom)
     sliderhandle shandle;
     if (FEFIRSTCALL(atom))
     {
-        dbgMessage("opDetailThreshold() first call");
         detailSliderRegion = (sliderhandle)atom->region;
         shandle = (sliderhandle)atom->region;
-        shandle->maxvalue = 51;
-        shandle->value = opDetailThresholdVal - 50;
+        shandle->maxvalue = CAT_OP_DetailSliderMax;         // CAT: opDetailThreshold 0x004da5e0 (HW1: 51, value - 50)
+        shandle->value = CAT_OP_DetailFramerateTop - opDetailThresholdVal;
 
         f = regFilterSet(atom->region, 0);
         regFilterSet(atom->region, f | RPE_HoldLeft);
@@ -2781,22 +2878,13 @@ void opRender(char* name, featom* atom)
                            flags, UICLW_AddToTail);
         }
 
-        screen = feScreenFind("Video_Options");
-        if (screen != NULL)
-        {
-            npatom = feAtomFindInScreen(screen, "NP_Draw");
-            if (npatom != NULL)
-            {
-                opNoPalDrawRegion = (regionhandle)npatom->region;
-                trNoPalResizePool(opNoPalMB);
-            }
-        }
+        // CAT: no no-palette pool display (opRender 0x004dada0: Cataclysm's video options have the texture detail)
+        (void)screen; (void)npatom;
 
         fontMakeCurrent(oldfont);
     }
     else if (FELASTCALL(atom))
     {
-        opNoPalDrawRegion  = NULL;
         opRenderListWindow = NULL;
     }
 }
@@ -2930,121 +3018,8 @@ void opEqualizer8(char* name, featom* atom)
     }
 }
 
-void opVoice0(char* name, featom* atom)
-{
-#ifdef HW_GAME_DEMO
-    featom *hear3;
-#endif
-
-    if (FEFIRSTCALL(atom))
-    {
-        feToggleButtonSet(name, opVoice0On);
-
-#ifdef HW_GAME_DEMO
-        hear3 = feAtomFindInScreen(feScreenFind("Advanced"),"OP_Hear_Voice_3");
-
-        if (hear3 != NULL && hear3->region != NULL)
-        {
-            bitSet(((region *)hear3->region)->status, RSF_RegionDisabled);
-        }
-        hear3 = feAtomFindInScreen(feScreenFind("Advanced_speech"),"OP_Hear_Voice_3");
-
-        if (hear3 != NULL && hear3->region != NULL)
-        {
-            bitSet(((region *)hear3->region)->status, RSF_RegionDisabled);
-        }
-#endif
-    }
-    else
-    {
-        opVoice0On = FECHECKED(atom) ? 1 : 0;
-    }
-}
-
-void opVoice1(char* name, featom* atom)
-{
-    if (FEFIRSTCALL(atom))
-    {
-        feToggleButtonSet(name, opVoice1On);
-    }
-    else
-    {
-        opVoice1On = FECHECKED(atom) ? 1 : 0;
-    }
-}
-
-void opVoice2(char* name, featom* atom)
-{
-    if (FEFIRSTCALL(atom))
-    {
-#ifdef HW_GAME_DEMO
-        if (atom != NULL && atom->region != NULL)
-        {
-            bitSet(((region *)atom->region)->status, RSF_RegionDisabled);
-        }
-#endif
-        feToggleButtonSet(name, opVoice2On);
-    }
-    else
-    {
-        opVoice2On = FECHECKED(atom) ? 1 : 0;
-    }
-}
-
-void opVoice(char* name, featom* atom)
-{
-    if (FEFIRSTCALL(atom))
-    {
-        feRadioButtonSet(name, opVoiceSetting);
-    }
-    else
-    {
-        opVoiceSetting = (sdword)atom->pData;
-    }
-
-    switch (opVoiceSetting)
-    {
-        case 0:
-            soundEventSetActor(1, TRUE);
-            soundEventSetActor(2, FALSE);
-            soundEventSetActor(3, FALSE);
-            break;
-        case 1:
-            soundEventSetActor(2, TRUE);
-            soundEventSetActor(1, FALSE);
-            soundEventSetActor(3, FALSE);
-            break;
-        case 2:
-            soundEventSetActor(3, TRUE);
-            soundEventSetActor(1, FALSE);
-            soundEventSetActor(2, FALSE);
-            break;
-        default:
-            dbgMessage("Something's not right...");
-    }
-}
-
-
-void opHearVoice1(char* name, featom* atom)
-{
-    soundEventHearActor(1);
-
-    dbgMessage("Now playing voice 1");
-}
-
-void opHearVoice2(char* name, featom* atom)
-{
-    soundEventHearActor(2);
-
-    dbgMessage("Now playing voice 2");
-}
-
-void opHearVoice3(char* name, featom* atom)
-{
-    soundEventHearActor(3);
-
-    dbgMessage("Now playing voice 3");
-}
+// CAT: no opVoice / opVoice0..2 / opHearVoice1..3: Cataclysm's audio options have no voice actors and no voice
+//      preview (the exe's callback table has no OP_Voice* / OP_Hear_Voice_* rows, and no such functions)
 
 void opVoiceCommands(char* name, featom* atom)
 {
@@ -3153,7 +3128,7 @@ void opNumberEffects(char* name, featom* atom)
        regFilterSet(atom->region, f | RPE_HoldLeft);
 
        shandle->processFunction  = (uicfunction) opNumEffectsProcess;
-       opNumEffectsProcess(atom->region, 0, 0, 0);
+       opNumEffectsProcess(atom->region, 0, 0, 0);          // CAT: opNumberEffects 0x004db300 inlines it (with the custom switch)
     }
     else if (FELASTCALL(atom))
     {
@@ -3161,48 +3136,29 @@ void opNumberEffects(char* name, featom* atom)
     }
 }
 
+// CAT: opCPUDifficulty 0x004db400 (REWRITTEN): a radio button set on tpGameCreated.aiplayerDifficultyLevel
+//      (HW1: a 0..100 slider)
 void opCPUDifficulty(char* name, featom* atom)
 {
-    udword f;
-    sliderhandle shandle;
-
     if (FEFIRSTCALL(atom))
     {
-        shandle = (sliderhandle)atom->region;
-        shandle->maxvalue = 101;
-        shandle->value = tpGameCreated.aiplayerDifficultyLevel;
-
-        f = regFilterSet(atom->region, 0);
-        regFilterSet(atom->region, f | RPE_HoldLeft);
-
-        shandle->processFunction = (uicfunction) opCPUDifficultyProcess;
+        feRadioButtonSet(name, tpGameCreated.aiplayerDifficultyLevel);
+        bitSet(((regionhandle)atom->region)->status, RSF_DrawThisFrame);
+        return;
     }
-    else if (FELASTCALL(atom))
-    {
-        ;
-    }
+    tpGameCreated.aiplayerDifficultyLevel = (ubyte)(memsize)atom->pData;
 }
 
+// CAT: opCPUAttacks 0x004db440 (REWRITTEN): a radio button set on tpGameCreated.aiplayerBigotry (HW1: a slider)
 void opCPUAttacks(char* name, featom* atom)
 {
-    udword f;
-    sliderhandle shandle;
-
     if (FEFIRSTCALL(atom))
     {
-        shandle = (sliderhandle)atom->region;
-        shandle->maxvalue = 101;
-        shandle->value = tpGameCreated.aiplayerBigotry;
-
-        f = regFilterSet(atom->region, 0);
-        regFilterSet(atom->region, f | RPE_HoldLeft);
-
-        shandle->processFunction = (uicfunction) opCPUAttacksProcess;
+        feRadioButtonSet(name, tpGameCreated.aiplayerBigotry);
+        bitSet(((regionhandle)atom->region)->status, RSF_DrawThisFrame);
+        return;
     }
-    else if (FELASTCALL(atom))
-    {
-        ;
-    }
+    tpGameCreated.aiplayerBigotry = (ubyte)(memsize)atom->pData;
 }
 
 /*-----------------------------------------------------------------------------
@@ -3235,10 +3191,8 @@ void opInfoOverlay(char* name, featom* atom)
     {
         opInfoOverlayVar = 0;
     }
-    if (opInfoOverlayVar)
-        ioEnable();
-    else
-        ioDisable();
+    // CAT: opInfoOverlay 0x004db480 only sets the word (no ioEnable / ioDisable; nothing in the exe reads it beyond the
+    //      options' save, restore and file)
 }
 
 void opTaskbarUp(char* name, featom* atom)
@@ -3582,5 +3536,431 @@ void opNoPalDraw(featom* atom, regionhandle region)
 
 void opTroubleShoot(char* name, featom* atom)
 {
-    utyBrowserExec(OP_TroubleShootPage);
+    // CAT: opTroubleShoot 0x004db6c0 opens the language script's strTroubleShootPage (MessageStrings[1700], the
+    //      install's http://homeworld.sierra.com/cataclysm/support/), not HW1's built-in address
+    utyBrowserExec(strGetString(strTroubleShootPage));
+}
+
+/*=============================================================================
+    CAT (M2-R6 frontend): Cataclysm's options callbacks (Options.c 0x004d9d20 .. 0x004dbb30), registered by
+    utility.c's utyCallbacks with the exe's names (its table 0x008c1360 .. 0x008c1438). A toggle's first call shows the
+    word, a click stores FECHECKED; a radio set's first call checks the stored value, a click stores the button's
+    pData byte.
+=============================================================================*/
+#define CAT_OP_TOGGLE(fn, addr, word)                                   \
+void fn(char *name, featom *atom)                   /* addr */          \
+{                                                                       \
+    if (FEFIRSTCALL(atom))                                              \
+    {                                                                   \
+        feToggleButtonSet(name, (word));                                \
+        return;                                                         \
+    }                                                                   \
+    (word) = FECHECKED(atom) ? 1 : 0;                                   \
+}
+
+void cat_opLODDetail(char *name, featom *atom)      // 0x004d9d20: the first LOD level drawn (OP_LODDetail radio)
+{
+    if (FEFIRSTCALL(atom))
+    {
+        feRadioButtonSet(name, catLodDetail);
+        bitSet(((regionhandle)atom->region)->status, RSF_DrawThisFrame);
+        return;
+    }
+    catLodDetail = (ubyte)(memsize)atom->pData;
+}
+
+void cat_opSmallFonts(char *name, featom *atom)     // 0x004d9df0: OP_SmallFonts shows the popup menu's large fonts off
+{
+    if (FEFIRSTCALL(atom))
+    {
+        feToggleButtonSet(name, catPmLargeFont == FALSE);
+        return;
+    }
+    catPmLargeFont = FECHECKED(atom) ? FALSE : TRUE;
+}
+
+CAT_OP_TOGGLE(cat_opHWTaskbar,          0x004d9e30, catMoHWTaskbar)
+CAT_OP_TOGGLE(cat_opTaskbarButtons,     0x004d9e70, catMoTaskbarButtons)
+CAT_OP_TOGGLE(cat_opTaskbarBackdrop,    0x004d9eb0, catMoTaskbarBackdrop)
+CAT_OP_TOGGLE(cat_opExperienceMessages, 0x004d9ef0, catOpExperienceMessages)
+
+void cat_opHomeworldCSA(char *name, featom *atom)   // 0x004d9f30: the HW1 context-sensitive actions, exclusive with
+{                                                   //             the right-click ones
+    if (FEFIRSTCALL(atom))
+    {
+        feToggleButtonSet(name, catMrHomeworldCSA);
+        return;
+    }
+    catMrHomeworldCSA = FECHECKED(atom) ? 1 : 0;
+    catMrRightClickCSA = (catMrHomeworldCSA == 0);
+    feToggleButtonSet("OP_RightClickCSA", catMrRightClickCSA);
+}
+
+void cat_opRightClickCSA(char *name, featom *atom)  // 0x004d9f80
+{
+    if (FEFIRSTCALL(atom))
+    {
+        feToggleButtonSet(name, catMrRightClickCSA);
+        return;
+    }
+    catMrRightClickCSA = FECHECKED(atom) ? 1 : 0;
+    catMrHomeworldCSA = (catMrRightClickCSA == 0);
+    feToggleButtonSet("OP_HomeworldCSA", catMrHomeworldCSA);
+}
+
+CAT_OP_TOGGLE(cat_opAutoFocusOnWaypoints, 0x004d9fd0, catMrWaypointCentre)
+CAT_OP_TOGGLE(cat_opAreaExplored,       0x004da010, catSmViewAreasVisited)
+CAT_OP_TOGGLE(cat_opSensorsSphere,      0x004da050, catSmViewFOWRanges)
+CAT_OP_TOGGLE(cat_opCompass,            0x004da090, catSmViewCompass)
+CAT_OP_TOGGLE(cat_opSensorsWireframe,   0x004da0d0, catSmViewAreasOccupied)
+
+void cat_opResources(char *name, featom *atom)      // 0x004da110: the resources and the meteors together
+{
+    if (FEFIRSTCALL(atom))
+    {
+        feToggleButtonSet(name, (catSmViewResources && catSmViewMeteors) ? 1 : 0);
+        return;
+    }
+    catSmViewResources = FECHECKED(atom) ? 1 : 0;
+    catSmViewMeteors = FECHECKED(atom) ? 1 : 0;
+}
+
+CAT_OP_TOGGLE(cat_opDust,               0x004da180, catSmViewDecorativeAsteroids)
+CAT_OP_TOGGLE(cat_opBackground,         0x004da1c0, catSmViewBackground)
+CAT_OP_TOGGLE(cat_opObjectivePointers,  0x004da200, catSmViewObjectivePointers)
+CAT_OP_TOGGLE(cat_opSlipgatePaths,      0x004da240, catSmViewSlipgatePaths)
+CAT_OP_TOGGLE(cat_opCapitalShipOverlay, 0x004da280, catSmViewIcons)
+
+// the sensors page's buttons from the words (the tail of cat_opHomeworldClassic, cat_opCataclysmDefault and
+// cat_opSetAllDefaults)
+static void catOpSensorsButtonsSet(void)
+{
+    feToggleButtonSet("OP_AreaExplored", catSmViewAreasVisited);
+    feToggleButtonSet("OP_SensorsSphere", catSmViewFOWRanges);
+    feToggleButtonSet("OP_SensorsWireframe", catSmViewAreasOccupied);
+    feToggleButtonSet("OP_Resources", (catSmViewResources && catSmViewMeteors) ? 1 : 0);
+    feToggleButtonSet("OP_Dust", catSmViewDecorativeAsteroids);
+    feToggleButtonSet("OP_Background", catSmViewBackground);
+    feToggleButtonSet("OP_Compass", catSmViewCompass);
+    feToggleButtonSet("OP_ObjectivePointers", catSmViewObjectivePointers);
+    feToggleButtonSet("OP_SlipgatePaths", catSmViewSlipgatePaths);
+    feToggleButtonSet("OP_CapitalShipOverlay", catSmViewIcons);
+}
+
+void cat_opHomeworldClassic(char *name, featom *atom)   // 0x004da2c0: the HW1-like interface preset
+{
+    catMoHWTaskbar = TRUE;
+    catMoTaskbarButtons = TRUE;
+    catMoTaskbarBackdrop = TRUE;
+    catOpExperienceMessages = 0;
+    catMrHomeworldCSA = TRUE;
+    catMrRightClickCSA = FALSE;
+    feToggleButtonSet("OP_HWTaskbar", 1);
+    feToggleButtonSet("OP_TaskbarButtons", catMoTaskbarButtons);
+    feToggleButtonSet("OP_TaskbarBackdrop", catMoTaskbarBackdrop);
+    feToggleButtonSet("OP_ExperienceMessages", catOpExperienceMessages);
+    feToggleButtonSet("OP_HomeworldCSA", catMrHomeworldCSA);
+    feToggleButtonSet("OP_RightClickCSA", catMrRightClickCSA);
+    catSmViewDecorativeAsteroids = TRUE;
+    catSmViewResources = TRUE;
+    catSmViewFOWRanges = TRUE;
+    catSmViewBackground = TRUE;
+    catSmViewAreasVisited = FALSE;
+    catSmViewAreasOccupied = FALSE;
+    catSmViewIcons = TRUE;
+    catSmViewShipMeshes = TRUE;
+    catSmViewPieplateLines = TRUE;
+    catSmViewMeteors = TRUE;
+    catSmViewCompass = TRUE;
+    catSmViewObjectivePointers = TRUE;
+    catSmViewSlipgatePaths = TRUE;
+    catOpSensorsButtonsSet();                       // the exe passes 0 for OP_AreaExplored: the word it just cleared
+}
+
+void cat_opCataclysmDefault(char *name, featom *atom)   // 0x004da460: Cataclysm's interface preset
+{
+    feToggleButtonSet("OP_HWTaskbar", 0);
+    feToggleButtonSet("OP_TaskbarButtons", 0);
+    feToggleButtonSet("OP_TaskbarBackdrop", 0);
+    feToggleButtonSet("OP_ExperienceMessages", 0);
+    feToggleButtonSet("OP_HomeworldCSA", 0);
+    feToggleButtonSet("OP_RightClickCSA", 1);
+    catMoHWTaskbar = FALSE;
+    catMoTaskbarButtons = FALSE;
+    catMoTaskbarBackdrop = FALSE;
+    catOpExperienceMessages = 0;
+    catMrHomeworldCSA = FALSE;
+    catMrRightClickCSA = TRUE;
+    catSmViewDecorativeAsteroids = TRUE;
+    catSmViewResources = TRUE;
+    catSmViewFOWRanges = TRUE;
+    catSmViewBackground = TRUE;
+    catSmViewAreasVisited = TRUE;
+    catSmViewAreasOccupied = FALSE;
+    catSmViewIcons = TRUE;
+    catSmViewShipMeshes = TRUE;
+    catSmViewPieplateLines = TRUE;
+    catSmViewMeteors = TRUE;
+    catSmViewCompass = FALSE;
+    catSmViewObjectivePointers = TRUE;
+    catSmViewSlipgatePaths = TRUE;
+    catOpSensorsButtonsSet();                       // the exe passes 1 for OP_AreaExplored: the word it just set
+}
+
+// 0x004db6d0: the texture-detail slider's process
+udword cat_opTextureDetailProcess(regionhandle reg, sdword ID, udword event, udword data)
+{
+    catOpTextureDetail = ((sliderhandle)((featom *)reg->atom)->region)->value;
+    cat_trTextureMemorySet(catOpTextureDetail);
+    return 0;
+}
+
+void cat_opTextureDetail(char *name, featom *atom)  // 0x004db6f0: the OP_Texture_Detail slider, 0..100
+{
+    sliderhandle shandle;
+    udword f;
+
+    if (FEFIRSTCALL(atom))
+    {
+        catOpTextureDetailRegion = atom->region;
+        shandle = (sliderhandle)atom->region;
+        shandle->maxvalue = 100;
+        shandle->value = catOpTextureDetail;
+        f = regFilterSet(atom->region, 0);
+        regFilterSet(atom->region, f | RPE_HoldLeft);
+        shandle->processFunction = (uicfunction)cat_opTextureDetailProcess;
+        return;
+    }
+    if (FELASTCALL(atom))
+    {
+        catOpTextureDetailRegion = NULL;
+    }
+}
+
+void cat_opSpeechTest(char *name, featom *atom)     // 0x004db760: a test line (speech event 0x2001024)
+{
+    speechEventQueue(NULL, 0x2001024, -1, -1, 0, -1, -1, 5.0f, -1);
+}
+
+void cat_opSoundFXTest(char *name, featom *atom)    // 0x004db790: a test effect (UI event 0x1c8, played from the ship bank)
+{
+    soundEventPlay(NULL, 0x1c8, NULL);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_opSetAllDefaults (Cataclysm 0x004db7b0)
+    Description : The OP_CataclysmFramerate presets: the full set (lowEnd FALSE) or the low-end set (TRUE)
+    Inputs      : lowEnd - cat_opCataclysmFramerate passes (catOpGameFramerate == 0)
+    Outputs     : the sound channels, voices, chatter and quality, the LOD frame rate and detail, the texture detail,
+                    the video toggles, the effects and five sensors words; then the experience messages, the compass
+                    and the sensors sphere off, and the sensors page's buttons
+    Return      :
+    Note        : the exe also switches GL_POLYGON_STIPPLE on the rgl.dll device (0x00b3a6d8); GoK's GL backend has
+                    no such device (decision 28)
+----------------------------------------------------------------------------*/
+void cat_opSetAllDefaults(sdword lowEnd)
+{
+    sdword minVoices, maxVoices;
+
+    if (lowEnd == 0)
+    {
+        opNumChannels = 8;
+        opAutoChannel = 0;
+        soundGetVoiceLimits(&minVoices, &maxVoices);
+        soundSetNumVoices(opNumChannels + minVoices, opAutoChannel);
+        opVoiceComm = 1;
+        opVoiceStat = 1;
+        opVoiceChat = 1;
+        soundEventVocalSettings(1, 1, 1);
+        opBattleChatter = 50;
+        battleChatterFrequencySet(50);
+        opSoundQuality = 0;
+        soundMixerSetMode(0);
+        opNoLODVal = 0;
+        opDetailThresholdVal = 10;
+        cat_lodSetTimeThreshold(10);
+        catOpTextureDetail = 50;
+        cat_trTextureMemorySet(50);
+        catLodDetail = 0;
+        texLinearFiltering = 1;
+        trFilterEnable(1);
+        showBackgrounds = 1;
+        enableSmoothing = 1;
+        enableCPV = 1;
+        enableLensFlare = 1;
+        enableRepairbots = 1;
+        enableStipple = 0;
+        smFuzzyBlobs = 1;
+        enableTrails = 1;
+        smInstantTransition = 0;
+        opNumEffects = 256 - etgHistoryScalarMin;
+        opEffectsVal = 0;
+        etgHitEffectsEnabled = 1;
+        etgDamageEffectsEnabled = 1;
+        etgFireEffectsEnabled = 1;
+        etgBulletEffectsEnabled = 1;
+        catSmViewAreasVisited = 1;
+        catSmViewAreasOccupied = 1;
+        catSmViewMeteors = 1;
+        catSmViewDecorativeAsteroids = 1;
+        catSmViewBackground = 1;
+    }
+    else
+    {
+        opNumChannels = 0;
+        opAutoChannel = 0;
+        soundGetVoiceLimits(&minVoices, &maxVoices);
+        soundSetNumVoices(minVoices, opAutoChannel);
+        opVoiceComm = 0;
+        opVoiceStat = 0;
+        opVoiceChat = 0;
+        soundEventVocalSettings(0, 0, 0);
+        opBattleChatter = 0;
+        battleChatterFrequencySet(0);
+        opSoundQuality = 2;
+        soundMixerSetMode(2);
+        opNoLODVal = 0;
+        opDetailThresholdVal = 30;
+        cat_lodSetTimeThreshold(30);
+        catOpTextureDetail = 0;
+        cat_trTextureMemorySet(0);
+        catLodDetail = 2;
+        texLinearFiltering = 0;
+        trFilterEnable(0);
+        showBackgrounds = 0;
+        enableSmoothing = 0;
+        enableCPV = 0;
+        enableLensFlare = 0;
+        enableRepairbots = 0;
+        enableStipple = 1;
+        smFuzzyBlobs = 0;
+        enableTrails = 0;
+        smInstantTransition = 1;
+        opNumEffects = 0;
+        opEffectsVal = 2;
+        etgHitEffectsEnabled = 0;
+        etgDamageEffectsEnabled = 0;
+        etgFireEffectsEnabled = 0;
+        etgBulletEffectsEnabled = 0;
+        catSmViewAreasVisited = 0;
+        catSmViewAreasOccupied = 0;
+        catSmViewMeteors = 0;
+        catSmViewDecorativeAsteroids = 0;
+        catSmViewBackground = 0;
+    }
+    catOpExperienceMessages = 0;
+    catSmViewCompass = 0;
+    catSmViewFOWRanges = 0;
+    feToggleButtonSet("OP_ExperienceMessages", 0);
+    catOpSensorsButtonsSet();
+}
+
+void cat_opCataclysmFramerate(char *name, featom *atom) // 0x004dbb30: the frame-rate radio picks a preset
+{
+    if (FEFIRSTCALL(atom))
+    {
+        feRadioButtonSet(name, catOpGameFramerate);
+        return;
+    }
+    catOpGameFramerate = (ubyte)(memsize)atom->pData;
+    cat_opSetAllDefaults(catOpGameFramerate == 0);
+}
+
+
+/*=============================================================================
+    CAT: port diagnostic, not in the exe: the options round trip of the front-end screens self-test
+    (/catFeScreensTest, harness mode fescreens; M2-R6 frontend). The Cataclysm option set (Cataclysm's own rows of the
+    options file and the HW1 rows whose default Cataclysm changed) is checked at the exe's defaults (its .data / .bss
+    initial values, the three effects words as the start-up's high preset sets them) as the start-up left it, set to those defaults, written through utyOptionsFileWrite, scrambled,
+    read back through utyOptionsList (catUtyOptionsFileReadBack) and compared. "optionstest:" log lines,
+    "optionstest: done ... result=PASS|FAIL".
+=============================================================================*/
+typedef struct
+{
+    char *row;                                      // the options-file row
+    sdword *word;
+    sdword exeDefault;                              // the exe's initial value
+    udword exeAddress;
+}
+catoptiontest;
+
+void catOptionsRunSelfTest(void)
+{
+    static catoptiontest set[] =
+    {
+        {"LargePopupMenuFonts",         (sdword *)&catPmLargeFont,              0, 0x00a5749c},
+        {"Homeworld_CSA",               (sdword *)&catMrHomeworldCSA,           0, 0x00a7526c},
+        {"RightClick_CSA",              (sdword *)&catMrRightClickCSA,          1, 0x008b9ec8},
+        {"AutoFocusOnWaypoints",        (sdword *)&catMrWaypointCentre,         0, 0x00a75270},
+        {"ShowTaskbarBackdrop",         (sdword *)&catMoTaskbarBackdrop,        0, 0x00a4b880},
+        {"ShowTaskbarButtons",          (sdword *)&catMoTaskbarButtons,         0, 0x00a4b87c},
+        {"ExperienceMessages",          &catOpExperienceMessages,               0, 0x00a5e248},
+        {"HomeworldTaskbar",            (sdword *)&catMoHWTaskbar,              0, 0x00a4b878},
+        {"ShowAsteriod0",               (sdword *)&catSmViewDecorativeAsteroids, 1, 0x00892b48},
+        {"ShowResources",               (sdword *)&catSmViewResources,          1, 0x00892b4c},
+        {"ShowFOWBlobs",                (sdword *)&catSmViewFOWRanges,          1, 0x00892b50},
+        {"ShowBackground",              (sdword *)&catSmViewBackground,         1, 0x00892b54},
+        {"ShowAreaVisited",             (sdword *)&catSmViewAreasVisited,       1, 0x00892b58},
+        {"ShowAreaOccupied",            (sdword *)&catSmViewAreasOccupied,      0, 0x00a5b19c},
+        {"ShowIcons",                   (sdword *)&catSmViewIcons,              1, 0x00892b5c},
+        {"ShowEnemyShips",              (sdword *)&catSmViewShipMeshes,         1, 0x00892b60},
+        {"ShowFriendlyShips",           (sdword *)&catSmViewPieplateLines,      1, 0x00892b64},
+        {"ShowUniverseExtents",         (sdword *)&catSmViewUniverseExtents,    0, 0x00a5b1a0},
+        {"ShowMeteors",                 (sdword *)&catSmViewMeteors,            1, 0x00892b68},
+        {"ShowCompass",                 (sdword *)&catSmViewCompass,            0, 0x00a5b1a4},
+        {"ShowObjectivesPointer",       (sdword *)&catSmViewObjectivePointers,  1, 0x00892b6c},
+        {"ShowSlipgatePaths",           (sdword *)&catSmViewSlipgatePaths,      1, 0x00892b70},
+        {"HardwareTransformLighting",   &catOpHardwareTL,                       0, 0x00a4cc18},
+        {"TextureDetail",               &catOpTextureDetail,                    50, 0x0088be74},
+        {"GameFramerateOption",         &catOpGameFramerate,                    1, 0x0088be98},
+        {"DetailQuality",               (sdword *)&catLodDetail,                0, 0x00a4cc38},
+        {"SetTextureRequirements",      &catOpTextureRequirementsSet,           0, 0x00a76260},
+        // .bss 0, but the start-up's opUpdateSettings applies effectsLevel 0 (the high preset), which sets them
+        {"enableCPV",                   &enableCPV,                             1, 0x00c52378},
+        {"enableLensFlare",             &enableLensFlare,                       1, 0x00c52380},
+        {"enableRepairbots",            &enableRepairbots,                      1, 0x00c52374},
+        {"MusicVolume",                 &opMusicVol,                            60, 0x0088be4c},
+        {"SFXVolume",                   &opSFXVol,                              75, 0x0088be50},
+        {"SpeechVolume",                &opSpeechVol,                           75, 0x0088be54},
+        {"detailThreshold",             (sdword *)&opDetailThresholdVal,        10, 0x0088be6c},
+        {NULL, NULL, 0, 0}
+    };
+    sdword i, n = 0, atDefault = 0, readBack = 0;
+    char *path;
+
+    for (i = 0; set[i].row != NULL; i++)
+    {
+        n++;
+        if (*set[i].word == set[i].exeDefault)
+        {
+            atDefault++;
+        }
+        else
+        {
+            dbgMessagef("optionstest: %s is %d after the start-up, the exe's default (0x%08x) is %d", set[i].row,
+                        *set[i].word, set[i].exeAddress, set[i].exeDefault);
+        }
+        *set[i].word = set[i].exeDefault;
+    }
+    utyOptionsFileWrite();
+    for (i = 0; set[i].row != NULL; i++)
+    {
+        *set[i].word = set[i].exeDefault + 7;       //scrambled: a value the file must overwrite
+    }
+    path = catUtyOptionsFileReadBack();
+    for (i = 0; set[i].row != NULL; i++)
+    {
+        if (*set[i].word == set[i].exeDefault)
+        {
+            readBack++;
+        }
+        else
+        {
+            dbgMessagef("optionstest: FAIL %s read back as %d, written %d", set[i].row, *set[i].word, set[i].exeDefault);
+            *set[i].word = set[i].exeDefault;
+        }
+    }
+    dbgMessagef("optionstest: %d options written to and read back from %s", n, path);
+    dbgMessagef("optionstest: done options=%d startdefaults=%d readback=%d result=%s", n, atDefault, readBack,
+                (readBack == n) ? "PASS" : "FAIL");
 }

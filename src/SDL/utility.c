@@ -111,6 +111,8 @@
 #include "avi.h"
 #include "Mimic.h"
 #include "PopupMenu.h"
+#include "LOD.h"
+#include "ShipSelect.h"
 
 #ifdef _WIN32
     #include <windows.h>
@@ -380,13 +382,6 @@ void opEqualizer6(char* name, featom* atom);
 void opEqualizer7(char* name, featom* atom);
 void opEqualizer8(char* name, featom* atom);
 //advanced:
-void opVoice(char* name, featom* atom);
-void opVoice0(char* name, featom* atom);
-void opVoice1(char* name, featom* atom);
-void opVoice2(char* name, featom* atom);
-void opHearVoice1(char* name, featom* atom);
-void opHearVoice2(char* name, featom* atom);
-void opHearVoice3(char* name, featom* atom);
 void opVoiceCommands(char* name, featom* atom);
 void opVoiceStatus(char* name, featom* atom);
 void opVoiceChatter(char* name, featom* atom);
@@ -424,9 +419,11 @@ void utyTutorialAlertCancel(char* name, featom* atom);
 
 void tbSensorsBegin(char* name, featom* atom);
 
-void opNoPalDecrease(featom* atom, regionhandle region);
-void opNoPalIncrease(featom* atom, regionhandle region);
-void opNoPalDraw(featom* atom, regionhandle region);
+// CAT (M2-R6 frontend): an option row the exe registers with an empty function (nullsub), so its atom is found
+static void utyNullCallback(char *name, featom *atom)
+{
+    (void)name; (void)atom;
+}
 
 void utyStartTutorial(char* name, featom* atom);
 void utyStartSinglePlayer(char* name, featom* atom);
@@ -595,13 +592,8 @@ fecallback utyCallbacks[] =
     {opEqualizer6,              "OP_Equalizer6"},
     {opEqualizer7,              "OP_Equalizer7"},
     {opEqualizer8,              "OP_Equalizer8"},
-    {opVoice,                   "OP_Voice"},
-    {opVoice0,                  "OP_Voice0"},
-    {opVoice1,                  "OP_Voice1"},
-    {opVoice2,                  "OP_Voice2"},
-    {opHearVoice1,              "OP_Hear_Voice_1"},
-    {opHearVoice2,              "OP_Hear_Voice_2"},
-    {opHearVoice3,              "OP_Hear_Voice_3"},
+    // CAT: no voice actors and no voice preview in Cataclysm's options (the exe's table 0x008c1148 .. 0x008c1438 has
+    //      no OP_Voice* / OP_Hear_Voice_* rows: soundEventHearActor's callers are gone)
     {opVoiceCommands,           "OP_Voice_Commands"},
     {opVoiceStatus,             "OP_Voice_Status"},
     {opVoiceChatter,            "OP_Voice_Chatter"},
@@ -621,11 +613,40 @@ fecallback utyCallbacks[] =
     {opAutodockFuelValue,       "OP_Autodock_Fuel_Value"},
     {opNoLOD,                   "OP_NoLOD"},
     {kbListWindowCB,            "OP_KeyBindingsList"},
-    {kbPoolListWindowCB,        "OP_KeyBindingsPoolList"},
+    // CAT: no OP_KeyBindingsPoolList row (the exe has none: HW1's key-pool list window, kbPoolListWindowCB)
     {utyYesDropPlayer,          "UTY_DropPlayer"},
     {utyDontDropPlayer,         "UTY_DontDropPlayer"},
     {opCountdownYes,            "OP_Countdown_Yes"},
     {opCountdownNo,             "OP_Countdown_No"},
+    // CAT (M2-R6 frontend): Cataclysm's options (the exe's rows 0x008c1360 .. 0x008c1438, Options.c)
+    {cat_opSmallFonts,          "OP_SmallFonts"},
+    {cat_opHomeworldClassic,    "OP_HomeworldClassic"},
+    {cat_opCataclysmDefault,    "OP_CataclysmDefault"},
+    {cat_opHWTaskbar,           "OP_HWTaskbar"},
+    {cat_opTaskbarButtons,      "OP_TaskbarButtons"},
+    {cat_opTaskbarBackdrop,     "OP_TaskbarBackdrop"},
+    {cat_opHomeworldCSA,        "OP_HomeworldCSA"},
+    {cat_opRightClickCSA,       "OP_RightClickCSA"},
+    {utyNullCallback,           "OP_SpecialActionBeforeAttack"},
+    {cat_opAutoFocusOnWaypoints,"OP_AutoFocusOnWaypoints"},
+    {cat_opExperienceMessages,  "OP_ExperienceMessages"},
+    {cat_opAreaExplored,        "OP_AreaExplored"},
+    {cat_opSensorsSphere,       "OP_SensorsSphere"},
+    {cat_opSensorsWireframe,    "OP_SensorsWireframe"},
+    {cat_opResources,           "OP_Resources"},
+    {cat_opDust,                "OP_Dust"},
+    {cat_opBackground,          "OP_Background"},
+    {cat_opCompass,             "OP_Compass"},
+    {cat_opObjectivePointers,   "OP_ObjectivePointers"},
+    {cat_opSlipgatePaths,       "OP_SlipgatePaths"},
+    {cat_opCapitalShipOverlay,  "OP_CapitalShipOverlay"},
+    {utyNullCallback,           "OP_HardwareTransformLighting"},
+    {cat_opTextureDetail,       "OP_Texture_Detail"},
+    {cat_opSpeechTest,          "OP_Speech_Test"},
+    {cat_opSoundFXTest,         "OP_SoundFX_Test"},
+    // CAT-TODO(stage 6 single player): {cat_spGameDifficulty, "SP_GameDifficulty"} (0x0051c140, the difficulty radio with cat_spGetDifficultyModifiers) comes with the single-player port
+    {cat_opCataclysmFramerate,  "OP_CataclysmFramerate"},
+    {cat_opLODDetail,           "OP_LODDetail"},
 
     {NULL, NULL}
 };
@@ -634,9 +655,8 @@ fedrawcallback utyDrawCallbacks[] =
 {                                                           //base front-end callbacks
     {opDrawNumChannels,         "OP_NumChannels"},
     {versionNumDraw,            "FE_DrawVersionNum"},
-    {opNoPalDecrease,           "NP_Decrease"},
-    {opNoPalIncrease,           "NP_Increase"},
-    {opNoPalDraw,               "NP_Draw"},
+    // CAT: no NP_Decrease / NP_Increase / NP_Draw (the exe's draw table 0x008c1448 has none: the texture detail
+    //      replaces HW1's no-palette pool display)
     {utyDrawDroppedPlayer,      "UTY_PlayerDropped"},
     {opCountdownBoxDraw,        "OP_DrawCountdownBox"},
     {NULL, NULL}
@@ -798,6 +818,40 @@ scriptEntry utyOptionsList[] =
     {"FirewallDetect",                 scriptSetUdwordCB, &firewallButton},
 
 
+  {"\n[cataclysm options]\n", scriptSetStringCB, &filecfgblankspace},
+
+    // CAT (M2-R6 frontend): the exe's rows of Cataclysm's options (its options table 0x008c1790 .. 0x008c18c8, in its
+    //      order and with its names; Options.c and the words' owners). [audit: the CAT-TODO put on one line]
+    // CAT-TODO(M2-R6 start-up): the rest of the options table at the exe's (0x008c1478 .. 0x008c18d4: its other names, order and rows; no GoK sections) with the options-file port; DifficultySetting (0x008c18d4, 0x008941a0) comes with stage 6's difficulty screen
+    {"LargePopupMenuFonts",            scriptSetUdwordCB, &catPmLargeFont},
+    {"Homeworld_CSA",                  scriptSetUdwordCB, &catMrHomeworldCSA},
+    {"RightClick_CSA",                 scriptSetUdwordCB, &catMrRightClickCSA},
+    {"AutoFocusOnWaypoints",           scriptSetUdwordCB, &catMrWaypointCentre},
+    {"ShowTaskbarBackdrop",            scriptSetUdwordCB, &catMoTaskbarBackdrop},
+    {"ShowTaskbarButtons",             scriptSetUdwordCB, &catMoTaskbarButtons},
+    {"ExperienceMessages",             scriptSetUdwordCB, &catOpExperienceMessages},
+    {"HomeworldTaskbar",               scriptSetUdwordCB, &catMoHWTaskbar},
+    {"ShowAsteriod0",                  scriptSetUdwordCB, &catSmViewDecorativeAsteroids},
+    {"ShowResources",                  scriptSetUdwordCB, &catSmViewResources},
+    {"ShowFOWBlobs",                   scriptSetUdwordCB, &catSmViewFOWRanges},
+    {"ShowBackground",                 scriptSetUdwordCB, &catSmViewBackground},
+    {"ShowAreaVisited",                scriptSetUdwordCB, &catSmViewAreasVisited},
+    {"ShowAreaOccupied",               scriptSetUdwordCB, &catSmViewAreasOccupied},
+    {"ShowIcons",                      scriptSetUdwordCB, &catSmViewIcons},
+    {"ShowEnemyShips",                 scriptSetUdwordCB, &catSmViewShipMeshes},
+    {"ShowFriendlyShips",              scriptSetUdwordCB, &catSmViewPieplateLines},
+    {"ShowUniverseExtents",            scriptSetUdwordCB, &catSmViewUniverseExtents},
+    {"ShowMeteors",                    scriptSetUdwordCB, &catSmViewMeteors},
+    {"ShowCompass",                    scriptSetUdwordCB, &catSmViewCompass},
+    {"ShowObjectivesPointer",          scriptSetUdwordCB, &catSmViewObjectivePointers},
+    {"ShowSlipgatePaths",              scriptSetUdwordCB, &catSmViewSlipgatePaths},
+    {"HardwareTransformLighting",      scriptSetUdwordCB, &catOpHardwareTL},
+    {"TextureDetail",                  scriptSetUdwordCB, &catOpTextureDetail},
+    {"GameFramerateOption",            scriptSetUdwordCB, &catOpGameFramerate},
+    {"DetailQuality",                  scriptSetUdwordCB, &catLodDetail},
+    {"SetTextureRequirements",         scriptSetUdwordCB, &catOpTextureRequirementsSet},
+
+
   {"\n[New HWSDL Options]\n", scriptSetStringCB, &filecfgblankspace},
 
 
@@ -953,6 +1007,37 @@ void utyOptionsFileWrite(void)
     }
     
     fileClose(cfgFile);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : catUtyOptionsFileReadBack
+    Description : HWI: port diagnostic, not in the exe (the options round trip of /catFeScreensTest, Options.c
+                    catOptionsRunSelfTest): read the options file utyOptionsFileWrite wrote (the user settings path)
+                    through utyOptionsList, as utyOptionsFileRead parses it (which reads $HOME/CONFIGDIR instead:
+                    GoK ignores /settingspath for reading, docs/m2-r1-data-deltas.md 4)
+    Inputs      :
+    Outputs     : the options of the file
+    Return      : the file's path
+----------------------------------------------------------------------------*/
+char *catUtyOptionsFileReadBack(void)
+{
+    static char path[PATH_MAX];
+    char directory[PATH_MAX], *slash;
+
+    strncpy(path, filePathPrepend(UTY_CONFIG_FILENAME, FF_UserSettingsPath), PATH_MAX - 1);
+    path[PATH_MAX - 1] = '\0';
+    strcpy(directory, path);
+    slash = strrchr(directory, '/');
+    if (slash != NULL)
+    {
+        slash[1] = '\0';                                   //the directory and the bare name, as utyOptionsFileRead
+    }                                                       //passes them (scriptSetFileSystem keeps the name)
+    else
+    {
+        directory[0] = '\0';
+    }
+    scriptSetFileSystem(directory, UTY_CONFIG_FILENAME, utyOptionsList);
+    return path;
 }
 
 /*-----------------------------------------------------------------------------
@@ -4314,6 +4399,37 @@ DONE_INTROS:
     //      cat_kbLoadKeyBindings comes between the icons and the names in the exe
     cat_shipNamesInit();
     cat_gameStatsStartup();
+    // CAT (M2-R6 frontend): HW1's key-binding start-up runs here (utyGameSystemsInit 0x005abe70: after
+    //      cat_gameStatsStartup), not in opOptionsInit
+    kbInitKeyBindings();
+    // CAT (M2-R6 frontend): the exe's memory test (GlobalMemoryStatus; SDL_GetSystemRAM here): under 42,000,001 bytes of
+    //      RAM the texture detail goes to 0, under 74,000,001 to 25 (unless the options file set it:
+    //      SetTextureRequirements), and under 128,000,000 the dynamic CPV goes off and the low-memory mesh switch on
+    {
+        Uint64 ram = (Uint64)SDL_GetSystemRAM() * 1024 * 1024;
+
+        if (ram < 42000001)
+        {
+            if (!catOpTextureRequirementsSet)
+            {
+                catOpTextureDetail = 0;
+                cat_trTextureMemorySet(0);
+            }
+        }
+        else if (ram < 74000001)
+        {
+            if (!catOpTextureRequirementsSet)
+            {
+                catOpTextureDetail = 25;
+                cat_trTextureMemorySet(25);
+            }
+        }
+        if (ram < 128000000)
+        {
+            enableCPV = FALSE;
+            catMeshStateDisabled = TRUE;
+        }
+    }
 
     utySystemStarted = TRUE;
 
@@ -4392,6 +4508,24 @@ DONE_INTROS:
         if (catEtgEffectSelfTestTicks > 0)
         {
             catEtgRunEffectSelfTest(catEtgEffectSelfTestTicks);
+        }
+        utyGameQuit(NULL, NULL);
+        return(NULL);
+    }
+
+    // CAT: /catFeScreensTest and /catStringsTest (port diagnostics, M2-R6 frontend): push, draw and pop every screen of
+    //      the install's .fib files; resolve the string ids against the language script; then quit
+    if ((catFeScreensSelfTestList[0] != '\0') || catStringsSelfTest)
+    {
+        if (catStringsSelfTest)
+        {
+            catStringsRunSelfTest();
+        }
+        if (catFeScreensSelfTestList[0] != '\0')
+        {
+            catOptionsRunSelfTest();                        //first: the screens' callbacks may set options
+            catFeScreensRunSelfTest();
+            feScreenStart(ghMainRegion, "Main_game_screen");
         }
         utyGameQuit(NULL, NULL);
         return(NULL);

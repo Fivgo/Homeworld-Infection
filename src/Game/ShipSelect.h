@@ -378,7 +378,7 @@ real32 cat_weaponDamageVsArmour(sdword damageType, sdword armourLevel);   // CAT
 real32 cat_gunStaticBaseDamage(GunStatic *gunstatic);                     // CAT: 0x00514600 (M2-R4 combat)
 real32 cat_shipGetDamageMultiplier(Ship *ship);                           // CAT: 0x005148f0 (M2-R4 combat)
 void cat_shipUpdateExperienceLevel(Ship *ship);                           // CAT: 0x005147d0 (M2-R5 layout-dock)
-extern sdword cat_opExperienceMessages;                                    // CAT: the OP_ExperienceMessages option 0x00a5e248
+extern sdword catOpExperienceMessages;                                    // CAT: the OP_ExperienceMessages option 0x00a5e248
 void cat_shipUpgradesInit(Ship *ship);                                    // CAT: 0x005140a0 (M2-R4 combat)
 void cat_shipApplyUpgrades(Ship *ship);                                   // CAT: 0x00514490 (M2-R4 combat)
 void cat_playerUpgradesReset(struct Player *player);                             // CAT: 0x00514100 (M2-R4 rest-oracle)

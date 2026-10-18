@@ -541,7 +541,9 @@ bool32 glfontDisplayCharacter(fontheader* font, char ch, sdword x, sdword y, col
     Outputs     :
     Return      : TRUE or FALSE (success or failure)
 ----------------------------------------------------------------------------*/
-bool32 glfontDisplayString(fontheader* font, char* string, sdword x, sdword y, color c)
+// CAT: glfontDisplayString 0x00557be0 takes a sixth argument, the additive-blend switch fontPrintN passes down
+//      (rndAdditiveBlends(bAdditive), HW1: FALSE), and puts the previous blend mode back at the end
+bool32 glfontDisplayString(fontheader* font, char* string, sdword x, sdword y, color c, bool32 bAdditive)
 {
     char* charp;
     glfontheader* glfont;
@@ -549,6 +551,7 @@ bool32 glfontDisplayString(fontheader* font, char* string, sdword x, sdword y, c
     charheader* fcharacter;
     sdword sx, sy;
     bool32 texOn, blendOn, alphatestOn;
+    bool32 oldAdditive;
     bool32 rval;
     sdword brights[3];
     color bright, colour;
@@ -580,7 +583,7 @@ bool32 glfontDisplayString(fontheader* font, char* string, sdword x, sdword y, c
     alphatestOn = (bool32)glIsEnabled(GL_ALPHA_TEST);
     if (!blendOn) glEnable(GL_BLEND);
     if (alphatestOn) glDisable(GL_ALPHA_TEST);
-    rndAdditiveBlends(FALSE);
+    oldAdditive = rndAdditiveBlends(bAdditive);           // CAT: the caller's mode, the previous one kept
     glShadeModel(GL_FLAT);
     rndTextureEnvironment(RTE_Modulate);
 
@@ -633,6 +636,7 @@ bool32 glfontDisplayString(fontheader* font, char* string, sdword x, sdword y, c
     }
 
     //reset state
+    rndAdditiveBlends(oldAdditive);                         // CAT: glfontDisplayString 0x00557dae
     rndTextureEnable(texOn);
     if (!blendOn) glDisable(GL_BLEND);
     if (alphatestOn) glEnable(GL_ALPHA_TEST);
@@ -1011,7 +1015,18 @@ sdword fontPrintCentre(sdword y, color c, char *string)
 ----------------------------------------------------------------------------*/
 sdword fontPrint(sdword x, sdword y, color c, char *string)
 {
-    return fontPrintN(x, y, c, string, SDWORD_Max);
+    return fontPrintN(x, y, c, FALSE, string, SDWORD_Max);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_fontPrintSubtitle
+    Description : Print a subtitle line with additive blending (subTitlesDraw's text)
+    Inputs      : as fontPrint
+    Return      : as fontPrintN
+----------------------------------------------------------------------------*/
+sdword cat_fontPrintSubtitle(sdword x, sdword y, color c, char *string)  // 0x00558270
+{
+    return fontPrintN(x, y, c, TRUE, string, SDWORD_Max);
 }
 
 /*-----------------------------------------------------------------------------
@@ -1054,7 +1069,9 @@ FontShadowType fontShadowGet(void)
     Outputs     : Creates a quadrangle texture for each texture.
     Return      : OKAY
 ----------------------------------------------------------------------------*/
-sdword fontPrintN(sdword x, sdword y, color c, char *string, sdword maxCharacters)
+// CAT: fontPrintN 0x005582c0 takes a fourth argument, bAdditive, which its shadow pass and glfontDisplayString get
+//      (fontPrint and every other caller pass FALSE, cat_fontPrintSubtitle TRUE); the drawing is HW1's
+sdword fontPrintN(sdword x, sdword y, color c, bool32 bAdditive, char *string, sdword maxCharacters)
 {
     charheader *character;
     real32 imageWidth, imageHeight; //, clipHeight = 0.0f;
@@ -1104,12 +1121,12 @@ sdword fontPrintN(sdword x, sdword y, color c, char *string, sdword maxCharacter
         }
         saveType = fontCurrentShadowType;
         fontCurrentShadowType = FS_NONE;
-        fontPrintN(x + xOffset, y + yOffset, fontCurrentShadowColor, string, SDWORD_Max);
+        fontPrintN(x + xOffset, y + yOffset, fontCurrentShadowColor, bAdditive, string, SDWORD_Max);
         fontCurrentShadowType = saveType;
     }
 
     //display the GL font-page version if we "should" and "can"
-    if (glfontDisplayString(fontCurrentFont, string, x, y, c))
+    if (glfontDisplayString(fontCurrentFont, string, x, y, c, bAdditive))
     {
         return TRUE;
     }

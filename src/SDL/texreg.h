@@ -383,6 +383,9 @@ void trClearCurrent(void);
 
 //make a given texture current for rendering
 void trMakeCurrent(trhandle handle);
+// CAT: the texture-detail option (0x00589cd0) and the mission precache of six ship types' textures (0x00589910)
+void cat_trTextureMemorySet(sdword percent);
+void cat_trPrecacheShipTextures(void);
 
 //functions for directly manipulating textures, without having to go through
 //the texture registry

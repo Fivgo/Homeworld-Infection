@@ -2885,6 +2885,25 @@ void bigFilesystemCompare(char *baseDirectory, char *directory)
     }
 }
 
+// HWI: port diagnostic, not in the exe (the front-end screens self-test, /catFeScreensTest): load a file from one named
+//      archive of the precedence list (Update.big / Cataclysm.big), whatever the precedence; -1 if it is not there
+sdword catBigFileLoadAllocFrom(char *bigFileName, char *filename, void **address)
+{
+    udword bigfile_i, fileIndex;
+
+    for (bigfile_i = 0; bigfile_i < NUMBER_CONFIGURED_BIG_FILES; ++bigfile_i)
+    {
+        if ((strcasecmp(bigFilePrecedence[bigfile_i].bigFileName, bigFileName) == 0) &&
+            (bigFilePrecedence[bigfile_i].filePtr != NULL) &&
+            bigTOCFileExists(&(bigFilePrecedence[bigfile_i].tableOfContents), filename, &fileIndex))
+        {
+            return bigFileLoadAlloc(&(bigFilePrecedence[bigfile_i].tableOfContents), bigFilePrecedence[bigfile_i].filePtr,
+                                    filename, fileIndex, address);
+        }
+    }
+    return -1;
+}
+
 bool32 bigFindFile(char *filename, bigFileConfiguration **whereFound, udword *fileIndex)
 {
     udword bigfile_i = 0;

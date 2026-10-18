@@ -191,6 +191,7 @@ void cat_utyMultiplayerQuitNotify(void);                         // CAT: 0x005aa
 //load/save options from disk
 void utyOptionsFileRead(void);
 void utyOptionsFileWrite(void);
+char *catUtyOptionsFileReadBack(void);    // HWI: /catFeScreensTest's options round trip (port diagnostic)
 
 //text entry things
 real32 utyCaretBlinkRate(void);

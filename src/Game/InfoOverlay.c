@@ -119,11 +119,12 @@ static bool32 catMoPrintBoxes = FALSE;              // 0x00a4b88c: the print opt
 
 #define catMoOptions()      ((singlePlayerGame == 1) ? &cat_moPrintOptionsSP[catMoMode] : &cat_moPrintOptionsMP[catMoMode])
 
-// CAT: the taskbar options (Options.c: cat_opHWTaskbar 0x004d9e5a, cat_opTaskbarButtons, cat_opTaskbarBackdrop;
-//      cat_opCataclysmDefault 0x004da460 clears all three). CAT-TODO(M2-R6 options): the options screen sets them
-static bool32 catMoHWTaskbar = FALSE;               // 0x00a4b878: the bottom panel slides in at the screen edge
-static bool32 catMoTaskbarButtons = FALSE;          // 0x00a4b87c: the five taskbar buttons
-static bool32 catMoTaskbarBackdrop = FALSE;         // 0x00a4b880: a translucent backdrop over the bottom panel
+// CAT: the taskbar options (Options.c: cat_opHWTaskbar 0x004d9e30, cat_opTaskbarButtons 0x004d9e70,
+//      cat_opTaskbarBackdrop 0x004d9eb0; cat_opCataclysmDefault 0x004da460 clears all three, cat_opHomeworldClassic
+//      0x004da2c0 sets them; the options file rows HomeworldTaskbar / ShowTaskbarButtons / ShowTaskbarBackdrop)
+bool32 catMoHWTaskbar = FALSE;                      // 0x00a4b878: the bottom panel slides in at the screen edge
+bool32 catMoTaskbarButtons = FALSE;                 // 0x00a4b87c: the five taskbar buttons
+bool32 catMoTaskbarBackdrop = FALSE;                // 0x00a4b880: a translucent backdrop over the bottom panel
 
 // CAT: the ship lists, one entry per ship type (0x20 bytes each, 0x91 types)
 typedef struct

@@ -53,23 +53,27 @@ char DefaultScenario[100] = "Default";
 
 void spScenarioWindowInit(char *name, featom *atom);
 void spScenarioNameDraw(featom *atom, regionhandle region);
-void spScenarioBitmap(featom *atom, regionhandle region);
+void spScenarioBitmap(char *name, featom *atom);
 
-//void spScenarioBitmap(char *name, featom *atom);
-
+// CAT: CS_ScenarioBitmap is a list window of the description's lines, set up by a function callback (the exe's tables
+//      0x00892750 / 0x00892768: spCallbacks has it, spDrawCallbacks only CS_ScenarioName); HW1 drew the preview
+//      bitmap and the text in a user region
 fecallback spCallbacks[] =
 {
     {spScenarioWindowInit, "CS_ScenarioWindowInit"},
-    //{spScenarioBitmap, "CS_ScenarioBitmap"},
+    {spScenarioBitmap, "CS_ScenarioBitmap"},
     {NULL, NULL}
 };
 
 fedrawcallback spDrawCallbacks[] =
 {
     {spScenarioNameDraw,   "CS_ScenarioName"},
-    {spScenarioBitmap, "CS_ScenarioBitmap"},
     {NULL, NULL}
 };
+
+static listwindowhandle spDescriptionListWindow = NULL;  // CAT: 0x00a57930, the CS_ScenarioBitmap list window
+#define SCP_DescriptionInset    6                   // CAT: spNewItem 0x00504a20 insets the text by 6 (HW1: 3)
+#define SCP_NameLength          32                  // CAT: memStrncpy(.., 0x1f): the list and the name show at most 30 characters
 
 listwindowhandle spScenarioListWindow = NULL;
 //regionhandle     spScenarioBitmapWindow = NULL;
@@ -176,7 +180,7 @@ scriptEntry spDescriptionTweaksItalian[] =
 ----------------------------------------------------------------------------*/
 void spScenarioItemDraw(rectangle *rect, listitemhandle data)
 {
-    char            temp[64];
+    char            temp[SCP_NameLength];
     sdword          x, y;
     color           c;
     fonthandle      oldfont;
@@ -192,7 +196,7 @@ void spScenarioItemDraw(rectangle *rect, listitemhandle data)
     x = rect->x0;//+MG_HorzSpacing;
     y = rect->y0;//+MG_VertSpacing/2;
 
-    sprintf(temp,"%s",spScenario->title);
+    memStrncpy(temp, spScenario->title, SCP_NameLength - 1);  // CAT: spScenarioItemDraw 0x00503da0 (HW1: the whole title)
     fontPrint(x,y,c,temp);
 
     fontMakeCurrent(oldfont);
@@ -235,10 +239,11 @@ void spScenarioNameDraw(featom *atom, regionhandle region)
         }
     }
 
+    // CAT: spScenarioNameDraw 0x00503e10 keeps 30 characters (memStrncpy 0x1f; HW1: 126)
     if (useDisplayName)
-        memStrncpy(scenarioName, tpGameCreated.DisplayMapName, 127);
+        memStrncpy(scenarioName, tpGameCreated.DisplayMapName, SCP_NameLength - 1);
     else
-        memStrncpy(scenarioName, spScenarios[spCurrentSelected].title, 127);
+        memStrncpy(scenarioName, spScenarios[spCurrentSelected].title, SCP_NameLength - 1);
     for (i = 0; (scenarioName[i] = toupper(scenarioName[i])); i++) { }
     fontPrintf(r->x0, r->y0, FEC_ListItemSelected, scenarioName);
     fontMakeCurrent(fhSave);
@@ -379,6 +384,11 @@ sdword spScenarioFind(char *scenarioName)
     Inputs      : void
     Outputs     : Fills in spScenarios and spNumberScenarios
     Return      : void
+    Note        : CAT: spTitleListLoad 0x005040c0: every map name (a line of multiPlayerMissions.script or a directory
+                    of MultiPlayer) is its own scenario: fileSpec and bitmapfileSpec are the whole name (HW1: the name
+                    up to its number plus "%d", the sizes of one map merged into one entry with min / max players),
+                    maxplayers is the name's number and minplayers 2 (gameStart's sprintf of the level name then
+                    copies the name as it is)
 ----------------------------------------------------------------------------*/
 void spTitleListLoad(void)
 {
@@ -419,9 +429,9 @@ void spTitleListLoad(void)
             {                                               //if this is a numeral
 				sscanf( pString, "%d", &numplayers );
                 memset(fileName, 0, PATH_MAX);
-                memStrncpy(fileName, nameBuffer, pString - nameBuffer + 1);//copy the start of the string
-                memStrncpy(bitmapfileName, nameBuffer, pString - nameBuffer + 1);//copy the start of the string
-                strcat(fileName, "%d");                     //make something like: 'StdGame%d'
+                // CAT: the whole name is the scenario (spTitleListLoad 0x005040c0 copies the line, no "%d" pattern)
+                memStrncpy(fileName, nameBuffer, PATH_MAX);
+                memStrncpy(bitmapfileName, nameBuffer, PATH_MAX);
             }
         }
 
@@ -440,18 +450,7 @@ void spTitleListLoad(void)
             goto alreadyLoaded;                             //break-continue
         }
 
-        for (index = 0; index < spNumberScenarios; index++)
-        {
-            if (!strcasecmp(spScenarios[index].fileSpec, fileName))
-            {                                               //if matching file specs,
-                // matches, but we should update max number of player if necessary
-                if (numplayers > spScenarios[index].maxplayers) spScenarios[index].maxplayers = numplayers;
-                if (numplayers < spScenarios[index].minplayers) spScenarios[index].minplayers = numplayers;
-                memFree(title);
-                goto alreadyLoaded;                         //break-continue
-            }
-        }
-
+        // CAT: no merge of the sizes of one map: every line is its own scenario
         if (spNumberScenarios >= spScenarioListLength)
         {
             spScenarioListLength += SP_ScenarioListGrowth;
@@ -463,7 +462,7 @@ void spTitleListLoad(void)
         spScenarios[spNumberScenarios].bitmapfileSpec = memStringDupe(bitmapfileName);
         spScenarios[spNumberScenarios].title = title;
         spScenarios[spNumberScenarios].maxplayers = numplayers;
-        spScenarios[spNumberScenarios].minplayers = numplayers;
+        spScenarios[spNumberScenarios].minplayers = 2;      //CAT: every scenario plays from two players
         spNumberScenarios++;
 
 alreadyLoaded:;
@@ -488,9 +487,8 @@ alreadyLoaded:;
             {                                               //if this is a numeral
 				sscanf( pString, "%d", &numplayers );
                 memset(fileName, 0, PATH_MAX);
-                strncpy(fileName, find.name, pString - find.name);//copy the start of the string
-                memStrncpy(bitmapfileName, find.name, pString - find.name + 1);//copy the start of the string
-                strcat(fileName, "%d");                     //make something like: 'StdGame%d'
+                memStrncpy(fileName, find.name, PATH_MAX);  //CAT: the whole name
+                memStrncpy(bitmapfileName, find.name, PATH_MAX);
             }
         }
         if (numplayers == 0)
@@ -509,18 +507,6 @@ alreadyLoaded:;
             goto alreadyLoadedFromFileSystem;
         }
 
-        for (index = 0; index < spNumberScenarios; index++)
-        {
-            if (!strcasecmp(spScenarios[index].fileSpec, fileName))
-            {                                               //if matching file specs,
-                // matches, but we should update max number of player if necessary
-                if (numplayers > spScenarios[index].maxplayers) spScenarios[index].maxplayers = numplayers;
-                if (numplayers < spScenarios[index].minplayers) spScenarios[index].minplayers = numplayers;
-                memFree(title);
-                goto alreadyLoadedFromFileSystem;                         //break-continue
-            }
-        }
-
         if (spNumberScenarios >= spScenarioListLength)
         {
             spScenarioListLength += SP_ScenarioListGrowth;
@@ -531,7 +517,7 @@ alreadyLoaded:;
         spScenarios[spNumberScenarios].bitmapfileSpec = memStringDupe(bitmapfileName);
         spScenarios[spNumberScenarios].title = title;
         spScenarios[spNumberScenarios].maxplayers = numplayers;
-        spScenarios[spNumberScenarios].minplayers = numplayers;
+        spScenarios[spNumberScenarios].minplayers = 2;      //CAT
         spNumberScenarios++;
 
 alreadyLoadedFromFileSystem:;
@@ -557,9 +543,8 @@ alreadyLoadedFromFileSystem:;
                 {                                               //if this is a numeral
                     sscanf( pString, "%d", &numplayers );
                     memset(fileName, 0, PATH_MAX);
-                    memStrncpy(fileName, dir_entry->d_name, pString - dir_entry->d_name + 1);       //copy the start of the string
-                    memStrncpy(bitmapfileName, dir_entry->d_name, pString - dir_entry->d_name + 1); //copy the start of the string
-                    strcat(fileName, "%d");                     //make something like: 'StdGame%d'
+                    memStrncpy(fileName, dir_entry->d_name, PATH_MAX);          //CAT: the whole name
+                    memStrncpy(bitmapfileName, dir_entry->d_name, PATH_MAX);
                 }
             }
 
@@ -575,20 +560,6 @@ alreadyLoadedFromFileSystem:;
                 continue;
             }
             
-            for (index = 0; index < spNumberScenarios; index++)
-            {
-                if (strcasecmp(spScenarios[index].fileSpec, fileName))
-                    continue;
-
-                /* matches, but we should update max number of player if necessary */
-                if (numplayers > spScenarios[index].maxplayers) spScenarios[index].maxplayers = numplayers;
-                if (numplayers < spScenarios[index].minplayers) spScenarios[index].minplayers = numplayers;
-                memFree(title);
-                break;                         /*break-continue*/
-            }
-            if (index < spNumberScenarios)
-                continue;
-
             if (spNumberScenarios >= spScenarioListLength)
             {
                 spScenarioListLength += SP_ScenarioListGrowth;
@@ -600,7 +571,7 @@ alreadyLoadedFromFileSystem:;
             spScenarios[spNumberScenarios].bitmapfileSpec = memStringDupe(bitmapfileName);
             spScenarios[spNumberScenarios].title = title;
             spScenarios[spNumberScenarios].maxplayers = numplayers;
-            spScenarios[spNumberScenarios].minplayers = numplayers;
+            spScenarios[spNumberScenarios].minplayers = 2;  //CAT
             spNumberScenarios++;
         }
 
@@ -785,7 +756,7 @@ void spDescriptionDefaultsAndFreeText(void)
         memFree(spDescriptionLines);
         spNDescriptionLines = 0;
     }
-    spDescriptionFont = FONT_InvalidFontHandle;             //set printing defaults
+    spDescriptionFont = frFontRegister("default.hff");      //CAT: set printing defaults (the exe registers the font; HW1: invalid)
     spDescriptionShadow = FALSE;
     spDescriptionColor = colWhite;
     if (gameTypeFromDescription != NULL)
@@ -970,17 +941,15 @@ static void spDescriptionFontSet(char *directory,char *field,void *dataToFillIn)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT: spNewItem 0x00504a20: Cataclysm shows no preview bitmap (the exe never fills its bitmap path: the area is filled
+//      with FEC_Background) and puts the description's chopped lines into the CS_ScenarioBitmap list window
+//      (spScenarioBitmap); the description is MultiPlayer\<name>\description.txt (HW1: searched over the map's sizes)
 void spNewItem(void)
 {
-    char bitmapFile[PATH_MAX];
     char descriptionFile[PATH_MAX];
     char *chopBuffer;
-    sdword scen;
+    sdword scen, index;
     rectangle textureRect;
-//    rectangle rect = spScenarioBitmapWindow->rect;
-    color *bmpBuffer;
-    filehandle handle;
-    bmpheader header;
     featom *atom;
 
     scen = spScenarioListWindow->CurLineSelected->position;
@@ -1001,108 +970,41 @@ void spNewItem(void)
     //free the previous text and set defaults
     spDescriptionDefaultsAndFreeText();
 
-    spGetScenarioDetails(bitmapFile, descriptionFile, spScenarios[scen].bitmapfileSpec);
-    if (strlen(bitmapFile) > 0)
+    sprintf(descriptionFile, "%s%s\\description.txt", "MultiPlayer\\", spScenarios[scen].bitmapfileSpec);
+    if (!fileExists(descriptionFile, 0))
     {
-        handle = bmpFileOpen(&header, bitmapFile);         //open the file
-        if (handle != 0)
-        {                                                   //if opened properly
-            if (header.biWidth < SCP_PreviewWidthMin || header.biHeight > SCP_PreviewWidthMax)
-            {
-#if SCP_VERBOSE_LEVEL >= 1
-                dbgMessagef("'%s': width of %d bad.", bitmapFile, header.biWidth);
-#endif
-                bmpClose(handle);
-                return;
-            }
-            else if (header.biHeight < SCP_PreviewHeightMin || header.biHeight > SCP_PreviewHeightMax)
-            {
-#if SCP_VERBOSE_LEVEL >= 1
-                dbgMessagef("'%s': height of %d bad.", bitmapFile, header.biHeight);
-#endif
-                bmpClose(handle);
-                return;
-            }
-            //allocate the image buffer
-            bmpBuffer = memAlloc(header.biWidth * header.biHeight * sizeof(color), "TempBMPbuffer", Pyrophoric);
-            bmpBodyRead(bmpBuffer, handle, &header);        //read in the body of the file
-            if (header.biWidth != SCP_PreviewWidth || header.biHeight != SCP_PreviewHeight)
-            {                                               //if the image is the wrong size
-                //rescale the image to the proper size
-                bmpBuffer = trImageScale(bmpBuffer, header.biWidth, header.biHeight, SCP_PreviewWidth, SCP_PreviewHeight, TRUE);
-                header.biWidth = SCP_PreviewWidth;           //make it think we're the right size
-                header.biHeight = SCP_PreviewHeight;
-            }
-            scenarioTexture = trRGBTextureCreate(bmpBuffer, header.biWidth, header.biHeight, FALSE);
-            spTextureWidth  = header.biWidth;
-            spTextureHeight = header.biHeight;
-            if (spTextureData != NULL)
-            {
-                memFree(spTextureData);
-            }
-            spTextureData = (ubyte*)memAlloc(4*spTextureWidth*spTextureHeight, "scenpick data", NonVolatile);
-            memcpy(spTextureData, bmpBuffer, 4*spTextureWidth*spTextureHeight);
-            memFree(bmpBuffer);                             //free the image
-        }
-        else
-        {
-            return;
-        }
+        descriptionFile[0] = 0;
     }
-    else
-    {
-#if SCP_VERBOSE_LEVEL >= 1
-        dbgMessage("No preview image found!");
-#endif
-        textureRect.x0 = atom->x + SCP_TEXTURE_INSET;
-        textureRect.y0 = atom->y + SCP_TEXTURE_INSET;
-        textureRect.x1 = atom->x + atom->width - SCP_TEXTURE_INSET;
-        textureRect.y1 = atom->y + atom->height - SCP_TEXTURE_INSET;
-        primRectSolid2(&textureRect, colBlack);
-    }
+
+    //no preview bitmap: fill its area
+    textureRect.x0 = atom->x + SCP_DescriptionInset;
+    textureRect.y0 = atom->y + SCP_DescriptionInset;
+    textureRect.x1 = atom->x + atom->width - SCP_DescriptionInset;
+    textureRect.y1 = atom->y + atom->height - SCP_DescriptionInset;
+    primRectSolid2(&textureRect, FEC_Background);
 
     if (strlen(descriptionFile) > 0)
     {                                                       //if there is a description file
-        // load in the proper description based on the language
-        if (strCurLanguage==languageEnglish)
+        // load in the proper description based on the language (the others fall back to English)
+        if (strCurLanguage==languageFrench)
         {
-            scriptSet(NULL, descriptionFile, spDescriptionTweaks);//load in the description text
-        }
-        else if (strCurLanguage==languageFrench)
-        {
-            scriptSet(NULL, descriptionFile, spDescriptionTweaksFrench);//load in the description text
-            if (spDescription==NULL)
-            {
-                // if french isn't found load in english
-                scriptSet(NULL, descriptionFile, spDescriptionTweaks);//load in the description text
-            }
+            scriptSet(NULL, descriptionFile, spDescriptionTweaksFrench);
         }
         else if (strCurLanguage==languageGerman)
         {
-            scriptSet(NULL, descriptionFile, spDescriptionTweaksGerman);//load in the description text
-            if (spDescription==NULL)
-            {
-                // if german isn't found load in english
-                scriptSet(NULL, descriptionFile, spDescriptionTweaks);//load in the description text
-            }
+            scriptSet(NULL, descriptionFile, spDescriptionTweaksGerman);
         }
         else if (strCurLanguage==languageSpanish)
         {
-            scriptSet(NULL, descriptionFile, spDescriptionTweaksSpanish);//load in the description text
-            if (spDescription==NULL)
-            {
-                // if german isn't found load in english
-                scriptSet(NULL, descriptionFile, spDescriptionTweaks);//load in the description text
-            }
+            scriptSet(NULL, descriptionFile, spDescriptionTweaksSpanish);
         }
         else if (strCurLanguage==languageItalian)
         {
-            scriptSet(NULL, descriptionFile, spDescriptionTweaksItalian);//load in the description text
-            if (spDescription==NULL)
-            {
-                // if german isn't found load in english
-                scriptSet(NULL, descriptionFile, spDescriptionTweaks);//load in the description text
-            }
+            scriptSet(NULL, descriptionFile, spDescriptionTweaksItalian);
+        }
+        if (spDescription == NULL)
+        {
+            scriptSet(NULL, descriptionFile, spDescriptionTweaks);
         }
 
         if (spDescription != NULL)
@@ -1111,11 +1013,6 @@ void spNewItem(void)
             {                                               //make sure we have a font
                 spDescriptionFont = frFontRegister("default.hff");
             }
-            textureRect.x0 = atom->x + SCP_TEXTURE_INSET;   //and a region to print into
-            textureRect.y0 = atom->y + SCP_TEXTURE_INSET;
-            textureRect.x1 = atom->x + atom->width - SCP_TEXTURE_INSET;
-            textureRect.y1 = atom->y + atom->height - SCP_TEXTURE_INSET;
-
             spDescriptionLines = memAlloc(sizeof(char *) * (textureRect.y1 - textureRect.y0), "DescLines", NonVolatile);//allocate the chopping pointers
             chopBuffer = memAlloc(strlen(spDescription) + textureRect.y1 - textureRect.y0, "DescChopped", NonVolatile);//allocate chop buffer
             spNDescriptionLines = subStringsChop(&textureRect, spDescriptionFont, strlen(spDescription), spDescription, chopBuffer, spDescriptionLines);
@@ -1129,11 +1026,19 @@ void spNewItem(void)
         scriptSetStruct(NULL, descriptionFile, StaticMGInfoScriptTable, (ubyte *)gameTypeFromDescription);
     }
 
-    if (strlen(descriptionFile) > 0 || strlen(bitmapFile) > 0)
-    {                                                       //if there is a description file or a bitmap
-        if (spPickerStarted)
+    if (spDescriptionListWindow != NULL)
+    {
+        uicListCleanUp(spDescriptionListWindow);
+    }
+    if (strlen(descriptionFile) == 0)
+    {
+        return;
+    }
+    if ((spDescriptionListWindow != NULL) && (spDescription != NULL))
+    {
+        for (index = 0; index < spNDescriptionLines; index++)
         {
-            spScenarioBitmap(atom, (regionhandle)atom->region);//draw it/them
+            uicListAddItem(spDescriptionListWindow, (ubyte *)spDescriptionLines[index], 0, UICLW_AddToTail);
         }
     }
 }
@@ -1145,44 +1050,43 @@ void spNewItem(void)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void spScenarioBitmap(featom *atom, regionhandle region)
+// CAT: a description line of the CS_ScenarioBitmap list (0x00504f70): 6 pixels in, the description's font, shadow and
+//      colour
+static void spDescriptionItemDraw(rectangle *rect, listitemhandle data)
 {
-    rectangle textureRect;
-    sdword index, y;
-    fonthandle oldFont;
+    fonthandle oldFont = fontMakeCurrent(spDescriptionFont);
 
-    textureRect.x0 = region->rect.x0 + SCP_TEXTURE_INSET;
-    textureRect.y0 = region->rect.y0 + SCP_TEXTURE_INSET;
-    textureRect.x1 = region->rect.x1 - SCP_TEXTURE_INSET;
-    textureRect.y1 = region->rect.y1 - SCP_TEXTURE_INSET;
-
-    //draw the bitmap...
-    if (scenarioTexture != TR_InvalidInternalHandle)
+    if (spDescriptionShadow)
     {
-        trRGBTextureMakeCurrent(scenarioTexture);
-        primRectSolidTextured2(&textureRect);               //draw the bitmap
-        feStaticRectangleDraw(region);                      //draw a border
+        fontShadowSet(FS_SE, colBlack);
     }
-    //draw the description text...
-    if (spDescription != NULL)
-    {                                                       //if there is description text
-        dbgAssertOrIgnore(spDescriptionFont != FONT_InvalidFontHandle);
-        oldFont = fontMakeCurrent(spDescriptionFont);       //set the font
-        if (spDescriptionShadow)
-        {                                                   //optionally enable dropshadow
-            fontShadowSet(FS_SE, colBlack);
-        }
-        for (index = 0, y = textureRect.y0; index < spNDescriptionLines; index++)
-        {                                                   //draw each line
-            dbgAssertOrIgnore(spDescriptionLines[index] != NULL);
-            if (y + fontHeight(" ") >= textureRect.y1)
-            {                                               //if this line will extend off bottom of region
-                break;
+    fontPrintf(rect->x0 + SCP_DescriptionInset, rect->y0, spDescriptionColor, "%s", (char *)data->data);
+    fontShadowSet(FS_NONE, colBlack);
+    fontMakeCurrent(oldFont);
+}
+
+// CAT: spScenarioBitmap 0x00504fe0: the CS_ScenarioBitmap atom is a list window of the description's lines (HW1: a
+//      user region drawing the preview bitmap and the text)
+void spScenarioBitmap(char *name, featom *atom)
+{
+    sdword index;
+
+    if (FEFIRSTCALL(atom))
+    {
+        spDescriptionListWindow = (listwindowhandle)atom->pData;
+        uicListWindowInit(spDescriptionListWindow, NULL, NULL, 0, spDescriptionItemDraw,
+                          fontHeight(" ") / 3 + fontHeight(" "), UICLW_CanSelect);
+        if (spDescription != NULL)
+        {
+            for (index = 0; index < spNDescriptionLines; index++)
+            {
+                uicListAddItem(spDescriptionListWindow, (ubyte *)spDescriptionLines[index], 0, UICLW_AddToTail);
             }
-            fontPrint(textureRect.x0, y, spDescriptionColor, spDescriptionLines[index]);
-            y += fontHeight(" ") + 1;
         }
-        fontShadowSet(FS_NONE, colBlack);
-        fontMakeCurrent(oldFont);
+        return;
+    }
+    if (FELASTCALL(atom))
+    {
+        spDescriptionListWindow = NULL;
     }
 }

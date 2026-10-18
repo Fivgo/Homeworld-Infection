@@ -1422,8 +1422,8 @@ shipbindings *cat_univMeshBindingsDupeNoGuns(ShipStaticInfo *shipstaticinfo)
 /*-----------------------------------------------------------------------------
     CAT: the per-vertex mesh state (types in SpaceObj.h). In the exe only ships get one, and only when the
     low-memory switch 0x00c5236c is clear: utyGameSystemsInit sets it (and clears the dynamic-CPV option 0x00c52378)
-    when the machine has less than 128 MB of physical memory. This tree never sets it (stage 3 owns the low-memory
-    overrides of utyGameSystemsInit).
+    when the machine has less than 128 MB of physical memory (ported with the memory test in M2-R6 frontend: SDL_GetSystemRAM,
+    so it stays clear on any current machine) [audit: said the tree never sets it].
 -----------------------------------------------------------------------------*/
 bool32 catMeshStateDisabled = FALSE;
 

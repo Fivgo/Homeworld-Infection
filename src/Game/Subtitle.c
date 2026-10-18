@@ -27,6 +27,9 @@
 #include "StringSupport.h"
 #include "Subtitle.h"
 #include "Task.h"           // CAT: cat_taskTimeCompressionResetAndPrint
+#include "avi.h"            // CAT: aviIsPlaying (the Bink player's binkDonePlaying)
+#include "prim2d.h"
+#include <math.h>
 
 /*=============================================================================
     Data:
@@ -279,7 +282,7 @@ void subThemePictureSet(char *directory, char *field, void *dataToFillIn)
         dbgFatalf(DBG_Loc, "Invalid color scheme %d for '%s'", iColorScheme, pictureString);
     }
 #endif
-    if (universe.players[0].race == R1)
+    if (universe.players[0].race == RACE_Sect)
     {
         strcpy(fileName, "SpeechIcons\\R1\\");
     }
@@ -648,7 +651,7 @@ void subTexturesReset(void)
             //replace the image with the image for the correct race.
             reg = trStructureGet(subTheme[index].picture);
             strcpy(fileName, reg->fileName);
-            if (universe.players[0].race == R1)
+            if (universe.players[0].race == RACE_Sect)
             {
                 //Name if texture is:"SpeechIcons\RX\BlahBlah"
                 //            replace this number: ^
@@ -714,7 +717,7 @@ sdword subStringsChop(rectangle *rect, fonthandle font, sdword longLength, char 
 {
     sdword nChopped = 0;
     sdword nBytesUsed = 0;
-    sdword width = rect->x1 - rect->x0;
+    sdword width = rect->x1 - rect->x0 - 1;                 // CAT: one pixel less (subStringsChop 0x00583b00)
     char *chopStart = NULL, *chopEnd = NULL, *nextChopStart = NULL, *wrapPtr = NULL;
     fonthandle current = fontCurrentGet();
     sdword state;
@@ -755,7 +758,7 @@ sdword subStringsChop(rectangle *rect, fonthandle font, sdword longLength, char 
 
             //note: this method of fontWidth'ing is rather inefficient because
             //fontWidth will continuously be parsing the same piece of string.  Oh well.
-            else if (fontWidthN(chopStart, chopEnd - chopStart + 1) > width)
+            else if (fontWidthN(chopStart, chopEnd - chopStart + 1) >= width)    // CAT: wraps at width - 1 (HW1: > width)
             {                                               //if string too long for the region it's in
                 //scan backwards to find some whitespace to cut out
                 state = 0;                                  //search for whitespace state
@@ -1256,16 +1259,30 @@ sdword subTitleAdd(sdword actor, sdword speechEvent, char *text, sdword length, 
                     because they time out.
     Return      :void
 ----------------------------------------------------------------------------*/
-// CAT (M2-R5 hud): subTitlesDraw 0x00584620 first tells the info overlay a card is drawn (cat_ioSubtitleNotify(0),
-//      not in the tutorial); that call is ported. CAT-TODO(M2-R6 subtitles): the rest is Cataclysm's: a translucent
-//      backing rectangle (primRectTranslucent2 with additive blending), cat_fontPrintSubtitle, no cards while the
-//      construction manager is open (cat_cmIsOpen), and after a card's picture the tutorial button row
-//      (cat_tutButtonRowSet) and cat_ioSubtitleNotify(its bottom); HW1's body stands until then.
+// CAT: subTitlesDraw 0x00584620 (M2-R5 hud: the first cat_ioSubtitleNotify; M2-R6 frontend: the rest). Against HW1:
+//      - over the letterbox region, while no Bink movie plays (binkDonePlaying 0x008b6d94: GoK's movie player has
+//        aviIsPlaying) and no NIS scissor bar is up (nisScissorFade 0x00a4cb44, nisFullyScissored 0x00a4cb58), a strip the
+//        width of the screen and the height of a picture is added behind the text (additive blending, no texture or
+//        lighting; colour 40 in every byte: .data 0x008bb4fc = 40.0, rounded) instead of HW1's (invisible) strip;
+//      - a card's fade multiplier is rounded to the nearest (the exe adds the 1.5 * 2^52 constant) and the text is
+//        printed additively (cat_fontPrintSubtitle 0x00558270);
+//      - the picture is drawn without HW1's blend / alpha-test toggles, then the tutorial's button row is placed
+//        under it (cat_tutButtonRowSet 0x00532480) and, with the main region enabled, the info overlay told its
+//        bottom (cat_ioSubtitleNotify);
+//      - every region that runs out of cards (not aborted, not continuous) ends the message, not only the letterbox
+//        region's;
+//      - on the software renderer (RGLtype 0x00b3a700 == 0) an expired card, while the construction manager is open
+//        (cat_cmIsOpen) or the word 0x00a57744 is set, also clears the screen (rndClear, only above 640 pixels wide)
+//        and sets bit 0 of 0x0088f454 [audit: the second condition, the width test and the flag added]; GoK draws
+//        with GL only (decision 28), so that branch is not taken here.
+#define CAT_SUB_BackingAlpha        40.0f           // .data 0x008bb4fc (only read)
+#define CAT_SUB_PictureSize         64
+
 void subTitlesDraw(subregion *region)
 {
     sdword index;
     fonthandle fhSave = fontCurrentGet();
-    char *lineStart;//, *newLine;
+    char *lineStart;
     sdword x, y;
     subcard *card;
     color c;
@@ -1273,6 +1290,9 @@ void subTitlesDraw(subregion *region)
     udword multiplier;
     sdword scroll;
     real32 scrollFloat;
+    rectangle rect;
+    udword alpha;
+    sdword oldAdditive, oldTexture, oldLighting;
 
     if (tutorial != TUTORIAL_ONLY)
     {
@@ -1284,21 +1304,23 @@ void subTitlesDraw(subregion *region)
     primRectOutline2(&region->rect, 1, colWhite);
 #endif
 
-    if ((!mrRenderMainScreen && !smFleetIntel) && region == &subRegion[STR_LetterboxBar])
-    {                                                       //if some full screen gui is up
-        rndTextureEnable(FALSE);
-        glBegin(GL_TRIANGLE_STRIP);
-        //top scissor part
-        glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
-        glVertex2f(primScreenToGLX(-1), primScreenToGLY(0));
-        glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
-        glVertex2f(primScreenToGLX(-1), primScreenToGLY(NIS_LetterHeight));
-        glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
-        glVertex2f(primScreenToGLX(MAIN_WindowWidth), primScreenToGLY(0));
-        glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
-        glVertex2f(primScreenToGLX(MAIN_WindowWidth), primScreenToGLY(NIS_LetterHeight));
-        glEnd();
-        //ferDrawBoxRegion(region->rect, ferMediumTextures, ferInternalGlow, NULL, FALSE);
+    if (!aviIsPlaying && (nisScissorFade == 0.0f) && !nisFullyScissored && region == &subRegion[STR_LetterboxBar])
+    {                                                       //CAT: the backing strip
+        rect.x0 = 0;
+        rect.y0 = region->rect.y0 + region->iconOffsetY;
+        rect.x1 = MAIN_WindowWidth;
+        rect.y1 = rect.y0 + CAT_SUB_PictureSize;
+        alpha = (udword)lrintf(CAT_SUB_BackingAlpha);
+        c = (alpha << 24) | (alpha << 16) | (alpha << 8) | alpha;
+        glEnable(GL_BLEND);
+        oldAdditive = rndAdditiveBlends(TRUE);
+        oldTexture = rndTextureEnable(FALSE);
+        oldLighting = rndLightingEnable(FALSE);
+        primRectTranslucent2(&rect, c);
+        rndAdditiveBlends(oldAdditive);
+        rndTextureEnable(oldTexture);
+        rndLightingEnable(oldLighting);
+        glDisable(GL_BLEND);
     }
     //scroll the text, if applicable
     scroll = region->rect.y0;
@@ -1323,7 +1345,6 @@ void subTitlesDraw(subregion *region)
         {                                                   //if card has started up properly
             if (*subTimeElapsed - card->creationTime > card->duration)
             {                                               //if card elapses
-//                dbgMessagef("XXXX%10s", region->card[index].text);
                 if (region->cardIndex > 1)
                 {
                     region->card[index] = region->card[region->cardIndex - 1];
@@ -1336,18 +1357,8 @@ void subTitlesDraw(subregion *region)
             fontMakeCurrent(card->font);
 
             lineStart = card->text;
-            //newLine = strstr(lineStart, NIS_NewLine);
             x = card->x + region->rect.x0;
             y = card->y + scroll;
-            //scroll the text, if applicable
-    /*
-            if (card->scroll != 0.0f)
-            {                                                   //if the text is scrolling
-                y += (sdword)(card->scroll *                    //move to scrolled-to position
-                    (card->NIS->timeElapsed - card->creationTime) /
-                    card->duration);
-            }
-    */
             c = card->c;
             //fade the text in, if applicable
             if (card->fadeIn != 0.0f)
@@ -1358,7 +1369,7 @@ void subTitlesDraw(subregion *region)
                     card->fadeIn = 0.0f;
                     fadeValue = 1.0f;
                 }
-                multiplier = (udword)(fadeValue * 256.0f);
+                multiplier = (udword)lrintf(fadeValue * 256.0f);    //CAT: rounded (HW1: truncated)
                 c = colRGB(colRed(c) * multiplier / 256, colGreen(c) * multiplier / 256, colBlue(c) * multiplier / 256);
             }
             //fade the the text out, if applicable
@@ -1368,48 +1379,35 @@ void subTitlesDraw(subregion *region)
                 {                                               //if it in the fading part
                     fadeValue = (*subTimeElapsed - (card->creationTime + card->duration - card->fadeOut)) / card->fadeOut;
                     fadeValue = max(0.0, 1.0f - fadeValue);
-                    multiplier = (udword)(fadeValue * 256.0f);
+                    multiplier = (udword)lrintf(fadeValue * 256.0f);    //CAT: rounded
                     c = colRGB(colRed(c) * multiplier / 256, colGreen(c) * multiplier / 256, colBlue(c) * multiplier / 256);
-    //                dbgMessagef("<0x%2x>", multiplier);
                 }
             }
-            //draw the text
-            /*
-            while (newLine != NULL)
-            {
-                fontPrintN(x, y, card->c, lineStart, newLine - lineStart);
-                y += fontHeight(" ") + 1;
-                x = card->margin;
-                newLine += NIS_NewLineLength;
-                lineStart = newLine;
-                newLine = strstr(newLine, NIS_NewLine);
-            }
-            */
             if (card->bDropShadow)
             {
                 fontShadowSet(FS_SE, colBlack);
             }
-            fontPrint(x, y, c, lineStart);
+            cat_fontPrintSubtitle(x, y, c, lineStart);      //CAT: additive (HW1: fontPrint)
         }
     }
 
     if (region->picture != TR_InvalidHandle)
     {
-        rectangle rect;
-
         rect.x0 = region->rect.x0 + region->iconOffsetX;
         rect.y0 = region->rect.y0 + region->iconOffsetY;
         rect.x1 = rect.x0 + SUB_PictureWidth;
         rect.y1 = rect.y0 + SUB_PictureHeight;
         trMakeCurrent(region->picture);
-        glDisable(GL_ALPHA_TEST);
-        glEnable(GL_BLEND);
-        primRectSolidTextured2(&rect);
-        glDisable(GL_BLEND);
+        primRectSolidTextured2(&rect);                      //CAT: no blend / alpha-test toggles
+        rect.y1 = cat_tutButtonRowSet(rect.y1);             //CAT: the tutorial's buttons go under the picture
+        if (!mrDisabled)
+        {
+            cat_ioSubtitleNotify(rect.y1);
+        }
     }
 
-    if (region->cardIndex == 0 && region == &subRegion[STR_LetterboxBar] && (!region->bAborted) && !region->bContinuousEvent)
-    {                                                       //if all fleet intel/command cards expired
+    if (region->cardIndex == 0 && (!region->bAborted) && !region->bContinuousEvent)
+    {                                                       //CAT: any region's cards expired (HW1: the letterbox's)
         subMessageEnded = 1;
     }
     fontShadowSet(FS_NONE, colBlack);

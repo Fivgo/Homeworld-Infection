@@ -275,7 +275,8 @@ extern bool32 catSmShowMines;                       // CAT: 0x00a5b1ac (M2-R5 hu
 // CAT (M2-R6 mainrgn-popup): the sensors-view options (Sensors.c)
 extern bool32 catSmViewDecorativeAsteroids, catSmViewResources, catSmViewFOWRanges, catSmViewBackground,
               catSmViewAreasVisited, catSmViewIcons, catSmViewShipMeshes, catSmViewPieplateLines,
-              catSmViewObjectivePointers, catSmViewSlipgatePaths, catSmViewAreasOccupied, catSmViewCompass;
+              catSmViewObjectivePointers, catSmViewSlipgatePaths, catSmViewAreasOccupied, catSmViewCompass,
+              catSmViewMeteors, catSmViewUniverseExtents;
 void smCullAndFocusSelecting(void);                 // CAT: 0x0050c580 (prototype added, M2-R6 mainrgn-popup)
 color cat_smZoomFadeColor(color c, sdword inverse);   // CAT: 0x0050b830 (M2-R5 hud)
 

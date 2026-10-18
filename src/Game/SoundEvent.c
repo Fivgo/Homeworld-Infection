@@ -650,9 +650,9 @@ void soundEventVocalSettings(bool32 bCommands, bool32 bStatus, bool32 bChatter)
 void soundEventHearActor(sdword actornum)
 {
     // CAT: Cataclysm has one voice per race LUT (numactors 1) and three speech streams, and the exe has no pilot
-    //      voice preview: HW1's preview of pilot voice 1..3 (Options.c's voice buttons) would read past the LUT
-    //      and the stream handles, so it plays nothing. CAT-TODO(M2-R6 front end: Options.c): the exe's options
-    //      have no voice buttons; drop the callers with the options port.
+    //      voice preview: HW1's preview of pilot voice 1..3 would read past the LUT and the stream handles, so it
+    //      plays nothing. Its callers (Options.c opHearVoice1..3, the OP_Hear_Voice_* rows) are gone since M2-R6
+    //      frontend: nothing calls it; kept for HW1-named code
     (void)actornum;
 }
 

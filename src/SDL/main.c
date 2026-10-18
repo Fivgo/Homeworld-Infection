@@ -419,6 +419,15 @@ bool32 CatUiTestSet(char *string)
     return TRUE;
 }
 
+// CAT: port diagnostic: /catFeScreensTest <listfile> (FEFlow.c catFeScreensRunSelfTest: push and pop every screen of
+//      the install's .fib files, M2-R6 frontend)
+bool32 CatFeScreensTestSet(char *string)
+{
+    strncpy(catFeScreensSelfTestList, string, PATH_MAX - 1);
+    catFeScreensSelfTestList[PATH_MAX - 1] = '\0';
+    return TRUE;
+}
+
 #if HWI_ORACLE
 // HWI-ORACLE: /oracleDump <file>, /oracleSelfTest <ticks>, /oracleSelfTestPerturb <tick> (Game/OracleDump.c,
 // docs/m2-r2-oracle.md): checksum-oracle instrumentation, not a Cataclysm option
@@ -984,6 +993,10 @@ commandoption commandOptions[] =
     entryFnParam("/catDockTest",        CatDockTestSet, " <ticks> - headless Mission01 run: dock, deposit, harvest and launch orders with no input, exit after <ticks> ticks."),
     entryFnParam("/catCommandTest",     CatCommandTestSet, " <ticks> - headless Mission01 run: link, unlink, mimic, research, point orders and force-field formations with no input, exit after <ticks> ticks."),
     entryFnParam("/catHudTest",         CatHudTestSet, " <frames> - headless Mission01 run with the player's ships selected through the selection API: status bars, ship info panel, main overlay and pie plate drawn offscreen, logs the HUD counts, exit after <frames> ticks."),
+    // CAT: port diagnostics, not Cataclysm options (FEFlow.c catFeScreensRunSelfTest, StringSupport.c
+    //      catStringsRunSelfTest; M2-R6 frontend)
+    entryFnParam("/catFeScreensTest",   CatFeScreensTestSet, " <listfile> - push, draw and pop every screen of the .fib files named in listfile (archive<TAB>name lines), then exit."),
+    entryVr("/catStringsTest",      catStringsSelfTest, TRUE, " - resolve every string id of the language script against the script file, then exit."),
     entryFnParam("/catUiTest",          CatUiTestSet, " <ticks> - headless Mission01 run: the player's fleet selected, the popup menu opened, every cat_ui* command run once, the game-stats screen shown, logs uitest lines and quits."),
     entryFnParam("/catRenderTest",      CatRenderTestSet, " <frames> - headless Mission01 run through the Cataclysm object-list renderer with a lens flare source and a fog layer, logs the render counts, exit after <frames> ticks."),
     // CAT: port diagnostic, not a Cataclysm option (SpeechEvent.c catSoundRunSelfTest, M2-R5 sound) [audit: own comment]

@@ -5094,11 +5094,12 @@ DEFINE_TASK(rndRenderTask)
         // CAT (M2-R6 mainrgn-popup): rndRenderTask 0x0057a910 sets the cursor without mouseSelectCursorSetting (gone
         //      from Cataclysm). The front end's saved cursor (feShouldSaveMouseCursor, cat_mouseSaveCursorUnder /
         //      cat_mouseRestoreCursorUnder around the flip) is the Win32 GL front buffer's (decision 28: SDL redraws the
-        //      whole frame). CAT-TODO(M2-R6 front end): while the front end asks for that save, the exe neither clears
-        //      the buffers nor redraws them; it draws the shameless plug and takes screenshots from a flag
-        //      (ssSaveScreenshot's second argument), and resizes the texture pool after mainReinitRGL
-        //      (trNoPalResizePool). The render half (clears, regions, scissor bars, subtitles, sync status, the fill
-        //      counter) is as here.
+        //      whole frame). M2-R6 frontend: while the front end asks for that save the exe neither clears the buffers
+        //      nor flips them (the same front-buffer scheme: not applicable); its screenshot flag (glReadPixels into
+        //      ssSaveScreenshot) and the texture-pool resize after mainReinitRGL (trNoPalResizePool of the pool
+        //      cat_trTextureMemorySet set) are GoK's screenshot and renderer-reinit paths (decision 28). The render half
+        //      (clears, regions, scissor bars, subtitles, sync status, the fill counter) is as here.
+        //      CAT-TODO(M2-R7 render): rndShamelessPlug 0x00579ff0 (plug.tga in an ortho quad while 0x00a6c5b4 is set by cat_consoleOpen / cat_gameStatsBegin, or 0x00a6ed74 by a load): its GL quad is to be read from the disassembly; HW1's source has no body for it
         mouseSetCursorSetting();
         
         mouseDraw();                                        //draw mouse atop everything

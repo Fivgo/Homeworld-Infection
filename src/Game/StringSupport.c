@@ -1835,6 +1835,18 @@ bool8 strLoadLanguage(strLanguageType language)
             scriptSet("","English.script",LanguageStrings);
             strCurLanguage = (udword)language;
             strInitialized = TRUE;
+            // CAT: after English.script the exe walks the 0x6A9 strings and reports each one the script left at
+            //      "*NO_STRING*" (strLoadLanguage 0x005285f0; the report is a debug message its release build
+            //      compiles out, the string "WARNING!!!!  STRING %d HAS NOTHING IN ENGLISH.SCRIPT." stays)
+            for (i = 0; i < NumStrings; i++)
+            {
+                if (MessageStrings[i] == crapMessage)
+                {
+#ifdef HW_BUILD_FOR_DEBUGGING
+                    dbgMessagef("WARNING!!!!  STRING %d HAS NOTHING IN ENGLISH.SCRIPT.  (%s)", i, LanguageStrings[i].name);
+#endif
+                }
+            }
         return(TRUE);
         case languageFrench :
             scriptSet("","French.script",LanguageStrings);
@@ -1892,6 +1904,12 @@ bool8 strFreeLanguage(void)
 void strSetStringCB(char *directory,char *field,void *dataToFillIn)
 {
     *(void**)dataToFillIn = (void *)memStringDupe(field);
+    // CAT: a string with "http:" in it is kept as written (strSetStringCB 0x00528800: no backslash processing, for the
+    //      web addresses strTroubleShootPage / strSierraComPage / strContestServerPage); the rest as HW1
+    if (strstr(*(char **)dataToFillIn, "http:") != NULL)
+    {
+        return;
+    }
     *(void**)dataToFillIn = strParseString(*(void**)dataToFillIn);
 }
 
@@ -1947,3 +1965,140 @@ strGamesMessages strNameToEnum(char *string)
     return(index);
 }
 
+
+/*=============================================================================
+    CAT: port diagnostic, not in the exe: the strings self-test (/catStringsTest, harness mode strings; M2-R6
+    frontend). After the start-up loaded the language (strLoadLanguage), the language script is read again line by
+    line (fileOpen / fileLineRead / parseLine, as scriptSet reads it) and every one of the NumStrings ids is checked:
+    each LanguageStrings row maps back by name (strNameToEnum) and its dataPtr fills one id, every id exactly once
+    (rows 564 / 565 fill ids 565 / 564, as the exe's table); an id whose key the script has resolves to the script's
+    text (the last line of that key, through the strSetStringCB rules), one whose key it lacks stays "*NO_STRING*"
+    (as the exe's warning loop reports it); the ship names (ShipTypeToNiceStr) are counted. "stringstest:" log lines,
+    "stringstest: done ... result=PASS|FAIL".
+=============================================================================*/
+#include "File.h"
+#include "ObjTypes.h"
+
+#define CAT_STR_LINE_CHARS  650                     // StatScript.c MAX_LINE_CHARS, scriptSet's line buffer
+bool32 parseLine(char *line, char **returnName, char **returnValue);   // StatScript.c
+
+bool32 catStringsSelfTest = FALSE;
+
+void catStringsRunSelfTest(void)
+{
+    static char *languageFile[] = {"English.script", "French.script", "German.script", "Spanish.script", "Italian.script"};
+    filehandle fh;
+    char line[CAT_STR_LINE_CHARS];
+    char *name, *value, *copy;
+    char **expected;
+    sdword status, id, rows = 0, keys = 0, resolved = 0, missing = 0, mapback = 0, wrongText = 0, wrongMissing = 0;
+    sdword shipNames = 0, shipNoString = 0, listed = 0, row, *filled;
+    char missingList[512];
+
+    expected = memAlloc(NumStrings * sizeof(char *), "stringstest", NonVolatile);
+    memset(expected, 0, NumStrings * sizeof(char *));
+
+    fh = fileOpen(languageFile[strCurLanguage < 5 ? strCurLanguage : 0], FF_TextMode|FF_IgnorePrepend);
+    for (;;)
+    {
+        status = fileLineRead(fh, line, CAT_STR_LINE_CHARS);
+        if (status == FR_EndOfFile)
+        {
+            break;
+        }
+        if (parseLine(line, &name, &value))
+        {
+            rows++;
+            id = strNameToEnum(name);                       //the row; its dataPtr names the id it fills
+            if (id < NumStrings)
+            {
+                id = (sdword)((char **)LanguageStrings[id].dataPtr - MessageStrings);
+                copy = memStringDupe(value);
+                if (strstr(copy, "http:") == NULL)
+                {
+                    copy = strParseString(copy);
+                }
+                if (expected[id] != NULL)
+                {
+                    memFree(expected[id]);
+                }
+                expected[id] = copy;
+            }
+        }
+    }
+    fileClose(fh);
+
+    //every row's dataPtr is an id, each id filled by exactly one row (the exe's rows 564 / 565 fill ids 565 / 564)
+    filled = memAlloc(NumStrings * sizeof(sdword), "stringstest", NonVolatile);
+    memset(filled, 0, NumStrings * sizeof(sdword));
+    for (id = 0; id < NumStrings; id++)
+    {
+        row = (sdword)((char **)LanguageStrings[id].dataPtr - MessageStrings);
+        if ((strNameToEnum(LanguageStrings[id].name) == id) && (row >= 0) && (row < NumStrings) && (filled[row]++ == 0))
+        {
+            mapback++;
+        }
+        if (row != id)
+        {
+            dbgMessagef("stringstest: row %d %s fills id %d (as the exe's table)", id, LanguageStrings[id].name, row);
+        }
+    }
+    memFree(filled);
+
+    missingList[0] = '\0';
+    for (id = 0; id < NumStrings; id++)
+    {
+        if (expected[id] != NULL)
+        {
+            keys++;
+            if ((MessageStrings[id] != NULL) && (MessageStrings[id] != crapMessage) && (strcmp(MessageStrings[id], expected[id]) == 0))
+            {
+                resolved++;
+            }
+            else
+            {
+                wrongText++;
+                dbgMessagef("stringstest: FAIL id %d: '%s', the script says '%s'", id,
+                            MessageStrings[id] ? MessageStrings[id] : "(null)", expected[id]);
+            }
+            memFree(expected[id]);
+        }
+        else
+        {
+            missing++;
+            if (MessageStrings[id] != crapMessage)
+            {
+                wrongMissing++;
+                dbgMessagef("stringstest: FAIL id %d: not in the script but '%s'", id,
+                            MessageStrings[id] ? MessageStrings[id] : "(null)");
+            }
+            if (strlen(missingList) + 8 < sizeof(missingList))
+            {
+                sprintf(missingList + strlen(missingList), "%s%d", missingList[0] ? " " : "", id);
+                listed++;
+            }
+        }
+    }
+    memFree(expected);
+
+    for (id = 0; id < TOTAL_NUM_SHIPS; id++)
+    {
+        if ((ShipTypeToNiceStr((ShipType)id) != NULL) && (ShipTypeToNiceStr((ShipType)id) != crapMessage))
+        {
+            shipNames++;
+        }
+        else
+        {
+            shipNoString++;
+        }
+    }
+
+    dbgMessagef("stringstest: %s: %d rows read, %d ids with a key, %d without", languageFile[strCurLanguage < 5 ? strCurLanguage : 0],
+                rows, keys, missing);
+    dbgMessagef("stringstest: ids without a key (*NO_STRING*, as the exe): %s%s", missingList, listed < missing ? " ..." : "");
+    dbgMessagef("stringstest: ship names: %d of %d types named (ShipTypeToNiceStr), %d *NO_STRING*", shipNames, TOTAL_NUM_SHIPS, shipNoString);
+    dbgMessagef("stringstest: done ids=%d mapback=%d resolved=%d nostring=%d wrongtext=%d wrongnostring=%d result=%s",
+                NumStrings, mapback, resolved, missing, wrongText, wrongMissing,
+                (mapback == NumStrings && resolved == keys && keys + missing == NumStrings && wrongText == 0 &&
+                 wrongMissing == 0) ? "PASS" : "FAIL");
+}

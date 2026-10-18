@@ -555,11 +555,9 @@ void demStateLoad(void)
     taskNumberCalls = (udword)state.taskNumber;             //make sure this one gets called just like when it was saved
     utyNFrameTicks = state.frameTicks;
 
-    //tricky solution to get double-clicking to work in demo mode
-    if (!mouseLButton && keyScanCode[LMOUSE_BUTTON].keypressed)
-    {                                                       //if mouse button just hit
-        mouseLClick();
-    }
+    // CAT: demStateLoad 0x00462f50 calls an empty function where HW1 called mouseLClick (the demo's double-click
+    //      trick), so a played-back press does not click
+    (void)mouseLButton;
 #if DEM_INTERRUPTABLE
     if (demoInterruptKeysHit())
     {

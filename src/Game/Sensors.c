@@ -151,7 +151,8 @@ bool32 catSmShowMines = FALSE;
 // CAT (M2-R6 mainrgn-popup): the sensors-view options (the popup menu's sensors-view submenu shows them checked, the
 //      ToggleSV_* key commands flip them; cat_opHomeworldClassic 0x004da2c0 / cat_opCataclysmDefault set them). The
 //      exe's defaults (data 0x00892b48 .. 0x00892b70 all 1; 0x00a5b19c / 0x00a5b1a4 bss 0). Names chosen here from the
-//      menu rows. CAT-TODO(M2-R6 sensors): the sensors manager draws by them; CAT-TODO(M2-R6 front end): the options
+//      menu rows. CAT-TODO(M2-R6 sensors): the sensors manager draws by them. The options screen sets them (Options.c
+//      cat_opDust .. cat_opCapitalShipOverlay, M2-R6 frontend) and the options file keeps them (the Show* rows)
 bool32 catSmViewDecorativeAsteroids = TRUE;         // 0x00892b48 (OP_Dust)
 bool32 catSmViewResources = TRUE;                   // 0x00892b4c (OP_Resources)
 bool32 catSmViewFOWRanges = TRUE;                   // 0x00892b50 (OP_SensorsSphere)
@@ -164,6 +165,11 @@ bool32 catSmViewObjectivePointers = TRUE;           // 0x00892b6c (OP_ObjectiveP
 bool32 catSmViewSlipgatePaths = TRUE;               // 0x00892b70 (OP_SlipgatePaths)
 bool32 catSmViewAreasOccupied = FALSE;              // 0x00a5b19c (OP_SensorsWireframe)
 bool32 catSmViewCompass = FALSE;                    // 0x00a5b1a4 (OP_Compass)
+// CAT (M2-R6 frontend): two more words of the set, named from the exe's options-file rows (ShowMeteors 0x008c1868,
+//      ShowUniverseExtents 0x008c185c): OP_Resources sets the meteors with the resources (cat_opResources 0x004da110),
+//      cat_opSetAllDefaults 0x004db7b0 sets them; nothing in the options screen sets the extents word
+bool32 catSmViewMeteors = TRUE;                     // 0x00892b68 (.data 1)
+bool32 catSmViewUniverseExtents = FALSE;            // 0x00a5b1a0 (.bss)
 
 bool32 smSensorsDisable = FALSE;
 

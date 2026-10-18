@@ -31,6 +31,10 @@ extern udword strCurKeyboardLanguage;
 bool8 strLoadLanguage(strLanguageType language);
 bool8 strFreeLanguage(void);
 void  strSetStringCB(char *directory, char *field, void *dataToFillIn);
+
+// CAT: port diagnostic, not in the exe: /catStringsTest (harness mode strings; M2-R6 frontend)
+extern bool32 catStringsSelfTest;
+void catStringsRunSelfTest(void);
 strGamesMessages strNameToEnum(char *string);
 void strSetCurKeyboard(void);
 

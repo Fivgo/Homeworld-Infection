@@ -29,6 +29,10 @@
 #include "Tutor.h"
 #include "UIControls.h"
 #include "utility.h"
+#include "BigFile.h"          // CAT: /catFeScreensTest (port diagnostic)
+#include "Region.h"
+#include <limits.h>
+#include <ctype.h>
 
 #ifndef SW_Render
     #ifdef _WIN32
@@ -1703,7 +1707,9 @@ char *stpcpy_reimplementation(char *__restrict__ dest, const char *__restrict__ 
   return --dest;
 }
 
-void feScreensLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
+// HWI: split from GoK's feScreensLoadAndConvertTo64Bit so the front-end screens self-test can convert an image it
+//      loaded from one archive (/catFeScreensTest); feScreensLoad passes the file it loaded
+static void feScreensConvertTo64Bit(void *image, sdword imageLength, void** loadAddress)
 {
     int i;
     int j;
@@ -1729,19 +1735,49 @@ void feScreensLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
 
     int oldlength;
 
-    oldlength = fileLoadAlloc(fileName, (void **)&oldrootptr, NonVolatile);
+    sdword newlength;
+
+    oldlength = imageLength;
+    oldrootptr = image;
 
     header = oldptr = oldrootptr;
   
 
     oldfescreen = oldrootptr + sizeof(fibfileheader); 
   
+    // CAT-FIX (M2-R6 front end): the converted screens start at the aligned FIB_ScreensOffset (FEFlow.h), not at
+    //      +sizeof(fibfileheader) (the source of every 'struct fescreen' misaligned access), and the buffer is sized
+    //      from the image (each struct at its 64-bit size, each string with its terminator and up to 8 bytes of
+    //      alignment) instead of GoK's guess of twice the file
+#define FEF_STR64(off)  ((sdword)strlen((char *)oldrootptr + (off)) + 8)   // a copied string and its alignment
+    newlength = (sdword)FIB_ScreensOffset + (sdword)sizeof(fescreen) * header->nScreens;
+    for (i = 0; i < header->nScreens; i++)
+    {
+        newlength += FEF_STR64(oldfescreen[i].name);
+        newlength += (sdword)sizeof(struct tagfelink) * oldfescreen[i].nLinks;
+        oldfelink = (struct tagfelink_disk *)((ubyte *)oldrootptr + oldfescreen[i].links);
+        for (j = 0; j < oldfescreen[i].nLinks; j++)
+        {
+            newlength += FEF_STR64(oldfelink[j].name) + FEF_STR64(oldfelink[j].linkToName);
+        }
+        newlength += (sdword)sizeof(struct tagfeatom) * oldfescreen[i].nAtoms;
+        oldfeatom = (struct tagfeatom_disk *)((ubyte *)oldrootptr + oldfescreen[i].atoms);
+        for (j = 0; j < oldfescreen[i].nAtoms; j++)
+        {
+            if (oldfeatom[j].name != 0) newlength += FEF_STR64(oldfeatom[j].name);
+            if ((oldfeatom[j].pData != 0) && (oldfeatom[j].type != FA_RadioButton)) newlength += FEF_STR64(oldfeatom[j].pData);
+            if (oldfeatom[j].attribs != 0) newlength += FEF_STR64(oldfeatom[j].attribs);
+            if ((oldfeatom[j].region != 0) && (oldfeatom[j].region != 0xcdcdcdcd)) newlength += FEF_STR64(oldfeatom[j].region);
+        }
+    }
+    newlength += 8;
+#undef FEF_STR64
 //    newfescreen = newptr = newrootptr = malloc(sizeof(fescreen) * header->nScreens);
-    newrootptr = memAlloc(2* oldlength, "feflow 64bit conversion", 0); 
-    newfescreen = newrootptr +sizeof(fibfileheader);
+    newrootptr = memAlloc(newlength, "feflow 64bit conversion", 0);
+    newfescreen = newrootptr + FIB_ScreensOffset;
 
-    newptr = (void *)((sizeof(fescreen) * header->nScreens)+ newrootptr+ sizeof(fibfileheader));
-    memset(newrootptr, 0,2*oldlength);
+    newptr = (void *)((sizeof(fescreen) * header->nScreens)+ newrootptr+ FIB_ScreensOffset);
+    memset(newrootptr, 0, newlength);
     memcpy(newrootptr, oldrootptr, sizeof(fibfileheader));
 
     for (i = 0; i<header->nScreens; i++, oldfescreen++, newfescreen++){
@@ -1851,6 +1887,23 @@ void feScreensLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
 ----------------------------------------------------------------------------*/
 fibfileheader *feScreensLoad(char *fileName)
 {
+    void *image;
+    sdword length;
+
+    length = fileLoadAlloc(fileName, &image, NonVolatile);   //load in the file
+    return feScreensImageLoad(image, length, fileName);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : feScreensImageLoad
+    Description : The rest of feScreensLoad: fix up a loaded .fib image and register its screens (HWI: split out of
+                    feScreensLoad for the front-end screens self-test, which loads each archive's copy itself)
+    Inputs      : image, length - the file as fileLoadAlloc returned it; fileName - for the messages
+    Outputs     : the image is converted (64-bit builds: into a new block, the image freed), pointers fixed up
+    Return      : pointer to the header of the loaded screens
+----------------------------------------------------------------------------*/
+fibfileheader *feScreensImageLoad(void *image, sdword length, char *fileName)
+{
     ubyte *loadAddress;
     fibfileheader *header;
     fescreen *screen;
@@ -1858,9 +1911,9 @@ fibfileheader *feScreensLoad(char *fileName)
     bool32 menuItemsPresent;
 
 #ifdef HW_PTR_64
-    feScreensLoadAndConvertTo64Bit(fileName, (void **)&loadAddress);
+    feScreensConvertTo64Bit(image, length, (void **)&loadAddress);
 #else
-    fileLoadAlloc(fileName, (void **)&loadAddress, NonVolatile);     //load in the file
+    loadAddress = (ubyte *)image;
 #endif
     header = (fibfileheader *)loadAddress;                  //get a pointer to the header
 
@@ -1879,7 +1932,7 @@ fibfileheader *feScreensLoad(char *fileName)
         dbgFatalf(DBG_Loc, "feScreensLoad: Invalid version 0x%x in file '%s'.  Expected 0x%x", header->version, fileName, FIB_Version);
     }
 #endif
-    screen = (fescreen *)(loadAddress + sizeof(fibfileheader));//pointer to first screen
+    screen = (fescreen *)(loadAddress + FIB_ScreensOffset);//pointer to first screen
     for (screenIndex = 0; screenIndex < header->nScreens; screenIndex++, screen++)
     {
 #if FIX_ENDIAN
@@ -2286,7 +2339,7 @@ sdword feScreensDelete(fibfileheader *screens)
     fescreen *screen;
     sdword screenIndex;
 
-    screen = (fescreen *)((ubyte *)screens + sizeof(fibfileheader));//pointer to first screen
+    screen = (fescreen *)((ubyte *)screens + FIB_ScreensOffset);//pointer to first screen
     for (screenIndex = 0; screenIndex < screens->nScreens; screenIndex++, screen++)
     {
         feScreenEntryRemove(screen);                        //free each screen entry
@@ -3003,10 +3056,9 @@ void feCurrentScreenDelete(void)
 
     keyClearAllStuckKeys();
 
-    if(tacticsMenuRegion == feStack[feStackIndex].baseRegion)
-    {
-        tacticsMenuRegion = NULL;
-    }
+    // CAT: no tactics popup menu, so no tacticsMenuRegion clear (feCurrentScreenDelete 0x00475380 goes from
+    //      keyClearAllStuckKeys to the NULL-screen test); the exe ends with glcRenderEverything after the inlined
+    //      feScreenPop (glcompat: GoK's GL backend, decision 28)
 
     if (feStack[feStackIndex].screen == NULL)
     {
@@ -3432,3 +3484,238 @@ regionhandle feFindRadioButtonRegion(regionhandle temp, bool32 selected)
     return ((regionhandle)atom->region) ;  //returns NULL if region not found
 }
 
+
+/*=============================================================================
+    CAT: port diagnostic, not in the exe: the front-end screens self-test (/catFeScreensTest <listfile>, harness mode
+    fescreens; M2-R6 frontend). The list names every .fib of the install as "<archive><TAB><name>" (both archives'
+    TOCs, so the cataclysm.big copy of a file update.big replaces is tested too). With the front end up at
+    Main_game_screen, each file is loaded from its archive (feScreensImageLoad: the 64-bit conversion and fix-ups),
+    its screens are put first in the screen list, and each screen is pushed once from an empty stack with
+    feScreenStart (its CallOnCreate callbacks run), its regions are drawn once (regFunctionsDraw) and it is popped
+    again (feCurrentScreenDelete: the CallOnDelete callbacks); then the file's screens are deleted and the screen list
+    must be back to what the game had. "fescreentest:" log lines, "fescreentest: done ... result=PASS|FAIL"; the
+    caller restarts Main_game_screen and quits.
+=============================================================================*/
+char catFeScreensSelfTestList[PATH_MAX] = "";
+
+// the files whose screens only make sense inside a running game (the managers, the in-game menus, the loading screen,
+// the in-game chat and console): their callbacks expect a game's state (a dropped player, a selected ship, ...), so
+// while their screens are pushed and drawn every registered callback and draw callback points at a no-op stand-in
+// (the controls, regions, user regions and the generic draws run; no game code); the front-end files (front_end,
+// front_end_demo, the multiplayer and server screens) run their own callbacks
+static char *catFeScreensInGameFiles[] =
+{
+    "beast_construction_manager", "beast_launch_manager", "beast_research_manager", "construction_manager",
+    "launch_manager", "research_manager", "sensors_manager", "trader_interface", "csm-all", "taskbar",
+    "in_game_esc_menu", "hyperspace_roll_call", "single_player_objective", "horse_race", "game_chat", "console",
+    NULL
+};
+
+static void catFeScreensStubCallback(char *name, featom *atom)
+{
+    (void)name; (void)atom;
+}
+
+static void catFeScreensStubDraw(featom *atom, regionhandle region)
+{
+    (void)atom; (void)region;
+}
+
+static bool32 catFeScreensInGame(char *fileName)
+{
+    char base[64], *p;
+    sdword i;
+
+    p = strrchr(fileName, '\\');
+    strncpy(base, p ? p + 1 : fileName, sizeof(base) - 1);
+    base[sizeof(base) - 1] = '\0';
+    for (p = base; *p; p++)
+    {
+        *p = (char)tolower((unsigned char)*p);
+    }
+    if ((p = strstr(base, ".fib")) != NULL)
+    {
+        *p = '\0';
+    }
+    for (i = 0; catFeScreensInGameFiles[i] != NULL; i++)
+    {
+        if (strcmp(base, catFeScreensInGameFiles[i]) == 0)
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+void catFeScreensRunSelfTest(void)
+{
+    FILE *listFile;
+    char line[PATH_MAX], *tab, *end;
+    void *image;
+    sdword length, i, j, screenIndex, before, savedIndex;
+    fibfileheader *header;
+    fescreen *screen, **saved;
+    sdword nFiles = 0, nLoaded = 0, nScreens = 0, nPushed = 0, nPopped = 0, nWrong = 0, nSkipped = 0, nLeft = 0;
+    sdword savedDrawIndex, nStandIns = 0;
+    static fefunction savedFunctions[FE_NumberCallbacks];
+    static fedrawfunction savedDrawFunctions[FE_NumberDrawCallbacks];
+    bool32 inGame;
+
+    listFile = fopen(catFeScreensSelfTestList, "rt");
+    if (listFile == NULL)
+    {
+        dbgMessagef("fescreentest: cannot open list '%s'", catFeScreensSelfTestList);
+        dbgMessagef("fescreentest: done files=0 result=FAIL");
+        return;
+    }
+    saved = memAlloc(feNumberScreens * sizeof(fescreen *), "fescreentest", NonVolatile);
+    savedIndex = feScreenIndex;
+    for (i = 0; i < feScreenIndex; i++)
+    {
+        saved[i] = feScreen[i];
+    }
+    dbgMessagef("fescreentest: start: %d screens registered by the game, stack depth %d", feScreenIndex, feStackIndex);
+
+    while (fgets(line, sizeof(line), listFile) != NULL)
+    {
+        for (end = line + strlen(line); end > line && (end[-1] == '\n' || end[-1] == '\r'); end--)
+        {
+            end[-1] = '\0';
+        }
+        tab = strchr(line, '\t');
+        if (tab == NULL)
+        {
+            continue;
+        }
+        *tab = '\0';
+        nFiles++;
+        length = catBigFileLoadAllocFrom(line, tab + 1, &image);
+        if (length <= 0)
+        {
+            dbgMessagef("fescreentest: FAIL %s %s: not loaded", line, tab + 1);
+            continue;
+        }
+        if (feScreenIndex + ((fibfileheader *)image)->nScreens > feNumberScreens)
+        {
+            dbgMessagef("fescreentest: FAIL %s %s: %d screens would overflow the screen list (%d of %d used)",
+                        line, tab + 1, ((fibfileheader *)image)->nScreens, feScreenIndex, feNumberScreens);
+            memFree(image);
+            nSkipped++;
+            continue;
+        }
+        before = feScreenIndex;
+        header = feScreensImageLoad(image, length, tab + 1);
+        nLoaded++;
+        //put this file's screens first, so feScreenFind finds them before a copy the game loaded
+        screen = (fescreen *)((ubyte *)header + FIB_ScreensOffset);
+        for (screenIndex = 0; screenIndex < header->nScreens; screenIndex++)
+        {
+            feScreen[screenIndex] = &screen[screenIndex];
+        }
+        for (i = 0; i < before; i++)
+        {
+            feScreen[header->nScreens + i] = saved[i];
+        }
+        feScreenIndex = before + header->nScreens;
+
+        inGame = catFeScreensInGame(tab + 1);
+        if (inGame)
+        {                                                   //stand-ins: the screens' callbacks are found, run nothing
+            for (i = 0; i < feCallbackIndex; i++)
+            {
+                savedFunctions[i] = feCallback[i].function;
+                feCallback[i].function = catFeScreensStubCallback;
+            }
+            for (i = 0; i < feDrawCallbackIndex; i++)
+            {
+                savedDrawFunctions[i] = feDrawCallback[i].function;
+                feDrawCallback[i].function = catFeScreensStubDraw;
+            }
+        }
+        //a user region whose draw callback the game registers only with its module (the multiplayer screens': at
+        //mgStartup) would get no region, which feCurrentScreenDelete's CallOnDelete cannot take (as in the exe):
+        //those names get the no-op stand-in for this file
+        savedDrawIndex = feDrawCallbackIndex;
+        for (screenIndex = 0; screenIndex < header->nScreens; screenIndex++)
+        {
+            for (i = 0; i < screen[screenIndex].nAtoms; i++)
+            {
+                if ((screen[screenIndex].atoms[i].type == FA_UserRegion) && (screen[screenIndex].atoms[i].name != NULL) &&
+                    (feDrawCallbackFind(screen[screenIndex].atoms[i].name) == NULL) &&
+                    (feDrawCallbackIndex < feNumberDrawCallbacks))
+                {
+                    feDrawCallbackAdd(screen[screenIndex].atoms[i].name, catFeScreensStubDraw);
+                    nStandIns++;
+                }
+            }
+        }
+        for (screenIndex = 0; screenIndex < header->nScreens; screenIndex++, screen++)
+        {
+            nScreens++;
+            feAllMenusDelete();
+            feAllScreensDelete();
+            if (screen->nAtoms < 1)
+            {
+                dbgMessagef("fescreentest: %s %s: screen '%s' has no atoms, not pushed", line, tab + 1, screen->name);
+                continue;
+            }
+            feScreenStart(ghMainRegion, screen->name);
+            if (feStack[feStackIndex].screen == screen)
+            {
+                nPushed++;
+            }
+            else
+            {
+                nWrong++;
+                dbgMessagef("fescreentest: FAIL %s %s: '%s' pushed another screen", line, tab + 1, screen->name);
+            }
+            primModeSet2();
+            regFunctionsDraw();
+            j = feStackIndex;
+            feAllMenusDelete();
+            feAllScreensDelete();
+            if (feStackIndex == 0)
+            {
+                nPopped++;
+            }
+            (void)j;
+        }
+        feDrawCallbackIndex = savedDrawIndex;               //the stand-ins for unregistered user regions go
+        if (inGame)
+        {
+            for (i = 0; i < feCallbackIndex; i++)
+            {
+                feCallback[i].function = savedFunctions[i];
+            }
+            for (i = 0; i < feDrawCallbackIndex; i++)
+            {
+                feDrawCallback[i].function = savedDrawFunctions[i];
+            }
+        }
+        dbgMessagef("fescreentest: %s %s: %d screens pushed, drawn and popped (callbacks: %s)", line, tab + 1,
+                    header->nScreens, inGame ? "no-op stand-ins, an in-game file" : "the game's");
+        feScreensDelete(header);
+        if (feScreenIndex != before)
+        {
+            dbgMessagef("fescreentest: FAIL %s %s: %d screens registered after the delete, %d before",
+                        line, tab + 1, feScreenIndex, before);
+            nLeft++;
+        }
+        for (i = 0; i < feScreenIndex && i < savedIndex; i++)
+        {
+            if (feScreen[i] != saved[i])
+            {
+                nLeft++;
+                dbgMessagef("fescreentest: FAIL %s %s: screen list entry %d changed", line, tab + 1, i);
+                break;
+            }
+        }
+    }
+    fclose(listFile);
+    memFree(saved);
+
+    dbgMessagef("fescreentest: done files=%d loaded=%d screens=%d pushed=%d popped=%d wrong=%d skipped=%d listchanged=%d userregionstandins=%d result=%s",
+                nFiles, nLoaded, nScreens, nPushed, nPopped, nWrong, nSkipped, nLeft, nStandIns,
+                (nFiles > 0 && nLoaded == nFiles && nPushed == nScreens && nPopped == nScreens && nWrong == 0 &&
+                 nSkipped == 0 && nLeft == 0) ? "PASS" : "FAIL");
+}

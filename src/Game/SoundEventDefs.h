@@ -52,6 +52,15 @@
 #define UI_RadioBeepEnd					(33 + UI_Flag)
 
 #define NUM_UI_EVENTS					(UI_RadioBeepEnd - UI_Flag + 1)
+// CAT (M2-R6 front end): Cataclysm's UIEvents.lut has 62 events x 2 races; the front-end controls play these ids
+//      (names chosen here from their callers): a toggle pressed while checked / unchecked (uicToggleProcess 0x00534c00;
+//      HW1's UI_TacOverlayOn / Off slots), a radio button or an arrow-key choice (uicRadioButtonProcess 0x00534dc0,
+//      uicRightArrowProcess 0x00538fc0; HW1's UI_ChatMessage slot), the colour picker's two race buttons
+#define CAT_UI_ToggleChecked			(12 + UI_Flag)      // 0x10c
+#define CAT_UI_ToggleUnchecked			(13 + UI_Flag)      // 0x10d
+#define CAT_UI_RadioClick				(15 + UI_Flag)      // 0x10f
+#define CAT_UI_RaceOne					(58 + UI_Flag)      // 0x13a (the CP_RaceOne toggle)
+#define CAT_UI_RaceTwo					(59 + UI_Flag)      // 0x13b (the CP_RaceTwo toggle)
 // CAT: the UI ambients are events 0x100..0x107 (soundEventPlay 0x005209f0; HW1 up to UI_Trading)
 #define CAT_UI_LAST_AMBIENT				(7 + UI_Flag)
 

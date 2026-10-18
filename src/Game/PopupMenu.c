@@ -228,7 +228,8 @@ static sdword catPmGroupGap;                        // 0x00a560e0: 0.6 lines bet
 
 static fonthandle catPmFontLarge;                   // 0x00a575f0 arial_15.hff
 static fonthandle catPmFontSmall;                   // 0x00a575f4 arial_12.hff
-// CAT: 0x00a5749c, the options' "small fonts" toggle inverted (cat_opSmallFonts 0x004d9df0, M2-R6 front end)
+// CAT: 0x00a5749c, the options' "small fonts" toggle inverted (cat_opSmallFonts 0x004d9df0, Options.c; the options
+//      file row LargePopupMenuFonts)
 bool32 catPmLargeFont = FALSE;
 
 static real32 catPmFlashStart = 0.0f;               // 0x00a57624

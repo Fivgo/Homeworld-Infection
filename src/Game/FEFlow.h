@@ -155,6 +155,17 @@ typedef struct tagfibfileheader
 }
 fibfileheader;
 
+// CAT-FIX (M2-R6 front end): the screen table's offset in a loaded .fib image. The exe (ILP32) reads the 20-byte
+//      screens right after the 12-byte header (feScreensLoad 0x004744e0, the image as fileLoadAlloc returns it). GoK's
+//      64-bit loader converts the image into 32-byte screens, which need 8-byte alignment, but kept them at +12: every
+//      front-end screen access was misaligned (the 'struct fescreen' UBSan kind). The converted image keeps its
+//      screens at the next 8-byte boundary (+16); the 32-bit image stays as the exe's.
+#ifdef HW_PTR_64
+#define FIB_ScreensOffset       ((sizeof(fibfileheader) + 7) & ~(size_t)7)
+#else
+#define FIB_ScreensOffset       sizeof(fibfileheader)
+#endif
+
 //structure for a screen
 typedef struct tagfescreen
 {
@@ -258,6 +269,23 @@ typedef struct tagfeatom_disk
 featom_disk;
 #endif
 
+// CAT (M2-R6 frontend): the .fib layout (docs/formats/fib.md: 12-byte header, 20-byte screens, 12-byte links, 0x4C
+//      atoms, feScreensLoad 0x004744e0's strides); the ILP32 structs are the file's (tools/m2_layout32.sh), the 64-bit
+//      build reads the file through the _disk structs
+_Static_assert(sizeof(fibfileheader) == 12, "the .fib header is 12 bytes");
+#if defined(__i386__)
+_Static_assert(sizeof(fescreen) == 20, "a .fib screen is 20 bytes in cataclysm.exe");
+_Static_assert(sizeof(felink) == 12, "a .fib link is 12 bytes in cataclysm.exe");
+_Static_assert(sizeof(featom) == 0x4C, "a .fib atom is 0x4C bytes in cataclysm.exe");
+_Static_assert(FIB_ScreensOffset == 12, "the screens follow the header in cataclysm.exe");
+#endif
+#ifdef HW_PTR_64
+_Static_assert(sizeof(fescreen_disk) == 20, "a .fib screen is 20 bytes on disk");
+_Static_assert(sizeof(felink_disk) == 12, "a .fib link is 12 bytes on disk");
+_Static_assert(sizeof(featom_disk) == 0x4C, "a .fib atom is 0x4C bytes on disk");
+_Static_assert((FIB_ScreensOffset % 8) == 0, "the converted screens are 8-byte aligned");
+#endif
+
 //type of a function callback for a front end
 typedef void (*fefunction)(char *name, featom *atom);
 
@@ -358,6 +386,11 @@ void feFunctionExecute(char *name, featom *atom, bool32 firstcall);
 
 //load in a front end screen
 fibfileheader *feScreensLoad(char *fileName);
+fibfileheader *feScreensImageLoad(void *image, sdword length, char *fileName);   // HWI: feScreensLoad after the file load
+
+// CAT: port diagnostic, not in the exe: /catFeScreensTest <listfile> (harness mode fescreens; M2-R6 frontend)
+extern char catFeScreensSelfTestList[];
+void catFeScreensRunSelfTest(void);
 sdword feScreensDelete(fibfileheader *screens);
 
 //execute a screen

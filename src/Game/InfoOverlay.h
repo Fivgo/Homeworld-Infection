@@ -40,6 +40,8 @@ typedef struct
 } ShipOverlayInfo;
 
 extern bool32 ioRunning;
+// CAT: the taskbar options (0x00a4b878 / 0x00a4b87c / 0x00a4b880; Options.c cat_opHWTaskbar and the presets)
+extern bool32 catMoHWTaskbar, catMoTaskbarButtons, catMoTaskbarBackdrop;
 
 
 /*=============================================================================

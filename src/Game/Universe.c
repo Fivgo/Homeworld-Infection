@@ -8,6 +8,7 @@
 =============================================================================*/
 
 #include "Universe.h"
+#include "Leech.h"          // CAT: cat_leechMessagesReset (universeReset)
 #include "ShipPrint.h"
 #include "InfoOverlay.h"
 #include "Sensors.h"
@@ -4643,11 +4644,12 @@ void universeReset(void)
 
     // CAT: universeReset 0x0053df80 resets the info overlay (cat_ioReset 0x004ab590), the ship info panel's drag
     //      (cat_shipPrintReset 0x00511500), then the time compression (cat_taskTimeCompressionReset 0x0052a420), and
-    //      clears the sensors manager's mine display (0x00a5b1ac, catSmShowMines). CAT-TODO(M2-R6 front end): three
-    //      UI globals (0x00a762dc..0x00a762e4); CAT-TODO(stage 6 tutorial): cat_tutPointerListReset 0x0052f890
+    //      clears the sensors manager's mine display (0x00a5b1ac, catSmShowMines) and the leeches' message words
+    //      (0x00a762dc .. 0x00a762e4: Leech.c, M2-R6 frontend); CAT-TODO(stage 6 tutorial): cat_tutPointerListReset 0x0052f890
     cat_ioReset();
     cat_shipPrintReset();
     cat_taskTimeCompressionReset();
+    cat_leechMessagesReset();
     catSmShowMines = FALSE;
 }
 

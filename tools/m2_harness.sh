@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -66,6 +66,19 @@
 #                    the game-stats screen begins (the universe pauses) and is drawn for 8 frames; "uitest:" log
 #                    lines, "uitest: done ... result=PASS|FAIL", then the screen ends (to the main menu) and the engine
 #                    quits; <ticks> is only the mission run's limit (default 400)
+#                    fescreens: /catFeScreensTest <run>/fescreens.list (M2-R6 frontend, docs/m2-r6-frontend.md): once the
+#                    front end is up at Main_game_screen, every .fib of both archives' TOCs (cataclysm.big and update.big,
+#                    "archive<TAB>name" lines: 22 files, multiplayer_game.fib from each) is loaded from its archive, each of
+#                    its screens is pushed with feScreenStart (its CallOnCreate callbacks run), its regions are drawn once
+#                    and it is popped (feCurrentScreenDelete), then the file's screens are deleted; "fescreentest:" log
+#                    lines, "fescreentest: done ... result=PASS|FAIL"; before the screens, the Cataclysm option set at the
+#                    exe's defaults is written to the options file, scrambled, read back and compared ("optionstest:"
+#                    lines, "optionstest: done ... result=PASS|FAIL"); quits. The summary counts the 'struct fescreen' /
+#                    featom / fibfileheader UBSan reports in every mode (0 since M2-R6 frontend)
+#                    strings: /catStringsTest (M2-R6 frontend): after the start-up, every one of the 1,705 string ids is
+#                    checked against the language script read again line by line (its row maps back, a key resolves to the
+#                    script's text, a missing key stays *NO_STRING* as in the exe) and the ship names are counted;
+#                    "stringstest:" log lines, "stringstest: done ... result=PASS|FAIL"; quits
 #   --oracle-ticks N oracle mode: universe ticks to run (default 512)
 #   --mission-ticks N mission mode: universe ticks to run (default 3000)
 #   --dock-ticks N   dock mode: universe ticks to run (default 5000; about 30 s under ASan on the virtual clock)
@@ -166,6 +179,7 @@ grep -q -a "/logFileLoads" "$bin" || args=(/window /nodebugInt /settingspath "$o
 [[ "$mode" == statics ]] && args+=(/catShipStaticsTest)
 [[ "$mode" == textures ]] && args+=(/catTexturesTest)
 [[ "$mode" == sound ]] && args+=(/catSoundTest)
+[[ "$mode" == strings ]] && args+=(/catStringsTest)
 if [[ "$mode" == oracle ]]; then
 	args+=(/oracleSelfTest "$oticks" /oracleDump "$out/run.hwo")
 	[[ -n "$perturb" ]] && args+=(/oracleSelfTestPerturb "$perturb")
@@ -196,6 +210,16 @@ if [[ "$mode" == meshes ]]; then
 			| sort > "$out/meshes.list"
 	fi
 	args+=(/catMeshLoadTest "$out/meshes.list")
+fi
+if [[ "$mode" == fescreens ]]; then
+	# every .fib of both archives' TOCs, as "archive<TAB>name" (the engine loads each from that archive); an
+	# /ignoreBigfiles data tree has no archives, so this mode needs the harness data dir
+	for arc in Cataclysm.big Update.big; do
+		f="$data/$(echo "$arc" | tr 'A-Z' 'a-z')"
+		[[ -e "$f" ]] || continue
+		python3 "$root/tools/bigfile.py" list "$f" | awk -F'\t' -v a="$arc" 'NR > 1 && tolower($5) ~ /\.fib$/ {print a "\t" $5}'
+	done | sort -t$'\t' -k2,2 -k1,1 > "$out/fescreens.list"
+	args+=(/catFeScreensTest "$out/fescreens.list")
 fi
 if [[ "$mode" == etg ]]; then
 	# every etg\*.script and etg\*.ebg of the install (the cataclysm.big TOC; update.big has none), or of an
@@ -267,16 +291,19 @@ grep -q "rendertest: done" "$L" && milestone="render self-test done"
 grep -q "soundtest: done" "$L" && milestone="sound self-test done"
 grep -q "hudtest: done" "$L" && milestone="hud self-test done"
 grep -q "uitest: done" "$L" && milestone="ui self-test done"
+grep -q "optionstest: done" "$L" && milestone="options round trip done"
+grep -q "fescreentest: done" "$L" && milestone="fescreens self-test done"
+grep -q "stringstest: done" "$L" && milestone="strings self-test done"
 
 # first stop: the first fatal error / failed assertion / ASan report. UBSan runtime errors do not stop the engine; the
-# first one is reported separately, except the misaligned-access reports on the packed front-end structs that every
-# run prints (GoK 64-bit artefacts, docs/m2-r1-data-deltas.md 5.4; the sound-bank 'struct PATCH' ones are fixed since
-# M2-R5 sound and count again)
+# first one is reported separately (the misaligned-access reports on the packed front-end structs, GoK 64-bit artefacts
+# docs/m2-r1-data-deltas.md 5.4, are fixed since M2-R6 frontend and count again, as the sound-bank 'struct PATCH' ones
+# since M2-R5 sound)
 # [M2-R3 etg-particles: an ASan report can land in the ubsan.* log (UBSan's log_path wins when both sanitizers write,
 # the same as the LeakSanitizer report below); the stop and the ASan count read both logs]
 stop=$(grep -h -E "Fatal error|Fatal Error|ERROR: AddressSanitizer|AddressSanitizer:DEADLYSIGNAL|Unable to open file|SUMMARY: AddressSanitizer: [a-z-]+ |Assertion of" "$L" "$out"/asan.* "$out"/ubsan.* 2>/dev/null | grep -v "SUMMARY: AddressSanitizer: .* leaked" | head -n 1)
-ubsan1=$(grep -h "runtime error" "$L" "$out"/ubsan.* 2>/dev/null \
-	| grep -v -E "misaligned address .* type '(struct fescreen|struct featom|struct fibfileheader)'" | head -n 1)
+ubsan1=$(grep -h "runtime error" "$L" "$out"/ubsan.* 2>/dev/null | head -n 1)
+fescreen_n=$(cat "$L" "$out"/ubsan.* 2>/dev/null | grep "runtime error" | grep -c -E "type '(struct fescreen|struct featom|struct fibfileheader)'")
 if [[ -z "$stop" ]]; then
 	if [[ $rc -eq 124 || $rc -eq 137 ]]; then stop="none: still running at the ${tmo}s timeout"; else stop="none found in the log (rc=$rc)"; fi
 fi
@@ -293,6 +320,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	echo "milestone: $milestone"
 	echo "first stop: $stop"
 	echo "first non-benign UBSan report (non-fatal): ${ubsan1:-none}"
+	echo "fescreen UBSan reports (struct fescreen / featom / fibfileheader): $fescreen_n"
 	echo "file loads: $nload; ASan errors: $asan_n; LeakSanitizer at exit: ${leak_sum:-no unsuppressed leak}"
 	echo "ship statics: $(grep -c 'shipstatic: loaded' "$L") loaded, $(grep -c 'shipstatic: .* not found' "$L") not found (disabled), $(grep -c 'shipstatic: other' "$L") other .shp; $(grep -h 'shipstatic: self-test done' "$L" | sed 's/^.*shipstatic: //' | head -n 1)"
 	[[ "$mode" == meshes ]] && echo "meshes: $(grep -c . "$out/meshes.list" 2>/dev/null) listed, $(grep -c 'meshtest: loaded' "$L") .geo/.peo loaded, $(grep -c 'meshtest: mad loaded' "$L") .mad loaded, $(grep 'meshtest: .*loaded' "$L" | grep -c -v ' bad=0$') with bad=; $(grep -h 'meshtest: self-test done' "$L" | sed 's/^.*meshtest: //' | head -n 1)"
@@ -304,6 +332,9 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == render ]] && echo "rendertest: $(grep -h 'rendertest: counts\|rendertest: done' "$L" | sed 's/^.*rendertest: //' | paste -sd';')"
 	[[ "$mode" == hud ]] && echo "hudtest: $(grep -h 'hudtest: selected\|hudtest: counts\|hudtest: done' "$L" | sed 's/^.*hudtest: //' | paste -sd';')"
 	[[ "$mode" == ui ]] && echo "uitest: $(grep -h 'uitest: ' "$L" | sed 's/^.*uitest: //' | paste -sd';')"
+	[[ "$mode" == fescreens ]] && echo "fescreentest: $(grep -c . "$out/fescreens.list" 2>/dev/null) files listed; $(grep -h 'fescreentest: start\|fescreentest: done' "$L" | sed 's/^.*fescreentest: //' | paste -sd';'); FAIL lines: $(grep -c 'fescreentest: FAIL' "$L")"
+	[[ "$mode" == fescreens ]] && echo "optionstest: $(grep -h 'optionstest: ' "$L" | sed 's/^.*optionstest: //' | paste -sd';')"
+	[[ "$mode" == strings ]] && echo "stringstest: $(grep -h 'stringstest: ' "$L" | grep -v 'stringstest: FAIL' | sed 's/^.*stringstest: //' | paste -sd';'); FAIL lines: $(grep -c 'stringstest: FAIL' "$L")"
 	[[ "$mode" == sound ]] && echo "soundtest: $(grep -h 'soundtest: ' "$L" | sed 's/^.*soundtest: //' | paste -sd';'); UBSan reports in fquant.c/fqcodec.c: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c 'fquant\.c\|fqcodec\.c'); PATCH reports: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c "struct PATCH")"
 	[[ "$mode" == etg ]] && echo "etg: $(grep -c . "$out/etg.list" 2>/dev/null) listed; $(grep -h 'etgtest: etgStartup done\|etgtest: self-test done\|etgtest: created\|etgtest: effect self-test done' "$L" | sed 's/^.*etgtest: //' | paste -sd';')"
 	echo "engine glows:$(grep -c -i 'engineglows' "$out/FileLoads.log" 2>/dev/null) mesh/mex loads from misc\\EngineGlows in FileLoads.log"

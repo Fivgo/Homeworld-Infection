@@ -5233,7 +5233,7 @@ void nisTextCardListDraw(void)
         //draw the text
         while (newLine != NULL)
         {
-            fontPrintN(x, y, card->c, lineStart, newLine - lineStart);
+            fontPrintN(x, y, card->c, FALSE, lineStart, newLine - lineStart);
             y += fontHeight(" ") + 1;
             x = card->margin;
             newLine += NIS_NewLineLength;

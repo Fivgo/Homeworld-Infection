@@ -62,6 +62,7 @@ _Static_assert(sizeof(LeechSpec) == 0x4C, "LeechSpec is 0x4C bytes in cataclysm.
 extern CustShipHeader LeechHeader;
 
 ubyte cat_leechGetAction(Ship *ship);                       // 0x005b6890
+void cat_leechMessagesReset(void);                          // CAT: universeReset 0x0053df80's clear of the message words
 void cat_leechSetAction(Ship *ship, ubyte action);          // 0x005b68a0
 bool32 cat_shipIsLeech(Ship *ship);                         // 0x005b7fd0
 LeechSpec *cat_leechGetSpecifics(Ship *ship);               // 0x005b7ff0

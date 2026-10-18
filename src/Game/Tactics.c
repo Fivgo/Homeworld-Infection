@@ -42,7 +42,7 @@
 -----------------------------------------------------------------------------*/
 
 //global data
-regionhandle    tacticsMenuRegion = NULL;      // CAT: FEFlow.c still clears it; nothing sets it (no tactics popup)
+regionhandle    tacticsMenuRegion = NULL;      // CAT: nothing sets or clears it (no tactics popup; feCurrentScreenDelete 0x00475380 has no clear)
 
 //special ops tweakables
 real32 kamikazeDamage[TOTAL_NUM_SHIPS];

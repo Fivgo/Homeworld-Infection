@@ -1762,12 +1762,96 @@
   "note": "M2-R2 identifiers item and audit row 27 (format string 0x007530c8); was IDENTICAL/medium",
   "sample": "port-R3"
  },
+ "0x0043df90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x0043e330": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x0043e4c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x0043e690": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x0043e8f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x0043eb70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x0043eee0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x0043efb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x0043f050": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x0043f160": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
  "0x0043f310": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same 15-slot clear",
   "sample": "MODIFIED/low"
+ },
+ "0x0043f620": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x0043f700": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
  },
  "0x0043f7e0": {
   "class": "IDENTICAL",
@@ -1776,12 +1860,89 @@
   "note": "cpNumberDraw inlined",
   "sample": "REWRITTEN/high"
  },
+ "0x0043f8c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x0043f9a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x0043fa80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x0043fb60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x0043fc40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x0043fd20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x0043fe00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x0043fee0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
  "0x0043ffc0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "cpNumberDraw inlined",
   "sample": "reread-R2"
+ },
+ "0x004400a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x00440120": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004401b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
  },
  "0x004402a0": {
   "class": "IDENTICAL",
@@ -1790,12 +1951,47 @@
   "note": "glcActive is named cat_glcActive in the map; head matches",
   "sample": "uniform/MODIFIED"
  },
+ "0x00440450": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the glcompat branch calls cat_cpValueGradientCreateSized (HW1's cpValueTextureGradientCreateScaled renamed)",
+  "note": "[review: M2-R6 frontend] compared: same logic; the glcompat branch is GoK's backend (decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x00440600": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x00440690": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
  "0x00440830": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "cpTexturesPurge, cpHueSatImageDelete and cpPreviewImageDelete (PREVIEW_IMAGE 1) inlined; NUM_RACES*2 = 14 curves (header NUM_RACES 7)",
   "sample": "reread-R2"
+ },
+ "0x00440940": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x00440ba0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
  },
  "0x00440bd0": {
   "class": "IDENTICAL",
@@ -1804,12 +2000,33 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00440c00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x00440cb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
  "0x00440da0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same (no return on the assert path, as HW1)",
   "sample": "reread-R2"
+ },
+ "0x00440e40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
  },
  "0x00440f70": {
   "class": "IDENTICAL",
@@ -2881,12 +3098,61 @@
   "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "audit-R5-layout-dock-sync"
  },
+ "0x00462b60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
  "0x00462cc0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "DEM_CHECKSUM block compiled out; demBlockWrite, demoEndKeysHit and demRecordEnd inlined",
   "sample": "reread-R2"
+ },
+ "0x00462dd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00462e10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00462e20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the release build: the 27 random streams restored (DEM_RANDY_SAVE), no header checks, no checksum log",
+  "note": "[review: M2-R6 frontend] compared: same as the tree's DEM_RANDY_SAVE path (DEM_NumberStreamsToSave = the 27 streams); the debug checks are the tree's build switches",
+  "sample": "port-R6-frontend"
+ },
+ "0x00462f00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00462f50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "an empty function where HW1 called mouseLClick; the release build's state (no checksums); the interrupt keys inlined",
+  "note": "[review: M2-R6 frontend] ported (the mouseLClick call removed); the checksum block is the tree's debug switch (DEM_CHECKSUM)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004630d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
  },
  "0x004631f0": {
   "class": "MODIFIED",
@@ -3786,19 +4052,75 @@
   "note": "fmathInitSqrt inlined [review: M2-R5 layout-dock] compared with 0x004728c0: the table builder of the exe's fsqrt; absent from this tree (FastMath.h uses sqrtf); see fsqrt",
   "sample": "reread-R2"
  },
+ "0x00472950": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the software-renderer branch drops gameIsRunning && mrRenderMainScreen for cat_gameStatsIsActive; the GL branch tests cat_glcActive and the glcompat flags",
+  "note": "[review: M2-R6 frontend] not in the tree: GoK removed feShouldSaveMouseCursor with the Win32 front-buffer cursor save (decision 28); nothing to port",
+  "sample": "port-R6-frontend"
+ },
+ "0x00472a00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
  "0x00472ab0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "feNamesEqual (!strcmp) inlined",
+  "note": "feNamesEqual (!strcmp) inlined | [review: M2-R6 frontend] compared with r6: same",
   "sample": "reread-R2"
  },
  "0x00472b30": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "feNamesEqual inlined",
+  "note": "feNamesEqual inlined | [review: M2-R6 frontend] compared with r6: same",
   "sample": "reread-R2"
+ },
+ "0x00472bd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (the wheel helpers inlined)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004735d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00473640": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (a Win32 Sleep(0) yield after the draw)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004736b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00473850": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00473a30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (feDrawCallbackFind inlined)",
+  "sample": "port-R6-frontend"
  },
  "0x00474050": {
   "class": "MODIFIED",
@@ -3807,33 +4129,194 @@
   "note": "M2-R2 startup report (run startup-r6-fecb-fe); was IDENTICAL/medium",
   "sample": "port-R3"
  },
+ "0x00474130": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00474380": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
  "0x004743a0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R6 frontend] compared with r6: same",
   "sample": "reread-R2"
+ },
+ "0x004743d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x004743f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00474410": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x004744e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "HW1's loader inlined (feAtomOnScreen, the repositioning, feScreenEntryAdd) with three Sleep(0) yields; no change of logic",
+  "note": "[review: M2-R6 frontend] compared: same logic as the tree; the 64-bit converter keeps the screens at the aligned FIB_ScreensOffset (CAT-FIX: the fescreen UBSan kind)",
+  "sample": "port-R6-frontend"
+ },
+ "0x00474880": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
  },
  "0x00474960": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "feNamesEqual inlined",
+  "note": "feNamesEqual inlined | [review: M2-R6 frontend] compared with r6: same",
   "sample": "reread-R2"
+ },
+ "0x00474a00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00474ae0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00474d00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00474d80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x004751a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
  },
  "0x00475200": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "5-byte thunk: tail jump to feCurrentScreenDelete (whose Ghidra prototype shows two unused parameters)",
+  "note": "5-byte thunk: tail jump to feCurrentScreenDelete (whose Ghidra prototype shows two unused parameters) | [review: M2-R6 frontend] compared with r6: same",
   "sample": "reread-R2"
+ },
+ "0x00475210": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x004752c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00475300": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00475380": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no tacticsMenuRegion clear; feScreenPop inlined, then glcRenderEverything; two parameters because feScreenDisappear is folded into it (ICF)",
+  "note": "[review: M2-R6 frontend] ported: the tacticsMenuRegion clear removed; glcRenderEverything is glcompat (decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x00475550": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
  },
  "0x00475750": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "feCurrentScreenDelete takes no arguments; the two shown are Ghidra prototype noise",
+  "note": "feCurrentScreenDelete takes no arguments; the two shown are Ghidra prototype noise | [review: M2-R6 frontend] compared with r6: same",
   "sample": "reread-R2"
+ },
+ "0x00475770": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x004757e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00475990": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00475a80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00475b00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00475be0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
  },
  "0x00475e20": {
   "class": "IDENTICAL",
@@ -3856,12 +4339,166 @@
   "note": "rectangle returned through the hidden pointer",
   "sample": "reread-R2"
  },
+ "0x00475f70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00475fa0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00475ff0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00476050": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x004765d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00476760": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
  "0x00476920": {
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "n > 256 now returns -1 (branchless (n <= 256) ? 256 : -1); HW1 returns 256 for every n > 128",
-  "note": "the 2..128 ladder is as HW1",
+  "note": "the 2..128 ladder is as HW1 | [review: M2-R6 frontend] ported (GoK's loop replaced by the exe's ladder; CAT-FIX above 256, where the exe's -1 would size a negative texture; no texture the 22 .fib files name is over 256)",
   "sample": "reread-R2"
+ },
+ "0x00476990": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00476ee0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00477030": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00477200": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00477300": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00477960": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x004781a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x004782f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00478440": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00478580": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00478850": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00478920": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x004789f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00478bd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00478de0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00479000": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
  },
  "0x00479130": {
   "class": "IDENTICAL",
@@ -3869,6 +4506,13 @@
   "change": "",
   "note": "switch over normal/focus texture holders became if-chain; GL calls through function pointers",
   "sample": "IDENTICAL/medium"
+ },
+ "0x004794b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (the strcpy / strcat inlined; suffixes _off / _off_mouse / _on / _on_mouse.lif; was MODIFIED by the tool for the inlined string loops)",
+  "sample": "port-R6-frontend"
  },
  "0x0047acf0": {
   "class": "IDENTICAL",
@@ -4219,6 +4863,41 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x00480d80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00480db0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00480de0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00480e20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00480fb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
  },
  "0x00481130": {
   "class": "MODIFIED",
@@ -7288,6 +7967,20 @@
   "note": "[review: M2-R5 render] ported (ObjTypes.c / .h)",
   "sample": "port-R5-render"
  },
+ "0x004d71a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no kbInitKeyBindings (utyGameSystemsInit calls it after cat_kbLoadKeyBindings)",
+  "note": "[review: M2-R6 frontend] ported (kbInitKeyBindings moved to utyGameSystemsInit)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d71d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "opEffectsHelper, cat_lodSetTimeThreshold(detail threshold), shGammaSet, cat_trTextureMemorySet(texture detail), opOptionsSaveSettings (HW1: opUpdateVideoSettings with the auto-LOD polygons and trNoPalResizePool)",
+  "note": "[review: M2-R6 frontend] ported",
+  "sample": "port-R6-frontend"
+ },
  "0x004d7200": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -7295,12 +7988,222 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x004d7240": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d72e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d73f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d7430": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d74a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d7540": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d75e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d76d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no auto-LOD read-back of the detail threshold; the device switch also compares the HardwareTransformLighting word; the Win32 RGL / 3dfx device paths",
+  "note": "[review: M2-R6 frontend] ported: the auto-LOD read-back dropped; the device code stays GoK's SDL path (decision 28), catOpHardwareTL kept",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d7e30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d7e50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "in the tutorial (tutorial == 1) disables the Game_options-TO-Gameplay link's region after the accept",
+  "note": "[review: M2-R6 frontend] ported (catOpTutorialGameplayDisable)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d7ea0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d7f40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d7f80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "restores Cataclysm's words (HW T&L, texture detail via cat_trTextureMemorySet, LOD frame rate via cat_lodSetTimeThreshold, LOD detail, frame-rate option, popup fonts, taskbar x3, CSA x2, waypoints, experience messages, 13 sensors-view words, CPV / lens flare / repair droids); no sound-quality restore, no ioEnable / ioDisable, no trNoPalResizePool; ends with cat_kbReloadKeyBindings(FALSE)",
+  "note": "[review: M2-R6 frontend] ported (the key-bindings reload is a CAT-TODO for M2-R6 key bindings)",
+  "sample": "port-R6-frontend"
+ },
  "0x004d8370": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "after restoring settings and returning to Main_game_screen also reloads key bindings (cat_kbReloadKeyBindings(false))",
-  "note": "opOptionsCancelHelper inlined",
+  "change": "cat_kbReloadKeyBindings(FALSE) after the screen change (opOptionsCancelHelper inlined)",
+  "note": "opOptionsCancelHelper inlined | [review: M2-R6 frontend] the reload is CAT-TODO(M2-R6 key bindings); kbRestoreSavedSettings stands in",
   "sample": "MODIFIED/medium"
+ },
+ "0x004d83a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_kbReloadKeyBindings(FALSE); the tutorial's Gameplay link disabled",
+  "note": "[review: M2-R6 frontend] ported (the reload: CAT-TODO M2-R6 key bindings)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d8400": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d8480": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d84f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d8570": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d85e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "saves the voice switches, the battle chatter, the sound quality and the speaker setting with the equalizer (no HW1 voice actors)",
+  "note": "[review: M2-R6 frontend] ported (opOptionsSaveAdvancedSettings)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d8690": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "restores the voice switches, the sound quality, the speaker setting and its equalizer, then the battle chatter",
+  "note": "[review: M2-R6 frontend] ported (opRestoreAdvancedSettings)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d8740": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "saves the voice switches, the battle chatter, the sound quality and the speaker setting with the equalizer (no HW1 voice actors)",
+  "note": "[review: M2-R6 frontend] ported (opOptionsSaveAdvancedSettings)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d87f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "restores the voice switches, the sound quality, the speaker setting and its equalizer, then the battle chatter",
+  "note": "[review: M2-R6 frontend] ported (opRestoreAdvancedSettings)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d88a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the custom effects' save includes the dynamic CPV, lens flare, repair droid and LOD detail words",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported (opOptionsSaveCustomEffectsSettings)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d8990": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the custom effects' restore includes the dynamic CPV, lens flare, repair droid and LOD detail words",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported (opRestoreSavedCustomEffectsSettings)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d8a70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the custom effects' save includes the dynamic CPV, lens flare, repair droid and LOD detail words",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported (opOptionsSaveCustomEffectsSettings)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d8b60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the custom effects' restore includes the dynamic CPV, lens flare, repair droid and LOD detail words",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported (opRestoreSavedCustomEffectsSettings)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d8c40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "also saves the dynamic CPV, lens flare, repair droid and LOD detail words",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d8d00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "saves Cataclysm's words and the texture detail; no auto-LOD read-back, no no-palette pool; cat_kbSaveKeyBindings",
+  "note": "[review: M2-R6 frontend] ported (cat_kbSaveKeyBindings: CAT-TODO M2-R6 key bindings)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d9250": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d9280": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the tutorial's Gameplay link disabled after the start",
+  "note": "[review: M2-R6 frontend] ported",
+  "sample": "port-R6-frontend"
  },
  "0x004d92e0": {
   "class": "IDENTICAL",
@@ -7309,6 +8212,55 @@
   "note": "opCancelKeyDetour inlined",
   "sample": "reread-R2"
  },
+ "0x004d9300": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d93d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d94a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d9570": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d9630": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a slate background 0xff7a635a and white digits (HW1: black, orange)",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d96b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d96f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
  "0x004d9770": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -7316,12 +8268,292 @@
   "note": "normalizeSmoothie inlined (clamp to 0..1)",
   "sample": "IDENTICAL/high"
  },
+ "0x004d97f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d9870": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d98c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d98e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d9900": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "moving the effects slider off the high / low preset switches OP_Effects to custom (2)",
+  "note": "[review: M2-R6 frontend] ported (catOpNumEffectsCustomCheck)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d9990": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d9a10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d9ab0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d9b00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d9b20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the detail threshold is a frame rate 30 - slider (0..21), applied by cat_lodSetTimeThreshold (HW1: slider + 50 polygons, opSetDetailThreshold)",
+  "note": "[review: M2-R6 frontend] ported",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d9b50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d9b90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the high preset also sets the dynamic CPV, lens flares, repair droids and all four effect kinds; the low one clears the first three with the hit and fire effects; GL_POLYGON_STIPPLE on the rgl.dll device",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported (the RGL stipple is decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d9cc0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "keeps the OP_Effects radio's region (0x00a4cc60) for the effects slider's custom switch",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported",
+  "sample": "port-R6-frontend"
+ },
+ "0x004d9d60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004da5e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the slider runs 0..21 against the frame rate 30..9 (HW1: 51 steps, value - 50)",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported",
+  "sample": "port-R6-frontend"
+ },
+ "0x004da690": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004da6b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004da710": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004da730": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same logic (the exe's device-mode test is GoK's opResResSupported)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004da860": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004da9a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004daa80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: the exe prefixes the device kind (GL) / (D3D) / (SW); GoK's device list (decision 28) prints the name only: not ported",
+  "sample": "port-R6-frontend"
+ },
+ "0x004dac00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004dada0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no NP_Draw / trNoPalResizePool (no no-palette pool display)",
+  "note": "[review: M2-R6 frontend] ported; the device list (opRenderListLoad) stays GoK's",
+  "sample": "port-R6-frontend"
+ },
+ "0x004dae90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004daef0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004daf40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004daf90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004dafe0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004db040": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004db090": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004db0e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004db130": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004db190": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004db1f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004db250": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
  "0x004db2a0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "opBattleChatterProcess inlined (reads slider, battleChatterFrequencySet)",
   "sample": "MODIFIED/medium"
+ },
+ "0x004db300": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the slider process inlined with the custom switch",
+  "note": "[review: M2-R6 frontend] ported (through opNumEffectsProcess)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004db400": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "a radio button set on tpGameCreated.aiplayerDifficultyLevel (HW1: a 0..100 slider)",
+  "note": "[review: M2-R6 frontend] ported",
+  "sample": "port-R6-frontend"
+ },
+ "0x004db440": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "a radio button set on tpGameCreated.aiplayerBigotry (HW1: a slider)",
+  "note": "[review: M2-R6 frontend] ported",
+  "sample": "port-R6-frontend"
+ },
+ "0x004db480": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "only stores the word: no ioEnable / ioDisable (nothing in the exe reads opInfoOverlayVar beyond the options)",
+  "note": "[review: M2-R6 frontend] ported",
+  "sample": "port-R6-frontend"
  },
  "0x004db4c0": {
   "class": "IDENTICAL",
@@ -7336,6 +8568,27 @@
   "change": "",
   "note": "FEFIRSTCALL/FECHECKED macros (the fuel option survives)",
   "sample": "reread-R2"
+ },
+ "0x004db520": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004db5f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
+  "sample": "port-R6-frontend"
+ },
+ "0x004db6c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "opens MessageStrings[strTroubleShootPage] (the install's support address) instead of HW1's constant",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported",
+  "sample": "port-R6-frontend"
  },
  "0x004dc3a0": {
   "class": "IDENTICAL",
@@ -8801,26 +10054,110 @@
   "note": "LoadStructureOfSize inlined",
   "sample": "reread-R2"
  },
+ "0x00503da0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "memStrncpy(.., 0x1f) of the title (30 characters) instead of sprintf into 64",
+  "note": "[review: M2-R6 frontend] ported",
+  "sample": "port-R6-frontend"
+ },
+ "0x00503e10": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the name is cut to 30 characters (memStrncpy 0x1f; HW1 126)",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported",
+  "sample": "port-R6-frontend"
+ },
+ "0x00503ed0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
  "0x005040a0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "_stricmp on the titles",
+  "note": "_stricmp on the titles | [review: M2-R6 frontend] compared with r6: same",
   "sample": "reread-R2"
+ },
+ "0x005040c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "every name is its own scenario: fileSpec / bitmapfileSpec the whole name (no '%d' pattern, no merge of sizes), minplayers 2, maxplayers the name's number; spScenarioFind inlined",
+  "note": "[review: M2-R6 frontend] ported (the GoK directory scans as well)",
+  "sample": "port-R6-frontend"
+ },
+ "0x005044d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00504570": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005045d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005046c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005046f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "spDescriptionDefaultsAndFreeText inlined with the default font registered (frFontRegister default.hff); spSelectionValid inlined",
+  "note": "[review: M2-R6 frontend] compared: same logic; the default font is ported in spDescriptionDefaultsAndFreeText",
+  "sample": "port-R6-frontend"
+ },
+ "0x00504850": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "spDescriptionDefaultsAndFreeText inlined with the default font registered",
+  "note": "[review: M2-R6 frontend] compared: same logic (the default font in spDescriptionDefaultsAndFreeText)",
+  "sample": "port-R6-frontend"
  },
  "0x00504900": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "stricmp loop",
+  "note": "stricmp loop | [review: M2-R6 frontend] compared with r6: same",
   "sample": "reread-R2"
  },
  "0x00504a00": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R6 frontend] compared with r6: same",
   "sample": "reread-R2"
+ },
+ "0x00504a20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no preview bitmap (its path stays empty: the area is filled with FEC_Background); the description is MultiPlayer\\<name>\\description.txt; its chopped lines go into the CS_ScenarioBitmap list window (uicListCleanUp / uicListAddItem); 6-pixel inset",
+  "note": "[review: M2-R6 frontend] ported",
+  "sample": "port-R6-frontend"
+ },
+ "0x00504fe0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a function callback (CS_ScenarioBitmap in spCallbacks) that sets up the description list window (item draw 0x00504f70, item height fontHeight / 3 + fontHeight) and fills it; HW1: a user-region draw of the bitmap and the text",
+  "note": "[review: M2-R6 frontend] ported (spDescriptionItemDraw for 0x00504f70)",
+  "sample": "port-R6-frontend"
  },
  "0x005050a0": {
   "class": "IDENTICAL",
@@ -10236,6 +11573,27 @@
   "note": "PRIMARYLANGID tests",
   "sample": "reread-R2"
  },
+ "0x005285f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds strings \"\\nWARNING!!!!  STRING %d HAS NOTHING IN ENGLISH.SCRIPT.  ...\"; clears 0x6A9 strings; after English.script a loop over the 0x6A9 strings calls the compiled-out report for each *NO_STRING*",
+  "note": "[review: M2-R6 frontend] ported (the loop with a debug-build message); the keyboard probe is Win32 (SDL: English)",
+  "sample": "port-R6-frontend"
+ },
+ "0x005287d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (inlined into strLoadLanguage as well)",
+  "sample": "port-R6-frontend"
+ },
+ "0x00528800": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a string containing \"http:\" is stored without strParseString (no backslash processing); strParseString inlined",
+  "note": "[review: M2-R6 frontend] ported",
+  "sample": "port-R6-frontend"
+ },
  "0x005288f0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -10885,6 +12243,48 @@
   "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
  },
+ "0x005349a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00534c00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the press plays 0x13a / 0x13b for the colour picker's CP_RaceOne / CP_RaceTwo toggles, else 0x10c / 0x10d by the checked state; the key-down plays 0x10c / 0x10d (HW1: UI_Click)",
+  "note": "[review: M2-R6 frontend] ported (uicToggleSound, CAT_UI_* in SoundEventDefs.h)",
+  "sample": "port-R6-frontend"
+ },
+ "0x00534dc0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the press and the key-down play UI event 0x10f instead of UI_Click (0x108)",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported (CAT_UI_RadioClick)",
+  "sample": "port-R6-frontend"
+ },
+ "0x00534ea0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00535160": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005351b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
  "0x00535290": {
   "class": "IDENTICAL",
   "confidence": "medium",
@@ -10892,12 +12292,54 @@
   "note": "same margins, focus window, title callback",
   "sample": "IDENTICAL/medium"
  },
+ "0x005353f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00535500": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00535600": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00535710": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
  "0x005358d0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "scroll-bar adjust inlined; same loops",
   "sample": "IDENTICAL/medium"
+ },
+ "0x00535ad0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00535e10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
  },
  "0x00536700": {
   "class": "IDENTICAL",
@@ -10927,12 +12369,131 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00536a80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00536b10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00536bb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00536c10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00537af0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00537e00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00538050": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005380f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005382b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00538380": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00538450": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00538660": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00538690": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
  "0x005386c0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "uicListScrollBarAdjust inlined (scAdjustThumbwheel); all branches as HW1",
   "sample": "IDENTICAL/medium"
+ },
+ "0x005387e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00538810": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005388b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005388f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
  },
  "0x00538960": {
   "class": "MODIFIED",
@@ -10941,12 +12502,26 @@
   "note": "one added statement",
   "sample": "reread-R2"
  },
+ "0x00538980": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
  "0x00538a30": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "textflags",
   "sample": "reread-R2"
+ },
+ "0x00538a50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
  },
  "0x00538b70": {
   "class": "IDENTICAL",
@@ -10955,12 +12530,47 @@
   "note": "same loop over feStack screen atoms (untyped)",
   "sample": "IDENTICAL/medium"
  },
+ "0x00538c00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00538c70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
  "0x00538dc0": {
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
   "note": "same status/tabstop/radio logic in the head",
   "sample": "IDENTICAL/high"
+ },
+ "0x00538eb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00538fc0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "uicFocusToKeyboard, uicFindFlagGetAtom, uicLimitTabstop, uicFindTabstop and the radio button's key-down inlined; no change of logic",
+  "note": "[review: M2-R6 frontend] compared: same as the tree (the radio sound is 0x10f through uicRadioButtonProcess)",
+  "sample": "port-R6-frontend"
+ },
+ "0x00539230": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "as uicRightArrowProcess, the tab stop counts down",
+  "note": "[review: M2-R6 frontend] compared: same as the tree (the radio sound is 0x10f through uicRadioButtonProcess)",
+  "sample": "port-R6-frontend"
  },
  "0x00539c30": {
   "class": "IDENTICAL",
@@ -12146,12 +13756,61 @@
   "note": "memset/memcpy inlined; non-antialiased threshold 6 -> 0/15",
   "sample": "reread-R2"
  },
+ "0x005570f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005572d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005575d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005578f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00557be0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a sixth argument bAdditive: rndAdditiveBlends(bAdditive) (HW1: FALSE), the previous blend mode restored at the end",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported",
+  "sample": "port-R6-frontend"
+ },
+ "0x00557e00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "HW1's loader (the 64-bit conversion is GoK's); no change of logic beyond the source-path string",
+  "note": "[review: M2-R6 frontend] compared: same as the tree",
+  "sample": "port-R6-frontend"
+ },
  "0x00557fb0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "glfontDiscard inlined",
   "sample": "reread-R2"
+ },
+ "0x00558000": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
  },
  "0x005580d0": {
   "class": "IDENTICAL",
@@ -12167,11 +13826,25 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00558100": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005581b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
  "0x00558240": {
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "fontPrintN(x, y, c, string, SDWORD_Max); Ghidra's fontPrintN prototype scrambles the argument display",
+  "note": "fontPrintN(x, y, c, string, SDWORD_Max); Ghidra's fontPrintN prototype scrambles the argument display [audit: M2-R6 frontend: the exe passes six arguments, fontPrintN(x, y, c, 0, string, 0x7fffffff) (0x0055824c..0x0055825a): the fourth is Cataclysm's bAdditive, not a scrambled display]",
   "sample": "reread-R2"
  },
  "0x005582a0": {
@@ -12180,6 +13853,41 @@
   "change": "",
   "note": "two stores",
   "sample": "reread-R2"
+ },
+ "0x005582c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a fourth argument bAdditive, passed to the shadow pass and to glfontDisplayString (every caller passes 0 but cat_fontPrintSubtitle 0x00558270, which passes 1)",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported (the tree's callers pass FALSE)",
+  "sample": "port-R6-frontend"
+ },
+ "0x00558650": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005586a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00558700": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00558760": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
  },
  "0x005587f0": {
   "class": "IDENTICAL",
@@ -13909,12 +15617,68 @@
   "note": "Ghidra drops the sscanf out-arguments",
   "sample": "reread-R2"
  },
+ "0x00583340": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00583390": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
  "0x005833e0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "trTextureRegister gets a 4th argument (push 0)",
   "note": "callee arity, M2-R2 startup report; was IDENTICAL/medium",
   "sample": "port-R3"
+ },
+ "0x005835a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005835f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00583660": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00583740": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005837a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005838a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (subTextureInfoRemember inlined; CreateSemaphore is SDL's)",
+  "sample": "port-R6-frontend"
  },
  "0x00583970": {
   "class": "IDENTICAL",
@@ -13937,6 +15701,41 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00583b00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "wraps when the text is width - 1 wide or wider (HW1: wider than width)",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported",
+  "sample": "port-R6-frontend"
+ },
+ "0x00583cd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x00583fd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005841d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
+ "0x005842f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
+ },
  "0x00584580": {
   "class": "MODIFIED",
   "confidence": "high",
@@ -13948,8 +15747,15 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "Cataclysm's subtitle drawing: a translucent backing rectangle with additive blending, cat_fontPrintSubtitle, cat_ioSubtitleNotify, no cards while the construction manager is open (cat_cmIsOpen), cat_tutButtonRowSet",
-  "note": "[review: M2-R5 sound] read against r6; not ported: its overlay / manager / tutorial calls are the HUD and UI ports' (CAT-TODO(M2-R5 hud) at the function) | [review: M2-R5 hud] partly ported: cat_ioSubtitleNotify(0) first (not in the tutorial); the rest is CAT-TODO(M2-R6 subtitles)",
+  "note": "[review: M2-R5 sound] read against r6; not ported: its overlay / manager / tutorial calls are the HUD and UI ports' (CAT-TODO(M2-R5 hud) at the function) | [review: M2-R5 hud] partly ported: cat_ioSubtitleNotify(0) first (not in the tutorial); the rest is CAT-TODO(M2-R6 subtitles) | [review: M2-R6 frontend] the rest ported: the backing strip (letterbox region, no movie, no NIS scissor; colour 40 rounded from .data 0x008bb4fc), rounded fade multipliers, cat_fontPrintSubtitle, the picture without HW1's blend toggles, cat_tutButtonRowSet + cat_ioSubtitleNotify (main region enabled), the message end for any region; the cat_cmIsOpen clear is the software renderer's (decision 28)",
   "sample": "port-R5-sound"
+ },
+ "0x00584b10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "sample": "port-R6-frontend"
  },
  "0x00585650": {
   "class": "IDENTICAL",
@@ -14020,6 +15826,13 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x0058a050": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend] compared with r6: same (log titanlog.txt; GoK's SDL Titan.c keeps its stub)",
+  "sample": "port-R6-frontend"
  },
  "0x0058a0f0": {
   "class": "IDENTICAL",
@@ -14139,6 +15952,13 @@
   "change": "",
   "note": "titanInterface->StartShutdown when set",
   "sample": "MODIFIED/low"
+ },
+ "0x0058b1d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "an empty function where HW1 called titanLogFileClose (absent from Cataclysm)",
+  "note": "[review: M2-R6 frontend] not ported: the WON / Titan interface is GoK's stub (stage 5 multiplayer); nothing to change in the SDL build",
+  "sample": "port-R6-frontend"
  },
  "0x0058b220": {
   "class": "IDENTICAL",
@@ -15271,5 +17091,12 @@
   "",
   "Effect of the tool fixes alone, before the reviewed classes are applied: 117 functions went from automatic IDENTICAL to MODIFIED and 8 from MODIFIED to IDENTICAL; 48 unreviewed functions changed class (all IDENTICAL to MODIFIED). Every reviewed function keeps its reviewed class.",
   ""
- ]
+ ],
+ "0x004d51f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 frontend audit] compared with r6: same; the text-card fontPrintN call passes the exe's fourth argument 0 (bAdditive, the push 0x0 at 0x004d5484), which the tree now passes as FALSE",
+  "sample": "audit-R6-frontend"
+ }
 }

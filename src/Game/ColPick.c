@@ -396,7 +396,7 @@ void cpPreviewImagePrepare(void)
 #if PREVIEW_IMAGE
     char *fileName;
 
-    if (whichRaceSelected == R1)
+    if (whichRaceSelected == RACE_Sect)
     {
         fileName = CP_PreviewImageRace1;
     }
@@ -757,7 +757,7 @@ void cpResetRegions(void)
     Name        : cpNewRace
     Description : Race select callback from within the color picker
     Inputs      : name - name of entry to envoke this function
-    Outputs     : modifies whichRaceSelected (== R1 or R2)
+    Outputs     : modifies whichRaceSelected (== RACE_Sect or RACE_Beast)
     Return      :
 ----------------------------------------------------------------------------*/
 void cpNewRace(char *name, featom *atom)
@@ -773,7 +773,7 @@ void cpNewRace(char *name, featom *atom)
     {                                                       //disable the Race 2 region right away
         bitSet(atom->flags, FAF_Disabled);
         bitSet(((regionhandle)atom->region)->status, RSF_RegionDisabled);
-        whichRaceSelected = R1;
+        whichRaceSelected = RACE_Sect;
         goto forcedToRace1;
     }
 #endif
@@ -791,10 +791,10 @@ void cpNewRace(char *name, featom *atom)
     }
     if (!FEFIRSTCALL(atom))
     {
-        whichRaceSelected = (!strcmp(name, "CP_RaceOne")) ? R1 : R2;
+        whichRaceSelected = (!strcmp(name, "CP_RaceOne")) ? RACE_Sect : RACE_Beast;
         if (whichRaceSelected != oldRace && (!cpColorsPicked))
         {                                                   //if new race selected and no colors picked
-            swap(teColorSchemes[0], teColorSchemes[1], tempScheme);//swap default R1/R2 color schemes
+            swap(teColorSchemes[0], teColorSchemes[1], tempScheme);//swap the default Sect / Beast color schemes
             cpColorsUpdate(teColorSchemes[0].textureColor.base, teColorSchemes[0].textureColor.detail);
             cpDirtyPreviewImage();
         }
@@ -803,8 +803,8 @@ void cpNewRace(char *name, featom *atom)
 forcedToRace1:;
 #endif
     // ensure non-selected button Off, selected On
-    raceOne = (whichRaceSelected == R1) ? TRUE : FALSE;
-    raceTwo = (whichRaceSelected == R2) ? TRUE : FALSE;
+    raceOne = (whichRaceSelected == RACE_Sect) ? TRUE : FALSE;
+    raceTwo = (whichRaceSelected == RACE_Beast) ? TRUE : FALSE;
     feToggleButtonSet("CP_RaceOne", raceOne);
     feToggleButtonSet("CP_RaceTwo", raceTwo);
     cpPreviewImageDelete();
@@ -1241,9 +1241,9 @@ void cpAcceptColors(void)
     //set default color schemes, to ensure team0 has the correct colors
     teReset();
 /*
-    if (whichRaceSelected != R1)
+    if (whichRaceSelected != RACE_Sect)
     {                                                       //if new race selected and no colors picked
-        swap(teColorSchemes[0], teColorSchemes[1], tempScheme);//swap default R1/R2 color schemes
+        swap(teColorSchemes[0], teColorSchemes[1], tempScheme);//swap the default Sect / Beast color schemes
     }
 */
     base = colRGB(cpBaseRed, cpBaseGreen, cpBaseBlue);

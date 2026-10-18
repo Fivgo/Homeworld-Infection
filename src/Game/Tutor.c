@@ -2247,3 +2247,22 @@ ShipType st;
     }
     return Count;
 }
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_tutButtonRowSet (Cataclysm 0x00532480)
+    Description : In the tutorial, place the tutorial's button row under a subtitle picture
+    Inputs      : y - the picture's bottom (subTitlesDraw 0x00584620)
+    Outputs     : catTutButtonRowY (0x00a6bc14): the row's top, read by the tutorial's button layout (stage 6)
+    Return      : the bottom of the row (y + 32) in the tutorial, else y
+----------------------------------------------------------------------------*/
+sdword catTutButtonRowY = 0;                        // 0x00a6bc14
+
+sdword cat_tutButtonRowSet(sdword y)
+{
+    if (tutorial == 1)
+    {
+        catTutButtonRowY = y;
+        y += 32;
+    }
+    return y;
+}

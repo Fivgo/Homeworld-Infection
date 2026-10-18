@@ -2916,8 +2916,92 @@ bool32 trLiFMeasure(char *fileName, sdword *width, sdword *height, udword *flags
     trCramRAMScaleCompute + trCramIntoRAM (global 16.16 scale factor over RAM pools, power-of-two sizes only).
 -----------------------------------------------------------------------------*/
 // CAT: texture memory limit in bytes (.data 0x008bb698, initial value 0x00a00000 = 10 MB). The exe sets it from the
-//      texture-detail option through cat_trTextureMemorySet 0x00589cd0 (1..12 MB); that option is not ported yet.
+//      texture-detail option through cat_trTextureMemorySet 0x00589cd0 (1..12 MB, below).
 sdword catTrCramLimit = 0x00a00000;
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_trTextureMemorySet (Cataclysm 0x00589cd0)
+    Description : Apply the texture-detail option (0..100): the cram limit of trCramRAMComputeAndScale and the
+                    no-palette texture pool, then flush the pool so it refills at the new size
+    Inputs      : percent - the OP_Texture_Detail slider (Options.c catOpTextureDetail)
+    Outputs     : catTrCramLimit (0x008bb698) = 1..12 MB, trNoPalMaxBytes (0x008bb6ac) = 10..90 MB
+    Return      :
+    Note        : the exe maps through two local tables, (percent * 11) / 100 into 1..12 and (percent * 8) / 100
+                    into 10..90; a 0 in the first gives 0x80000 (none of its entries is 0). With the pool up, the
+                    exe's loop over the no-palette registry (delete each GL handle, take its bytes off, clear the
+                    handle / CRC / time stamp, mark the texture TRF_NoPalPending) and the queue reset is
+                    trNoPalReadjust inlined.
+----------------------------------------------------------------------------*/
+void cat_trTextureMemorySet(sdword percent)
+{
+    static const sdword catTrPoolMB[9] = {10, 20, 30, 40, 50, 60, 70, 80, 90};
+    static const sdword catTrCramMB[12] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+    sdword cram;
+
+    if ((udword)percent > 100)
+    {                                                       // CAT-FIX: an options file out of 0..100 would index
+        percent = (percent < 0) ? 0 : 100;                  //          past the exe's tables
+    }
+    cram = catTrCramMB[(udword)(percent * 11) / 100];
+    catTrCramLimit = (cram == 0) ? 0x80000 : (cram << 20);
+    trNoPalMaxBytes = catTrPoolMB[(udword)(percent << 3) / 100] << 20;
+    if (trNoPalInitialized)
+    {
+        trNoPalReadjust();
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_trPrecacheShipTextures (Cataclysm 0x00589910)
+    Description : Make the textures of six Kushan / Taiidan ship types current in the team colour a mission gives
+                    them, so they are uploaded before they appear
+    Inputs      :
+    Outputs     : trMakeCurrent on every material texture of each type's first LOD (a mesh), for its colour scheme
+    Return      :
+    Note        : the exe's table (type, three colour schemes; a 0 scheme is skipped): 0x44 / 4, 0x41 / 7, 0x45 / 6,
+                    0x49 / 4, 0x3E / 6, 0x52 / 2. The materials walked are the mesh's local list for nPublic +
+                    nLocal entries (the loaded mesh keeps both lists in one block). CAT-FIX: a type whose statics are
+                    not loaded (no LOD) or a material whose textures were not registered is skipped (the exe would
+                    read through them). Its caller is singlePlayerGameUpdate 0x005197d0 (stage 6).
+----------------------------------------------------------------------------*/
+void cat_trPrecacheShipTextures(void)
+{
+    static const sdword catTrPrecache[6][4] =
+    {
+        {0x44, 4, 0, 0}, {0x41, 7, 0, 0}, {0x45, 6, 0, 0}, {0x49, 4, 0, 0}, {0x3e, 6, 0, 0}, {0x52, 2, 0, 0}
+    };
+    ShipStaticInfo *info;
+    meshdata *mesh;
+    sdword entry, scheme, index;
+
+    for (entry = 0; entry < 6; entry++)
+    {
+        info = GetShipStaticInfo((ShipType)catTrPrecache[entry][0], 0);
+        if ((info == NULL) || (info->common.LOD == NULL))
+        {
+            continue;                                       // CAT-FIX: statics not loaded
+        }
+        if ((info->common.LOD->level[0].flags & LM_LODType) != LT_Mesh)
+        {
+            continue;
+        }
+        mesh = (meshdata *)info->common.LOD->level[0].pData;
+        for (scheme = 1; scheme <= 3; scheme++)
+        {
+            if (catTrPrecache[entry][scheme] == 0)
+            {
+                continue;
+            }
+            for (index = 0; index < mesh->nPublicMaterials + mesh->nLocalMaterials; index++)
+            {
+                if ((mesh->localMaterial[index].texture != NULL) && mesh->localMaterial[index].bTexturesRegistered)
+                {
+                    trMakeCurrent(mesh->localMaterial[index].texture[catTrPrecache[entry][scheme]]);
+                }
+            }
+        }
+    }
+}
 
 // CAT: bytes one registry entry needs at its current shifts: paletted w*h, RGB nPalettes * w*h * 2
 static sdword catTrCramSize(texreg *reg)

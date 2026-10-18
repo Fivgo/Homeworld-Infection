@@ -115,6 +115,7 @@ _Static_assert(sizeof(CatPopupItem) == 0x3C, "a popup menu row is 0x3C bytes in 
 
 extern CatPopupItem catPmItems[CAT_PM_NumberItems];        // 0x0088de88
 extern sdword catPmSelected;                                // 0x0088dde0: the selected main row (-1 none)
+extern bool32 catPmLargeFont;                               // 0x00a5749c: the options' LargePopupMenuFonts (OP_SmallFonts)
 extern sdword catPmSubSelected;                             // 0x0088dde4: the selected submenu row (-1 none)
 
 void cat_popupMenuFindSpecialTarget(sdword item);                                          // 0x004eaa60

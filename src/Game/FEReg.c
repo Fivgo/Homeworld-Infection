@@ -1025,10 +1025,22 @@ void ferTextureDeregister(tex_holder holder)
 // Front end Texture code
 // ============================================================================
 
+// CAT: nextLog2 0x00476920 is HW1's ladder 2..256 (GoK's loop gives the same for every n <= 256); for n > 256 the exe
+//      returns -1 ((n <= 256) ? 256 : -1). CAT-FIX: ferDraw would allocate a negative-sized texture there, so a wider
+//      texture keeps GoK's next power of two (none of the 75 textures the install's 22 .fib files name is over 256)
 static sdword nextLog2(sdword n)
 {
-    sdword r = 1;
-    while (r < n) r <<= 1;
+    sdword r;
+
+    if (n <= 2)   return 2;
+    if (n <= 4)   return 4;
+    if (n <= 8)   return 8;
+    if (n <= 16)  return 16;
+    if (n <= 32)  return 32;
+    if (n <= 64)  return 64;
+    if (n <= 128) return 128;
+    if (n <= 256) return 256;
+    for (r = 512; r < n; r <<= 1) ;                 // CAT-FIX (the exe: -1)
     return r;
 }
 

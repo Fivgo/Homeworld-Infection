@@ -21,7 +21,8 @@
 #   0x258, Bullet 0x164, Derelict 0x294, Asteroid 0x1B4; docs/m2-r5-layout-dock.md); since M2-R5 command-tactics also
 #   CommandLayer.h (CommandToDo 0x330 with the waypoint MoveCommand 0x108), Formation.h (FormationCommand 0x60) and
 #   Tactics.h (TacticsInfo; docs/m2-r5-command-tactics.md); since M2-R6 mainrgn-popup also PopupMenu.h (CatPopupItem
-#   0x3C) and ShipSelect.h (CatTargetActions 0x29 dwords; docs/m2-r6-mainrgn-popup.md). Prints the ILP32 sizes on success.
+#   0x3C) and ShipSelect.h (CatTargetActions 0x29 dwords; docs/m2-r6-mainrgn-popup.md); since M2-R6 frontend also
+#   FEFlow.h (the .fib screen 20, link 12, atom 0x4C; docs/m2-r6-frontend.md). Prints the ILP32 sizes on success.
 #   No 32-bit libc is needed: an empty gnu/stubs-32.h shim is created in a temporary directory.
 # Exit status: 0 if every assert holds, 1 otherwise.
 set -euo pipefail
@@ -54,6 +55,7 @@ cat > "$tmp/layout.c" <<'EOF'
 #include "soundcmn.h"
 #include "PopupMenu.h"
 #include "ShipSelect.h"
+#include "FEFlow.h"
 char (*cat_ssi)[sizeof(ShipStaticInfo)] = 1;
 char (*cat_gs)[sizeof(GunStatic)] = 1;
 char (*cat_csh)[sizeof(CustShipHeader)] = 1;

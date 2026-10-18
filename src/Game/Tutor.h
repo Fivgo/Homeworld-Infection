@@ -195,4 +195,8 @@ sdword tutBuildManagerShipTypeSelected(char *pShipType);
 
 sdword tutCameraFocusedOnShipType(char *pShipTypes);
 
+// CAT (M2-R6 frontend): the tutorial's button row under a subtitle picture (0x00532480; its readers are stage 6)
+extern sdword catTutButtonRowY;
+sdword cat_tutButtonRowSet(sdword y);
+
 #endif

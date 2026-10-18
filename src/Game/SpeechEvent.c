@@ -6,6 +6,7 @@
     Copyright Relic Entertainment, Inc.  All rights reserved.
 =============================================================================*/
 
+#include "avi.h"            // CAT: aviIsPlaying (the Bink player's binkDonePlaying)
 #include "SpeechEvent.h"
 
 //#include "bink.h"
@@ -704,11 +705,11 @@ void speechQueueUpdate(void)
 
         /* are we ready to play something? */
         // CAT: the exe's test also starts a line at once while a Bink movie plays (speechQueueUpdate 0x00521eb0:
-        //      || !binkDonePlaying, 0x008b6d94; the tutorial flag is 0x00a6c2c0). This build has no Bink player
-        //      (Win32/bink.c is not built; binkDonePlaying would stay TRUE), so that term is always FALSE here.
-        //      CAT-TODO(M2-R6 front end: bink.c): add it back with the movie player.
+        //      || !binkDonePlaying, 0x008b6d94; the tutorial flag is 0x00a6c2c0). GoK replaces the Bink player
+        //      (Win32/bink.c, not built) with its avi player, whose aviIsPlaying is the movie-on flag (M2-R6 frontend)
         if ((pSQueue->status == SOUND_STOPPED) && (pSQueue->nextevent >= SOUND_OK) && (!pSQueue->locked) &&
-            (((universe.totaltimeelapsed - pSQueue->timeover) >= SPEECH_PAUSE) || !gameIsRunning || FalkosFuckedUpTutorialFlag))
+            (((universe.totaltimeelapsed - pSQueue->timeover) >= SPEECH_PAUSE) || !gameIsRunning || FalkosFuckedUpTutorialFlag ||
+             aviIsPlaying))
         {
             // CAT: timeover = now + the event's timeout
             pSQueue->timeover = universe.totaltimeelapsed + pSQueue->queue[pSQueue->nextevent].timeout;
