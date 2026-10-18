@@ -302,7 +302,7 @@ B) + 450 cat-new (428 defined)**; stage 2 758 / 614 / 30 + 808 cat-new (760 defi
 
 ### M2-R7 plan (stage 4 AI, the oracle's first divergence first; details, counts and the exit test in docs/m2-r6-summary.md "Plan for M2-R7")
 
-**IN FLIGHT since 2026-10-18 06:50** from the user's terminal session 38027cce (Fable), `cycle/workflows/m2-r7.js` (4 producers + 4 auditors on Opus, integrate on Fable; ROUND_BASE 4c31f6e, the atlas-tools merge after R6's 2387259). The orchestrator must NOT launch it; relaunch after a cut-off = Workflow({scriptPath, resumeFromRunId}) from that session, the probe skips audited ports.
+**IN FLIGHT since 2026-10-18 06:50** from the user's terminal session 38027cce (Fable), `cycle/workflows/m2-r7.js` (4 producers + 4 auditors on Opus, integrate on Fable; ROUND_BASE 4c31f6e, the atlas-tools merge after R6's 2387259). The orchestrator must NOT launch it; relaunch after a cut-off = Workflow({scriptPath: cycle/workflows/m2-r7.js, resumeFromRunId: "wf_b238b029-e72"}) from that session (same-session cache only; a new session relaunches without the id and the probe skips audited ports).
 
 Four producers in sequence + four auditors + integrate (9 agents). Stage 4 at the end of R6: 386 / 91 / 2 HW1-matched
 (50,910 MODIFIED / REWRITTEN bytes; 60 bodies unread, 35,494 B; 386 IDENTICAL to compare) + 23 cat-new (14,404 B, 2
