@@ -9,6 +9,10 @@
 // CAT: new file (M2-R3 ships-a); see BeastWeapon.h for what is ported now and what is M2-R4 #3's.
 
 #include "BeastWeapon.h"
+#include "KASVar.h"
+#include "SinglePlayer.h"
+#include "KASFunc.h"
+#include "KAS.h"
 
 #include "AIPlayer.h"
 #include "AIShip.h"
@@ -135,9 +139,25 @@ void cat_beastInfectShip(Ship *target, Ship *infector)                      // 0
     speechEventQueue(target, 0x10008a1, target->shiptype, -1, -1, -1, -1, 0.0f, -1);
     aiplayerShipDied(target);
     shipHasJustBeenDisabled(target, TRUE);          // the exe passes 1 (0x00429aa2)
-    // CAT-TODO(stage 6): Mission 7's first infected prison ship (dPrisonShip, 0x86) sets the KAS selection
-    //      "FirstInfectedConvoyShip" when G_TRIGGER_FirstShipInfected is 0, else queues the speech once more with a
-    //      5 s timeout (cat_kasHashString, cat_kasVarFind, kasGrowSelectionPtr)
+    // CAT: in Mission 7 an infected prison ship (dPrisonShip, 0x86) is added to the KAS selection
+    //      "FirstInfectedConvoyShip" while the global KAS variable G_TRIGGER_FirstShipInfected is 0, and the speech
+    //      is queued once more with a 5 s timeout (0x00429aa7 .. 0x00429b5c: cat_kasHashString, cat_kasVarFind,
+    //      kasGrowSelectionPtr, kasfShipsAdd; M2-R8 kasf library)
+    if (singlePlayerGame && (singlePlayerGameInfo.currentMission == 7) && (target->shiptype == dPrisonShip))
+    {
+        CatKasVar *trigger = cat_kasVarFind(0, cat_kasHashString("G_TRIGGER_FirstShipInfected"));
+
+        if ((trigger != NULL) && (trigger->value == 0))
+        {
+            GrowSelection infected;
+
+            growSelectInit(&infected);
+            growSelectAddShip(&infected, target);
+            kasfShipsAdd(kasGrowSelectionPtr(cat_kasHashString("FirstInfectedConvoyShip")), &infected);
+            growSelectClose(&infected);
+        }
+        speechEventQueue(NULL, 0x10008a1, target->shiptype, -1, 0, -1, -1, 5.0f, -1);
+    }
 }
 
 // CAT: new (cat_beastGetAttackStaticInfo 0x00429b70): the type's Beast-attack statics, NULL when it cannot be

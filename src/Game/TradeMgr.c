@@ -380,13 +380,13 @@ void tmLeave(char *string, featom *atom)
     mrRenderMainScreen = TRUE;
 
     /* play the exit sound */
-    soundEvent(NULL, UI_ManagerExit);
+    soundEvent(NULL, CAT_UI_ManagerExit);           // CAT: Cataclysm's id 0x130 (tmLeave 0x0052d790: 0x0052d7b7)
     //restart the sound of space ambient
-    soundEvent(NULL, UI_SoundOfSpace);
+    soundEvent(NULL, UI_SoundOfSpace);              // CAT: 0x100, as HW1 (0x0052d7c3)
 
     spUnlockout();
 
-    bitClear(tbDisable,TBDISABLE_TRADEMGR_USE);
+    // CAT: no task bar lockout (the exe never writes tbDisable 0x00a6b254)
 
     tmReset();
 
@@ -1019,9 +1019,9 @@ sdword tmTradeBegin(regionhandle region, sdword ID, udword event, udword data)
     soundEventStopSFX(0.5f);
 
     /* play the intro sound */
-    soundEvent(NULL, UI_ManagerIntro);
+    soundEvent(NULL, CAT_UI_ManagerIntro);          // CAT: Cataclysm's id 0x12f (tmTradeBegin 0x0052e558)
     /* play the build manager ambient */
-    soundEvent(NULL, UI_Trading);
+    soundEvent(NULL, CAT_UI_TradingAmbient);        // CAT: Cataclysm's ambient 0x103 (0x0052e566; HW1's UI_Trading 0x105)
 
     tmBaseRegion = feScreenStart(region, TM_TradeScreen);//add new regions as siblings of current one
 
@@ -1041,7 +1041,7 @@ sdword tmTradeBegin(regionhandle region, sdword ID, udword event, udword data)
 
     mouseCursorShow();
 
-    bitSet(tbDisable,TBDISABLE_TRADEMGR_USE);
+    // CAT: no task bar lockout (the exe never writes tbDisable 0x00a6b254)
 
     return(status);
 }

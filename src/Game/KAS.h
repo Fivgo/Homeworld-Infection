@@ -19,11 +19,16 @@ typedef void (*KASWatchFunction) (void);
 #define KAS_FSM_NAME_MAX_LENGTH 47
 #define KAS_STATE_NAME_MAX_LENGTH 47
 
+// CAT (M2-R8 kasf library): every KAS label is its cat_kasHashString hash (KASVar.h): the kas2c missions pass the
+//      hashes, the level loader hashes the .mission labels (scriptSetShipsCB 0x004a13f0, scriptSetAIPointCB ..
+//      scriptSetAISphereCB), and the lookups compare the words (kasAITeamPtr 0x004907a0 .. kasGrowSelectionPtr
+//      0x00490bb0); HW1 kept 48-byte label strings and compared them without case (the hash ignores case too)
+
 //  user variables for SHIPS
 #define KASSELECTION_ALLOC_INCREMENT 16
 #define KASSELECTION_MAX_LABEL_LENGTH 47
 typedef struct {
-    char label[KASSELECTION_MAX_LABEL_LENGTH+1];
+    udword label;               // CAT: the hash (0xC-byte entries in cataclysm.exe: kasSave saves 0xC then the selection)
     GrowSelection shipList;
 } KasSelection;
 
@@ -34,17 +39,21 @@ typedef struct {
 #define KAS_LABELLED_ENTITY_ALLOC_INCREMENT 16
 //  team labels are stored in AITeam struct
 typedef struct {
-    char label[KAS_MAX_LABEL_LENGTH+1];
+    udword label;               // CAT: the hash (8-byte entries in cataclysm.exe)
     Path *path;
 } LabelledPath;
 typedef struct {
-    char label[KAS_MAX_LABEL_LENGTH+1];
+    udword label;               // CAT: the hash
     hvector *hvector;
 } LabelledVector;
 typedef struct {
-    char label[KAS_MAX_LABEL_LENGTH+1];
+    udword label;               // CAT: the hash
     Volume *volume;
 } LabelledVolume;
+#if defined(__i386__)
+_Static_assert(sizeof(KasSelection) == 0xC && sizeof(LabelledPath) == 8 && sizeof(LabelledVector) == 8 &&
+               sizeof(LabelledVolume) == 8, "the KAS label entries are cataclysm.exe's sizes");
+#endif
 
 
 /*=============================================================================
@@ -53,32 +62,32 @@ typedef struct {
 //  to fill in table of labelled mission layout entities
 void kasLabelsInit(void);
 //void kasLabelledAITeamAdd(char *label);
-Path *kasLabelledPathAdd(char *label, sdword numPoints, sdword closed);
-hvector *kasLabelledVectorAdd(char *label, real32 x, real32 y, real32 z,real32 w);
-Volume *kasLabelledVolumeAdd(char *label);
+Path *kasLabelledPathAdd(udword label, sdword numPoints, sdword closed);
+hvector *kasLabelledVectorAdd(udword label, real32 x, real32 y, real32 z,real32 w);
+Volume *kasLabelledVolumeAdd(udword label);
 
 void kasMissionStart(char *name, KASInitFunction initFunction, KASWatchFunction watchFunction);
 void kasExecute(void);
 
 // keywords of KAS language
-void kasJump(char *stateName, KASInitFunction initFunction, KASWatchFunction watchFunction);
-void kasFSMCreate(char *fsmName, KASInitFunction initFunction, KASWatchFunction watchFunction, struct AITeam *team);
+void kasJump(udword stateName, KASInitFunction initFunction, KASWatchFunction watchFunction);
+void kasFSMCreate(udword fsmName, KASInitFunction initFunction, KASWatchFunction watchFunction, struct AITeam *team);
 
-// labels: resolves references from script to mission layout file
-struct AITeam *kasAITeamPtr(char *label);
-GrowSelection *kasAITeamShipsPtr(char *label);
-hvector *kasShipsVectorPtr(char *label);
-hvector *kasTeamsVectorPtr(char *label);
-hvector *kasVolumeVectorPtr(char *label);
+// labels: resolves references from script to mission layout file (CAT: by hash)
+struct AITeam *kasAITeamPtr(udword label);
+GrowSelection *kasAITeamShipsPtr(udword label);
+hvector *kasShipsVectorPtr(udword label);
+hvector *kasTeamsVectorPtr(udword label);
+hvector *kasVolumeVectorPtr(udword label);
 hvector *kasThisTeamsVectorPtr(void);
-Path   *kasPathPtr(char *label);
-Path *kasPathPtrNoErrorChecking(char *label);
-Volume *kasVolumePtr(char *label);
-hvector *kasVectorPtr(char *label);
-hvector *kasVectorPtrIfExists(char *label);
-GrowSelection *kasGrowSelectionPtr(char *label);
+Path   *kasPathPtr(udword label);
+Path *kasPathPtrNoErrorChecking(udword label);
+Volume *kasVolumePtr(udword label);
+hvector *kasVectorPtr(udword label);
+hvector *kasVectorPtrIfExists(udword label);
+GrowSelection *kasGrowSelectionPtr(udword label);
 
-GrowSelection *kasGetGrowSelectionPtrIfExists(char *label);
+GrowSelection *kasGetGrowSelectionPtrIfExists(udword label);
 
 void kasShipDied(Ship *ship);
 
@@ -86,7 +95,7 @@ void kasGrowSelectionClear(GrowSelection *ships);
 
 void kasLabelledEntitiesDestroy(void);
 
-void kasAddShipToTeam(Ship *ship,char *str);
+void kasAddShipToTeam(Ship *ship,udword label);
 
 #define KAS_TEAM_NAME_MAX_LENGTH 47
 char *kasAITeamName(struct AITeam *team, char *teamName);

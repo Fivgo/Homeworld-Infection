@@ -24,6 +24,33 @@ static sdword catKasVarsAllocated = 0;          // 0x00a43f2c
 static sdword catKasVarStamp = 0;               // 0x00882078: set to 0x6aac470 by the init, saved and loaded, read nowhere
                                                 //      else (name chosen here)
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_kasHashString                                 0x00491860
+    Description : CAT (M2-R8 kasf library): the name hash of Cataclysm's kas2c: every KAS name (FSM, state, team,
+                  timer, variable, message, selection, point, path, volume) is compiled to it. The PJW / ELF hash of
+                  the characters with bit 5 cleared (so it ignores the case of letters):
+                  h = (c & 0xDF) + (h << 4); g = h & 0xF0000000; if g, h ^= (g >> 24) ^ g. NULL is not tested (the
+                  exe reads the first byte).
+----------------------------------------------------------------------------*/
+udword cat_kasHashString(const char *string)
+{
+    const ubyte *c = (const ubyte *)string;
+    udword hash = 0;
+    udword high;
+
+    while (*c != 0)
+    {
+        hash = (udword)(*c & 0xDF) + (hash << 4);
+        high = hash & 0xF0000000;
+        if (high != 0)
+        {
+            hash ^= (high >> 24) ^ high;
+        }
+        c++;
+    }
+    return hash;
+}
+
 // 0x004918a0 (the exe does not free an existing array here; aiplayerShutdown's cat_kasVarDestroyAll does)
 void cat_kasVarStoreInit(void)
 {

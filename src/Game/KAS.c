@@ -5,6 +5,7 @@
 //
 
 #include "KAS.h"
+#include "KASVar.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -62,7 +63,9 @@ sdword mrKASSkipFactor = 0;
 
 // run-time scoping for variables, timers, etc.
 sdword CurrentMissionScope;  // what level we're currently executing at
-char CurrentMissionScopeName[KAS_MISSION_NAME_MAX_LENGTH+1];
+// CAT (M2-R8 kasf library): the scope is a cat_kasHashString hash (0x00c374a0: the kas2c missions' prologue stores
+//      hash("missionNN") or the running team's label hash; the kasf scope their timer and variable names by it)
+udword CurrentMissionScopeName;
 
 char CurrentMissionName[KAS_MISSION_NAME_MAX_LENGTH+1];
 KASWatchFunction CurrentMissionWatchFunction = NULL;
@@ -130,14 +133,14 @@ void kasTeamDied(struct AITeam *team)
 //  sets state of current team to new state (for subsequently WATCHing) and executes its
 //  init function right now
 //
-void kasJump(char *stateName, KASInitFunction initFunction, KASWatchFunction watchFunction)
+void kasJump(udword stateName, KASInitFunction initFunction, KASWatchFunction watchFunction)
 {
 #ifdef HW_BUILD_FOR_DEBUGGING
     char teamName[KAS_TEAM_NAME_MAX_LENGTH+1];
-    aiplayerLog((aiCurrentAIPlayer->player->playerIndex,"KAS: TEAM(\"%s\") JUMP %s", kasAITeamName(CurrentTeamP, teamName), stateName));
+    aiplayerLog((aiCurrentAIPlayer->player->playerIndex,"KAS: TEAM(\"%s\") JUMP %07x", kasAITeamName(CurrentTeamP, teamName), stateName));
 #endif
 
-    memStrncpy(CurrentTeamP->kasStateName, stateName, KAS_STATE_NAME_MAX_LENGTH);
+    CurrentTeamP->kasStateName = stateName;     // CAT: the state's hash (kasJump 0x00490640)
 
     CurrentTeamP->kasStateWatchFunction = watchFunction;
 
@@ -149,39 +152,39 @@ void kasJump(char *stateName, KASInitFunction initFunction, KASWatchFunction wat
 //
 //  "creates" an FSM (Finite State Machine) and hands control of a team to it
 //
-void kasFSMCreate(char *fsmName, KASInitFunction initFunction, KASWatchFunction watchFunction, AITeam *teamP)
+void kasFSMCreate(udword fsmName, KASInitFunction initFunction, KASWatchFunction watchFunction, AITeam *teamP)
 {
 	char teamName[KAS_TEAM_NAME_MAX_LENGTH+1];
     AITeam *saveP;
     sdword saveScope;
-    char SaveMissionScopeName[KAS_MISSION_NAME_MAX_LENGTH+1];
+    udword SaveMissionScopeName;
 
     // save current team & scope
     saveP = CurrentTeamP;
     saveScope = CurrentMissionScope;
-    strcpy(SaveMissionScopeName, CurrentMissionScopeName);
+    SaveMissionScopeName = CurrentMissionScopeName;
 
     CurrentTeamP = teamP;
 
 #ifdef HW_BUILD_FOR_DEBUGGING
-    aiplayerLog((aiCurrentAIPlayer->player->playerIndex,"\nKAS: FSMCreate(\"%s\", TEAM(\"%s\")", fsmName, kasAITeamName(teamP, teamName)));
+    aiplayerLog((aiCurrentAIPlayer->player->playerIndex,"\nKAS: FSMCreate(%07x, TEAM(\"%s\")", fsmName, kasAITeamName(teamP, teamName)));
 #endif
 
     teamP->teamType = ScriptTeam;
-    memStrncpy(teamP->kasFSMName, fsmName, KAS_FSM_NAME_MAX_LENGTH);
+    teamP->kasFSMName = fsmName;          // CAT: the FSM's hash (kasFSMCreate 0x00490660)
     teamP->kasFSMWatchFunction = watchFunction;
     teamP->kasStateWatchFunction = NULL;  // just in case it doesn't get set later
     teamP->kasTactics   = Neutral;        // default to neutral tactics
     teamP->kasFormation = NO_FORMATION;   // default to no formation
 
-    strcpy(CurrentMissionScopeName, kasThisTeamPtr->kasLabel);
+    CurrentMissionScopeName = kasThisTeamPtr->kasLabel;     // CAT: the label's hash (kasFSMCreate 0x00490660 copies team +0x58)
 
     initFunction();
 
     // restore current team & scope
     CurrentTeamP = saveP;
     CurrentMissionScope = saveScope;
-    strcpy(CurrentMissionScopeName, SaveMissionScopeName);
+    CurrentMissionScopeName = SaveMissionScopeName;
 }
 
 //
@@ -244,7 +247,8 @@ void kasMissionStart(char *name, KASInitFunction initFunction, KASWatchFunction 
 //
 //  return reference to labelled team
 //
-AITeam *kasAITeamPtr(char *label)
+// CAT: 0x004907a0: by hash; no "MsgSender" label and no fatal for an unknown one (NULL)
+AITeam *kasAITeamPtr(udword label)
 {
     sdword i = 0;
     AITeam *aiteamp = NULL;
@@ -252,18 +256,10 @@ AITeam *kasAITeamPtr(char *label)
     while (i < aiCurrentAIPlayer->teamsUsed)
     {
         aiteamp = aiCurrentAIPlayer->teams[i];
-        if (aiteamp->teamType == ScriptTeam && !strncasecmp(aiteamp->kasLabel, label, KAS_TEAM_NAME_MAX_LENGTH))
+        if (aiteamp->teamType == ScriptTeam && aiteamp->kasLabel == label)
             return aiteamp;
         ++i;
     }
-
-    // special reference to sender of last message received
-    if (!strcasecmp(label, "MsgSender"))
-        return CurrentTeamP->msgSender;
-        
-#ifdef HW_BUILD_FOR_DEBUGGING
-    dbgFatalf(DBG_Loc,"\nKAS: unresolved reference to team %s", label);
-#endif
 
     return NULL;
 }
@@ -271,7 +267,8 @@ AITeam *kasAITeamPtr(char *label)
 //
 //  return reference to labelled team's ships (contrast with kasAITeamPtr)
 //
-GrowSelection *kasAITeamShipsPtr(char *label)
+// CAT: 0x004907e0: by hash; no "MsgSender" label and no fatal (NULL)
+GrowSelection *kasAITeamShipsPtr(udword label)
 {
     sdword i = 0;
     AITeam *aiteamp;
@@ -279,18 +276,10 @@ GrowSelection *kasAITeamShipsPtr(char *label)
     while (i < aiCurrentAIPlayer->teamsUsed)
     {
         aiteamp = aiCurrentAIPlayer->teams[i];
-        if (aiteamp->teamType == ScriptTeam && !strncasecmp(aiteamp->kasLabel, label, KAS_TEAM_NAME_MAX_LENGTH))
+        if (aiteamp->teamType == ScriptTeam && aiteamp->kasLabel == label)
             return &aiteamp->shipList;
         ++i;
     }
-    // special reference to sender of last message received
-    if (!strcasecmp(label, "MsgSender"))
-        if (CurrentTeamP->msgSender)
-            return &CurrentTeamP->msgSender->shipList;
-            
-#ifdef HW_BUILD_FOR_DEBUGGING
-    dbgFatalf(DBG_Loc,"\nKAS: unresolved reference to team %s", label);
-#endif
 
     return NULL;
 }
@@ -298,7 +287,7 @@ GrowSelection *kasAITeamShipsPtr(char *label)
 //
 //  return reference to labelled grow selection's vector
 //
-hvector *kasShipsVectorPtr(char *label)
+hvector *kasShipsVectorPtr(udword label)
 {
     static hvector errorPos= {0, 0, 0, 1};  // safe fallback
     static hvector location;
@@ -320,7 +309,7 @@ hvector *kasShipsVectorPtr(char *label)
     }
 
 #ifdef HW_BUILD_FOR_DEBUGGING
-    dbgFatalf(DBG_Loc,"\nKAS: unresolved reference to shiplist %s", label);
+    dbgFatalf(DBG_Loc,"\nKAS: unresolved reference to shiplist %07x", label);
 #endif
 
     return NULL;
@@ -329,7 +318,7 @@ hvector *kasShipsVectorPtr(char *label)
 //
 // return reference to labelled team's location
 //
-hvector *kasTeamsVectorPtr(char *label)
+hvector *kasTeamsVectorPtr(udword label)
 {
     static hvector errorPos = {0,0,0,1};
     static hvector location;
@@ -351,7 +340,7 @@ hvector *kasTeamsVectorPtr(char *label)
     }
 
 #ifdef HW_BUILD_FOR_DEBUGGING
-    dbgFatalf(DBG_Loc,"\nKAS: unresolved reference to shiplist %s", label);
+    dbgFatalf(DBG_Loc,"\nKAS: unresolved reference to shiplist %07x", label);
 #endif
 
     return NULL;
@@ -360,7 +349,7 @@ hvector *kasTeamsVectorPtr(char *label)
 //
 // return reference to labelled volume's center
 //
-hvector *kasVolumeVectorPtr(char *label)
+hvector *kasVolumeVectorPtr(udword label)
 {
     static hvector returnhvec;
     vector volcenter;
@@ -413,12 +402,12 @@ hvector *kasThisTeamsVectorPtr(void)
 //
 //  return reference to labelled path
 //
-Path *kasPathPtrNoErrorChecking(char *label)
+Path *kasPathPtrNoErrorChecking(udword label)
 {
     sdword i = 0;
     while (i < LabelledPathsUsed)
     {
-        if (!strncasecmp(LabelledPaths[i]->label, label, KAS_MAX_LABEL_LENGTH))
+        if (LabelledPaths[i]->label == label)
             return LabelledPaths[i]->path;
         ++i;
     }
@@ -428,36 +417,33 @@ Path *kasPathPtrNoErrorChecking(char *label)
 //
 //  return reference to labelled path
 //
-Path *kasPathPtr(char *label)
+// CAT: 0x00490aa0: an unknown path returns NULL (the exe's debug report is an empty stub, no fatal)
+Path *kasPathPtr(udword label)
 {
     sdword i = 0;
     while (i < LabelledPathsUsed)
     {
-        if (!strncasecmp(LabelledPaths[i]->label, label, KAS_MAX_LABEL_LENGTH))
+        if (LabelledPaths[i]->label == label)
             return LabelledPaths[i]->path;
         ++i;
     }
-    dbgMessagef("KAS: unresolved reference to path %s", label);
-    dbgFatalf(DBG_Loc,"\nKAS: unresolved reference to path %s", label);     // deliberately crash so designers can find bug easier
+    dbgMessagef("KAS: unresolved reference to path %07x", label);
     return NULL;
 }
 
 //
 //  return reference to labelled volume
 //
-Volume *kasVolumePtr(char *label)
+// CAT: 0x00490af0: no fatal for an unknown volume (NULL)
+Volume *kasVolumePtr(udword label)
 {
     sdword i = 0;
     while (i < LabelledVolumesUsed)
     {
-        if (!strncasecmp(LabelledVolumes[i]->label, label, KAS_MAX_LABEL_LENGTH))
+        if (LabelledVolumes[i]->label == label)
             return LabelledVolumes[i]->volume;
         ++i;
     }
-    
-#ifdef HW_BUILD_FOR_DEBUGGING
-    dbgFatalf(DBG_Loc,"\nKAS: unresolved reference to volume %s", label);
-#endif
 
     return NULL;
 }
@@ -465,39 +451,31 @@ Volume *kasVolumePtr(char *label)
 //
 //  return reference to labelled point
 //
-hvector *kasVectorPtrIfExists(char *label)
+hvector *kasVectorPtrIfExists(udword label)
 {
     sdword i = 0;
     while (i < LabelledVectorsUsed)
     {
-        if (!strncasecmp(LabelledVectors[i]->label, label, KAS_MAX_LABEL_LENGTH))
+        if (LabelledVectors[i]->label == label)
             return LabelledVectors[i]->hvector;
         ++i;
     }
     return NULL;
 }
 
-hvector *kasVectorPtr(char *label)
+// CAT: 0x00490b30 (kasVectorPtrIfExists folded into it by the linker)
+hvector *kasVectorPtr(udword label)
 {
-    hvector *vec = kasVectorPtrIfExists(label);
-    
-#ifdef HW_BUILD_FOR_DEBUGGING
-    if (label == NULL)
-    {
-        dbgFatalf(DBG_Loc,"\nKAS: unresolved reference to point %s", label);
-    }
-#endif
-
-    return vec;
+    return kasVectorPtrIfExists(label);
 }
 
-GrowSelection *kasGetGrowSelectionPtrIfExists(char *label)
+GrowSelection *kasGetGrowSelectionPtrIfExists(udword label)
 {
     sdword i = 0;
 
     while (i < SelectionsUsed)
     {
-        if (!strncasecmp(Selections[i]->label, label, KAS_MAX_LABEL_LENGTH))
+        if (Selections[i]->label == label)
             return &(Selections[i]->shipList);
         ++i;
     }
@@ -509,13 +487,13 @@ GrowSelection *kasGetGrowSelectionPtrIfExists(char *label)
 //  on first reference to a new GrowSelection, create one and return its pointer
 //  otherwise, return the pointer
 //
-GrowSelection *kasGrowSelectionPtr(char *label)
+GrowSelection *kasGrowSelectionPtr(udword label)
 {
     sdword i = 0;
 
     while (i < SelectionsUsed)
     {
-        if (!strncasecmp(Selections[i]->label, label, KAS_MAX_LABEL_LENGTH))
+        if (Selections[i]->label == label)
             return &(Selections[i]->shipList);
         ++i;
     }
@@ -534,7 +512,7 @@ GrowSelection *kasGrowSelectionPtr(char *label)
         SelectionsAllocated += KASSELECTION_ALLOC_INCREMENT;
     }
     Selections[SelectionsUsed] = memAlloc(sizeof(KasSelection), "kasGrowSelection", 0);
-    memStrncpy(Selections[SelectionsUsed]->label, label, KAS_MAX_LABEL_LENGTH);
+    Selections[SelectionsUsed]->label = label;
     growSelectInit(&Selections[SelectionsUsed]->shipList);
 
     return &(Selections[SelectionsUsed++]->shipList);
@@ -551,7 +529,7 @@ void kasGrowSelectionClear(GrowSelection *ships)
 //
 //  add new labelled path (with no points, yet), return pointer to it
 //
-Path *kasLabelledPathAdd(char *label, sdword numPoints, sdword closed)
+Path *kasLabelledPathAdd(udword label, sdword numPoints, sdword closed)
 {
     if (!LabelledPaths)
     {
@@ -568,7 +546,7 @@ Path *kasLabelledPathAdd(char *label, sdword numPoints, sdword closed)
     }
     LabelledPaths[LabelledPathsUsed] = memAlloc(sizeof(LabelledPath), "kasLabelledPath", MBF_NonVolatile);
     LabelledPaths[LabelledPathsUsed]->path = aiuCreatePathStruct(numPoints, closed);
-    memStrncpy(LabelledPaths[LabelledPathsUsed]->label, label, KAS_MAX_LABEL_LENGTH);
+    LabelledPaths[LabelledPathsUsed]->label = label;
 
     return LabelledPaths[LabelledPathsUsed++]->path;
 }
@@ -576,7 +554,7 @@ Path *kasLabelledPathAdd(char *label, sdword numPoints, sdword closed)
 //
 //  add new labelled volume (with no contents, yet), return pointer to it
 //
-Volume *kasLabelledVolumeAdd(char *label)
+Volume *kasLabelledVolumeAdd(udword label)
 {
     if (!LabelledVolumes)
     {
@@ -593,7 +571,7 @@ Volume *kasLabelledVolumeAdd(char *label)
     }
     LabelledVolumes[LabelledVolumesUsed] = memAlloc(sizeof(LabelledVolume), "kasLabelledVolume", MBF_NonVolatile);
     LabelledVolumes[LabelledVolumesUsed]->volume = memAlloc(sizeof(Volume), "kasVolume", MBF_NonVolatile);
-    memStrncpy(LabelledVolumes[LabelledVolumesUsed]->label, label, KAS_MAX_LABEL_LENGTH);
+    LabelledVolumes[LabelledVolumesUsed]->label = label;
 
     return LabelledVolumes[LabelledVolumesUsed++]->volume;
 }
@@ -601,7 +579,7 @@ Volume *kasLabelledVolumeAdd(char *label)
 //
 //  add new labelled vector, return pointer to it
 //
-hvector *kasLabelledVectorAdd(char *label, real32 x, real32 y, real32 z, real32 w)
+hvector *kasLabelledVectorAdd(udword label, real32 x, real32 y, real32 z, real32 w)
 {
     if (!LabelledVectors)
     {
@@ -618,7 +596,7 @@ hvector *kasLabelledVectorAdd(char *label, real32 x, real32 y, real32 z, real32 
     }
     LabelledVectors[LabelledVectorsUsed] = memAlloc(sizeof(LabelledVector), "kasLabelledVector", MBF_NonVolatile);
     LabelledVectors[LabelledVectorsUsed]->hvector = memAlloc(sizeof(hvector), "kasVector", MBF_NonVolatile);
-    memStrncpy(LabelledVectors[LabelledVectorsUsed]->label, label, KAS_MAX_LABEL_LENGTH);
+    LabelledVectors[LabelledVectorsUsed]->label = label;
     LabelledVectors[LabelledVectorsUsed]->hvector->x = x;
     LabelledVectors[LabelledVectorsUsed]->hvector->y = y;
     LabelledVectors[LabelledVectorsUsed]->hvector->z = z;
@@ -699,7 +677,7 @@ void kasLabelledEntitiesDestroy(void)
 char *kasAITeamName(AITeam *team, char *teamName)
 {
     if (team)
-        strcpy(teamName, team->kasLabel);
+        sprintf(teamName, "%07x", team->kasLabel);     // CAT: the label's hash
     else
         strcpy(teamName, "NULL");
     return teamName;
@@ -712,7 +690,7 @@ char *kasAITeamName(AITeam *team, char *teamName)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void kasAddShipToTeam(Ship *ship,char *label)
+void kasAddShipToTeam(Ship *ship,udword label)
 {
     sdword i;
     AITeam *teamp;
@@ -722,13 +700,13 @@ void kasAddShipToTeam(Ship *ship,char *label)
     for (i = 0; i < aiCurrentAIPlayer->teamsUsed; i++)
     {
         teamp = aiCurrentAIPlayer->teams[i];
-        if (teamp->teamType == ScriptTeam && !strncasecmp(teamp->kasLabel, label, KAS_TEAM_NAME_MAX_LENGTH))
+        if (teamp->teamType == ScriptTeam && teamp->kasLabel == label)      // CAT: by hash (kasAddShipToTeam 0x00491120)
             break;
     }
     if (i >= aiCurrentAIPlayer->teamsUsed)
     {
         teamp = aitCreate(ScriptTeam);
-        memStrncpy(teamp->kasLabel, label, KAS_TEAM_NAME_MAX_LENGTH);
+        teamp->kasLabel = label;
         teamp->kasOrigShipsCount = 0;
     }
 
@@ -817,7 +795,7 @@ void kasTakeADump(void)
 
         if (CurrentTeamP->teamType == ScriptTeam)
         {
-            fprintf(fp, "%s {%d} : %s %s\n",
+            fprintf(fp, "%07x {%d} : %07x %07x\n",          // CAT: the KAS names are hashes
                     CurrentTeamP->kasLabel,
                     CurrentTeamP->shipList.selection->numShips,
                     CurrentTeamP->kasFSMName,
@@ -843,11 +821,11 @@ void kasTakeADump(void)
         remaining = (sdword)(tp->duration - (universe.totaltimeelapsed - tp->startTime));
         if (remaining <= 0)
         {
-            fprintf(fp, "%s EXPIRED\n", tp->name);
+            fprintf(fp, "%07x.%07x EXPIRED\n", tp->scopeHash, tp->nameHash);  // CAT: hashes
         }
         else
         {
-            fprintf(fp, "%s %s : %ds\n", tp->name, tp->enabled ? "ON" : "OFF", remaining);
+            fprintf(fp, "%07x.%07x %s : %ds\n", tp->scopeHash, tp->nameHash, tp->enabled ? "ON" : "OFF", remaining);
         }
     }
     fclose(fp);
@@ -961,7 +939,7 @@ void kasDebugDraw(void)
                 }
                 else
                 {
-                    sprintf(buf, "%s {%d} : %s %s",
+                    sprintf(buf, "%07x {%d} : %07x %07x",       // CAT: the KAS names are hashes
                             CurrentTeamP->kasLabel,
                             CurrentTeamP->shipList.selection->numShips,
                             CurrentTeamP->kasFSMName,
@@ -1019,9 +997,9 @@ void kasDebugDraw(void)
                 tp = &timers[i];
                 remaining = (sdword)(tp->duration - (universe.totaltimeelapsed - tp->startTime));
                 if (remaining <= 0)
-                    sprintf(buf, "%s EXPIRED", tp->name);
+                    sprintf(buf, "%07x.%07x EXPIRED", tp->scopeHash, tp->nameHash);    // CAT: hashes
                 else
-                    sprintf(buf, "%s %s : %ds", tp->name, tp->enabled ? "ON" : "OFF", remaining);
+                    sprintf(buf, "%07x.%07x %s : %ds", tp->scopeHash, tp->nameHash, tp->enabled ? "ON" : "OFF", remaining);
                 fontPrint(x, y + (rowHeight>>2), KAS_DEBUG_TEXTCOLOR, buf);
                 y += rowHeight + 1;
                 COLUMN_CHECK
@@ -1218,7 +1196,7 @@ void kasSave(void)
 
     SaveInfoNumber(CurrentMissionScope);
 
-    SaveStructureOfSize(CurrentMissionScopeName,sizeof(CurrentMissionScopeName));
+    SaveInfoNumber(CurrentMissionScopeName);                   // CAT: the hash (kasSave 0x00491220)
     SaveStructureOfSize(CurrentMissionName,sizeof(CurrentMissionName));
 
     SaveInfoNumber(WatchFunctionToMissionEnum(CurrentMissionWatchFunction));
@@ -1289,7 +1267,7 @@ void kasLoad(void)
     i = LoadInfoNumber();                         // was: CurrentMissionScope
     CurrentMissionScope = spGetCurrentMission();  // keep sync'd for consistency
 
-    LoadStructureOfSizeToAddress(CurrentMissionScopeName, sizeof(CurrentMissionScopeName));
+    CurrentMissionScopeName = (udword)LoadInfoNumber();         // CAT: the hash (kasLoad 0x00491450)
     LoadStructureOfSizeToAddress(CurrentMissionName,      sizeof(CurrentMissionName)     );
 
     i = LoadInfoNumber();    // another CurrentMissionScope duplicate

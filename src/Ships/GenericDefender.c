@@ -249,7 +249,7 @@ static void cat_kamikazeSteer(Ship *ship, Ship *target, real32 range)    // 0x00
     real32 speed, closing;
 
     if ((target->header.objtype != OBJ_ShipType) || bitTest(target->header.flags, SOF_CatDocking) ||
-        bitTest(target->header.catFlags18, CAT_SHIPFLAG_Orphaned))
+        bitTest(target->header.catFlags18, CAT_SHIPFLAG_Invincible))
     {
         return;
     }

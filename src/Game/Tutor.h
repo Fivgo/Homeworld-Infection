@@ -139,14 +139,14 @@ void tutSetPointerTargetXYRight(char *name, sdword x, sdword y);
 void tutSetPointerTargetXYBottomRight(char *name, sdword x, sdword y);
 void tutSetPointerTargetXYTaskbar(char *name, sdword x, sdword y);
 void tutSetPointerTargetXYFE(char *name, sdword x, sdword y);
-void tutSetPointerTargetShip(char *name, ShipPtr ship);
-void tutSetPointerTargetShipSelection(char *name, SelectCommand *ships);
+void tutSetPointerTargetShip(char *name, ShipPtr ship, bool32 objective);       // CAT: + objective flag
+void tutSetPointerTargetShipSelection(char *name, SelectCommand *ships, bool32 objective);
 void tutSetPointerTargetShipHealth(char *name, ShipPtr ship);
 void tutSetPointerTargetShipGroup(char *name, ShipPtr ship);
 void tutPlayerShipDied(ShipPtr ship);
 void tutSetPointerTargetFERegion(char *name, char *pAtomName);
 void tutSetPointerTargetRect(char *name, sdword x0, sdword y0, sdword x1, sdword y1);
-void tutSetPointerTargetAIVolume(char *name, Volume *volume);
+void tutSetPointerTargetAIVolume(char *name, Volume *volume, bool32 objective);
 void tutRemovePointerByName(char *name);
 void tutRemoveAllPointers(void);
 void tutRemoveAllPointers(void);
@@ -198,5 +198,16 @@ sdword tutCameraFocusedOnShipType(char *pShipTypes);
 // CAT (M2-R6 frontend): the tutorial's button row under a subtitle picture (0x00532480; its readers are stage 6)
 extern sdword catTutButtonRowY;
 sdword cat_tutButtonRowSet(sdword y);
+// CAT (M2-R8 kasf library): the kasf library's Cataclysm tutorial entry points (Tutor.c, end of file)
+void cat_tutSetPointerTargetObj(char *name);                        // 0x00530060
+void cat_tutShowNextTextButton(void);                               // 0x00532190
+void cat_tutHideNextTextButton(void);                               // 0x00532660
+sdword cat_tutNextTextButtonClicked(void);                          // 0x00532a90
+void cat_tutHidePrevButton(void);                                   // 0x005326b0
+sdword cat_tutPrevButtonClicked(void);                              // 0x00532aa0
+void cat_tutShowQuitButton(void);                                   // 0x005324a0
+void cat_tutHideQuitButton(void);                                   // 0x00532700
+sdword cat_tutQuitButtonClicked(void);                              // 0x00532ab0
+void cat_tutSelectShips(MaxSelection *ships);                      // 0x00533ca0
 
 #endif

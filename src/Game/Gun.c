@@ -21,6 +21,8 @@
 #include "glinc.h"
 #include "Globals.h"
 #include "Gun.h"
+#include "KASVar.h"
+#include "SinglePlayer.h"
 #include "RKO.h"
 #include "LinkedList.h"
 #include "MadLinkIn.h"
@@ -768,7 +770,9 @@ void missileShoot(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
     if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_KasSpecialDamageModifier))
     {
         //ship is being 'beefed' up by KAS...add value to damagemultiplier
-        missile->damage*=ship->damageModifier;
+        // CAT: the KAS damage factor is Ship +0x3E0 (missileShoot 0x0048af06 reads it; kasfShipsSetDamageFactor
+        //      0x00493980 writes it); +0x3DC (damageModifier) is the KAS repair factor (M2-R8 kasf library)
+        missile->damage*=ship->catDamageFactor;
     }
 
     missile->missileID.missileNumber = universe.missileNumber;
@@ -1295,7 +1299,8 @@ Bullet *gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
     if (bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_KasSpecialDamageModifier))
     {
         //ship is being 'beefed' up by KAS...add value to damagemultiplier
-        damage *= ship->damageModifier;
+        // CAT: Ship +0x3E0 (gunShoot 0x0048b72b reads it; M2-R8 kasf library: was +0x3DC, the KAS repair factor)
+        damage *= ship->catDamageFactor;
     }
 
     // CAT: every shot at a Leech also does it 10 points of damage at once (0x0048b740)
@@ -1334,9 +1339,17 @@ bool32 gunShootGunsAtTarget(Ship *ship,SpaceObjRotImpTarg *target,real32 range,v
         return shotguns;
     }
 
-    // CAT-TODO(stage 6): in Mission 15 no ship fires while the KAS variable G_StopShipsFiringOnMission15 is set
-    //      (gunShootGunsAtTarget 0x0048c2e0: cat_kasHashString, cat_kasVarFind; the Cataclysm KAS variables come with
-    //      the kas2c mission code)
+    // CAT: in Mission 15 no ship fires while the global KAS variable G_StopShipsFiringOnMission15 is set
+    //      (gunShootGunsAtTarget 0x0048c2e0: cat_kasHashString, cat_kasVarFind; M2-R8 kasf library)
+    if (singlePlayerGame && (singlePlayerGameInfo.currentMission == 15))
+    {
+        CatKasVar *stop = cat_kasVarFind(0, cat_kasHashString("G_StopShipsFiringOnMission15"));
+
+        if ((stop != NULL) && (stop->value != 0))
+        {
+            return FALSE;
+        }
+    }
 
     numGuns = gunInfo->numGuns;
 

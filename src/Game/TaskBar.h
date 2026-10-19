@@ -118,8 +118,7 @@ extern bool32 tbDisable;
     Functions:
 =============================================================================*/
 //startup/shutdown
-void tbStartup(void);
-void tbShutdown(void);
+// CAT: no tbStartup / tbShutdown (M2-R8 kasf library: the exe has no task bar to set up)
 void PossiblyResetTaskbar(void);
 
 //create/remove task bar buttons

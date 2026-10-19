@@ -10,6 +10,7 @@
 //  them a little slower, but friendly for scripting, etc.
 //
 
+#include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -24,12 +25,14 @@ sdword timersAllocated = 0;
 sdword timersUsed = 0;
 Timer *timers = NULL;
 
-static Timer *timTimerFind(char *name)
+// CAT (M2-R8 kasf library): the KAS timers are found by (scope hash, name hash) (the search loop every exe timer
+//      function starts with, 0x0052bfe0 .. 0x0052c660); NULL when absent
+static Timer *timTimerFind(udword scopeHash, udword nameHash)
 {
     sdword i;
 
     for (i = 0; i < timersUsed; ++i)
-        if (!strncmp(timers[i].name, name, TIMER_NAME_MAX_LENGTH))
+        if ((timers[i].scopeHash == scopeHash) && (timers[i].nameHash == nameHash))
             break;
 
     if (i >= timersUsed)
@@ -38,98 +41,130 @@ static Timer *timTimerFind(char *name)
         return timers+i;
 }
 
-void timTimerStart(char *name)
+// CAT: the time left, as the exe computes it inline in timTimerRemaining 0x0052c3d0, timTimerExpired 0x0052c190,
+//      timTimerExpiredDestroy 0x0052c290 and timTimerStop 0x0052c060: rounded to the nearest second (the 1.5 * 2^52
+//      constant 0x0072a458, where HW1 truncated); a stopped timer returns its rounded duration (HW1: 0); a running one
+//      at 0 or less is stopped and its duration zeroed (HW1 kept the duration)
+static sdword timTimerLeft(Timer *tp)
 {
-    Timer *tp;
-
-    tp = timTimerFind(name);
-    if (!tp)
-        return;
-
-    if (tp->duration > 0)
-    {
-        tp->startTime = universe.totaltimeelapsed;
-        tp->enabled = 1;
-        tp->bPaused = FALSE;
-    }
-    else
-        tp->enabled = 0;
-}
-
-void timTimerStop(char *name)
-{
-    Timer *tp;
-
-    tp = timTimerFind(name);
-    if (!tp)
-        return;
-
-    tp->duration = (real32)timTimerRemaining(name);
-    tp->enabled = 0;
-}
-
-sdword timTimerExpired(char *name)
-{
-    if (!timTimerFind(name))
-        return 0;  // non-existent timers haven't "expired"
-
-    return !timTimerRemaining(name);
-}
-
-sdword timTimerExpiredDestroy(char *name)
-{
-    if (!timTimerFind(name))
-        return 0;  // non-existent timers haven't "expired"
-
-    if (!timTimerRemaining(name))
-    {
-       timTimerDestroy(name);
-       return 1;
-    }
-    else
-       return 0;
-}
-
-sdword timTimerRemaining(char *name)
-{
-    Timer *tp;
     sdword rem;
 
-    tp = timTimerFind(name);
-    if (!tp)
-        return 0;
-    if (tp->bPaused)
+    if (!tp->enabled)
     {
-        return(SDWORD_Max);
+        return (sdword)lrint((double)tp->duration);
     }
-    if ((!tp->enabled))
-        return 0;
-    rem = (sdword)(tp->duration - (universe.totaltimeelapsed - tp->startTime));
+    rem = (sdword)lrint((double)tp->duration - ((double)universe.totaltimeelapsed - (double)tp->startTime));
     if (rem <= 0)
     {
         tp->enabled = 0;
+        tp->duration = 0.0f;
         rem = 0;
     }
     return rem;
 }
 
-void timTimerSet(char *name, sdword duration)
+// CAT: 0x0052bfe0: a timer that runs already keeps its start time (HW1 restarted it)
+void timTimerStart(udword scopeHash, udword nameHash)
 {
     Timer *tp;
 
-    tp = timTimerFind(name);
+    tp = timTimerFind(scopeHash, nameHash);
+    if (!tp)
+        return;
+
+    if (tp->duration > 0)
+    {
+        if (!tp->enabled)
+        {
+            tp->startTime = universe.totaltimeelapsed;
+            tp->enabled = 1;
+            tp->bPaused = FALSE;
+        }
+    }
+    else
+        tp->enabled = 0;
+}
+
+// CAT: 0x0052c060: a paused timer keeps (float)0x7fffffff as its duration (the exe's 0x4f000000)
+void timTimerStop(udword scopeHash, udword nameHash)
+{
+    Timer *tp;
+    sdword rem;
+
+    tp = timTimerFind(scopeHash, nameHash);
+    if (!tp)
+        return;
+
+    rem = tp->bPaused ? SDWORD_Max : timTimerLeft(tp);
+    tp->enabled = 0;
+    tp->duration = (real32)rem;
+}
+
+// CAT: 0x0052c190 (a paused timer has not expired)
+sdword timTimerExpired(udword scopeHash, udword nameHash)
+{
+    Timer *tp;
+
+    tp = timTimerFind(scopeHash, nameHash);
+    if (!tp)
+        return 0;  // non-existent timers haven't "expired"
+
+    if (tp->bPaused)
+        return 0;
+    return !timTimerLeft(tp);
+}
+
+// CAT: 0x0052c290
+sdword timTimerExpiredDestroy(udword scopeHash, udword nameHash)
+{
+    Timer *tp;
+
+    tp = timTimerFind(scopeHash, nameHash);
+    if (!tp)
+        return 0;  // non-existent timers haven't "expired"
+
+    if (tp->bPaused || timTimerLeft(tp))
+        return 0;
+
+    timTimerDestroy(scopeHash, nameHash);
+    return 1;
+}
+
+// CAT: 0x0052c3d0
+sdword timTimerRemaining(udword scopeHash, udword nameHash)
+{
+    Timer *tp;
+
+    tp = timTimerFind(scopeHash, nameHash);
+    if (!tp)
+        return 0;
+
+    if (tp->bPaused)
+    {
+        return(SDWORD_Max);
+    }
+    return timTimerLeft(tp);
+}
+
+// CAT: 0x0052c480
+void timTimerSet(udword scopeHash, udword nameHash, sdword duration)
+{
+    Timer *tp;
+
+    tp = timTimerFind(scopeHash, nameHash);
     if (!tp)
         return;
 
     tp->duration = (real32)duration;
 }
 
-void timTimerDestroy(char *name)
+// CAT: 0x0052c4d0
+void timTimerDestroy(udword scopeHash, udword nameHash)
 {
     sdword i;
 
     for (i = 0; i < timersUsed; ++i)
-        if (!strncmp(timers[i].name, name, TIMER_NAME_MAX_LENGTH))
+        if ((timers[i].scopeHash == scopeHash) && (timers[i].nameHash == nameHash))
             break;
 
     if (i >= timersUsed)
@@ -140,7 +175,6 @@ void timTimerDestroy(char *name)
         memcpy(timers + i, timers + i+1, sizeof(Timer));
         ++i;
     }
-
     --timersUsed;
 }
 
@@ -155,9 +189,10 @@ void timTimerDestroyAll(void)
     timersUsed = 0;
 }
 
-void timTimerCreate(char *name)
+// CAT: 0x0052c580: the hashes replace the name copy
+void timTimerCreate(udword scopeHash, udword nameHash)
 {
-    if (timTimerFind(name))
+    if (timTimerFind(scopeHash, nameHash))
         return;  // already exists
 
     // allocate more if necessary
@@ -167,15 +202,11 @@ void timTimerCreate(char *name)
         timersAllocated += TIMER_ALLOC_INCREMENT;
     }
 
-    memStrncpy(timers[timersUsed].name, name, TIMER_NAME_MAX_LENGTH);
-    if (strlen(name) < TIMER_NAME_MAX_LENGTH)
-        timers[timersUsed].name[strlen(name)] = 0;
-    else
-        timers[timersUsed].name[TIMER_NAME_MAX_LENGTH] = 0;
+    timers[timersUsed].scopeHash = scopeHash;
+    timers[timersUsed].nameHash = nameHash;
     timers[timersUsed].duration = 0;
     timers[timersUsed].enabled = 0;
     timers[timersUsed].bPaused = 0;
-
     ++timersUsed;
 }
 
@@ -183,11 +214,12 @@ void timTimerCreate(char *name)
 //  saves having to do a create, then a set, then a start
 //  with separate operations.
 //
-void timTimerCreateSetStart(char *name, sdword duration)
+// CAT: 0x0052c660 (the three inlined)
+void timTimerCreateSetStart(udword scopeHash, udword nameHash, sdword duration)
 {
-    timTimerCreate(name);
-    timTimerSet(name, duration);
-    timTimerStart(name);
+    timTimerCreate(scopeHash, nameHash);
+    timTimerSet(scopeHash, nameHash, duration);
+    timTimerStart(scopeHash, nameHash);
 }
 
 /*-----------------------------------------------------------------------------
@@ -207,18 +239,19 @@ void timTimerPause(Timer *tim)
 /*-----------------------------------------------------------------------------
     Name        : timTimerPauseAllNotScoped
     Description : Pauses all timers that do not have the specified scope name
-    Inputs      : scopeName - name of the FSM that called this function.
+    Inputs      : scopeHash - the hash of the FSM that called this function (CAT: 0x0052c7e0).
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void timTimerPauseAllNotScoped(char *scopeName)
+void timTimerPauseAllNotScoped(udword scopeHash)
 {
     Timer *tim = timers;
-    sdword index, stringLength = strlen(scopeName);
+    sdword index;
 
+    // CAT: 0x0052c7e0: a timer of another scope is one whose scope hash differs (HW1 compared the name's prefix)
     for (index = 0; index < timersUsed; index++, tim++)
     {
-        if (memcmp(scopeName, tim->name, stringLength))
+        if (tim->scopeHash != scopeHash)
         {                                                   //if does not match scope name
             timTimerPause(tim);
         }

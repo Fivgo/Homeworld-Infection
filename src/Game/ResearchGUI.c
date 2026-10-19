@@ -682,7 +682,7 @@ static bool32 catRmClose(void)
     rmBaseRegion = NULL;
     mrRenderMainScreen = TRUE;
     soundEventPlay(NULL, 0x130, NULL);
-    soundEventPlay(NULL, UI_SoundOfSpace, NULL);
+    soundEventPlay(NULL, UI_SoundOfSpace, NULL);         // CAT: 0x100
     spUnlockout();
     rmCurTechTexture = -1;
     techinfo = -1;

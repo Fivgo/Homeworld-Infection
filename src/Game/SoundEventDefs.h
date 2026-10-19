@@ -61,6 +61,20 @@
 #define CAT_UI_RadioClick				(15 + UI_Flag)      // 0x10f
 #define CAT_UI_RaceOne					(58 + UI_Flag)      // 0x13a (the CP_RaceOne toggle)
 #define CAT_UI_RaceTwo					(59 + UI_Flag)      // 0x13b (the CP_RaceTwo toggle)
+// CAT (M2-R8 kasf library, sound): Cataclysm's ids of HW1's UI events, read from each exe push (soundEventPlay
+//      0x005209f0); the trade screen's ambient is UI event 3 (tmTradeBegin 0x0052e566)
+#define CAT_UI_TradingAmbient			(3 + UI_Flag)       // 0x103 (HW1's UI_Trading is 0x105)
+#define CAT_UI_Letterbox				(35 + UI_Flag)      // 0x123 (kasfWideScreenIn 0x00497481; HW1 0x110)
+#define CAT_UI_Unletterbox				(36 + UI_Flag)      // 0x124 (nisScissorOut 0x004d02d9, kasfWideScreenOut; HW1 0x111)
+#define CAT_UI_CrateFound				(40 + UI_Flag)      // 0x128 (cratesPlayerFoundACrate 0x00460dc2; HW1 0x114)
+#define CAT_UI_ChatMessage				(43 + UI_Flag)      // 0x12b (gcProcessGameChatPacket 0x00486dcc; HW1 0x10f)
+#define CAT_UI_SensorsPing				(44 + UI_Flag)      // 0x12c (pingListDraw 0x004e8add; HW1 0x117)
+#define CAT_UI_ManagerIntro				(47 + UI_Flag)      // 0x12f (tmTradeBegin 0x0052e558; HW1 0x11a)
+#define CAT_UI_ManagerExit				(48 + UI_Flag)      // 0x130 (tmLeave 0x0052d7b7; HW1 0x11b)
+#define CAT_UI_PingProximity			(49 + UI_Flag)      // 0x131 (pingListDraw 0x004e8b83; HW1 0x11c)
+#define CAT_UI_PingNewShips				(50 + UI_Flag)      // 0x132 (pingListDraw 0x004e8bb6; HW1 0x11d)
+#define CAT_UI_PingBattle				(51 + UI_Flag)      // 0x133 (pingListDraw 0x004e8b17; HW1 0x11e)
+#define CAT_UI_PingHyperspace			(52 + UI_Flag)      // 0x134 (pingListDraw 0x004e8b50; HW1 0x11f)
 // CAT: the UI ambients are events 0x100..0x107 (soundEventPlay 0x005209f0; HW1 up to UI_Trading)
 #define CAT_UI_LAST_AMBIENT				(7 + UI_Flag)
 

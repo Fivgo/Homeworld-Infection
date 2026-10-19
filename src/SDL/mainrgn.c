@@ -2754,7 +2754,7 @@ void mrBuildShips(char *string, featom *atom)
         return;
     }
 
-    soundEvent(NULL, UI_Click);
+    soundEvent(NULL, UI_Click);                    // CAT: the exe's id is HW1's 0x108 (mrBuildShips 0x005649fd)
     ship = selSelected.ShipPtr[0];
     if ((selSelected.numShips == 1) && !bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt) &&
         !ship->shipOrDerelict.catDisabled &&
@@ -2950,7 +2950,7 @@ void mrLaunch(char *string, featom *atom)
         return;
     }
 
-    soundEvent(NULL, UI_Click);
+    soundEvent(NULL, UI_Click);                    // CAT: the exe's id is HW1's 0x108 (mrLaunch 0x005654d4)
 
     if (selSelected.numShips == 1)
     {
@@ -2971,7 +2971,7 @@ void mrResearch(char *string, featom *atom)
         return;
     }
 
-    soundEvent(NULL, UI_Click);
+    soundEvent(NULL, UI_Click);                    // CAT: the exe's id is HW1's 0x108 (mrResearch 0x00565554)
 
     rmResearchGUIBegin(ghMainRegion, 0, 0, 0);
 

@@ -28,6 +28,8 @@
 #include "HorseRace.h"
 #include "HS.h"
 #include "InfoOverlay.h"
+#include "KASFunc.h"
+#include "KASVar.h"
 #include "LaunchMgr.h"
 #include "LevelLoad.h"
 #include "LinkedList.h"
@@ -60,6 +62,11 @@
 #include "UnivUpdate.h"
 #include "utility.h"
 
+// CAT (M2-R8 kasf library): HW1's compiled mission scripts are out of the build (src/meson.build): they call the kasf
+//      with HW1's string names and HW1-only kasf (kasfForceTaskbar, kasfTargetDrop), where the kasf library now has
+//      cataclysm.exe's signatures (KAS names as cat_kasHashString hashes, cat_kasFunctionTable 0x00755048); they ran on
+//      no Cataclysm level (CAT_HW1_MISSION_SCRIPTS 0). The Cataclysm kas2c missions replace them (the switch's retirement).
+#if CAT_HW1_MISSION_SCRIPTS
 #include "Mission01.h"
 #include "Mission02.h"
 #include "Mission03.h"
@@ -78,6 +85,7 @@
 #include "Mission15.h"
 #include "Mission16.h"
 #include "Tutorial1.h"
+#endif
 #include "Mimic.h"
 
 #ifdef _MSC_VER
@@ -444,7 +452,7 @@ void GetMissionsDirAndFile(MissionEnum mission)
 
 bool32 GetPointOfName(hvector *point,char *name)
 {
-    hvector *vectptr = kasVectorPtr(name);
+    hvector *vectptr = kasVectorPtr(cat_kasHashString(name));       // CAT: by hash (GetPointOfName 0x00517280)
 
     if (vectptr != NULL)
     {
@@ -2004,7 +2012,7 @@ void spMainScreen(void)
     rmCloseIfOpen();
     lmCloseIfOpen();
     feAllMenusDelete();                                     //make sure no menus stay up during NIS
-    tbForceTaskbar(FALSE);                                  //make sure taskbar is down during NIS
+    // CAT: no task bar to force down (spMainScreen 0x00518d80 ends with feAllMenusDelete; M2-R8 kasf library)
 }
 
 void spLockout(udword flags)
@@ -2023,7 +2031,7 @@ void spLockout(udword flags)
     }
 
     smSensorsDisable = TRUE;
-    tbDisable = TRUE;
+    // CAT: no task bar lockout (the exe never writes tbDisable 0x00a6b254; spLockout 0x00518db0)
     if (flags & SPLOCKOUT_MR)
     {
         mrDisable();
@@ -2040,11 +2048,37 @@ void spMainScreenAndLockout(udword flags)
     spLockout(flags);
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_spMainScreenAndLockoutKeepSensors             0x00518e90
+    Description : CAT (M2-R8 kasf library): spMainScreenAndLockout without closing the sensors manager (the KAS
+                  letterbox's finish, cat_kasWideScreenInFinish 0x004973d0): the managers and menus close and the
+                  lockout is set. The exe's body is spMainScreenAndLockout 0x00518e10's without its first test;
+                  this tree's spLockout does the lockout part (SinglePlayer.c's port aligns both, M2-R8 producer 4)
+----------------------------------------------------------------------------*/
+void cat_spMainScreenAndLockoutKeepSensors(udword flags)
+{
+    cmCloseIfOpen();
+    rmCloseIfOpen();
+    lmCloseIfOpen();
+    feAllMenusDelete();
+    spLockout(flags);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_spFlagDeleteWhenMissionEnds                   0x0051c0b0
+    Description : CAT (M2-R8 kasf library): the ship is deleted when the mission ends (attribute 0x40,
+                  ATTRIBUTES_DeleteAfterHSOut's bit; kasfDeleteShipsWhenMissionEnds 0x00497ed0)
+----------------------------------------------------------------------------*/
+void cat_spFlagDeleteWhenMissionEnds(Ship *ship)
+{
+    bitSet(ship->obj.attributes, ATTRIBUTES_DeleteAfterHSOut);
+}
+
 void spUnlockout(void)
 {
 //comment out the rest of this function to use NIS debugging keys
     smSensorsDisable = FALSE;
-    tbDisable = FALSE;
+    // CAT: no task bar lockout (the exe never writes tbDisable 0x00a6b254; spUnlockout 0x00518f00)
     if (spLockoutFlags & SPLOCKOUT_DESELECT)
     {
         bitClear(spLockoutFlags,SPLOCKOUT_DESELECT);
@@ -2159,10 +2193,7 @@ void singlePlayerPostInit(bool32 loadingSaveGame)
 
 void singlePlayerClose(void)
 {
-    //dbgAssertOrIgnore(hyperspacetbbutton);
-    //tbButtonDelete(hyperspacetbbutton);
-    tbButtonListRefresh();
-
+    // CAT: no task bar buttons to refresh (singlePlayerClose 0x005193f0 starts with kasClose 0x004905f0)
     kasClose();
 
     if (spHyperspaceRollCallHandle)
@@ -2995,6 +3026,7 @@ void singlePlayerKasMissionStart(MissionEnum mission)
 
 void *WatchFunctionAddress(MissionEnum mission)
 {
+#if CAT_HW1_MISSION_SCRIPTS
     switch (mission)
     {
         case MISSION_1_KHARAK_SYSTEM:              return &Watch_Mission01;
@@ -3020,11 +3052,15 @@ void *WatchFunctionAddress(MissionEnum mission)
             break;
     }
 
+#else
+    (void)mission;   // CAT (M2-R8 kasf library): no HW1 script is built (above)
+#endif
     return NULL;
 }
 
 /* Get the proper FSM function list for the given mission index. */
 void const** FunctionListAddress(MissionEnum mission) {
+#if CAT_HW1_MISSION_SCRIPTS
     switch (mission)
     {
         case MISSION_1_KHARAK_SYSTEM:              return Mission01_FunctionPointers;
@@ -3050,12 +3086,16 @@ void const** FunctionListAddress(MissionEnum mission) {
             break;
     }
 
+#else
+    (void)mission;   // CAT (M2-R8 kasf library): no HW1 script is built (above)
+#endif
     return NULL;
 }
 
 /* Get the size of an FSM function list for the given mission index. */
 udword FunctionListSize(MissionEnum mission)
 {
+#if CAT_HW1_MISSION_SCRIPTS
     switch (mission)
     {
         case MISSION_1_KHARAK_SYSTEM:              return Mission01_FunctionPointerCount;
@@ -3081,6 +3121,9 @@ udword FunctionListSize(MissionEnum mission)
             break;
     }
 
+#else
+    (void)mission;   // CAT (M2-R8 kasf library): no HW1 script is built (above)
+#endif
     return 0;
 }
 
@@ -3425,7 +3468,7 @@ void singlePlayerStartNis(char *nisname, char *scriptname, bool32 centreMothersh
     thisNisHeader = nisLoad(nisname, scriptname);
 
     //see if we should centre NIS around a ship
-    nisSelection = kasGetGrowSelectionPtrIfExists("NisCentreShip");
+    nisSelection = kasGetGrowSelectionPtrIfExists(cat_kasHashString("NisCentreShip"));    // CAT: by hash (singlePlayerStartNis 0x0051b670)
     if ((nisSelection) && (nisSelection->selection->numShips > 0))
     {
         nisCentreShip = nisSelection->selection->ShipPtr[0];
@@ -4097,7 +4140,7 @@ void spNISletTestAttempt(sdword index)
 ----------------------------------------------------------------------------*/
 bool32 spFindCameraAttitude(vector *position)
 {
-    hvector *hPosition = kasVectorPtrIfExists(SP_CAMERA_POINT_NAME);
+    hvector *hPosition = kasVectorPtrIfExists(cat_kasHashString(SP_CAMERA_POINT_NAME));  // CAT: by hash (spFindCameraAttitude 0x0051bea0)
 
     if (hPosition == NULL)
     {

@@ -351,14 +351,14 @@ typedef struct
 //
 //  teams
 //
-// CAT: Cataclysm's queue holds 64 messages by pointer (the kas2c missions pass their message constants and compare
-//      them by address) and keeps a count rather than HW1's ring head: a received message is replaced by the last one
+// CAT: Cataclysm's queue holds 64 messages as their kas2c hashes (cat_kasHashString of the message name, compared as
+//      words; M2-R8 kasf library: they were taken for pointers) and keeps a count rather than HW1's ring head: a received message is replaced by the last one
 //      (aitMsgSend 0x00417e10, aitMsgReceived 0x00417e60, cat_aitMsgQueueRemoveAt 0x00417ec0); it lives in the team
 //      (AITeam +0x7C, 0x204 bytes) and msgQueue points at it once a message arrived
 #define MSG_QUEUE_MAX_MSGS 64
 typedef struct {
     sdword          head;                             // CAT: the number of messages queued
-    char            *msgs[MSG_QUEUE_MAX_MSGS];
+    udword          msgs[MSG_QUEUE_MAX_MSGS];         // CAT: the messages' hashes
     struct AITeam   *msgSenders[MSG_QUEUE_MAX_MSGS];  // team that sent the corresponding msg above
                                                       // NOTE:  if a team dies, the message will be deleted from this queue
 } MsgQueue;
@@ -397,9 +397,11 @@ typedef struct AITeam {
     struct AITeam     *msgSender;
 
     // KAS attributes (if teamType == SCRIPT_TEAM)
-    char                kasLabel[KAS_TEAM_NAME_MAX_LENGTH+1];
-    char                kasFSMName[KAS_FSM_NAME_MAX_LENGTH+1];
-    char                kasStateName[KAS_STATE_NAME_MAX_LENGTH+1];
+    // CAT (M2-R8 kasf library): the label, FSM and state names are cat_kasHashString hashes (AITeam +0x58 / +0x5C /
+    //      +0x60: kasAddShipToTeam 0x00491120, kasFSMCreate 0x00490660, kasJump 0x00490640); HW1 kept 48-byte strings
+    udword              kasLabel;
+    udword              kasFSMName;
+    udword              kasStateName;
     KASWatchFunction    kasFSMWatchFunction;
     KASWatchFunction    kasStateWatchFunction;
     ShipType            kasOrigShipsType;  // predominant ship type of this team (in mission layout file)
@@ -410,10 +412,16 @@ typedef struct AITeam {
     // CAT: the message queue's storage (AITeam +0x7C in cataclysm.exe)
     MsgQueue            catMsgQueue;
 } AITeam;
-// CAT: cataclysm.exe's AITeam is 0x280 bytes with the same fields up to +0x54 (+0x08 inserted) and its message queue at
-//      +0x7C; its KAS identity is a label hash at +0x58 and the FSM and state names as pointers (+0x5C, +0x60) where
-//      this tree keeps HW1's three 48-byte names for HW1's KAS (stage 6 replaces it with the kas2c missions), so the
-//      layout is not pinned: the mode-A loader converts a team chunk by the exe's offsets (aitCat32LoadTeam in AITeam.c)
+// CAT: cataclysm.exe's AITeam is 0x280 bytes with the same fields up to +0x54 (+0x08 inserted), its KAS identity as
+//      three hashes (+0x58 label, +0x5C FSM, +0x60 state) and its message queue at +0x7C; since M2-R8 kasf library this
+//      tree has the same layout on ILP32 (pinned below); the mode-A loader still converts a team chunk field by field
+//      (aitCat32LoadTeam in AITeam.c), since the pointers are 8 bytes on LP64
+#if defined(__i386__)
+_Static_assert(sizeof(AITeam) == 0x280, "AITeam is 0x280 bytes in cataclysm.exe");
+_Static_assert(offsetof(AITeam, kasLabel) == 0x58 && offsetof(AITeam, kasFSMWatchFunction) == 0x64 &&
+               offsetof(AITeam, kasTactics) == 0x74 && offsetof(AITeam, catMsgQueue) == 0x7C,
+               "AITeam's KAS fields at cataclysm.exe's offsets");
+#endif
 
 // all move processing functions look like this:
 // (returning 1 when we this move has completed
@@ -602,10 +610,10 @@ bool32 aitCheckAmIBeingWatched(AITeam *team, SelectCommand *sel);
 void aitSetAmIBeingWatched(AITeam *team, SelectCommand *sel);
 
 
-sdword aitMsgReceived(AITeam *teamp, char *msg);
-void aitMsgSend(AITeam *fromTeamp, AITeam *teamp, char *msg);
+sdword aitMsgReceived(AITeam *teamp, udword msg);                 // CAT: the message's hash
+void aitMsgSend(AITeam *fromTeamp, AITeam *teamp, udword msg);
 void aitMsgQueueFree(AITeam *teamp);
-char *cat_aitMsgQueueRemoveAt(AITeam *teamp, udword index);      // CAT: 0x00417ec0
+udword cat_aitMsgQueueRemoveAt(AITeam *teamp, udword index);     // CAT: 0x00417ec0
 void cat_aitMsgQueueFlush(AITeam *team);                         // CAT: 0x00417f20
 
 void aitSave(struct AIPlayer *aiplayer);

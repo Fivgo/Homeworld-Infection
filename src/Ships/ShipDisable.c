@@ -11,6 +11,7 @@
 
 #include "ConsMgr.h"
 #include "ShipDisable.h"
+#include "KASVar.h"
 
 #include "CommandDefs.h"
 #include "CommandLayer.h"
@@ -253,12 +254,23 @@ void cat_empShockShip(Ship *ship, sdword strength)
     if (bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatParalyzed))
     {
         ship->catEmpShockCount += strength;
-        // CAT-TODO(stage 6): the fraction is catEmpShockCount / the KAS variable G_NaggarokEMP's value
-        //      (cat_kasHashString 0x00491860, cat_kasVarFind 0x00491b20); the KAS variables come with the kas2c
-        //      missions. Without the variable the exe loads the clamped count's bits as a float (0x005b3ad5:
-        //      fld [esp+0x18]), a denormal that rounds the fraction to 0; that path is kept.
-        bits.i = clamped;
-        fraction = bits.f;
+        // CAT: the fraction is catEmpShockCount (unsigned) / the global KAS variable G_NaggarokEMP's value
+        //      (cat_kasHashString 0x00491860, cat_kasVarFind 0x00491b20; M2-R8 kasf library). Without the variable
+        //      the exe loads the clamped count's bits as a float (0x005b3ad5: fld [esp+0x18]), a denormal that
+        //      rounds the fraction to 0; that path is kept.
+        {
+            CatKasVar *emp = cat_kasVarFind(0, cat_kasHashString("G_NaggarokEMP"));
+
+            if (emp != NULL)
+            {
+                fraction = (real32)(udword)ship->catEmpShockCount / (real32)emp->value;
+            }
+            else
+            {
+                bits.i = clamped;
+                fraction = bits.f;
+            }
+        }
         if (fraction > 1.0f)
         {
             fraction = 1.0f;

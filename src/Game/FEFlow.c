@@ -2656,7 +2656,7 @@ udword feMenuItemProcess(regionhandle region, smemsize ID, udword event, udword 
                                 region->rect.x1 + feMenuOverlapMarginX,
                                 region->rect.y0 + feMenuOverlapMarginY);//start new menu
 
-                    soundEvent(NULL, UI_Click);
+                    soundEvent(NULL, UI_Click);     // CAT: HW1's id; feMenuItemProcess has no exe body (no popup menus)
                 }
             }
         }
@@ -2674,7 +2674,7 @@ udword feMenuItemProcess(regionhandle region, smemsize ID, udword event, udword 
                 name = atom->name;
                 feFunctionExecute(name, atom, FALSE);
 
-                soundEvent(NULL, UI_ClickAccept);
+                soundEvent(NULL, UI_ClickAccept);   // CAT: HW1's id; feMenuItemProcess has no exe body (no popup menus)
 
                 if (!mrMenuDontDisappear)
                 {

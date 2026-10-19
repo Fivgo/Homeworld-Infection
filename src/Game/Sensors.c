@@ -2544,7 +2544,7 @@ void smHyperspace(char *name, featom *atom)
         if (piePointSpecMode!=PSM_Idle
             && MP_HyperSpaceFlag)
         {
-            soundEvent(NULL, UI_MovementGUIoff);
+            soundEvent(NULL, UI_MovementGUIoff);   // CAT: HW1's id; no exe body (the Cataclysm screen has no SM_* buttons)
             MP_HyperSpaceFlag = FALSE;
             piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
         }
@@ -2570,7 +2570,7 @@ void smHyperspace(char *name, featom *atom)
                 {
                     MP_HyperSpaceFlag = FALSE;
                     piePointModeOnOff(PIE_SPEC_Move, NULL);   // CAT: unguarded toggle, kept on Move (mode 0 would be fatal if it turned the plate on)
-                    soundEvent(NULL, UI_MovementGUIoff);
+                    soundEvent(NULL, UI_MovementGUIoff);   // CAT: HW1's id; no exe body (the Cataclysm screen has no SM_* buttons)
                 }
                 else
                 {
@@ -2583,7 +2583,7 @@ void smHyperspace(char *name, featom *atom)
                         if (piePointSpecMode != PSM_Idle)
                         {
                             //turn it off!
-                            soundEvent(NULL, UI_MovementGUIoff);
+                            soundEvent(NULL, UI_MovementGUIoff);   // CAT: HW1's id; no exe body (the Cataclysm screen has no SM_* buttons)
                             MP_HyperSpaceFlag = FALSE;
                             piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
                         }
@@ -2739,7 +2739,7 @@ void smCancelMoveOrClose(char *name, featom *atom)
     if (piePointSpecMode != PSM_Idle)
     {
         piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
-        soundEvent(NULL, UI_MovementGUIoff);
+        soundEvent(NULL, UI_MovementGUIoff);   // CAT: HW1's id; no exe body (the Cataclysm screen has no SM_* buttons)
     }
     else
     {

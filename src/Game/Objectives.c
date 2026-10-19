@@ -22,7 +22,8 @@
 #include "SoundEvent.h"
 #include "StringSupport.h"
 #include "Subtitle.h"
-#include "TaskBar.h"
+#include "InfoOverlay.h"     // CAT: the objective list lives in the info overlay (cat_ioObjective*)
+#include "KASVar.h"
 #include "Universe.h"
 
 #ifdef _MSC_VER
@@ -157,13 +158,16 @@ Objective *objectiveAndFleetIntelligenceCreate(char *label, char *briefDescripti
 
     objectives[objectivesUsed++] = objective;
 
+    // CAT: no task bar: the objective goes to the info overlay's list, the hyperspace one first
+    //      (objectiveAndFleetIntelligenceCreate 0x004d6080: cat_ioObjectiveAddFirst 0x004ac600 / cat_ioObjectiveAdd
+    //      0x004ac5e0)
     if (hyperspace)
     {
-        tbObjectivesHyperspace((ubyte*)objectives[objectivesUsed-1]);
+        cat_ioObjectiveAddFirst(objectives[objectivesUsed-1]);
     }
     else
     {
-        tbObjectivesListAddItem((ubyte*)objectives[objectivesUsed-1]);
+        cat_ioObjectiveAdd(objectives[objectivesUsed-1]);
     }
 
     return objective;
@@ -261,6 +265,25 @@ sdword objectiveGetAll(void)
     return TRUE;
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_objectiveCountActive                          0x004d6370
+    Description : CAT: the number of objectives whose status is set (KAS "ObjectivesGetAny", kasfObjectiveGetAny
+                  0x00494f50, jumps here)
+----------------------------------------------------------------------------*/
+sdword cat_objectiveCountActive(void)
+{
+    sdword i, count = 0;
+
+    for (i = 0; i < objectivesUsed; i++)
+    {
+        if (objectives[i]->status)
+        {
+            count++;
+        }
+    }
+    return count;
+}
+
 //
 //  remove one objective
 //
@@ -281,7 +304,7 @@ void objectiveDestroy(char *label)
     if (!obj)
         return;
 
-    tbObjectivesListRemoveItem((ubyte *)obj);
+    cat_ioObjectiveRemove(obj);     // CAT: the info overlay's list (objectiveDestroy 0x004d63a0: cat_ioObjectiveRemove 0x004ac650)
 
     if (obj->fleetIntelligence)
     {
@@ -311,7 +334,7 @@ void objectiveDestroyAll(void)
     Objective *obj;
 
     // ASSUMING THIS GETS CALLED AT THE END OF A MISSION
-    tbObjectivesListCleanUp();
+    cat_ioObjectivesClear();        // CAT: the info overlay's list (objectiveDestroyAll 0x004d6480: cat_ioObjectivesClear 0x004ac6a0)
     fleetIntelligenceDestroyAll();
 
     while (i < objectivesUsed)
@@ -370,7 +393,8 @@ void poPopupTextDraw(rectangle *rect)
     char *pos, *oldpos;
     char oldline[256], line[256];
 
-    if (!gameIsRunning || nisIsRunning || (tutorial==TUTORIAL_ONLY))
+    // CAT: also drawn in the tutorial (poPopupTextDraw 0x004d6530 tests only the game and the NIS)
+    if (!gameIsRunning || nisIsRunning)
         return;
 
     rectWidth = (rect->x1 - rect->x0);
@@ -453,8 +477,8 @@ void poPlayerObjectivesBegin(regionhandle region)
     // disbale rendering of main screen - NOT!
     //mrRenderMainScreen = FALSE;
 
-    // disable taskbar popup window
-    tbDisable = TRUE;
+    // CAT: no task bar to disable (inlined in objectiveAndFleetIntelligenceCreate 0x004d6080 and poPopupFleetIntelligence
+    //      0x004d66f0)
 
     smSensorsDisable = TRUE;
     mrDisable();
@@ -477,23 +501,33 @@ void poPlayerObjectivesBegin(regionhandle region)
 ----------------------------------------------------------------------------*/
 void poPopupFleetIntelligence(Objective* objective)
 {
-    /*
-    if (objective->fleetIntelligence != NULL)
-    {
-        poCurFleetIntelligence = objective->fleetIntelligence;
-        poPlayerObjectivesBegin(ghMainRegion);
-    }
-    */
-    char labelName[AIVAR_LABEL_MAX_LENGTH] = "CLICK_";
-    AIVar *var;
+    char labelName[48] = "G_CLICK_";
+    CatKasVar *var;
 
-    strcat(labelName, objective->label);
-    dbgAssertOrIgnore(strlen(labelName) < AIVAR_LABEL_MAX_LENGTH);
-    if ((var = aivarCreate(labelName)) != NULL)
+    // CAT: poPopupFleetIntelligence 0x004d66f0: in the tutorial a click sets the global KAS variable "G_CLICK_<label>"
+    //      (scope 0, the hash of the whole name) to 1 and, if the objective has fleet intelligence text, shows it; an
+    //      objective without text clears the intel-event flag (subMessageEnded); in a mission the objective's fleet
+    //      intelligence is shown when it has one (HW1 set the AIVar "CLICK_<label>" in both)
+    if (tutorial == TUTORIAL_ONLY)
     {
-        var->value = TRUE;
+        strncat(labelName, objective->label, sizeof(labelName) - strlen(labelName) - 1);
+        var = cat_kasVarFindOrCreate(0, cat_kasHashString(labelName));
+        if (var != NULL)
+        {
+            var->value = 1;
+        }
+        if ((objective->fleetIntelligence->description == NULL) || (objective->fleetIntelligence->description[0] == 0))
+        {
+            subMessageEnded = FALSE;
+            return;
+        }
     }
-    subMessageEnded = FALSE;
+    else if (objective->fleetIntelligence == NULL)
+    {
+        return;
+    }
+    poCurFleetIntelligence = objective->fleetIntelligence;
+    poPlayerObjectivesBegin(ghMainRegion);
 }
 
 /*-----------------------------------------------------------------------------
@@ -526,8 +560,7 @@ void poClose(char *string, featom *atom)
     // enable rendering of main game screen - NOT DISABLED!
     //mrRenderMainScreen = TRUE;
 
-    // enable taskbar popup window
-    tbDisable = FALSE;
+    // CAT: no task bar to enable (poClose 0x004d6810)
 
     smSensorsDisable = FALSE;
     mrEnable();
@@ -649,14 +682,14 @@ void objectiveLoad(void)
             hyperspaceObjective = objectives[i];
         }
         else
-            tbObjectivesListAddItem((ubyte *)objectives[i]);
+            cat_ioObjectiveAdd(objectives[i]);      // CAT: the info overlay's list (objectiveLoad 0x004d6960)
     }
 
-    // make sure hyperspace objective always goes to head of list
+    // CAT: the hyperspace objective is added last (objectiveLoad 0x004d6960: cat_ioObjectiveAdd after the loop; HW1
+    //      put it at the task bar's head)
     if (hyperspaceObjective)
     {
-        //tbObjectivesListAddItemToHead((ubyte*)hyperspaceObjective);
-        tbObjectivesHyperspace((ubyte*)hyperspaceObjective);
+        cat_ioObjectiveAdd(hyperspaceObjective);
     }
 
     feDrawCallbackAddMultiple(poDrawCallback);

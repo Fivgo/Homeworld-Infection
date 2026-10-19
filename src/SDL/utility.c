@@ -1700,14 +1700,10 @@ void gameStart(char *loadfilename)
     }
 */
     // CAT: gameStart 0x005a9290 starts no task bar (the exe has no tbStartup / tbShutdown: TaskBar.c keeps
-    //      tbBumperProcess and the helpers, never set up) and clears the trade flag only (0x00c37494); its
-    //      glcActivate(FALSE) is the glcompat layer's (not in the SDL build, decision 28).
-    //      CAT-TODO(stage 6 single player): drop tbStartup / tbShutdown with their last users (Objectives.c tbObjectivesListAddItem, SinglePlayer.c tbButtonListRefresh / tbForceTaskbar, KASFunc.c tbForceTaskbar): they dereference the task bar's regions
-    tbStartup();                                            //start the task bar
-
+    //      tbBumperProcess, tbForceTaskbar and the helpers, never set up; M2-R8 kasf library removed the last users)
+    //      and clears the trade flag only (0x00c37494); its glcActivate(FALSE) is the glcompat layer's (not in the
+    //      SDL build, decision 28)
     wkTradeStuffActive = FALSE;
-
-    utySet(SSA_TaskBar);
 
     //reset deterministic build process
     cmDeterministicReset();
@@ -2401,11 +2397,7 @@ void gameEnd(void)
     trTextureDeleteAllUnregistered();
     mrReset();                                              //reset the state of the main viewport region
 
-    if (utyTest(SSA_TaskBar))
-    {                                                       // CAT: not in the exe (gameStart's task-bar CAT-TODO)
-        tbShutdown();                                            //shut down the task bar
-        utyClear(SSA_TaskBar);
-    }
+    // CAT: no task bar to shut down (the exe has no tbShutdown; gameStart starts none)
 
     //reset the scissor bars and fade out maintained by NIS's
     nisScissorBarsReset();
@@ -5031,11 +5023,7 @@ char *utyGameSystemsShutdown(void)
         svShutdown();
         utyClear2(SS2_ShipView);
     }
-    if (utyTest(SSA_TaskBar))
-    {
-        tbShutdown();                                            //shut down the task bar
-        utyClear(SSA_TaskBar);
-    }
+    // CAT: no task bar to shut down (utyGameSystemsShutdown 0x005ac710; the exe has no tbShutdown)
     if (utyTest2(SS2_CatConsole))
     {                                                            // CAT: the developer console (utyGameSystemsShutdown
         cat_consoleShutdown();                                   //      0x005ac710: before the construction manager)

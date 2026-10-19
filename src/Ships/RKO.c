@@ -12,6 +12,7 @@
 //      The exe's debug hooks (nullsubReturnFalse 0x006fe9a0 calls at each state change) do nothing and are left out.
 
 #include "RKO.h"
+#include "KASVar.h"
 
 #include "AITrack.h"
 #include "Attack.h"
@@ -73,12 +74,13 @@ static real32 cat_rkoBigGunRadius(void)                                         
     return rkoBigGunRadiusA + rkoBigGunRadiusB;
 }
 
-// CAT-TODO(stage 6): the Cataclysm KAS variables (cat_kasHashString 0x004a7cb0, cat_kasVarFind) come with the kas2c
-//      missions; until then no variable is found and the exe's fallback (0 / not set) applies
+// CAT: a global KAS variable's value, 0 when it does not exist (RKOHouseKeep 0x005c4ba0: cat_kasHashString 0x00491860,
+//      cat_kasVarFind 0x00491b20; M2-R8 kasf library)
 static sdword rkoKasVariable(char *name)
 {
-    (void)name;
-    return 0;
+    CatKasVar *var = cat_kasVarFind(0, cat_kasHashString(name));
+
+    return (var != NULL) ? var->value : 0;
 }
 
 static real32 rkoRandomCoord(real32 size)

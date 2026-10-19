@@ -54,6 +54,7 @@ Objective *objectiveFind(char *label);
 void objectiveSet(char *label, sdword status);
 sdword objectiveGet(char *label);
 sdword objectiveGetAll(void);
+sdword cat_objectiveCountActive(void);         // CAT: 0x004d6370 (KAS ObjectivesGetAny)
 void objectiveDestroyAll(void);
 void objectiveDestroy(char *label);
 

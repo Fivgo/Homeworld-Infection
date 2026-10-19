@@ -470,7 +470,7 @@ void pingListDraw(Camera *camera, hmatrix *modelView, hmatrix *projection, recta
                         case PTOM_Anomaly:
                             if (pingSize <=lastAnomolyPing)
                             {
-                                soundEvent(NULL, UI_SensorsPing);
+                                soundEvent(NULL, CAT_UI_SensorsPing);  // CAT: Cataclysm's id 0x12c (0x004e8add)
                                 pingset = TRUE;
                                 lastAnomolyPing = pingSize;
                                 lastUniverseTime = universe.totaltimeelapsed;
@@ -479,7 +479,7 @@ void pingListDraw(Camera *camera, hmatrix *modelView, hmatrix *projection, recta
                         case PTOM_Battle:
                             if (pingSize <= lastBattlePing)
                             {
-                                soundEvent(NULL, UI_PingBattle);
+                                soundEvent(NULL, CAT_UI_PingBattle);  // CAT: Cataclysm's id 0x133 (0x004e8b17)
                                 pingset = TRUE;
                                 lastBattlePing = pingSize;
                                 lastUniverseTime = universe.totaltimeelapsed;
@@ -488,7 +488,7 @@ void pingListDraw(Camera *camera, hmatrix *modelView, hmatrix *projection, recta
                         case PTOM_Hyperspace:
                             if (pingSize <=  lastHyperspacePing)
                             {
-                                soundEvent(NULL, UI_PingHyperspace);
+                                soundEvent(NULL, CAT_UI_PingHyperspace);  // CAT: Cataclysm's id 0x134 (0x004e8b50)
                                 pingset = TRUE;
                                 lastHyperspacePing = pingSize;
                                 lastUniverseTime = universe.totaltimeelapsed;
@@ -497,7 +497,7 @@ void pingListDraw(Camera *camera, hmatrix *modelView, hmatrix *projection, recta
                         case PTOM_Proximity:
                             if (pingSize <= lastProximityPing)
                             {
-                                soundEvent(NULL, UI_PingProximity);
+                                soundEvent(NULL, CAT_UI_PingProximity);  // CAT: Cataclysm's id 0x131 (0x004e8b83)
                                 pingset = TRUE;
                                 lastProximityPing = pingSize;
                                 lastUniverseTime = universe.totaltimeelapsed;
@@ -506,7 +506,7 @@ void pingListDraw(Camera *camera, hmatrix *modelView, hmatrix *projection, recta
                         case PTOM_NewShips:
                             if (pingSize <= lastNewshipPing)
                             {
-                                soundEvent(NULL, UI_PingNewShips);
+                                soundEvent(NULL, CAT_UI_PingNewShips);  // CAT: Cataclysm's id 0x132 (0x004e8bb6)
                                 pingset = TRUE;
                                 lastNewshipPing = pingSize;
                                 lastUniverseTime = universe.totaltimeelapsed;

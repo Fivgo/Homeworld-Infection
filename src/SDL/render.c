@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "render.h"
+#include "KASVar.h"
 
 #include <float.h>
 #include <math.h>
@@ -2541,12 +2542,11 @@ CatRndCounts catRndCounts;
 ----------------------------------------------------------------------------*/
 bool32 cat_kasNaggarokEMPHitShip(Ship *ship)
 {
-    // CAT-TODO(stage 6 KAS): the exe looks the variable up in the hashed KAS variable store
-    //      (cat_kasVarFind(0, cat_kasHashString("G_NaggarokEMP")) 0x00491b20, entry {scope, hash, value}) and
-    //      returns value > ship->catEmpShockCount. The store is the kas2c mission code's (stage 6); until it is
-    //      ported no mission sets the variable (as CAT_HW1_MISSION_SCRIPTS 0), so no ship has been hit
-    (void)ship;
-    return FALSE;
+    // CAT: the global KAS variable G_NaggarokEMP (cat_kasVarFind 0x00491b20) above the ship's EMP shock count,
+    //      compared unsigned (M2-R8 kasf library)
+    CatKasVar *var = cat_kasVarFind(0, cat_kasHashString("G_NaggarokEMP"));
+
+    return (var != NULL) && ((udword)ship->catEmpShockCount < (udword)var->value);
 }
 
 /*-----------------------------------------------------------------------------

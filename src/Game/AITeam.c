@@ -51,9 +51,9 @@ AITeam *aitCreate(TeamType teamType)
     team->msgQueue              = NULL;
     team->msgSender             = NULL;
 
-    team->kasLabel[0]           = 0;
-    team->kasFSMName[0]         = 0;
-    team->kasStateName[0]       = 0;
+    team->kasLabel              = 0;     // CAT: hashes (M2-R8 kasf library)
+    team->kasFSMName            = 0;
+    team->kasStateName          = 0;
     team->kasFSMWatchFunction   = NULL;
     team->kasStateWatchFunction = NULL;
     // CAT: a multiplayer game's teams default to aggressive tactics (aitCreate 0x004168d6)
@@ -1742,10 +1742,10 @@ void aitExecute(void)
 //
 //  sends a message to a team
 //
-//  CAT: aitMsgSend 0x00417e10: the message is queued by pointer (no copy, no test for an empty message) in the team's
-//       own queue; 64 messages wrap the count to 0
+//  CAT: aitMsgSend 0x00417e10: the message (its hash) is queued (no test for an empty message) in the team's own
+//       queue; 64 messages wrap the count to 0
 //
-void aitMsgSend(AITeam *fromTeamp, AITeam *teamp, char *msg)
+void aitMsgSend(AITeam *fromTeamp, AITeam *teamp, udword msg)
 {
     MsgQueue *msgQP;
 
@@ -1771,10 +1771,10 @@ void aitMsgSend(AITeam *fromTeamp, AITeam *teamp, char *msg)
 //  (msg will be removed from queue).
 //  returns 0 otherwise.
 //
-//  CAT: aitMsgReceived 0x00417e60: the message is matched by address among the queued ones and replaced by the last
+//  CAT: aitMsgReceived 0x00417e60: the message is matched by its hash among the queued ones and replaced by the last
 //       one; the sender is not recorded (HW1 set msgSender)
 //
-sdword aitMsgReceived(AITeam *teamp, char *msg)
+sdword aitMsgReceived(AITeam *teamp, udword msg)
 {
     MsgQueue *msgQP;
     sdword i;
@@ -1806,16 +1806,16 @@ sdword aitMsgReceived(AITeam *teamp, char *msg)
 /*-----------------------------------------------------------------------------
     Name        : cat_aitMsgQueueRemoveAt
     Description : CAT (0x00417ec0): takes the index-th queued message out (the last one moves into its place) and
-                  returns it, NULL when the team, its queue or the message is missing (the kas2c missions' readers)
+                  returns it, 0 when the team, its queue or the message is missing (the kas2c missions' readers)
 ----------------------------------------------------------------------------*/
-char *cat_aitMsgQueueRemoveAt(AITeam *teamp, udword index)
+udword cat_aitMsgQueueRemoveAt(AITeam *teamp, udword index)
 {
     MsgQueue *msgQP;
-    char *msg;
+    udword msg;
 
     if ((teamp == NULL) || ((msgQP = teamp->msgQueue) == NULL) || ((udword)msgQP->head <= index))
     {
-        return NULL;
+        return 0;
     }
     msg = msgQP->msgs[index];
     if (msgQP->head - 1 > 0)
@@ -2000,9 +2000,8 @@ void LoadMoveCB(LinkedList *list)
     listAddNode(list,&move->listNode,move);
 }
 
-// CAT: SaveThisAITeam 0x00418040 saves the count and the 64 message words; the exe's words are pointers into its own
-//      image (the kas2c message constants), which mean nothing to another process.
-// CAT-TODO(stage 6 KAS): save and restore a queued message as its kas2c message id once the kas2c missions are ported; until then the message words are saved as 0 and a loaded queue keeps its count with no messages
+// CAT: SaveThisAITeam 0x00418040 saves the count and the 64 message words, the messages' kas2c hashes (M2-R8 kasf
+//      library: the words are hashes, so they are saved as they are)
 void SaveMsgQueue(MsgQueue *msgQueue)
 {
     sdword i;
@@ -2011,7 +2010,7 @@ void SaveMsgQueue(MsgQueue *msgQueue)
 
     for (i=0;i<MSG_QUEUE_MAX_MSGS;i++)
     {
-        SaveInfoNumber(0);
+        SaveInfoNumber((sdword)msgQueue->msgs[i]);
     }
 }
 
@@ -2025,8 +2024,7 @@ MsgQueue *LoadMsgQueue(AITeam *team)
 
     for (i=0;i<MSG_QUEUE_MAX_MSGS;i++)
     {
-        (void)LoadInfoNumber();
-        msgQueue->msgs[i] = NULL;
+        msgQueue->msgs[i] = (udword)LoadInfoNumber();     // CAT: the hash
         msgQueue->msgSenders[i] = NULL;
     }
 
@@ -2131,8 +2129,10 @@ static sdword aitCat32Word(const ubyte *contents, udword off)
                   chunk, the grow selection, the moves, the message queue when +0x50 is set), converted by the exe's
                   offsets (this tree's AITeam keeps HW1's KAS names, so its layout is not the exe's, AITeam.h): the
                   numbers the exe saved for the owner, the current move, the cooperating team and its callback and
-                  the message sender are put where FixThisAITeam reads them back.
-                  CAT-TODO(stage 6 KAS): the exe's KAS identity (+0x58 label hash, +0x5C / +0x60 FSM and state name pointers, +0x64 / +0x68 the watch functions as kas2c function offsets) comes with the kas2c missions; the team is loaded with empty names and no watch functions
+                  the message sender are put where FixThisAITeam reads them back; M2-R8 kasf library: the KAS identity
+                  too (the label, FSM and state hashes at +0x58 / +0x5C / +0x60 and the two watch functions as
+                  kas2c function offsets at +0x64 / +0x68, which FixThisAITeam turns back into the functions through
+                  kasConvertOffsetToFuncPtr, as the exe's aitFix does)
 ----------------------------------------------------------------------------*/
 static AITeam *aitCat32LoadTeam(void)
 {
@@ -2161,8 +2161,11 @@ static AITeam *aitCat32LoadTeam(void)
     team->cooperatingTeamDiedCB = (void *)(size_t)aitCat32Word(c, 0x4C);               // 0, 1 or 2
     team->msgQueue              = (aitCat32Word(c, 0x50) != 0) ? &team->catMsgQueue : NULL;
     team->msgSender             = (struct AITeam *)(size_t)aitCat32Word(c, 0x54);      // a team index
-    team->kasFSMWatchFunction   = (KASWatchFunction)(size_t)(sdword)-1;                // NULL after the fix
-    team->kasStateWatchFunction = (KASWatchFunction)(size_t)(sdword)-1;
+    team->kasLabel              = (udword)aitCat32Word(c, 0x58);                       // the KAS hashes
+    team->kasFSMName            = (udword)aitCat32Word(c, 0x5C);
+    team->kasStateName          = (udword)aitCat32Word(c, 0x60);
+    team->kasFSMWatchFunction   = (KASWatchFunction)(size_t)aitCat32Word(c, 0x64);     // kas2c offsets (-1: none)
+    team->kasStateWatchFunction = (KASWatchFunction)(size_t)aitCat32Word(c, 0x68);
     team->kasOrigShipsType      = (ShipType)aitCat32Word(c, 0x6C);
     team->kasOrigShipsCount     = aitCat32Word(c, 0x70);
     team->kasTactics            = (TacticsType)aitCat32Word(c, 0x74);

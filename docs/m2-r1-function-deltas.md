@@ -1,4 +1,4 @@
-<!-- done: tool, Game a-f, Game g-m, Game n-s, Game t-z, Ships, other, review, write-up, reread:AIAttackMan-AIHandler, reread:AIMoves, reread:AIOrders-AIVar, reread:Alliance-BTG, reread:Camera-ColPick, reread:CommandLayer-Dock, reread:ETG, reread:fastmath-HS, reread:KAS-KASFunc, reread:Key-MEX, reread:MultiplayerGame-NetCheck, reread:NIS-Options, reread:Particle, reread:Physics-ResearchGUI, reread:SaveGame, reread:ScenPick-SinglePlayer, reread:SoundEvent-StringSupport, reread:Tactical-TradeMgr, reread:Tutor-Universe, reread:UnivUpdate-Ships, reread:bink-Light, reread:main-Queue, reread:render-Titan, reread:TitanInterface-utility, audit-reclass-R2, toolfix-R2, m2r3:closeout-review, m2r3:closeout-audit, m2r3:etg-particles-review, m2r3:etg-particles-audit, m2r3:selection-review, m2r4:univupdate-review, m2r4:univupdate-audit, command, m2r4:command-audit, m2r4:combat-review, m2r4:combat-audit, m2r4:ships-b, port-R4-rest-oracle, m2r5:layout-dock, m2r5:command-tactics, m2r5:render, m2r5:sound, m2r5:sound-audit, m2r5:hud, m2r5:hud-audit, m2r6:mainrgn-popup, m2r6:frontend, m2r6:startup-keys, m2r6:managers, m2r6:nis-fow-camera, m2r6:integrate, m2r7:oracle-rung-aiship, m2r7:ai-orders-moves, m2r7:ai-player-skirmish, m2r7:r6-leftovers, m2r7:integrate, m2r7:skirmish-start, m2r8:oracle-rung-physics -->
+<!-- done: tool, Game a-f, Game g-m, Game n-s, Game t-z, Ships, other, review, write-up, reread:AIAttackMan-AIHandler, reread:AIMoves, reread:AIOrders-AIVar, reread:Alliance-BTG, reread:Camera-ColPick, reread:CommandLayer-Dock, reread:ETG, reread:fastmath-HS, reread:KAS-KASFunc, reread:Key-MEX, reread:MultiplayerGame-NetCheck, reread:NIS-Options, reread:Particle, reread:Physics-ResearchGUI, reread:SaveGame, reread:ScenPick-SinglePlayer, reread:SoundEvent-StringSupport, reread:Tactical-TradeMgr, reread:Tutor-Universe, reread:UnivUpdate-Ships, reread:bink-Light, reread:main-Queue, reread:render-Titan, reread:TitanInterface-utility, audit-reclass-R2, toolfix-R2, m2r3:closeout-review, m2r3:closeout-audit, m2r3:etg-particles-review, m2r3:etg-particles-audit, m2r3:selection-review, m2r4:univupdate-review, m2r4:univupdate-audit, command, m2r4:command-audit, m2r4:combat-review, m2r4:combat-audit, m2r4:ships-b, port-R4-rest-oracle, m2r5:layout-dock, m2r5:command-tactics, m2r5:render, m2r5:sound, m2r5:sound-audit, m2r5:hud, m2r5:hud-audit, m2r6:mainrgn-popup, m2r6:frontend, m2r6:startup-keys, m2r6:managers, m2r6:nis-fow-camera, m2r6:integrate, m2r7:oracle-rung-aiship, m2r7:ai-orders-moves, m2r7:ai-player-skirmish, m2r7:r6-leftovers, m2r7:integrate, m2r7:skirmish-start, m2r8:oracle-rung-physics, m2r8:kasf-library -->
 # M2-R1 function deltas: Cataclysm vs Homeworld 1
 
 Round M2-R1, item 3 of `cycle/M2_BRIEF.md`. For every function the binary map matched to Homeworld 1 (class `hw1:<File>`, plus CET's `hw1_equivalent` entries, the rule behind the 4,426 HW1 matches of docs/binary-map.md round 5), this compares the decompiled Cataclysm body (`ghidra/exports/cataclysm_gog_r6`, since M2-R4; r5 before) with Relic's original source (gardens-of-kadesh root commit `ad1bb82`) and classifies it IDENTICAL, MODIFIED or REWRITTEN. Per-function data: `ghidra/delta_map.json`. Tool: `tools/delta_map.py`. Hand-review verdicts: `ghidra/delta_map_review.json`.
@@ -7,13 +7,13 @@ Round M2-R1, item 3 of `cycle/M2_BRIEF.md`. For every function the binary map ma
 
 | | functions | share | Cataclysm bytes | share of bytes |
 |---|---:|---:|---:|---:|
-| IDENTICAL | 2,828 | 64.0% | 512,582 | 41.4% |
-| MODIFIED | 1,508 | 34.1% | 710,350 | 57.3% |
-| REWRITTEN | 84 | 1.9% | 15,915 | 1.3% |
+| IDENTICAL | 2,788 | 63.1% | 507,664 | 41.0% |
+| MODIFIED | 1,549 | 35.0% | 715,328 | 57.7% |
+| REWRITTEN | 83 | 1.9% | 15,855 | 1.3% |
 | **classified** | **4,420** | | **1,238,847** | |
 | not classified (no HW1 body found) | 6 | | 4,137 | |
 
-Estimated true split, correcting each automatic (class, confidence) bucket by its hand-review agreement (class-level agreement where a bucket has fewer than 5 reviewed functions); reviewed functions count with their reviewed class: IDENTICAL 2,713 functions / 498,287 bytes (40.2% of bytes), MODIFIED 1,645 / 726,101 (58.6%), REWRITTEN 63 / 14,459 (1.2%).
+Estimated true split, correcting each automatic (class, confidence) bucket by its hand-review agreement (class-level agreement where a bucket has fewer than 5 reviewed functions); reviewed functions count with their reviewed class: IDENTICAL 2,664 functions / 485,878 bytes (39.2% of bytes), MODIFIED 1,679 / 737,746 (59.6%), REWRITTEN 76 / 15,223 (1.2%).
 
 ## Key findings
 
@@ -38,12 +38,12 @@ M2-R2 read both bodies of every function M2-R1 had left IDENTICAL/low: 971 funct
 
 | result | functions | share | high | medium | low |
 |---|---:|---:|---:|---:|---:|
-| IDENTICAL | 836 | 86.1% | 810 | 26 | 0 |
-| MODIFIED | 134 | 13.8% | 125 | 9 | 0 |
+| IDENTICAL | 833 | 85.8% | 809 | 24 | 0 |
+| MODIFIED | 137 | 14.1% | 126 | 11 | 0 |
 | REWRITTEN | 1 | 0.1% | 0 | 1 | 0 |
 | **read** | **971** | | | | |
 
-**135 of 971 changed class (13.9%)**: 134 MODIFIED and 1 REWRITTEN. 6 of the MODIFIED ones differ only in which ship types or races a test names (per-race Cataclysm types replacing HW1's, added or dropped types); their change line starts with `enum:`. **The re-read IDENTICAL agreement for the IDENTICAL/low bucket is 86.1%** (M2-R1's 51-function sample said 86%).
+**138 of 971 changed class (14.2%)**: 137 MODIFIED and 1 REWRITTEN. 6 of the MODIFIED ones differ only in which ship types or races a test names (per-race Cataclysm types replacing HW1's, added or dropped types); their change line starts with `enum:`. **The re-read IDENTICAL agreement for the IDENTICAL/low bucket is 85.8%** (M2-R1's 51-function sample said 86%).
 
 The audit's reclassifications (`docs/audits/m2-r1-function-deltas.md`) were checked by hand and applied to 18 functions (review entries with `sample: audit-R2`), now 10 IDENTICAL, 7 MODIFIED, 1 REWRITTEN.
 
@@ -61,20 +61,20 @@ Totals after M2-R2 (re-read, audit reclassifications, tool fixes), against M2-R1
 
 | class | M2-R1 functions | M2-R2 functions | M2-R1 bytes | M2-R2 bytes | M2-R2 share of bytes |
 |---|---:|---:|---:|---:|---:|
-| IDENTICAL | 3,357 | 2,828 | 658,389 | 512,582 | 41.4% |
-| MODIFIED | 983 | 1,508 | 569,953 | 710,350 | 57.3% |
-| REWRITTEN | 80 | 84 | 10,505 | 15,915 | 1.3% |
+| IDENTICAL | 3,357 | 2,788 | 658,389 | 507,664 | 41.0% |
+| MODIFIED | 983 | 1,549 | 569,953 | 715,328 | 57.7% |
+| REWRITTEN | 80 | 83 | 10,505 | 15,855 | 1.3% |
 
-**New IDENTICAL agreement estimate.** 2,828 functions are IDENTICAL now: 1,821 by hand review and 1,007 by the tool alone. Applying each automatic bucket's review agreement to the unread ones, about 839 of those 1,007 (83.3%) are expected to be truly identical, so about 2,660 of all 2,828 IDENTICAL functions (94.1%) are, against M2-R1's 80% audit estimate. The unread ones sit in the automatic IDENTICAL/high and /medium buckets, which have only 28 and 110 reviewed functions, so this is a rough figure.
+**New IDENTICAL agreement estimate.** 2,788 functions are IDENTICAL now: 1,915 by hand review and 873 by the tool alone. Applying each automatic bucket's review agreement to the unread ones, about 715 of those 873 (81.9%) are expected to be truly identical, so about 2,630 of all 2,788 IDENTICAL functions (94.3%) are, against M2-R1's 80% audit estimate. The unread ones sit in the automatic IDENTICAL/high and /medium buckets, which have only 28 and 110 reviewed functions, so this is a rough figure.
 
 ## Hand review and calibration
 
-3038 functions were reviewed by hand (both bodies read; for long bodies sometimes only the head, as the review note says). The calibration below uses the 1215 reviews drawn as samples (`--calib-samples calibration`: the M2-R1 buckets, the M2-R2 re-read and the audit reclassifications); the ports' targeted reviews (sample `port-*` or none, 1823 functions) are excluded because a port reads the functions it suspects of change. Rows: the tool's current automatic class; columns: the reviewed class.
+3237 functions were reviewed by hand (both bodies read; for long bodies sometimes only the head, as the review note says). The calibration below uses the 1215 reviews drawn as samples (`--calib-samples calibration`: the M2-R1 buckets, the M2-R2 re-read and the audit reclassifications); the ports' targeted reviews (sample `port-*` or none, 2022 functions) are excluded because a port reads the functions it suspects of change. Rows: the tool's current automatic class; columns: the reviewed class.
 
 | automatic \ reviewed | IDENTICAL | MODIFIED | REWRITTEN | agreement |
 |---|---:|---:|---:|---:|
-| IDENTICAL | 989 | 89 | 1 | 91.7% |
-| MODIFIED | 14 | 107 | 2 | 87.0% |
+| IDENTICAL | 984 | 94 | 1 | 91.2% |
+| MODIFIED | 13 | 108 | 2 | 87.8% |
 | REWRITTEN | 3 | 5 | 5 | 38.5% |
 
 Per automatic bucket (functions in the bucket, reviewed, reviewed class agreeing):
@@ -82,16 +82,16 @@ Per automatic bucket (functions in the bucket, reviewed, reviewed class agreeing
 | automatic class | confidence | functions | bytes | reviewed | agree |
 |---|---|---:|---:|---:|---:|
 | IDENTICAL | high | 380 | 119,105 | 28 | 27 (96.4%) |
-| IDENTICAL | medium | 1,873 | 450,016 | 110 | 89 (80.9%) |
-| IDENTICAL | low | 989 | 75,172 | 941 | 873 (92.8%) |
-| MODIFIED | high | 682 | 508,751 | 21 | 18 (85.7%) |
+| IDENTICAL | medium | 1,873 | 450,016 | 110 | 87 (79.1%) |
+| IDENTICAL | low | 989 | 75,172 | 941 | 870 (92.5%) |
+| MODIFIED | high | 682 | 508,751 | 21 | 19 (90.5%) |
 | MODIFIED | medium | 263 | 65,926 | 25 | 22 (88.0%) |
 | MODIFIED | low | 152 | 9,066 | 77 | 67 (87.0%) |
 | REWRITTEN | high | 43 | 3,342 | 4 | 2 (50.0%) |
 | REWRITTEN | medium | 36 | 7,172 | 7 | 3 (42.9%) |
 | REWRITTEN | low | 2 | 297 | 2 | 0 (0.0%) |
 
-Confidence per class (after review): IDENTICAL 1,804 high / 1,024 medium / 0 low; MODIFIED 1,217 high / 222 medium / 69 low; REWRITTEN 65 high / 18 medium / 1 low.
+Confidence per class (after review): IDENTICAL 1,890 high / 898 medium / 0 low; MODIFIED 1,275 high / 208 medium / 66 low; REWRITTEN 70 high / 12 medium / 1 low.
 
 ## Per HW1 source file
 
@@ -158,24 +158,24 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | FontReg.c | 6 | 6 | 0 | 0 | 935 | 0 | 0 | 6 | 0 |
 | Formation.c | 33 | 16 | 17 | 0 | 3,160 | 13,469 | 0 | 33 | 0 |
 
-### Game g-m (821 functions, 160,446 bytes, 51.8% of bytes IDENTICAL)
+### Game g-m (821 functions, 160,446 bytes, 49.0% of bytes IDENTICAL)
 
 | file | matched | identical | modified | rewritten | bytes identical | bytes modified | bytes rewritten | rev | unres |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| GameChat.c | 12 | 9 | 3 | 0 | 1,386 | 2,374 | 0 | 3 | 0 |
+| GameChat.c | 12 | 8 | 4 | 0 | 1,140 | 2,620 | 0 | 4 | 0 |
 | GamePick.c | 11 | 10 | 1 | 0 | 1,979 | 404 | 0 | 11 | 0 |
 | Globals.c | 2 | 1 | 1 | 0 | 17 | 317 | 0 | 2 | 0 |
 | Gun.c | 8 | 1 | 6 | 1 | 152 | 6,739 | 474 | 7 | 0 |
 | HorseRace.c | 16 | 7 | 9 | 0 | 3,076 | 5,195 | 0 | 16 | 0 |
 | HS.c | 18 | 17 | 0 | 1 | 4,842 | 0 | 39 | 5 | 0 |
 | InfoOverlay.c | 2 | 0 | 1 | 1 | 0 | 431 | 220 | 2 | 0 |
-| KAS.c | 30 | 14 | 13 | 3 | 1,198 | 3,039 | 189 | 6 | 0 |
-| KASFunc.c | 294 | 238 | 35 | 21 | 11,856 | 3,732 | 985 | 143 | 0 |
+| KAS.c | 30 | 7 | 20 | 3 | 382 | 3,855 | 189 | 21 | 0 |
+| KASFunc.c | 294 | 208 | 66 | 20 | 8,491 | 7,157 | 925 | 294 | 0 |
 | Key.c | 12 | 11 | 1 | 0 | 881 | 39 | 0 | 12 | 0 |
 | KeyBindings.c | 4 | 0 | 4 | 0 | 0 | 573 | 0 | 4 | 0 |
 | LagPrint.c | 4 | 4 | 0 | 0 | 263 | 0 | 0 | 0 | 0 |
 | LaunchMgr.c | 16 | 5 | 11 | 0 | 276 | 4,041 | 0 | 16 | 0 |
-| LevelLoad.c | 33 | 19 | 14 | 0 | 5,737 | 9,369 | 0 | 10 | 0 |
+| LevelLoad.c | 33 | 19 | 14 | 0 | 5,737 | 9,369 | 0 | 14 | 0 |
 | LinkedList.c | 13 | 13 | 0 | 0 | 1,351 | 0 | 0 | 4 | 0 |
 | LOD.c | 8 | 6 | 2 | 0 | 676 | 875 | 0 | 8 | 0 |
 | LZSS.c | 1 | 1 | 0 | 0 | 148 | 0 | 0 | 1 | 0 |
@@ -189,7 +189,7 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | MultiplayerLANGame.c | 53 | 43 | 10 | 0 | 8,169 | 4,781 | 0 | 10 | 0 |
 | StubTransform.c | 5 | 4 | 1 | 0 | 880 | 160 | 0 | 4 | 0 |
 
-### Game n-s (1,000 functions, 270,647 bytes, 33.6% of bytes IDENTICAL)
+### Game n-s (1,000 functions, 270,647 bytes, 33.4% of bytes IDENTICAL)
 
 | file | matched | identical | modified | rewritten | bytes identical | bytes modified | bytes rewritten | rev | unres |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -197,7 +197,7 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | Nebulae.c | 28 | 25 | 3 | 0 | 11,280 | 4,852 | 0 | 11 | 0 |
 | NetCheck.c | 17 | 14 | 3 | 0 | 1,887 | 511 | 0 | 10 | 0 |
 | NIS.c | 139 | 114 | 25 | 0 | 21,585 | 12,704 | 0 | 139 | 0 |
-| Objectives.c | 14 | 9 | 4 | 1 | 996 | 1,159 | 257 | 2 | 0 |
+| Objectives.c | 14 | 8 | 5 | 1 | 560 | 1,595 | 257 | 14 | 0 |
 | ObjTypes.c | 29 | 6 | 23 | 0 | 237 | 1,243 | 0 | 7 | 0 |
 | Options.c | 89 | 59 | 28 | 2 | 7,134 | 7,753 | 115 | 89 | 0 |
 | Particle.c | 132 | 34 | 98 | 0 | 7,171 | 21,638 | 0 | 73 | 0 |
@@ -218,7 +218,7 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | Shader.c | 20 | 18 | 2 | 0 | 3,444 | 1,615 | 0 | 20 | 0 |
 | ShipSelect.c | 52 | 20 | 32 | 0 | 1,249 | 3,857 | 0 | 46 | 0 |
 | ShipView.c | 4 | 0 | 4 | 0 | 0 | 2,421 | 0 | 4 | 0 |
-| SinglePlayer.c | 46 | 13 | 32 | 1 | 1,584 | 15,168 | 134 | 9 | 0 |
+| SinglePlayer.c | 46 | 13 | 32 | 1 | 1,584 | 15,168 | 134 | 12 | 0 |
 | SoundEvent.c | 32 | 22 | 10 | 0 | 2,216 | 15,108 | 0 | 32 | 0 |
 | SoundEventPlay.c | 3 | 1 | 2 | 0 | 53 | 3,054 | 0 | 2 | 0 |
 | SoundEventStop.c | 2 | 1 | 1 | 0 | 55 | 81 | 0 | 2 | 0 |
@@ -228,7 +228,7 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | StatScript.c | 42 | 32 | 10 | 0 | 3,472 | 6,165 | 0 | 21 | 0 |
 | StringSupport.c | 5 | 3 | 2 | 0 | 195 | 685 | 0 | 5 | 0 |
 
-### Game t-z (409 functions, 118,515 bytes, 42.6% of bytes IDENTICAL)
+### Game t-z (409 functions, 118,515 bytes, 42.5% of bytes IDENTICAL)
 
 | file | matched | identical | modified | rewritten | bytes identical | bytes modified | bytes rewritten | rev | unres |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -237,11 +237,11 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | Task.c | 16 | 13 | 3 | 0 | 1,404 | 1,352 | 0 | 5 | 0 |
 | TaskBar.c | 6 | 5 | 1 | 0 | 670 | 679 | 0 | 6 | 0 |
 | Teams.c | 6 | 5 | 1 | 0 | 2,142 | 142 | 0 | 6 | 0 |
-| Timer.c | 14 | 5 | 9 | 0 | 274 | 1,912 | 0 | 2 | 0 |
+| Timer.c | 14 | 4 | 10 | 0 | 219 | 1,967 | 0 | 14 | 0 |
 | TitanNet.c | 35 | 33 | 2 | 0 | 3,170 | 337 | 0 | 15 | 0 |
 | TradeMgr.c | 27 | 24 | 3 | 0 | 2,916 | 1,804 | 0 | 27 | 0 |
 | Transformer.c | 2 | 1 | 1 | 0 | 71 | 303 | 0 | 2 | 0 |
-| Tutor.c | 63 | 45 | 18 | 0 | 10,143 | 6,518 | 0 | 23 | 0 |
+| Tutor.c | 63 | 45 | 18 | 0 | 10,143 | 6,518 | 0 | 24 | 0 |
 | Tweak.c | 3 | 3 | 0 | 0 | 205 | 0 | 0 | 2 | 0 |
 | Twiddle.c | 2 | 2 | 0 | 0 | 55 | 0 | 0 | 2 | 0 |
 | UIControls.c | 47 | 42 | 5 | 0 | 15,450 | 1,899 | 0 | 47 | 0 |
@@ -352,7 +352,7 @@ The 60 largest by Cataclysm bytes; `change` is the hand-written line where revie
 | 0x00566b60 | mrObjectClick | mainrgn.c | 2,983 | high | yes | the modifier keys first (force attack, multiple select, guard, special popup, focus, attack); then the context order of the Homeworld CSA option; else the formation select |
 | 0x00506720 | selCircleCompute | Select.c | 2,968 | high |  | adds calls cat_mimicGetSelectRadius; drops calls fmathSqrtDouble; calls with a changed parameter count: selShipUnderMouse 2->1; fields +belongto, cameraDistanceSquared, flashtimer, health (+6) -collPosition, collspheresize, corner, currentLOD (+20) |
 | 0x004b34f0 | meshMorphedObjectRender | Mesh.c | 2,964 | high | yes | the fade's material switch; shSpecularColour's two new arguments 0, 0 |
-| 0x0048aac0 | missileShoot | Gun.c | 2,790 | high | yes | no firing by or at a ship being handed to a salvage depot; the missile's damage type is the gun's current one; damage = ship multiplier x weapon vs armour; mesh state; a second effect parameter by launcher type; no cloak-field decloak |
+| 0x0048aac0 | missileShoot | Gun.c | 2,790 | high | yes | no firing by or at a ship being handed to a salvage depot; the missile's damage type is the gun's current one; damage = ship multiplier x weapon vs armour; mesh state; a second effect parameter by launcher type; no cloak-field decloak; the KAS damage factor is Ship +0x3E0 (catDamageFactor) |
 | 0x0053d2a0 | universeStaticInit | Universe.c | 2,755 | high | yes | nebulae never closed; 7 mine statics, the Derelict race's always loaded; maxhealthBase and the single-player difficulty health; no Mothership immobile |
 | 0x004cd2b0 | nisStart | NIS.c | 2,733 | high | yes | ported: catSmHideViewport cleared, cat_rndLensFlareNISSourceAdd, cat_rndFogLayerOff, the fadeSet flag 0x00a4cb4c cleared with the fades; the RGL hook (0x00b3a6d8/0x00b3a610) is GoK-backend; nisFocusMaxRadius is inlined (same formula) |
 | 0x00441c10 | processAttackToDo | CommandLayer.c | 2,670 | high | yes | adds calls battleChatterFleetAttempt, cat_fowCanPlayerSeeShip, cat_gunPickMothershipModuleTarget, cat_shipIsCrystal, clWrapHalt; drops calls battleCanChatterAtThisTime, battleChatterAttempt; adds strings "\nBad Stuff Going On!!! Ship with no ..."; calls with a changed parameter count: processMoveToD |
@@ -403,7 +403,7 @@ The 60 largest by Cataclysm bytes; `change` is the hand-written line where revie
 | 0x00458390 | cmConstructionBegin | ConsMgr.c | 809 | high | yes | piePointModeOnOff(0, NULL) |
 | 0x00525640 | statsGatherFightStats | Stats.c | 635 | high | yes | per type pair, fights 1..14 ships through cat_statsSetupShipsForFight / cat_statsGetPostCombatStats into the 60x60x5 table |
 | 0x00455410 | cmUpdateShipAvailable | ConsMgr.c | 616 | high | yes | kind-2 rows, rmCanBuildShip's 3rd argument, caps (stat 4), the carrier support module, support units, the factory-off / hyperspace test; ported |
-| 0x0048b5b0 | gunShoot | Gun.c | 474 | high | yes | returns the bullet made by cat_gunCreateBullet 0x0048bb00; RKO, salvage-depot and line-of-sight checks; damage = ship multiplier x DamageMult and weapon tables; a Leech shot also does 10 damage |
+| 0x0048b5b0 | gunShoot | Gun.c | 474 | high | yes | returns the bullet made by cat_gunCreateBullet 0x0048bb00; RKO, salvage-depot and line-of-sight checks; damage = ship multiplier x DamageMult and weapon tables; a Leech shot also does 10 damage; the KAS damage factor is  |
 | 0x00507f10 | selStatusDraw0 | Select.c | 470 | high | yes | Cataclysm's status bars: cat_selStatusRectCompute + cat_selStatusBarsDraw (health, ACV EMP, resources, beast, dreadnought, big gun, cloak, gravwell, sentinel, upgrade rows, the disabled X, experience stars, hot key, ammo |
 | 0x005080f0 | selStatusDraw1 | Select.c | 449 | high | yes | as selStatusDraw0 at the LOD 1 size |
 | 0x005082c0 | selStatusDraw2 | Select.c | 446 | high | yes | as selStatusDraw0 at the LOD 2 size |
@@ -412,7 +412,7 @@ The 60 largest by Cataclysm bytes; `change` is the hand-written line where revie
 | 0x00457e50 | cmCanBuildShipType | ConsMgr.c | 360 | high | yes | the factory race's list, external build only at a mothership-class factory with a free slot, rmCanBuildShip's 3rd argument, kind-2 enable test; ported |
 | 0x00465360 | RemoveShipFromDocking | Dock.c | 266 | medium | yes | adds calls ShipTypeToStr, madAnimationStart; drops calls madLinkInPostDockingShip, memFree; adds strings "\nDOCKING CODE: A %s is clamped to so..."; body 3.3x smaller than predicted; constants 19, 26, 41, 67 not in body; |
 | 0x00508480 | selStatusDraw3 | Select.c | 266 | high | yes | as selStatusDraw0 at the LOD 3 size |
-| 0x004d66f0 | poPopupFleetIntelligence | Objectives.c | 257 | high |  | adds calls cat_kasHashString, cat_kasVarFindOrCreate, feDrawCallbackAddMultiple, feScreenStart, mrDisable, spMainScreen; drops calls aivarCreate; adds strings "G_CLICK_"; "Single_Player_Objective"; body 2.5x larger than  |
+| 0x004d66f0 | poPopupFleetIntelligence | Objectives.c | 257 | high | yes | tutorial: the global KAS variable hash('G_CLICK_<label>') (scope 0) set to 1, then the objective's fleet intelligence shown unless it has no text (then subMessageEnded = 0); mission: shown if it has fleet intelligence (H |
 | 0x004ab4b0 | ioStartup | InfoOverlay.c | 220 | high | yes | Cataclysm's overlay: MainOverlay.script print options (cat_moOptionSetCB), cat_ioReset; no HW1 list window region |
 | 0x00594d10 | TitanInterface_SendPing | TitanInterface.cpp | 200 | medium |  | drops calls titanDebug; drops strings "EXCEPTION: TitanInterface::SendPing: %s"; params 2 -> 4 (prototype); fields +AddrPart, IP, Port -Pack, what; library calls +Ordinal, WONMisc__EasySocket__getSockAddrIpx, WONMsg__MMs |
 | 0x0058d700 | TitanInterface_GetPatchArgs_dtor | TitanInterface.cpp | 179 | low | yes | compiler-generated destructor of a patch-arguments object; no HW1 source counterpart |
@@ -421,45 +421,44 @@ The 60 largest by Cataclysm bytes; `change` is the hand-written line where revie
 | 0x0058ded0 | TitanInterface_ConnectAndSend | TitanInterface.cpp | 136 | high |  | adds calls ConnectTo, SendMsg, titanDebug; drops calls BuildAddress, ConnectAndSend; adds strings "FAIL: TitanInterface::SendMsg!"; params 4 -> 6 (prototype); fields -AddrPart, IP, Port, etherAddr; library calls +WONMisc |
 | 0x0051bdb0 | singlePlayerStartGame | SinglePlayer.c | 134 | medium |  | adds calls cat_spWarpToLevel; drops calls ccFocusOnPlayersMothership, levelInit, levelStartNext, soundEventPlayMusic; adds strings "nis\\n01.nis"; "nis\\n01.script"; drops strings "\nUnsupported mission #%d"; "CloakDefen |
 | 0x004f1730 | AsteroidTakesDamage | ResCollect.c | 109 | medium | yes | asteroid damage model replaced: a value converted with ftol is stored in an asteroid field and the function returns TRUE when targetWasAlive and resourceVolume <= 0; HW1's RU damage ratio, resourcevalue decrement, health |
-| 0x00417e60 | aitMsgReceived | AITeam.c | 96 | high | yes | a receive compares the message pointer and moves the last entry into the freed slot (no string compare, no free) |
+| 0x00417e60 | aitMsgReceived | AITeam.c | 96 | high | yes | a receive compares the message pointer and moves the last entry into the freed slot (no string compare, no free); the message is matched by its kas2c hash word |
 | 0x00424ef0 | battleLaunchWelcomeExchange | Battle.c | 94 | high | yes | takes (shipclass, variable): the fleet's launch / welcome lines, else the build report 0x200103d; called by cat_cmBuildJobFinished |
 | 0x0042ec90 | captaincyLog | Captaincy.c | 85 | high | yes | vsprintf, two stripped debug calls, clCommandMessage(buffer, 0xffffffff) when echoing; no log file |
 | 0x005bb730 | MothershipStaticInit | Mothership.c | 82 | medium | yes | one block, ranges only, no special-door key table; Beast-weapon tweaks for bMothership |
-| 0x00495950 | kasfShipsSelectIndex | KASFunc.c | 78 | medium |  | adds calls growSelectAddShip, kasGrowSelectionClear; drops calls clRemoveTargetFromSelection; body 2.2x smaller than predicted |
-| 0x00490aa0 | kasPathPtr | KAS.c | 75 | medium |  | drops calls dbgFatalf; adds strings "\nKAS: unresolved reference to path %u"; constants 47 not in body |
-| 0x00495a50 | kasfShipsSelectNearby | KASFunc.c | 75 | high |  | adds calls cat_kasShipsSelectByPredicate; drops calls aiuFindDistanceSquared, growSelectAddShip; body 3.0x smaller than predicted; fields +maxNumShips -ShipPtr, numShips, posinfo, position (+1) |
-| 0x00417e10 | aitMsgSend | AITeam.c | 73 | high | yes | the queue holds 64 message pointers and a count; a send stores the pointer (no copy, no sender) |
+| 0x00495950 | kasfShipsSelectIndex | KASFunc.c | 78 | high | yes | the new selection is cleared and set only for a valid index (kasGrowSelectionClear, growSelectAddShip) |
+| 0x00490aa0 | kasPathPtr | KAS.c | 75 | high | yes | drops calls dbgFatalf; adds strings "\nKAS: unresolved reference to path %u"; constants 47 not in body |
+| 0x00495a50 | kasfShipsSelectNearby | KASFunc.c | 75 | high | yes | through cat_kasShipsSelectByPredicate (also in place), the squared distance rounded once to float |
+| 0x00417e10 | aitMsgSend | AITeam.c | 73 | high | yes | the queue holds 64 message pointers and a count; a send stores the pointer (no copy, no sender); the message is its kas2c hash word |
 | 0x00464610 | dockReserveDockPoint | Dock.c | 70 | high | yes | drops calls madLinkInCloseSpecialShip, madLinkInOpenSpecialShip; body 5.0x smaller than predicted; fields -dockInfo, dockpoints, dockstaticpoint, dockvars (+6); constants 26, 41, 67 not in body; loops 2 -> 0 |
 | 0x0058f626 | TitanInterface_AuthHandleLogin_tail | TitanInterface.cpp | 67 | high |  | drops calls ReadLoginKey, mgDisplayMessage, titanDebug; drops strings "EXCEPTION: AuthHandleLogin unable to ..."; "EXCEPTION: TitanInterface::AuthHanleL..."; "EXCEPTION: Unable to build AuthLogin ..." (+8); body 14.9x sm |
 | 0x0046ae90 | etgLoadErrorf | ETG.c | 64 | high |  | drops strings "\n%s (%d): Non-fatal error - %s"; "Non-Fatal Error (cancel to debug)"; params 4 -> 3 (prototype); body 2.4x smaller than predicted; globals -dbgFatalErrorString, dbgInt3Enabled, ghMainWindow; library calls |
-| 0x00491d30 | kasfVarCreateSet | KASFunc.c | 61 | high |  | adds calls cat_kasVarFindOrCreate; drops calls aivarCreate, aivarFind, aivarValueSet; KAS hash keys: the name arrives as a hash (high bit = global scope); kasfScopeName string building gone; body 2.2x smaller than predic |
-| 0x00491d70 | kasfVarValueSet | KASFunc.c | 61 | high |  | adds calls cat_kasVarFind; drops calls aivarFind, aivarValueSet; KAS hash keys: the name arrives as a hash (high bit = global scope); kasfScopeName string building gone; body 2.1x smaller than predicted; library calls -s |
-| 0x004907e0 | kasAITeamShipsPtr | KAS.c | 60 | medium |  | drops strings "MsgSender"; body 1.8x smaller than predicted; fields +enemyShipsIAmAwareOf, maxNumShips -kasLabel, msgSender, shipList, teamType (+2); constants 47 not in body |
-| 0x00491e30 | kasfVarValueGet | KASFunc.c | 60 | high |  | adds calls cat_kasVarFind; drops calls aivarFind, aivarValueGet; KAS hash keys: the name arrives as a hash (high bit = global scope); kasfScopeName string building gone; body 2.2x smaller than predicted; library calls -s |
-| 0x00497290 | kasfSaveLevel | KASFunc.c | 60 | high | yes | clCommandMessage colour 0xffffffff |
-| 0x00491e70 | kasfVarDestroy | KASFunc.c | 59 | high |  | adds calls cat_kasVarDestroy; drops calls aivarDestroy, aivarFind; KAS hash keys: the name arrives as a hash (high bit = global scope); kasfScopeName string building gone; body 2.2x smaller than predicted; library calls  |
+| 0x00491d30 | kasfVarCreateSet | KASFunc.c | 61 | high | yes | the name is a cat_kasHashString hash (bit 31: global, scope 0), scoped by the current scope hash; the hashed KAS variable store (cat_kasVar*) replaces HW1's AIVars |
+| 0x00491d70 | kasfVarValueSet | KASFunc.c | 61 | high | yes | the name is a cat_kasHashString hash (bit 31: global, scope 0), scoped by the current scope hash; the hashed KAS variable store (cat_kasVar*) replaces HW1's AIVars |
+| 0x004907e0 | kasAITeamShipsPtr | KAS.c | 60 | high | yes | the team's ships are found by its label hash (script teams only); no MsgSender name, no fatal |
+| 0x00491e30 | kasfVarValueGet | KASFunc.c | 60 | high | yes | the name is a cat_kasHashString hash (bit 31: global, scope 0), scoped by the current scope hash; the hashed KAS variable store (cat_kasVar*) replaces HW1's AIVars |
+| 0x00491e70 | kasfVarDestroy | KASFunc.c | 59 | high | yes | the name is a cat_kasHashString hash (bit 31: global, scope 0), scoped by the current scope hash; the hashed KAS variable store (cat_kasVar*) replaces HW1's AIVars |
 | 0x004db400 | opCPUDifficulty | Options.c | 59 | high | yes | a radio button set on tpGameCreated.aiplayerDifficultyLevel (HW1: a 0..100 slider) |
-| 0x00491db0 | kasfVarValueInc | KASFunc.c | 57 | high |  | adds calls cat_kasVarFind; drops calls aivarFind, aivarValueGet, aivarValueSet; KAS hash keys: the name arrives as a hash (high bit = global scope); kasfScopeName string building gone; body 2.6x smaller than predicted; l |
-| 0x00491df0 | kasfVarValueDec | KASFunc.c | 57 | high |  | adds calls cat_kasVarFind; drops calls aivarFind, aivarValueGet, aivarValueSet; KAS hash keys: the name arrives as a hash (high bit = global scope); kasfScopeName string building gone; body 2.6x smaller than predicted; l |
+| 0x00491db0 | kasfVarValueInc | KASFunc.c | 57 | high | yes | the name is a cat_kasHashString hash (bit 31: global, scope 0), scoped by the current scope hash; the hashed KAS variable store (cat_kasVar*) replaces HW1's AIVars |
+| 0x00491df0 | kasfVarValueDec | KASFunc.c | 57 | high | yes | the name is a cat_kasHashString hash (bit 31: global, scope 0), scoped by the current scope hash; the hashed KAS variable store (cat_kasVar*) replaces HW1's AIVars |
 | 0x004db440 | opCPUAttacks | Options.c | 56 | high | yes | a radio button set on tpGameCreated.aiplayerBigotry (HW1: a slider) |
 | 0x00447950 | RemoveShipFromFormation | CommandLayer.c | 54 | high | yes | HW1's ship->formationcommand = NULL replaced: sets disable reason 5 when a ship state field is 1, and unclamps sSentinel/bSentinel (types 17/52) |
-| 0x004907a0 | kasAITeamPtr | KAS.c | 54 | medium |  | drops strings "MsgSender"; body 1.9x smaller than predicted; fields +enemyShipsIAmAwareOf, maxNumShips -kasLabel, msgSender, teamType, teams (+1); constants 47 not in body |
-| 0x00491cf0 | kasfVarCreate | KASFunc.c | 54 | high |  | adds calls cat_kasVarFindOrCreate; drops calls aivarCreate; KAS hash keys: the name arrives as a hash (high bit = global scope); kasfScopeName string building gone; body 2.3x smaller than predicted; library calls -sprint |
-| 0x00492960 | kasfGuardShips | KASFunc.c | 53 | medium |  | adds calls clWrapProtect; drops calls aimCreateGuardShips, selectMemDupSelection; drops strings "selDup"; globals +universe |
-| 0x00495640 | kasfShipsSelectClass | KASFunc.c | 40 | high |  | adds calls cat_kasShipsSelectByPredicate; drops calls clRemoveTargetFromSelection, growSelectAddShip; body 6.8x smaller than predicted; fields +maxNumShips -ShipPtr, numShips, selection, shipclass (+1); loops 2 -> 0 |
-| 0x00495690 | kasfShipsSelectType | KASFunc.c | 40 | high |  | adds calls cat_kasShipsSelectByPredicate; drops calls clRemoveTargetFromSelection, growSelectAddShip; body 6.4x smaller than predicted; fields +maxNumShips -ShipPtr, numShips, selection, shiptype; loops 2 -> 0 |
+| 0x004907a0 | kasAITeamPtr | KAS.c | 54 | high | yes | the team is found by its label hash (script teams only); no MsgSender name, no fatal |
+| 0x00491cf0 | kasfVarCreate | KASFunc.c | 54 | high | yes | the name is a cat_kasHashString hash (bit 31: global, scope 0), scoped by the current scope hash; the hashed KAS variable store (cat_kasVar*) replaces HW1's AIVars |
+| 0x00492960 | kasfGuardShips | KASFunc.c | 53 | high | yes | the team's ships get clWrapProtect on the ships (HW1: a guard-ships move on a copy), only for a non-empty selection |
+| 0x00495640 | kasfShipsSelectClass | KASFunc.c | 40 | high | yes | through cat_kasShipsSelectByPredicate (in place: the loop does not advance after a removal) |
+| 0x00495690 | kasfShipsSelectType | KASFunc.c | 40 | high | yes | through cat_kasShipsSelectByPredicate |
 | 0x00590309 | TitanInterface_AuthHandleRefresh_tail | TitanInterface.cpp | 40 | high |  | drops calls ConnectAndSend, ReadLoginKey, titanDebug; drops strings "AuthHandleRefresh: Login key not found."; "EXCEPTION: TitanInterface::AuthHanleR..."; "FAIL: Couldn't encrypt block with aut..." (+2); params 0 -> 1 (p |
 | 0x004901b0 | hsStaticInit | HS.c | 39 | high | yes | no argument: frees the static gate table, zeroes the count |
 | 0x005af3c0 | Carrier_Fix | Carrier.c | 38 | medium | yes | Beast weapon and depot fix-up |
 | 0x0058e990 | TitanInterface_PingHandleReply_tail | TitanInterface.cpp | 33 | high |  | drops calls titanDebug; drops strings "EXCEPTION: TitanInterface::PingHandle..."; "TitanInterface::PingHandleReply"; params 1 -> 0 (prototype); body 6.1x smaller than predicted; fields -Enter, GetLag, Leave, what |
-| 0x004957d0 | kasfShipsSelectDamaged | KASFunc.c | 31 | high |  | adds calls cat_kasShipsSelectByPredicate; drops calls clRemoveTargetFromSelection, growSelectAddShip; body 8.3x smaller than predicted; fields +maxNumShips -ShipPtr, health, maxhealth, numShips (+2); constants 100 not in |
-| 0x00495b00 | kasfShipsSelectSpecial | KASFunc.c | 31 | high |  | adds calls cat_kasShipsSelectByPredicate; drops calls clRemoveTargetFromSelection, growSelectAddShip; body 15.3x smaller than predicted; fields +maxNumShips -ShipPtr, attributes, flags, numShips (+5); constants 23, 26, 2 |
-| 0x00495560 | kasfShipsSelectEnemy | KASFunc.c | 28 | high |  | adds calls cat_kasShipsSelectByPredicate; drops calls clRemoveTargetFromSelection, growSelectAddShip; body 8.7x smaller than predicted; fields +maxNumShips -ShipPtr, numShips, playerIndex, playerowner (+1); loops 2 -> 0 |
-| 0x00495620 | kasfShipsSelectFriendly | KASFunc.c | 28 | high |  | adds calls cat_kasShipsSelectByPredicate; drops calls clRemoveTargetFromSelection, growSelectAddShip; body 8.7x smaller than predicted; fields +maxNumShips -ShipPtr, numShips, playerIndex, playerowner (+1); loops 2 -> 0 |
-| 0x004956e0 | kasfShipsSelectCapital | KASFunc.c | 28 | high |  | adds calls cat_kasShipsSelectByPredicate; drops calls clRemoveTargetFromSelection, growSelectAddShip; body 9.2x smaller than predicted; fields +maxNumShips -ShipPtr, numShips, selection, shipIsCapital (+1); loops 2 -> 0 |
-| 0x00495730 | kasfShipsSelectNonCapital | KASFunc.c | 28 | high |  | adds calls cat_kasShipsSelectByPredicate; drops calls clRemoveTargetFromSelection, growSelectAddShip; body 9.3x smaller than predicted; fields +maxNumShips -ShipPtr, numShips, selection, shipIsCapital (+1); loops 2 -> 0 |
-| 0x00495790 | kasfShipsSelectNotDocked | KASFunc.c | 28 | medium |  | adds calls cat_kasShipsSelectByPredicate; drops calls clRemoveTargetFromSelection, growSelectAddShip; body 9.1x smaller than predicted; fields +maxNumShips -ShipPtr, flags, numShips, selection; loops 2 -> 0 |
-| 0x004958b0 | kasfShipsSelectMoving | KASFunc.c | 28 | high |  | adds calls cat_kasShipsSelectByPredicate; drops calls clRemoveTargetFromSelection, growSelectAddShip; body 8.8x smaller than predicted; fields +maxNumShips -ShipPtr, isMoving, numShips, posinfo (+1); loops 2 -> 0 |
+| 0x004957d0 | kasfShipsSelectDamaged | KASFunc.c | 31 | high | yes | health <= percent * maxhealth * 0.01f (x87, the percent zero-extended); through cat_kasShipsSelectByPredicate |
+| 0x00495b00 | kasfShipsSelectSpecial | KASFunc.c | 31 | high | yes | through cat_kasShipsSelectByPredicate; flag 1 (returning technology) is always FALSE; armed: not the cloak generators / salvage corvettes |
+| 0x00495560 | kasfShipsSelectEnemy | KASFunc.c | 28 | high | yes | player 0's ships that player 1 has detected (cat_shipDetectedByPlayer) and that do not pass for his (cat_mimicAppearsAlliedTo), not targeted by salvagers (specialFlags2 0x2000000), not swarmers; through cat_kasShipsSelec |
+| 0x00495620 | kasfShipsSelectFriendly | KASFunc.c | 28 | high | yes | the computer players' ships, not targeted by salvagers, not swarmers or crystals; through cat_kasShipsSelectByPredicate |
+| 0x004956e0 | kasfShipsSelectCapital | KASFunc.c | 28 | high | yes | the static's capital-ship word (+0x2A8) instead of the class test; through cat_kasShipsSelectByPredicate |
+| 0x00495730 | kasfShipsSelectNonCapital | KASFunc.c | 28 | high | yes | the negated capital-ship word; through cat_kasShipsSelectByPredicate |
+| 0x00495790 | kasfShipsSelectNotDocked | KASFunc.c | 28 | high | yes | through cat_kasShipsSelectByPredicate |
+| 0x004958b0 | kasfShipsSelectMoving | KASFunc.c | 28 | high | yes | a velocity component above 2 in magnitude (HW1: the isMoving flags); through cat_kasShipsSelectByPredicate |
 | 0x0059a410 | TitanInterface_HandleGameMsg | TitanInterface.cpp | 26 | medium |  | drops calls titanDebug; drops strings "EXCEPTION: TitanInterface::HandleGame..."; params 1 -> 3 (prototype); body 3.9x smaller than predicted |
 | 0x0058e562 | TitanInterface_FirewallDetect_tail | TitanInterface.cpp | 25 | high |  | drops calls ConnectAndSend, titanDebug; drops strings "EXCEPTION: TitanInterface::FirewallDe..."; "FAIL: TitanInterface::FirewallDetect!"; "NOTE: TitanInterface::FirewallDetect ..." (+1); body 14.5x smaller than predicte |
 | 0x0058e8c3 | TitanInterface_PingFactServer_tail | TitanInterface.cpp | 25 | high |  | drops calls ConnectAndSend, titanDebug; drops strings "EXCEPTION: TitanInterface::PingFactSe..."; "TitanInterface::PingFactServer"; body 11.7x smaller than predicted; fields -AddOutgoingCmd, Leave, Pack, what |

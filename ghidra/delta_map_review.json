@@ -3030,8 +3030,8 @@
  "0x00460d60": {
   "class": "MODIFIED",
   "confidence": "medium",
-  "change": "speech ids 0x2001048/49/4a and a per-result effect table; AddTargetToDeleteList 3 args",
-  "note": "effects/speech stage 3",
+  "change": "speech ids 0x2001048/49/4a and a per-result effect table; AddTargetToDeleteList 3 args; UI sound id 0x128 (CAT_UI_CrateFound)",
+  "note": "effects/speech stage 3 [review: M2-R8 kasf-library] the crate sound is Cataclysm's UI id 0x128 (0x00460dc2)",
   "sample": "port-R4"
  },
  "0x00460ed0": {
@@ -5252,20 +5252,20 @@
  "0x0048aac0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "no firing by or at a ship being handed to a salvage depot; the missile's damage type is the gun's current one; damage = ship multiplier x weapon vs armour; mesh state; a second effect parameter by launcher type; no cloak-field decloak",
-  "note": "M2-R4 combat: ported"
+  "change": "no firing by or at a ship being handed to a salvage depot; the missile's damage type is the gun's current one; damage = ship multiplier x weapon vs armour; mesh state; a second effect parameter by launcher type; no cloak-field decloak; the KAS damage factor is Ship +0x3E0 (catDamageFactor)",
+  "note": "M2-R4 combat: ported [review: M2-R8 kasf-library] the damage factor field fixed (+0x3E0, was +0x3DC the repair factor)"
  },
  "0x0048b5b0": {
   "class": "REWRITTEN",
   "confidence": "high",
-  "change": "returns the bullet made by cat_gunCreateBullet 0x0048bb00; RKO, salvage-depot and line-of-sight checks; damage = ship multiplier x DamageMult and weapon tables; a Leech shot also does 10 damage",
-  "note": "M2-R4 combat: ported; the RKO hold check is M2-R4 #4"
+  "change": "returns the bullet made by cat_gunCreateBullet 0x0048bb00; RKO, salvage-depot and line-of-sight checks; damage = ship multiplier x DamageMult and weapon tables; a Leech shot also does 10 damage; the KAS damage factor is Ship +0x3E0 (catDamageFactor)",
+  "note": "M2-R4 combat: ported; the RKO hold check is M2-R4 #4 [review: M2-R8 kasf-library] the damage factor field fixed (+0x3E0, was +0x3DC the repair factor)"
  },
  "0x0048c2e0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "no tactics range bonus; the big gun and the Beast weapon are not fired here; Mission 15's no-firing KAS variable",
-  "note": "M2-R4 combat: ported; the Mission 15 test is stage 6"
+  "note": "M2-R4 combat: ported; the Mission 15 test is stage 6 [review: M2-R8 kasf-library] the Mission 15 test (G_StopShipsFiringOnMission15 through cat_kasVarFind) ported"
  },
  "0x0048c690": {
   "class": "MODIFIED",
@@ -5462,10 +5462,10 @@
   "sample": "reread-R2"
  },
  "0x00490d90": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "medium",
-  "change": "",
-  "note": "memStrncpy of the label likely inlined in the tail (not read)",
+  "change": "the label is stored as its hash (no name copy)",
+  "note": "memStrncpy of the label likely inlined in the tail (not read) [review: M2-R8 kasf-library] ported (hash word)",
   "sample": "uniform/MODIFIED"
  },
  "0x00491c70": {
@@ -5658,10 +5658,10 @@
   "sample": "reread-R2"
  },
  "0x004937e0": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "same",
+  "change": "milliseconds * 0.001f (0x0072a650) where HW1 divided by 1000",
+  "note": "same [review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
   "sample": "reread-R2"
  },
  "0x00493b80": {
@@ -5695,8 +5695,8 @@
  "0x00493f80": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "releases the name after the owner change (a no-op, as the exe) and assigns one on the way back; SelectionSwitchPlayerOwner: its FOW part stays with the stage-6 KAS CAT-TODO",
-  "note": "[review: M2-R5 hud] the cat_shipNames calls added (the rest of the body is stage 6's) | [review: M2-R6 nis-fow-camera] SelectionSwitchPlayerOwner: its FOW part stays with the stage-6 KAS CAT-TODO",
+  "change": "second argument keepSU; the clamped ships switch with it; FOW, unit caps, names, support units; keepSU FALSE disables the ship and makes it SU exempt, TRUE leaves the AI and adds a factory / player 0's mothership; collision blobs rebuilt",
+  "note": "[review: M2-R5 hud] the cat_shipNames calls added (the rest of the body is stage 6's) | [review: M2-R6 nis-fow-camera] SelectionSwitchPlayerOwner: its FOW part stays with the stage-6 KAS CAT-TODO [review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
   "sample": "port-R6-nis-fow-camera"
  },
  "0x00494510": {
@@ -5749,10 +5749,10 @@
   "sample": "reread-R2"
  },
  "0x00494ac0": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "medium",
-  "change": "",
-  "note": "kasfFindPlayersShipsOfType(ships, shipType, 1) inlined",
+  "change": "a ship still being built (specialFlags2 & 8) is not counted",
+  "note": "kasfFindPlayersShipsOfType(ships, shipType, 1) inlined [review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
   "sample": "REWRITTEN/high"
  },
  "0x00494e00": {
@@ -5826,10 +5826,10 @@
   "sample": "audit-R5-command-tactics"
  },
  "0x00495d10": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "[audit: M2-R5 command-tactics] compared: as the tree (formation -1: any ship with a formation command; else any with that type); the edit is the retirement of Ship.formationcommand (the exe reads ship->command's formation flag)",
+  "change": "for a given formation the exe tests the current selection's ships (selSelected) up to the count of the ships passed (CAT-FIX: bounded by selSelected.numShips)",
+  "note": "[audit: M2-R5 command-tactics] compared: as the tree (formation -1: any ship with a formation command; else any with that type); the edit is the retirement of Ship.formationcommand (the exe reads ship->command's formation flag) [review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
   "sample": "audit-R5-command-tactics"
  },
  "0x00495e80": {
@@ -5902,17 +5902,17 @@
   "sample": "reread-R2"
  },
  "0x00496190": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "medium",
-  "change": "",
-  "note": "RAD_TO_DEG and ftol; Ghidra drops the x87 operands",
+  "change": "times 57.2957795f (float) on the x87 stack, truncated",
+  "note": "RAD_TO_DEG and ftol; Ghidra drops the x87 operands [review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
   "sample": "reread-R2"
  },
  "0x004961f0": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "medium",
-  "change": "",
-  "note": "RAD_TO_DEG and ftol; Ghidra drops the x87 operands",
+  "change": "times 57.2957795f (float) on the x87 stack, truncated",
+  "note": "RAD_TO_DEG and ftol; Ghidra drops the x87 operands [review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
   "sample": "reread-R2"
  },
  "0x00496250": {
@@ -5988,8 +5988,8 @@
  "0x00496490": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "tutSetPointerTargetAIVolume gets a new 3rd argument (0); callers clean 12 bytes (binary-map prototype evidence)",
-  "note": "callee arity change",
+  "change": "third argument FALSE (the objective-pointer flag)",
+  "note": "callee arity change [review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
   "sample": "reread-R2"
  },
  "0x00496570": {
@@ -6191,8 +6191,8 @@
  "0x004967e0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "piePointModeOnOff(0, NULL)",
-  "note": "[review: M2-R5 hud] call site updated",
+  "change": "no tutGameMessage(\"KB_Focus\") when focusing the current selection",
+  "note": "[review: M2-R5 hud] call site updated [review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
   "sample": "port-R5-hud"
  },
  "0x004969e0": {
@@ -6378,10 +6378,10 @@
   "sample": "reread-R2"
  },
  "0x00497290": {
-  "class": "REWRITTEN",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "clCommandMessage colour 0xffffffff",
-  "note": "[review: M2-R5 hud] call sites updated",
+  "change": "only requests the save (level number, name, flag 0x00a43fec); univUpdate saves last in the frame through cat_kasSaveLevelNow 0x004972d0 (G_TimesGameLoaded / G_AutoSave, Training path for level 0, else '<SinglePlayer path><NN> - <name>')",
+  "note": "[review: M2-R5 hud] call sites updated [review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
   "sample": "port-R5-hud"
  },
  "0x004973b0": {
@@ -6605,7 +6605,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "cat_kasHashString teams; no harvest/carrier gates; RacesAllowedForGivenShip before the race swap; cat_shipInitResearchUpgrades per ship; cat_rmResearchModuleActivated for Sect; clFormation 4 args",
-  "note": "ported except the hash and clFormation's 4th argument",
+  "note": "ported except the hash and clFormation's 4th argument [review: M2-R8 kasf-library] the team match by cat_kasHashString hash ported (closes its CAT-TODO)",
   "sample": "port-R4"
  },
  "0x004a29f0": {
@@ -9274,7 +9274,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "a ping other than an anomaly ping is drawn only where cat_selPositionHiddenByFOW 0x00509400 says the fog of war does not hide it; the ping sounds are soundEventPlay ids 0x12C..0x134; pingListDraw: the FOW test ported (a ping other than TOMask 4 = anomaly only where cat_selPositionHiddenByFOW does not hide its centre)",
-  "note": "[review: M2-R5 render] the FOW test is a CAT-TODO(M2-R6 FOW) in Ping.c; GoK's one-sound-per-tick guard kept | [review: M2-R6 nis-fow-camera] pingListDraw: the FOW test ported (a ping other than TOMask 4 = anomaly only where cat_selPositionHiddenByFOW does not hide its centre)",
+  "note": "[review: M2-R5 render] the FOW test is a CAT-TODO(M2-R6 FOW) in Ping.c; GoK's one-sound-per-tick guard kept | [review: M2-R6 nis-fow-camera] pingListDraw: the FOW test ported (a ping other than TOMask 4 = anomaly only where cat_selPositionHiddenByFOW does not hide its centre) [review: M2-R8 kasf-library] the five ping sounds are Cataclysm's ids (anomaly 0x12c, proximity 0x131, new ships 0x132, battle 0x133, hyperspace 0x134; jump table 0x004e8e60)",
   "sample": "port-R6-nis-fow-camera"
  },
  "0x004e8f10": {
@@ -9825,7 +9825,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "cat_missionTimerLoad after the single-player chunk",
-  "note": "[review: M2-R5 hud] the call added | [review: M2-R6 oracle-mode-a] LoadGame: rewritten in the exe order (dmgStopEffect(ship,3) on the live ships, cat_loadStateBlock 0x00c32c00, cat_rndFogLayerTextureLoad, the space objects, blobs, cat_loadGamePreGameTable, universe, ID tables, nebulae, cons mgr, AI, single player, cat_loadGameMiscChunks, cat_missionTimerLoad, KAS..., selections, background, lighting, smLoad, ranLoad (27 streams), flags, optional cons mgr, the fix-ups, cat_loadShipRecordTableFix, effect list, close, the Sect max-health post-pass); cat_kasAutoSaveOnLoad is CAT-TODO(stage 6 single player)",
+  "note": "[review: M2-R5 hud] the call added | [review: M2-R6 oracle-mode-a] LoadGame: rewritten in the exe order (dmgStopEffect(ship,3) on the live ships, cat_loadStateBlock 0x00c32c00, cat_rndFogLayerTextureLoad, the space objects, blobs, cat_loadGamePreGameTable, universe, ID tables, nebulae, cons mgr, AI, single player, cat_loadGameMiscChunks, cat_missionTimerLoad, KAS..., selections, background, lighting, smLoad, ranLoad (27 streams), flags, optional cons mgr, the fix-ups, cat_loadShipRecordTableFix, effect list, close, the Sect max-health post-pass); cat_kasAutoSaveOnLoad is CAT-TODO(stage 6 single player) [review: M2-R8 kasf-library] cat_kasAutoSaveOnLoad (0x004fe3aa, single player) ported",
   "sample": "port-R5-hud"
  },
  "0x004fe770": {
@@ -11951,8 +11951,8 @@
  "0x0052e480": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "piePointModeOnOff(0, NULL)",
-  "note": "[review: M2-R5 hud] call site updated",
+  "change": "piePointModeOnOff(0, NULL); piePointModeOnOff(0, NULL); the intro sound is Cataclysm's 0x12f and the ambient 0x103",
+  "note": "[review: M2-R5 hud] call site updated [review: M2-R8 kasf-library] the two sound ids (0x0052e558, 0x0052e566) ported",
   "sample": "port-R5-hud"
  },
  "0x0052e980": {
@@ -13482,7 +13482,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "frame step, multiplayer autosave, real-time quit/win, Cataclysm speech ids, no tacticsGlobalUpdate, blasts and bullet-effect recreation after the ship update, inline dead-object loops, KAS save",
-  "note": "M2-R4 univupdate: ported except cat_blastUpdateAll (#3), cat_kasSaveLevelNow (stage 6) and the stats-screen quit (stage 3) | [review: M2-R5 hud] call sites updated",
+  "note": "M2-R4 univupdate: ported except cat_blastUpdateAll (#3), cat_kasSaveLevelNow (stage 6) and the stats-screen quit (stage 3) | [review: M2-R5 hud] call sites updated [review: M2-R8 kasf-library] the KAS save request (cat_kasSaveLevelRequested -> cat_kasSaveLevelNow, 0x0054ce03) ported",
   "sample": "port-R5-hud"
  },
  "0x0054ce20": {
@@ -16351,7 +16351,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "(not reviewed in full) a new game calls cat_mimicInitDisguiseTables; in a non-tutorial new game the start-position table 0x00ab77e0 is set to 0..7 and shuffled with 20 swaps of two ranRandomFn(0) % spScenarios[spCurrentSelected].maxplayers picks",
-  "note": "[review: M2-R6 mainrgn-popup] only that call checked and added [review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): M2-R7 ai-player-skirmish: a new game also resets the skirmish AI (cat_aisReset 0x00433d30, 0x005a9ef4) [review: skirmish-start] the table and its 0..7 fill ported (catStartPositions), the 40 stream-0 draws left to stage 6 (CAT-TODO)",
+  "note": "[review: M2-R6 mainrgn-popup] only that call checked and added [review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): M2-R7 ai-player-skirmish: a new game also resets the skirmish AI (cat_aisReset 0x00433d30, 0x005a9ef4) [review: skirmish-start] the table and its 0..7 fill ported (catStartPositions), the 40 stream-0 draws left to stage 6 (CAT-TODO) [review: M2-R8 kasf-library] no tbStartup (the task bar is never set up)",
   "sample": "port-R6-mainrgn-popup"
  },
  "0x005aa5e0": {
@@ -18041,7 +18041,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "ported: the KAS letterbox finish at the end of the scissor fade-in (cat_kasWideScreenActive / cat_kasWideScreenInFinish: stage 6 KAS, CAT-TODO), the frame-step flag 0x00a6ed74 cleared during the fade-in, 0x00a4cacc (set by singlePlayerGameUpdate) keeps the letterbox at the NIS's end instead of clearing nisFullyScissored; no test-NIS or teaser branch",
-  "note": "[review: M2-R6 nis-fow-camera] ported: the KAS letterbox finish at the end of the scissor fade-in (cat_kasWideScreenActive / cat_kasWideScreenInFinish: stage 6 KAS, CAT-TODO), the frame-step flag 0x00a6ed74 cleared during the fade-in, 0x00a4cacc (set by singlePlayerGameUpdate) keeps the letterbox at the NIS's end instead of clearing nisFullyScissored; no test-NIS or teaser branch",
+  "note": "[review: M2-R6 nis-fow-camera] ported: the KAS letterbox finish at the end of the scissor fade-in (cat_kasWideScreenActive / cat_kasWideScreenInFinish: stage 6 KAS, CAT-TODO), the frame-step flag 0x00a6ed74 cleared during the fade-in, 0x00a4cacc (set by singlePlayerGameUpdate) keeps the letterbox at the NIS's end instead of clearing nisFullyScissored; no test-NIS or teaser branch [review: M2-R8 kasf-library] the KAS letterbox finish (cat_kasWideScreenActive / cat_kasWideScreenInFinish) now called",
   "sample": "port-R6-nis-fow-camera"
  },
  "0x004cc8f0": {
@@ -18250,8 +18250,8 @@
  "0x004d0050": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "the team label is hashed (cat_kasHashString) for kasAddShipToTeam: stage 6 KAS (CAT-TODO); the rest same",
-  "note": "[review: M2-R6 nis-fow-camera] the team label is hashed (cat_kasHashString) for kasAddShipToTeam: stage 6 KAS (CAT-TODO); the rest same",
+  "change": "the team label is hashed (cat_kasHashString) for kasAddShipToTeam: stage 6 KAS (CAT-TODO); the rest same; the team label is hashed (cat_kasHashString) for kasAddShipToTeam",
+  "note": "[review: M2-R6 nis-fow-camera] the team label is hashed (cat_kasHashString) for kasAddShipToTeam: stage 6 KAS (CAT-TODO); the rest same [review: M2-R8 kasf-library] the hash ported (closes its CAT-TODO)",
   "sample": "port-R6-nis-fow-camera"
  },
  "0x004d0170": {
@@ -18272,7 +18272,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R6 nis-fow-camera] compared: same (sound 0x124)",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (sound 0x124) [review: M2-R8 kasf-library] the sound now uses Cataclysm's id 0x124 (CAT_UI_Unletterbox)",
   "sample": "port-R6-nis-fow-camera"
  },
  "0x004d0320": {
@@ -18726,8 +18726,8 @@
  "0x004d45a0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "the selection label is hashed (cat_kasHashString): stage 6 KAS (CAT-TODO); the rest same",
-  "note": "[review: M2-R6 nis-fow-camera] the selection label is hashed (cat_kasHashString): stage 6 KAS (CAT-TODO); the rest same",
+  "change": "the selection label is hashed (cat_kasHashString): stage 6 KAS (CAT-TODO); the rest same; the selection label is hashed (cat_kasHashString)",
+  "note": "[review: M2-R6 nis-fow-camera] the selection label is hashed (cat_kasHashString): stage 6 KAS (CAT-TODO); the rest same [review: M2-R8 kasf-library] the hash ported (closes its CAT-TODO)",
   "sample": "port-R6-nis-fow-camera"
  },
  "0x004d4650": {
@@ -19348,7 +19348,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "adds calls opOptionsSaveSettings; drops calls to tbShutdown, universeStaticClose, writeGameStatsToFile (absent from Cataclysm)",
-  "note": "[review: M2-R6 startup-keys] ported: no writeGameStatsToFile, opOptionsSaveSettings and the pause flag 0x00a6ed74 cleared at the end; glcActivate N/A; universeStaticClose is the folded empty function 0x0049ae30; tbShutdown kept with gameStart's task-bar CAT-TODO"
+  "note": "[review: M2-R6 startup-keys] ported: no writeGameStatsToFile, opOptionsSaveSettings and the pause flag 0x00a6ed74 cleared at the end; glcActivate N/A; universeStaticClose is the folded empty function 0x0049ae30; tbShutdown kept with gameStart's task-bar CAT-TODO [review: M2-R8 kasf-library] no tbShutdown"
  },
  "0x005aa140": {
   "class": "IDENTICAL",
@@ -19456,7 +19456,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "adds calls btgStartup, cat_consoleShutdown; drops calls utyOptionsFileWrite; drops calls to battleChatterShutdown, bsShutdown, btgShutdown, dmgShutdown (+14) (absent from Cataclysm); adds strings \"Cataclysm.cfg\"; \"FEMan\\Front_end.fib\"; \"FEMan\\Sensors_manager.fib\" (+4); globals +loadedDevcaps, loadedDevcaps2, regOptionsList, utyOptionsList; library calls +fclose, fopen, fprintf; loops 1 -> 4",
-  "note": "[review: M2-R6 startup-keys] compared: the options written inline (utyOptionsFileWrite), the registry rows N/A, cat_consoleShutdown before cmShutdown (ported); the dropped shutdowns are calls to empty functions folded into 0x0049ae30; tbShutdown kept (gameStart's task-bar CAT-TODO); glcShutdown N/A"
+  "note": "[review: M2-R6 startup-keys] compared: the options written inline (utyOptionsFileWrite), the registry rows N/A, cat_consoleShutdown before cmShutdown (ported); the dropped shutdowns are calls to empty functions folded into 0x0049ae30; tbShutdown kept (gameStart's task-bar CAT-TODO); glcShutdown N/A [review: M2-R8 kasf-library] no tbShutdown"
  },
  "0x005acdc0": {
   "class": "IDENTICAL",
@@ -20863,8 +20863,8 @@
  "0x00416810": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "a multiplayer game's team tactics default to Aggressive (0x004168d6; single player Neutral as HW1)",
-  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported"
+  "change": "a multiplayer game's team tactics default to Aggressive (0x004168d6; single player Neutral as HW1); the KAS label, FSM and state names are hash words (cleared to 0)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported [review: M2-R8 kasf-library] the KAS names as hash words (AITeam +0x58/+0x5C/+0x60)"
  },
  "0x00416b90": {
   "class": "MODIFIED",
@@ -20917,14 +20917,14 @@
  "0x00417e10": {
   "class": "REWRITTEN",
   "confidence": "high",
-  "change": "the queue holds 64 message pointers and a count; a send stores the pointer (no copy, no sender)",
-  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported (with cat_aitMsgQueueRemoveAt / cat_aitMsgQueueFlush)"
+  "change": "the queue holds 64 message pointers and a count; a send stores the pointer (no copy, no sender); the message is its kas2c hash word",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported (with cat_aitMsgQueueRemoveAt / cat_aitMsgQueueFlush) [review: M2-R8 kasf-library] the queue holds the message hashes"
  },
  "0x00417e60": {
   "class": "REWRITTEN",
   "confidence": "high",
-  "change": "a receive compares the message pointer and moves the last entry into the freed slot (no string compare, no free)",
-  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported"
+  "change": "a receive compares the message pointer and moves the last entry into the freed slot (no string compare, no free); the message is matched by its kas2c hash word",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported [review: M2-R8 kasf-library] the queue holds the message hashes"
  },
  "0x004178e0": {
   "class": "MODIFIED",
@@ -20935,8 +20935,8 @@
  "0x00418040": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "the message queue is saved as its count and 64 zero numbers (the exe's pointers are not saved)",
-  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported; the KAS message identity is CAT-TODO(stage 6 KAS)"
+  "change": "the message queue is saved as its count and 64 zero numbers (the exe's pointers are not saved); the message queue is saved as its count and the 64 message hash words",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported; the KAS message identity is CAT-TODO(stage 6 KAS) [review: M2-R8 kasf-library] the queued messages are their hashes, saved as they are (closes the KAS message CAT-TODO)"
  },
  "0x00418180": {
   "class": "MODIFIED",
@@ -21018,5 +21018,1398 @@
   "change": "the parameter block is the ten-dword local area, filled for nParams > 0 without a bound",
   "note": "[review: M2-R8 oracle-rung-physics] ported (ETG.c CAT_ETG_CREATE_PARAMETERS 10)",
   "sample": "port-R8-oracle-rung-physics"
+ },
+ "0x00492ae0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the attributes of every ship's order or-ed (HW1: the first ship's)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492b20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the percentage rounded to the nearest (1.5 * 2^52, 0x0072a458) where HW1 truncated, the sums on the x87 stack (53-bit)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492b90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the percentage rounded to the nearest (1.5 * 2^52, 0x0072a458) where HW1 truncated",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492c00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the percentage rounded to the nearest (1.5 * 2^52, 0x0072a458) where HW1 truncated, the sums on the x87 stack (53-bit)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492c70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the percentage rounded to the nearest (1.5 * 2^52, 0x0072a458) where HW1 truncated",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00491cf0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the name is a cat_kasHashString hash (bit 31: global, scope 0), scoped by the current scope hash; the hashed KAS variable store (cat_kasVar*) replaces HW1's AIVars",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00491d30": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the name is a cat_kasHashString hash (bit 31: global, scope 0), scoped by the current scope hash; the hashed KAS variable store (cat_kasVar*) replaces HW1's AIVars",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00491d70": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the name is a cat_kasHashString hash (bit 31: global, scope 0), scoped by the current scope hash; the hashed KAS variable store (cat_kasVar*) replaces HW1's AIVars",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00491db0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the name is a cat_kasHashString hash (bit 31: global, scope 0), scoped by the current scope hash; the hashed KAS variable store (cat_kasVar*) replaces HW1's AIVars",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00491df0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the name is a cat_kasHashString hash (bit 31: global, scope 0), scoped by the current scope hash; the hashed KAS variable store (cat_kasVar*) replaces HW1's AIVars",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00491e30": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the name is a cat_kasHashString hash (bit 31: global, scope 0), scoped by the current scope hash; the hashed KAS variable store (cat_kasVar*) replaces HW1's AIVars",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00491e70": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the name is a cat_kasHashString hash (bit 31: global, scope 0), scoped by the current scope hash; the hashed KAS variable store (cat_kasVar*) replaces HW1's AIVars",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492190": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the team's ships get a plain clWrapAttack (HW1: an advanced-attack move); > 256 targets from a heap copy, others from a stack MaxSelection",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492960": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the team's ships get clWrapProtect on the ships (HW1: a guard-ships move on a copy), only for a non-empty selection",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492db0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the selection is cleared with kasGrowSelectionClear",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004932d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "clearing the closed-bays bit 0x400 of a host that had it launches the ships inside whose launch is due (cat_lmShipAutoLaunchOn or ShipHasToLaunch, not SPECIAL_STAY_TILL_EXPLICITLAUNCH) with clLaunchMultipleShips",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493630": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the standoff point clamped to +-half the universe size (smUniverseSize*)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493980": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the factor (percent * 0.01f) goes to +0x3E0 (catDamageFactor, read by gunShoot / missileShoot); HW1's damageModifier +0x3DC is the repair factor",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493aa0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "health = percent * maxhealth * 0.01f (HW1: maxhealth * percent / 100)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493b30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "fuel = percent * maxfuel * 0.01f (HW1: maxfuel * percent / 100)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493ba0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the temporary team's label hash is the current team's + 1 (HW1: \"R\" + the label string)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493e10": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the AI's creator is a ship of class Mothership or Carrier (staticinfo->shipclass 0 / 2; HW1 tested the HW1 ship types)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00494160": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "parameter bMakeControllable passed to SelectionSwitchPlayerOwner as keepSU",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00494180": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "parameter bMakeControllable passed to SelectionSwitchPlayerOwner as keepSU",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00494450": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no visible-leader test and no MoveReachedDestinationVariable distance test: every ship of a matching attack command is added",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004948a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a ship has finished launching only once it is back in the universe's ship list (shiplink.belongto, inlined ShipFinishedLaunching)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00494a40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a ship still being built (specialFlags2 & 8) is not counted",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004d6080": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the objective goes to the info overlay's list (cat_ioObjectiveAddFirst for 'hyperspace', cat_ioObjectiveAdd otherwise) instead of the task bar; the popup does not disable the task bar",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004d63a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_ioObjectiveRemove replaces tbObjectivesListRemoveItem",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004d6480": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_ioObjectivesClear replaces tbObjectivesListCleanUp",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004d66f0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "tutorial: the global KAS variable hash('G_CLICK_<label>') (scope 0) set to 1, then the objective's fleet intelligence shown unless it has no text (then subMessageEnded = 0); mission: shown if it has fleet intelligence (HW1: the AIVar CLICK_<label> only)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004d6960": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_ioObjectiveAdd replaces the task bar's list; the hyperspace objective is added last",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004d6530": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drawn in the tutorial too (no TUTORIAL_ONLY test)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00494e70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "in the tutorial an objective without full text gets an empty fleet-intelligence text",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00494ca0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the popup's end time is compared with cat_taskRealTimeElapsed (HW1: universe time); nothing adds lines in the exe (no kasfPopupText)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495560": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "player 0's ships that player 1 has detected (cat_shipDetectedByPlayer) and that do not pass for his (cat_mimicAppearsAlliedTo), not targeted by salvagers (specialFlags2 0x2000000), not swarmers; through cat_kasShipsSelectByPredicate",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495620": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the computer players' ships, not targeted by salvagers, not swarmers or crystals; through cat_kasShipsSelectByPredicate",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495640": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "through cat_kasShipsSelectByPredicate (in place: the loop does not advance after a removal)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495690": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "through cat_kasShipsSelectByPredicate",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004956e0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the static's capital-ship word (+0x2A8) instead of the class test; through cat_kasShipsSelectByPredicate",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495730": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the negated capital-ship word; through cat_kasShipsSelectByPredicate",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495790": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "through cat_kasShipsSelectByPredicate",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004957d0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "health <= percent * maxhealth * 0.01f (x87, the percent zero-extended); through cat_kasShipsSelectByPredicate",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004958b0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "a velocity component above 2 in magnitude (HW1: the isMoving flags); through cat_kasShipsSelectByPredicate",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495950": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the new selection is cleared and set only for a valid index (kasGrowSelectionClear, growSelectAddShip)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495a50": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "through cat_kasShipsSelectByPredicate (also in place), the squared distance rounded once to float",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495b00": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "through cat_kasShipsSelectByPredicate; flag 1 (returning technology) is always FALSE; armed: not the cloak generators / salvage corvettes",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495f00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "MakeShipsHarvestCapable with workers-only 0; the collect order only when the result has ships",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496a60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no tutGameMessage(\"KB_Focus\") when focusing the current selection",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496c30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "smFleetIntel cleared also when the sensors manager was not open",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496eb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "speechEventQueue(NULL, event, variable, -1, -1, player, -1, -1.0f, -1), the handle kept as the link of kasfSpeechEventLink; universeTurbo not cleared",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496380": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "third argument FALSE to tutSetPointerTargetShip (the objective-pointer flag)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004963a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "third argument FALSE (the objective-pointer flag)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004964e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "software-renderer screen clear after the removal (not taken in GL, decision 28)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496530": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "software-renderer screen clear after the removal (not taken in GL, decision 28)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00497020": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the LOD mask has bits 1 .. min(LOD, 7) (bit 0 never; GoK: bits 0 .. LOD)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00497420": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "time compression reset, nothing faded while fully scissored, the KAS letterbox active flag, the close-sensors flag cleared, the pilot camera mode bit cleared, the letterbox volume; Cataclysm's sound id 0x123; frames * 0.0333f",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00497630": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Cataclysm's sound id 0x124; frames * 0.0333f; spUnlockout, the letterbox volume off, the cursor shown",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004976a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "milliseconds * 0.001f (HW1 / 1000)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00497710": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "milliseconds * 0.001f; subMessageEnded cleared",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00497850": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a mimicking ship is cleaned up (cat_mimicCleanup); after the wipe the camera (ccRemoveShip), selSelected / selSelecting, the ship totals, the sensors manager and every player's mothership pointer forget the ship",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00497980": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "values * 0.001f; the spin ranRandom * ((var + var) * 2^-32) - var + rotation on the x87 stack (HW1 / 1000 and frandyrandombetween)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00497ba0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the static's y is 1 - 2 * ((H / 2 + 0.325f) / H) (the exe's 0x0072a858)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493c00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "count * percent * 0.01f + 0.5 on the x87 stack; the temporary team's label hash is the current team's + 1",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00491cc0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492140": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492280": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004922d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492320": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (x87: the squared distance is compared unrounded; this tree's aiuFindDistanceSquared returns real32 as at its other callers)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004924e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492530": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492580": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004925a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492780": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004927b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004927e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492810": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492840": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492870": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492940": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004929d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492a10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492ab0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492d30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492e10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492e90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (x87: the squared distance is compared unrounded; this tree's aiuFindDistanceSquared returns real32 as at its other callers)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00492f80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (x87: the squared distance is compared unrounded; this tree's aiuFindDistanceSquared returns real32 as at its other callers)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004931a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (x87: the squared distance is compared unrounded; this tree's aiuFindDistanceSquared returns real32 as at its other callers)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493490": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004934d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493510": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493580": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493600": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493800": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "calls with a changed parameter count: RemoveShipsFromDoingStuff 2->3",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): RemoveShipsFromDoingStuff reason 0x13 (already ported); the rest same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493860": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004938b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004938f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493940": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004939d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493cf0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493d40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493d70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493e70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (the team-feature case sets the bit, as HW1's aiuDisableTeamFeature macro)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493ee0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493f40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00493f60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004941a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00494200": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00494280": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004942b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004942e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00494310": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (x87: the squared distance is compared unrounded; this tree's aiuFindDistanceSquared returns real32 as at its other callers)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004943d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (x87: the squared distance goes to fsqrt 0x00472860 as a double, unrounded; decision 56 keeps sqrtf)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00494530": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00494570": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004945a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (DockSupportWith inlined)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00494630": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (DockSupportWith inlined)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004946f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004947c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00494940": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (ShipReadyForLaunch inlined)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004949b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00494b40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (kasfFindPlayersShipsOfClass inlined)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00494bc0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (kasfFindPlayersShipsOfClass inlined)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00494c40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495bd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495c40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495da0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495de0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495e20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495e50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495eb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495f80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00495fd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496050": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496170": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496290": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496400": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496420": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496ae0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496b00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496b20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496b70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496d80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496e00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496e20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496e80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00496fc0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00497080": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004970c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00497110": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00497170": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "calls with a changed parameter count: RemoveShipsFromDoingStuff 2->3",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): RemoveShipsFromDoingStuff reason 0x15 (already ported); the rest same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004971a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00497200": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00497790": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004977a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00497800": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00497b00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004d5ff0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (poPlayerObjectivesBegin inlined: spMainScreen(1), the sensors and main region disabled, the pause, the objective screen)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004d6260": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004d6290": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (objectiveFind inlined, strncmp 32)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004d62e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (objectiveFind inlined, strncmp 32)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004d6880": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004d68d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (SaveObjective inlined)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x0052bfe0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the timer is found by (scope hash, name hash); a running timer is not restarted",
+  "note": "[review: M2-R8 kasf-library] ported (Timer.c hashed API, Timer 0x18)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x0052c060": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "found by (scope hash, name hash); a paused timer's remaining time is SDWORD_Max",
+  "note": "[review: M2-R8 kasf-library] ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x0052c190": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "found by (scope hash, name hash); the remaining time through timTimerLeft (lrint)",
+  "note": "[review: M2-R8 kasf-library] ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x0052c290": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "found by (scope hash, name hash); destroys an expired timer",
+  "note": "[review: M2-R8 kasf-library] ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x0052c3d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "found by (scope hash, name hash); stopped: round(duration); running at or below 0: disabled, duration 0",
+  "note": "[review: M2-R8 kasf-library] ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x0052c480": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "found by (scope hash, name hash)",
+  "note": "[review: M2-R8 kasf-library] ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x0052c4d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "found by (scope hash, name hash)",
+  "note": "[review: M2-R8 kasf-library] ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x0052c580": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the timer is keyed by (scope hash, name hash), no name copy",
+  "note": "[review: M2-R8 kasf-library] ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x0052c7e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the scope is a hash word",
+  "note": "[review: M2-R8 kasf-library] ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x0052c820": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x0052c860": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (the 0x18-byte timers saved whole)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x0052c8a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00486cf0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the chat sound is Cataclysm's UI id 0x12b (CAT_UI_ChatMessage)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): the sound id 0x12b (0x00486dcc); the rest same",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00490640": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the state name is a hash word (team +0x60)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body: ported (hash word)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00490660": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the FSM name is a hash word; CurrentMissionScopeName becomes the team's label hash during the init",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body: ported (hash words)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004907a0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the team is found by its label hash (script teams only); no MsgSender name, no fatal",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body: ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004907e0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the team's ships are found by its label hash (script teams only); no MsgSender name, no fatal",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body: ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00490820": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the selection is found by its label hash",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body: ported (hash key); the fallback vector (0x00882048) as HW1",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004908c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the team is found by its label hash",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body: ported (hash key); the fallback vector (0x00882058) as HW1",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00490960": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the volume is found by its label hash",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body: ported (hash key)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00490a60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the path is found by its label hash",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body: ported (hash key)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00490aa0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "drops calls dbgFatalf; adds strings \"\\nKAS: unresolved reference to path %u\"; constants 47 not in body",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body: the hash key; an unresolved path is logged, not fatal",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00490af0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the volume is found by its label hash; no fatal",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body: ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00490b70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the selection is found by its label hash",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body: ported (hash key)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00490bb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the selection is found or made by its label hash (no name copy)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body: ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00490cc0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the label is stored as its hash (no name copy)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body: ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00490e60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the label is stored as its hash (no name copy)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body: ported",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00491120": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the team is matched by its label hash",
+  "note": "[review: M2-R8 kasf-library] ported (hash word)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004a1d90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_kasHashString; constants 47 not in body",
+  "note": "[review: M2-R8 kasf-library] ported: the label is stored as its cat_kasHashString hash",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004a1e20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_kasHashString; constants 47 not in body",
+  "note": "[review: M2-R8 kasf-library] ported: the label is stored as its cat_kasHashString hash",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004a1f00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_kasHashString; fields +center, radius, sphere, x (+2) -x0, x1, y0, y1; constants 47 not in body",
+  "note": "[review: M2-R8 kasf-library] ported: the label is stored as its cat_kasHashString hash",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x004a1ff0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_kasHashString; constants 47 not in body",
+  "note": "[review: M2-R8 kasf-library] ported: the label is stored as its cat_kasHashString hash",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00517280": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_kasHashString",
+  "note": "[review: M2-R8 kasf-library] ported: the point is found by its cat_kasHashString hash",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x0051bea0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_kasHashString, kasVectorPtr; drops calls to kasVectorPtrIfExists (absent from Cataclysm)",
+  "note": "[review: M2-R8 kasf-library] ported: the vector by its cat_kasHashString hash",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x005193f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops calls to soundEventSetActorFlag, tbButtonListRefresh (absent from Cataclysm)",
+  "note": "[review: M2-R8 kasf-library] no tbButtonListRefresh (the exe starts with kasClose)",
+  "sample": "port-R8-kasf-library"
+ },
+ "0x00532c90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "params 4 -> 0 (prototype); calls with a changed parameter count: spMainScreen 0->1; loops 1 -> 4",
+  "note": "[review: M2-R8 kasf-library] compared: tbForceTaskbar(FALSE) is called (0x00532d48), kept",
+  "sample": "port-R8-kasf-library"
  }
 }

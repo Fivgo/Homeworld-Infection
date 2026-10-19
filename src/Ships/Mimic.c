@@ -1260,6 +1260,16 @@ void cat_mimicItemAdd(ubyte player, ShipType type)                              
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_spSetMCVItemIndex                             0x005ba150
+    Description : CAT (M2-R8 kasf library): the base row count of a disguise list (kasfSetMCVItemIndex 0x00497f70;
+                  name from the r6 export)
+----------------------------------------------------------------------------*/
+void cat_spSetMCVItemIndex(ubyte item, sdword index)
+{
+    catMimicItemCountBase[item] = index;
+}
+
+/*-----------------------------------------------------------------------------
     CAT (M2-R6 oracle-mode-a): the disguise tables in a save (closes the "M2-R6 save game" and "the user's saves"
     CAT-TODOs). cat_saveGameMiscChunks 0x005ba170 / cat_loadGameMiscChunks 0x005ba1e0 write and read three BASIC
     chunks after SaveSinglePlayerGame: the rows (sub-type 0xB000, 0x17A0 bytes: 9 players x 0x54 rows of two

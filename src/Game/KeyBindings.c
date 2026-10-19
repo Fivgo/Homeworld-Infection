@@ -1501,9 +1501,9 @@ static void catKbStartMessage(bool32 toAllies)
 }
 static void catKbStartAllyMessage(udword state)   { (void)state; catKbStartMessage(TRUE); }          // 0x005503f0
 static void catKbStartGlobalMessage(udword state) { (void)state; catKbStartMessage(FALSE); }         // 0x00550420
-// the letterbox of a KAS widescreen (0x00a4cb38: kasfWideScreenIn / Out write it): no time key or pause while it is
-//      in. CAT-TODO(stage 6 KAS): the letterbox amount comes with kasfWideScreenIn / kasfWideScreenOut (until then it stays 0)
-#define CAT_KB_LETTERBOX_IN()       FALSE
+// CAT: no time key or pause while the NIS / KAS letterbox is fading in (0x005504f0 .. : fld nisScissorFadeIn
+//      0x00a4cb38, compared with 0; kasfWideScreenIn and the NIS player write it)
+#define CAT_KB_LETTERBOX_IN()       (nisScissorFadeIn != 0.0f)
 static void catKbAccelerateTime(udword state)                                                        // 0x005504d0
 {
     (void)state;

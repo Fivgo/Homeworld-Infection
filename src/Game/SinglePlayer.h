@@ -233,6 +233,8 @@ ShipSinglePlayerGameInfo *spNewShipSinglePlayerGameInfo(void);
 void spMainScreen(void);
 void spLockout(udword flags);
 void spMainScreenAndLockout(udword flags);
+void cat_spMainScreenAndLockoutKeepSensors(udword flags);       // CAT: 0x00518e90 (M2-R8 kasf library)
+void cat_spFlagDeleteWhenMissionEnds(struct Ship *ship);         // CAT: 0x0051c0b0 (M2-R8 kasf library)
 void spUnlockout(void);
 
 void LoadSinglePlayerGame(void);

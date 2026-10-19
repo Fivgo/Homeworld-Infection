@@ -18,6 +18,7 @@
 #include "File.h"
 #include "Globals.h"
 #include "KAS.h"
+#include "KASVar.h"
 #include "Light.h"
 #include "mainrgn.h"
 #include "Memory.h"
@@ -1082,18 +1083,18 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
 
         // if labelled team doesn't currently exist, create it
         // otherwise, add ships to existing labelled team
-        // CAT-TODO(stage 6, KAS): the exe matches teams by cat_kasHashString(label) (AITeam +0x58) and never stores the
-        //      label text (scriptSetShipsCB 0x004a13f0); the KAS hash keys come with the kas2c missions
+        // CAT: the team is matched by cat_kasHashString(label) (AITeam +0x58) and the label text is not kept
+        //      (scriptSetShipsCB 0x004a13f0; M2-R8 kasf library)
         for (i = 0; i < aiCurrentAIPlayer->teamsUsed; i++)
         {
             teamp = aiCurrentAIPlayer->teams[i];
-            if (teamp->teamType == ScriptTeam && !strncmp(teamp->kasLabel, label, KAS_TEAM_NAME_MAX_LENGTH))
+            if (teamp->teamType == ScriptTeam && teamp->kasLabel == cat_kasHashString(label))
                 break;
         }
         if (i >= aiCurrentAIPlayer->teamsUsed)
         {
             teamp = aitCreate(ScriptTeam);
-            memStrncpy(teamp->kasLabel, label, KAS_TEAM_NAME_MAX_LENGTH);
+            teamp->kasLabel = cat_kasHashString(label);
             // initialize original team size & type (to be updated later)
             teamp->kasOrigShipsCount = 0;
             // CAT: the default is the race's Recon (scriptSetShipsCB 0x004a13f0: sRecon for Sect, bRecon for Beast);
@@ -1438,7 +1439,7 @@ static void scriptSetAIPointCB(char *directory,char *field,void *dataToFillIn)
     if (sscanf(field, "%s %f %f %f %f", label, &x, &y, &z, &w) < 4)
         dbgFatalf(DBG_Loc,"Bad AIPoint definition: %s",field);
 
-    kasLabelledVectorAdd(label, x, y, z, w);
+    kasLabelledVectorAdd(cat_kasHashString(label), x, y, z, w);    // CAT: by hash (scriptSetAIPointCB)
     aiplayerLog((0,"AIPoint %s added: %f,%f,%f,%f", label, x, y, z, w));
 }
 
@@ -1459,10 +1460,10 @@ static void scriptSetAIPathCB(char *directory,char *field,void *dataToFillIn)
 
     closed = !strcasecmp(openClosed, "closed");
 
-    path = kasPathPtrNoErrorChecking(label);
+    path = kasPathPtrNoErrorChecking(cat_kasHashString(label));     // CAT: by hash (scriptSetAIPathCB)
     if (path == NULL)
     {
-        path = kasLabelledPathAdd(label, numPoints, closed);
+        path = kasLabelledPathAdd(cat_kasHashString(label), numPoints, closed);
         aiplayerLog((0,"AIPath %s added", label));
     }
 
@@ -1482,7 +1483,7 @@ static void scriptSetAIBoxCB(char *directory,char *field,void *dataToFillIn)
     if (sscanf(field, "%s %f %f %f %f %f %f", label, &x, &y, &z, &width, &height, &depth) != 7)
         dbgFatalf(DBG_Loc,"Bad AIBox definition: %s",field);
 
-    volume = kasLabelledVolumeAdd(label);
+    volume = kasLabelledVolumeAdd(cat_kasHashString(label));        // CAT: by hash (scriptSetAIBoxCB)
     volume->type = VOLUME_AA_BOX;
     volume->attribs.aaBox.x0 = x - width/2;
     volume->attribs.aaBox.x1 = x + width/2;
@@ -1504,7 +1505,7 @@ static void scriptSetAISphereCB(char *directory,char *field,void *dataToFillIn)
     if (sscanf(field, "%s %f %f %f %f", label, &x, &y, &z, &diameter) != 5)
         dbgFatalf(DBG_Loc,"Bad AISphere definition: %s",field);
 
-    volume = kasLabelledVolumeAdd(label);
+    volume = kasLabelledVolumeAdd(cat_kasHashString(label));        // CAT: by hash (scriptSetAISphereCB)
     volume->type = VOLUME_SPHERE;
     volume->attribs.sphere.center.x = x;
     volume->attribs.sphere.center.y = y;

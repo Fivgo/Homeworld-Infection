@@ -199,7 +199,7 @@ void cratesPlayerFoundACrate(Derelict *crate, Player *player)
     // only play sound for this player
     if(player->playerIndex == universe.curPlayerIndex)
     {
-        soundEvent(NULL, UI_CrateFound);
+        soundEvent(NULL, CAT_UI_CrateFound);        // CAT: Cataclysm's id 0x128 (0x00460dc2)
     }
     /* mabe there should be a different sound for each type of crate */
 

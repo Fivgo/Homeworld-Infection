@@ -1831,9 +1831,10 @@ _Static_assert(SPECIAL_2_CatBeingBuilt == 0x8 && SPECIAL_2_CatBeingSalvaged == 0
 #define CAT_SHIPFLAG_KasDerelict                    BIT4    // kasfShipsSetDerelict 0x00498510
 #define CAT_SHIPFLAG_NoTactics                      BIT1    // cat_shipCanSetTactics 0x005135e0 refuses it (setter not located)
 // CAT (M2-R3 ships-a): set on the component-class ships clamped to a carrier or mothership when the host dies
-//      (CarrierDied 0x005af3f0, MothershipHouseKeep 0x005bcad0); read by cat_salvageCheckTarget 0x004f7eb0 and
-//      cat_kamikazeSteer 0x005b16f0. Name chosen here.
-#define CAT_SHIPFLAG_Orphaned                       BIT2
+//      (CarrierDied 0x005af3f0, MothershipHouseKeep 0x005bcad0) and on slipgates; read by cat_salvageCheckTarget
+//      0x004f7eb0, cat_kamikazeSteer 0x005b16f0 and ApplyDamageToTarget (no damage). M2-R8 kasf library: the KAS setter
+//      kasfShipsSetInvincible 0x004984c0 writes it, so the name is Invincible (was Orphaned, chosen in M2-R3)
+#define CAT_SHIPFLAG_Invincible                       BIT2
 // CAT (M2-R5 dock): set by InitializeDockVars 0x00463c40 for the launch purpose (2) with dock state 10, cleared by
 //      RemoveShipFromLaunching 0x00465590, LaunchCleanup 0x004679b0 and processLaunchShipToDo 0x00466b00. Name chosen.
 #define CAT_SHIPFLAG_Launching                      BIT0

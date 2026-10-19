@@ -54,6 +54,7 @@
 #include "Universe.h"
 #include "UnivUpdate.h"
 #include "utility.h"
+#include "KASFunc.h"
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -1057,7 +1058,12 @@ void LoadGame(char *filename)
     fileClose(savefile);
     savefile = 0;
 
-    // CAT-TODO(stage 6 single player): a single-player load ends with cat_kasAutoSaveOnLoad(filename) (LoadGame 0x004fe0e0) before the registries close
+    // CAT: a single-player load ends with the script's auto save (LoadGame 0x004fe3aa: singlePlayerGame 0x00a43c9c ->
+    //      cat_kasAutoSaveOnLoad 0x00497230), before the registries close
+    if (singlePlayerGame)
+    {
+        cat_kasAutoSaveOnLoad(filename);
+    }
     // CAT: then every loaded Somtaaw ship type gets its maximum health again (LoadGame 0x004fe0e0: infoFlags
     //      IF_InfoLoaded at static +0x30, cat_univSetShipMaxHealth, FirstShipTypeOfRace[0] .. LastShipTypeOfRace[0])
     for (shiptype = FirstShipTypeOfRace[RACE_Sect]; shiptype <= LastShipTypeOfRace[RACE_Sect]; shiptype++)

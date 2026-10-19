@@ -731,7 +731,7 @@ void gcProcessGameChatPacket(struct ChatPacket *packet)
 
     numnewchat++;
 
-        soundEvent(NULL, UI_ChatMessage);
+        soundEvent(NULL, CAT_UI_ChatMessage);       // CAT: Cataclysm's id 0x12b (0x00486dcc)
 
     gcUnLockGameChat();
 }

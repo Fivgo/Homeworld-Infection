@@ -185,6 +185,7 @@ ShipType cmKeyToShipType(uword key);
 uword cmShipTypeToKey(ShipType ship);
 
 void cmUpdateShipsAvailable(void);
+sdword cat_cmIsOpen(sdword flags);                 // CAT: 0x0045a250 (M2-R6 managers; declared here in M2-R8 kasf library)
 
 void cmPauseAllJbos(void);
 void cmUnPauseAllJobs(void);

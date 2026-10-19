@@ -149,7 +149,7 @@ static void cat_mothershipFlagOrphanedModules(Ship *ship)
     {
         if (clamped->ShipPtr[i]->staticinfo->shipclass == CLASS_Component)
         {
-            bitSet(clamped->ShipPtr[i]->header.catFlags18, CAT_SHIPFLAG_Orphaned);
+            bitSet(clamped->ShipPtr[i]->header.catFlags18, CAT_SHIPFLAG_Invincible);
         }
     }
 }

@@ -3,7 +3,10 @@
 */
 
 #include "Tutor.h"
+#include "SinglePlayer.h"     // CAT_HW1_MISSION_SCRIPTS
+#if CAT_HW1_MISSION_SCRIPTS
 #include "Tutorial1.h"
+#endif
 
 #include <math.h>
 
@@ -527,12 +530,18 @@ void tutInitTutorial(char *dirfile, char *levelfile)
     tutLastLessonName[0] = '\0';
     tutCurrLessonName[0] = '\0';
 
+#if CAT_HW1_MISSION_SCRIPTS
     switch(tutorial)
     {
     case 1:
         kasMissionStart("tutorial1", Init_Tutorial1, Watch_Tutorial1);
         break;
     }
+#else
+    // CAT-PROVISIONAL (stage 6, the kas2c mission code): HW1's compiled Tutorial1 is out of the build (M2-R8 kasf library,
+    //      SinglePlayer.c); tutInitTutorial 0x0052f690 starts Cataclysm's ("tutorial1", Init_Tutorial1 0x006704e0,
+    //      Watch_Tutorial1 0x006708a0) once the generated tutorial exists
+#endif
 }
 
 void tutSaveLesson(sdword Num, char *pName)
@@ -717,15 +726,20 @@ void tutSetPointerTargetXYFE(char *name, sdword x, sdword y)
     tutSetPointerTargetXY(name, feResRepositionCentredX(x), feResRepositionCentredY(y));
 }
 
-void tutSetPointerTargetShip(char *name, ShipPtr ship)
+// CAT (M2-R8 kasf library): Cataclysm's pointer setters take a third argument, TRUE for a pointer of the objective list
+//      (kasfTutSetObjPointerTargetShip 0x004963c0 and its siblings pass it to tutSetPointerTargetShip and the others)
+//      CAT-TODO(stage 6 tutorial): Tutor.c's port (M2-R8 producer 4) keeps the flag in the pointer as the exe does; until then it is not stored
+void tutSetPointerTargetShip(char *name, ShipPtr ship, bool32 objective)
 {
     tutpointer *pointer = tutPointerAllocate(name, TUT_PointerTypeShip);
+    (void)objective;
     pointer->ship = ship;
 }
 
-void tutSetPointerTargetShipSelection(char *name, SelectCommand *ships)
+void tutSetPointerTargetShipSelection(char *name, SelectCommand *ships, bool32 objective)
 {
     tutpointer *pointer = tutPointerAllocate(name, TUT_PointerTypeShips);
+    (void)objective;                                        // CAT: the objective-pointer flag (above)
     pointer->selection = ships;
 }
 
@@ -790,8 +804,9 @@ void tutSetPointerTargetRect(char *name, sdword x0, sdword y0, sdword x1, sdword
     pointer->rect.y1 = y1;
 }
 
-void tutSetPointerTargetAIVolume(char *name, Volume *volume)
+void tutSetPointerTargetAIVolume(char *name, Volume *volume, bool32 objective)
 {
+    (void)objective;                                        // CAT: the objective-pointer flag (above)
     if (volume != NULL)
     {
         tutpointer *pointer = tutPointerAllocate(name, TUT_PointerTypeAIVolume);
@@ -1606,7 +1621,7 @@ udword tutProcessBackButton(struct tagRegion *reg, smemsize ID, udword event, ud
         {
             tutEnableEverything();
             spMainScreen();
-            tbForceTaskbar(FALSE);
+            tbForceTaskbar(FALSE);                  // CAT: kept, the exe calls it (0x00532d48 -> tbForceTaskbar 0x0052b3b0)
             gameEnd();
 
             tutorial = 1;
@@ -2265,4 +2280,69 @@ sdword cat_tutButtonRowSet(sdword y)
         y += 32;
     }
     return y;
+}
+
+/*-----------------------------------------------------------------------------
+    CAT (M2-R8 kasf library): entry points of the Cataclysm tutorial that the kasf library calls (KASFunc.c: the
+    TutSetPointerTargetObj, next-text, previous and quit button kasf of cataclysm.exe 0x004964d0 / 0x00496610 ..
+    0x00496690). CAT-TODO(stage 6 tutorial): Tutor.c's port (M2-R8 producer 4) gives each the exe's body (cat_tutSetPointerTargetObj 0x00530060, cat_tutShowNextTextButton 0x00532190, cat_tutHideNextTextButton 0x00532660, cat_tutNextTextButtonClicked 0x00532a90, cat_tutHidePrevButton 0x005326b0, cat_tutPrevButtonClicked 0x00532aa0, cat_tutShowQuitButton 0x005324a0, cat_tutHideQuitButton 0x00532700, cat_tutQuitButtonClicked 0x00532ab0, with their process / draw callbacks and textures); until then they show nothing and report no click
+-----------------------------------------------------------------------------*/
+void cat_tutSetPointerTargetObj(char *name)
+{
+    (void)name;
+}
+
+void cat_tutShowNextTextButton(void)
+{
+}
+
+void cat_tutHideNextTextButton(void)
+{
+}
+
+sdword cat_tutNextTextButtonClicked(void)
+{
+    return 0;
+}
+
+void cat_tutHidePrevButton(void)
+{
+    tutHideBackButton();                                    // the tree's previous button is its back button
+}
+
+sdword cat_tutPrevButtonClicked(void)
+{
+    return 0;
+}
+
+void cat_tutShowQuitButton(void)
+{
+}
+
+void cat_tutHideQuitButton(void)
+{
+}
+
+sdword cat_tutQuitButtonClicked(void)
+{
+    return 0;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_tutSelectShips                                0x00533ca0
+    Description : CAT (M2-R8 kasf library): the ships become the current selection (kasfTutSelectShips 0x0049a350)
+----------------------------------------------------------------------------*/
+void cat_tutSelectShips(MaxSelection *ships)
+{
+    sdword i;
+
+    while (selSelected.numShips != 0)
+    {
+        selSelectionRemoveSingleShip(&selSelected, selSelected.ShipPtr[0]);
+    }
+    selSelected.numShips = 0;
+    for (i = 0; i < ships->numShips; i++)
+    {
+        selSelectionAddSingleShip(&selSelected, ships->ShipPtr[i]);
+    }
 }

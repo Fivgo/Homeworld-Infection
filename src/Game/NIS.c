@@ -30,6 +30,7 @@
 #include "FontReg.h"
 #include "glinc.h"
 #include "KAS.h"
+#include "KASVar.h"
 #include "Light.h"
 #include "mainrgn.h"
 #include "Memory.h"
@@ -51,6 +52,7 @@
 #include "Tracking.h"
 #include "Universe.h"
 #include "UnivUpdate.h"
+#include "KASFunc.h"
 
 #ifndef SW_Render
     #ifdef _WIN32
@@ -524,8 +526,11 @@ DEFINE_TASK(nisUpdateTask)
                 nisScissorFadeIn = nisScissorFadeTime = 0.0f;//don't do any more fading
                 nisScissorFade = 0.0f;
                 // CAT: a KAS letterbox that is coming in is finished here (nisUpdateTask 0x004cc600:
-                //      cat_kasWideScreenActive / cat_kasWideScreenInFinish 0x004973d0, the KAS letterbox).
-                //      CAT-TODO(stage 6 KAS): the two calls come with the KAS letterbox (kasfWideScreenIn and its state)
+                //      cat_kasWideScreenActive 0x004973c0 / cat_kasWideScreenInFinish 0x004973d0, the KAS letterbox)
+                if (cat_kasWideScreenActive())
+                {
+                    cat_kasWideScreenInFinish();
+                }
             }
             nisScissorFadeTime += UNIVERSE_UPDATE_PERIOD;
             // CAT: the debug frame-step flag is cleared while the letterbox comes in (0x00a6ed74, UnivUpdate.c)
@@ -1184,8 +1189,8 @@ nisplaying *nisStart(nisheader *header, vector *position, matrix *coordSystem)
             real32 breakRadius;
             GrowSelection *triggerShips;
 
-            // CAT-TODO(stage 6 KAS): the exe looks the selection up by cat_kasHashString("NisTriggerShips") (nisStart 0x004cd2b0); this tree's KAS still names selections by string [audit: M2-R6 nis-fow-camera]
-            triggerShips = kasGetGrowSelectionPtrIfExists("NisTriggerShips");
+            // CAT: the selection is looked up by cat_kasHashString("NisTriggerShips") (nisStart 0x004cd2b0)
+            triggerShips = kasGetGrowSelectionPtrIfExists(cat_kasHashString("NisTriggerShips"));
             if (triggerShips != NULL)
             {
                 //compute the camera's eye and look points for the mid keyframe
@@ -3140,9 +3145,8 @@ void nisRemainAtEnd(nisplaying *NIS, nisevent *event)
 
         if (singlePlayerGame)
         {
-            // CAT: the exe passes the label's hash (cat_kasHashString; nisRemainAtEnd 0x004d0050).
-            //      CAT-TODO(stage 6 KAS): this tree's KAS still names teams by string (CAT_HW1_MISSION_SCRIPTS 0)
-            kasAddShipToTeam(ship,str);
+            // CAT: the exe passes the label's hash (cat_kasHashString; nisRemainAtEnd 0x004d0050)
+            kasAddShipToTeam(ship,cat_kasHashString(str));
         }
 
         memFree((void *)event->param[0]);
@@ -3255,7 +3259,7 @@ void nisTextScroll(nisplaying *NIS, nisevent *event)
 }
 void nisScissorOut(nisplaying *NIS, nisevent *event)
 {
-    soundEvent(NULL, UI_Unletterbox);
+    soundEvent(NULL, CAT_UI_Unletterbox);           // CAT: Cataclysm's id 0x124 (nisScissorOut 0x004d02d9)
     nisScissorFadeOut = SdwordToReal32(event->param[0]);
     nisScissorFadeTime = 0.0f;
 }
@@ -4909,8 +4913,8 @@ void nisAttackKasSelectionSet(char *directory, char *field, void *dataToFillIn)
     GrowSelection *selection;
 
     // CAT: the exe looks the selection up by the label's hash (cat_kasHashString; nisAttackKasSelectionSet
-    //      0x004d45a0). CAT-TODO(stage 6 KAS): this tree's KAS still names selections by string
-    selection = kasGetGrowSelectionPtrIfExists(field);      //get a named selection
+    //      0x004d45a0)
+    selection = kasGetGrowSelectionPtrIfExists(cat_kasHashString(field));      //get a named selection
     dbgAssertOrIgnore(selection != NULL);
     dbgAssertOrIgnore(selection->selection->numShips > 0);          //verify there are ships in it
     event->param[0] = (memsize)(selection->selection);

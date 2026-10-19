@@ -152,7 +152,7 @@ void SlipgateInit(Ship *ship)                                                   
     spec->unknown1C = 0;
     spec->unknown20 = 0;
     bitSet(ship->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus);
-    bitSet(ship->header.catFlags18, CAT_SHIPFLAG_Orphaned);
+    bitSet(ship->header.catFlags18, CAT_SHIPFLAG_Invincible);
     bitClear(ship->header.flags, SOF_Selectable);
     bitSet(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatSlipgate);
     for (i = 0; i < 3; i++)

@@ -75,6 +75,7 @@
 #include "PopupMenu.h"
 #include "Blast.h"
 #include "utility.h"
+#include "KASFunc.h"
 #include "MotionInterp.h"   // HWI-FEATURE(motion-interp): miCaptureTick
 
 
@@ -3916,7 +3917,7 @@ bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoun
             {                                                   //do no damage during an NIS
                 return FALSE;
             }
-            if (bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Orphaned))
+            if (bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Invincible))
             {
                 return FALSE;
             }
@@ -10020,7 +10021,12 @@ bool32 univUpdate(real32 phystimeelapsed)
         universe.bounties = TRUE;
         calculatePlayerBounties();
     }
-    // CAT-TODO(stage 6): a KAS save request is carried out last (0x0054ce03: 0x00a43fec -> cat_kasSaveLevelNow)
+    // CAT: a KAS save request (kasfSaveLevel) is carried out last (univUpdate 0x0054ce03: cat_kasSaveLevelRequested
+    //      0x00a43fec -> cat_kasSaveLevelNow 0x004972d0)
+    if (cat_kasSaveLevelRequested)
+    {
+        cat_kasSaveLevelNow();
+    }
     return FALSE;
 }
 

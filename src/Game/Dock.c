@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "Dock.h"
+#include "KASVar.h"
 #include "FOW.h"
 
 #include <math.h>
@@ -2882,7 +2883,9 @@ void cat_dockFinishedDocking(Ship *ship,Ship *dockwith,struct CommandToDo *comma
         ship->playerowner->resourceUnits += refund;
         if (singlePlayerGame && (singlePlayerGameInfo.currentMission == 9) && (ship->shiptype == tResourceCollector))
         {
-            // CAT-TODO(stage 6 KAS): cat_kasVarFindOrCreate(0, cat_kasHashString("G_ResourcersRetired"))->value = 1
+            // CAT: Mission 9's retired Taiidan resourcers set the global KAS variable G_ResourcersRetired
+            //      (cat_dockFinishedDocking: cat_kasHashString, cat_kasVarFindOrCreate; M2-R8 kasf library)
+            cat_kasVarFindOrCreate(0, cat_kasHashString("G_ResourcersRetired"))->value = 1;
         }
         universe.gameStats.playerStats[playerIndex].totalRegeneratedResourceUnits += refund;
         universe.gameStats.playerStats[playerIndex].totalResourceUnits += refund;
