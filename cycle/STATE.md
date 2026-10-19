@@ -300,31 +300,97 @@ B) + 450 cat-new (428 defined)**; stage 2 758 / 614 / 30 + 808 cat-new (760 defi
 (R5: 40), 105 lines with `CAT-TODO` (96 owner tags: stage 4 22, stage 5 25, stage 6 44, M2-R7 4), 8 `CAT-PROVISIONAL`,
 433 `HWI-FEATURE(motion-interp)`. 411 harness runs this round (runs.txt lines 663-1073), 79 of them the integrate step's.
 
-### M2-R7 plan (stage 4 AI, the oracle's first divergence first; details, counts and the exit test in docs/m2-r6-summary.md "Plan for M2-R7")
+### M2-R7: COMPLETE 2026-10-18 (stage 4: the oracle's x87 rounding + AI ship / utilities, AI orders / moves / handlers / events + the ai self-test, AI player / fleet / resource managers / teams + the Cataclysm skirmish AI, the R6 leftovers)
 
-**IN FLIGHT since 2026-10-18 06:50** from the user's terminal session 38027cce (Fable), `cycle/workflows/m2-r7.js` (4 producers + 4 auditors on Opus, integrate on Fable; ROUND_BASE 4c31f6e, the atlas-tools merge after R6's 2387259). The orchestrator must NOT launch it; relaunch after a cut-off = Workflow({scriptPath: cycle/workflows/m2-r7.js, resumeFromRunId: "wf_b238b029-e72"}) from that session (same-session cache only; a new session relaunches without the id and the probe skips audited ports).
+Summary, exit test and the M2-R8 plan: [docs/m2-r7-summary.md](../docs/m2-r7-summary.md). Workflow
+`cycle/workflows/m2-r7.js` (run id `wf_b238b029-e72`), run from the user's terminal session 38027cce (Fable), not from
+the orchestrator; 9 agents (four ports in sequence, four audits, integrate); no cut-off, no WIP snapshot (producer 3
+handed off with its final gates running; its auditor reran them). Each port was checkpointed by its auditor. The R7 plan
+as launched (4 producers, scopes, done-whens) is in docs/m2-r6-summary.md "Plan for M2-R7"; it replaced the table that
+stood here.
 
-Four producers in sequence + four auditors + integrate (9 agents). Stage 4 at the end of R6: 386 / 91 / 2 HW1-matched
-(50,910 MODIFIED / REWRITTEN bytes; 60 bodies unread, 35,494 B; 386 IDENTICAL to compare) + 23 cat-new (14,404 B, 2
-defined) + 22 `CAT-TODO(stage 4 ...)` stand-ins. Every AI port is expected to move the Mission01 stream (player 1 has a
-computer player; `rng6` is its stream): record the hash before and after, state the fields. Reviews go into
-`ghidra/delta_map_review.json` (decision 55).
+**R7 exit test (the stage-4 exit): MET** (the integrate step, clean builds at 3e33fee, plain harness, silent, 46 runs on a
+loaded machine). Debug `hwi-engine` (ASan + UBSan):
+- **Mission01 headless:** two 6,000-tick runs (`r7-integrate-mission-a/b`, 25 s each) byte-identical (1,476,370 B, 6,001
+  `T` records, 154 ships), **ASan 0**, sha256 **`39a512d0465d73a6`**; the perturbed run caught at tick 3000 / `rng10` and
+  the flipped `ships_health` bit at 4000; the release pair `5855c57c68cdaaa3` IDENTICAL to debug with its own perturb /
+  flip caught (`MISSION TEST PASS` twice). **Against R6's `49240abcf9f0ed97`: IDENTICAL in every field over 6,001 ticks,
+  the header's build identity only** (9e20b5bd vs 3e33feef): the AI ports do not reach Mission01's computer player (no
+  fleet control without the KAS call under `CAT_HW1_MISSION_SCRIPTS 0`), so nothing moved (decisions 44 / 57). The AI's
+  own guard-rail is the `ai` self-test stream `9d42fd414007fbe2` (two runs byte-identical, 16/16 checks).
+- **sp:** universe running, **3,264 ticks** at 340 s (the gate 1,248; the machine ran the user's game and four chains),
+  ASan 0, no leak. **fe:** `Main_game_screen`, ASan 0, 0 UBSan reports.
+- **Self-tests:** rc 0, ASan 0: statics 143/145 (108 StaticInits), meshes 1,758/1,758, textures 10,661 / 0 not loaded,
+  oracle 0 sync errors, etg 618 effects (R6's numbers); release oracle `SELFTEST PASS`. The thirteen scripted self-tests
+  all `result=PASS`: dock (the R6 line; the `AIShip.c:1467` UBSan gone), command (`stealthUpdates` as R6), render
+  (`droids=2500`), sound (0 `fquant` / `PATCH`), hud (now with the waypoint leg: `draws=181 randoms=606`), ui, fescreens
+  (195 screens, 0 `fescreen` UBSan), strings (1,705 / 1,705), keys, console, build (two runs byte-identical
+  `1cc8547ebf790a70`), nisparse (14 NIS, 18 animatics), toggle x3 (the run-only switches); **ai** (16/16, `9d42fd414007fbe2`
+  twice).
+- **Motion-interpolation guard-rails:** the three 6,000-tick debug streams with the flags on, `/noInterp` and
+  `/noNISInterp` are byte-identical (`39a512d0465d73a6`); the `/noInterp` dumps equal the pre-feature dumps
+  (`b2af0d6decdf6474`, `3f04c837e605ba23`); the flags-on dumps are still R6's (`d9a8661fcce6f4b3`, `074a70f17e316cd2`).
+- **Oracle mode A, the rung:** the replay of the 10-17 `oracle01` (replayed from its archive
+  `original/oracle/oracle01-rec-20261017-140428/`, since the install's file was re-recorded on 10-18 10:13 during the
+  round; the harness got `--recording-src` / `--recording-as` for it) runs to tick 9601 / packet 4800 (ASan 0, 50 s,
+  byte-identical twice, `fc48b3123e8168f2`, IDENTICAL to producer 1's audit run); against the GOG stream `oracle01-rec.hwo`
+  it is **IDENTICAL in every simulation field through tick 176** (the tick-136 health divergence gone: decision 49 made);
+  **first divergence tick 177, `ships_vel`, ship 35** (an sWorker's turn from tick 171 through `aitrackHeadingFunc`
+  0x00418de0 / `vecNormalize` 0x00550770 with the exe's table `fsqrt` 0x00472860 on a 53-bit argument; the GOG velocity
+  recovered by inverting the hash, the one fsqrt experiment within -1 / +4 / -2 ulps); per field ships_pos 180, univcheck
+  180, resources 243, ships_misc 871, rng10 1408, bullets 1917, ships_health 1934, ships_n 2048; `rng6` 161 / `players`
+  93 stock, `ships_rot` the DLL defect, excluded. The 10-18 recording (1,763 packets, 3,527 ticks; the unfixed DLL): `real`
+  off by one 1/16 step from tick 2 (a session clock artefact, excluded), then **tick 118 `ships_pos` / `ships_vel`**
+  (decision 60).
+- **Builds:** `tools/build.sh --debug --clean` / `--release --clean`: `[319/319]`, 0 warnings (debug 87,477,488 B, release
+  5,415,480 B); `tools/m2_layout32.sh` OK with the AI pins (`AITeamMove` 0x170, `AIEvents` 0x88, `AIPlayer` 0x1D18,
+  `AISTeamEntry` 0x9D10; `Ship` 0x63C).
+- **No `CAT-TODO` / `CAT-PROVISIONAL` in `src/` names an M2-R6 or M2-R7 owner, no "stage 4" tag left**: 71 owner tags on
+  80 lines, stage 6 46 (tutorial 12, KAS 13, single player 9, level load 3, plain 10), stage 5 25 (recorder 4, LAN 4,
+  multiplayer options 7, multiplayer 1, plain 9); 8 `CAT-PROVISIONAL`.
+- UBSan kinds left (all non-fatal): the ETG / particle opcode kinds, `BTG.c:388` / `BTG.c:864`, `stb_image_write.h:1263`
+  (sp), `Select.c:1166` (the 10-17 replay), `Subtitle.c:1144` (the nis mode). Gone: `AIShip.c:1467`.
+
+| item | report | result | audit | commit |
+|---|---|---|---|---|
+| oracle-rung-aiship | [docs/m2-r7-oracle-rung-aiship.md](../docs/m2-r7-oracle-rung-aiship.md) | the x87 single rounding of `cat_clExternalBuildUpdate` 0x0044dfc0 (decision 49 made), the replay IDENTICAL through 176, tick 177 `ships_vel` ship 35 localised with the GOG velocity inverted from the hash, the one fsqrt experiment (`/oracleTableFsqrt`, default off); `AIShip.c` (`aishipFlyToPointAvoidingObjsFunc` in the exe's order, the missile / mine bodies, the `AIShip.c:1467` UBSan fixed), `AIUtilities.c` (85 + `cat_aiuWrapCapture`; the `aiuWrap*` on `cat_shipIsTargetableBy`, `aiuAttack` without `aiuFindPriorityTarget`), `AITrack.c` (GoK's gimbal reset removed), `AIVar.c`, `aimProcessDock`; 22 IDENTICAL found modified, 139 reviews | 0.93, PASS-WITH-FIXES (two cited addresses, the ulps sign, one statement) | a3cc7f4 |
+| ai-orders-moves | [docs/m2-r7-ai-orders-moves.md](../docs/m2-r7-ai-orders-moves.md) | the 22 orders rewritten with the exe's per-race tables (`cat_statsRandomAttackShipStatic` 0x00524d70), the 14 stand-ins gone, the events (12 slots, no fuel), the handlers (the exe's 20-entry table), the moves (no P2 swarm, the exe's numbers, Aggressive defaults), the attack / defense managers; `AITeamMove` 0x170; **`/catAiTest` + mode `ai`**; 48 IDENTICAL found modified, 92 reviews | 0.98, PASS-WITH-FIXES (two missing reviews, a stale comment) | 1410c22 |
+| ai-player-skirmish | [docs/m2-r7-ai-player-skirmish.md](../docs/m2-r7-ai-player-skirmish.md) | **new `AISkirmish.c`** (the 17 `cat_ais*` + `aisRequestShip` / `aisFleetUpdate`, 34 teams, 8 timers, the tables), `AIPlayer` 0x1D18 with the embedded armada, **new `KASVar.c`**, the AI save chunks through SaveCat32 (108 layouts), `AIFleetMan.c` / `AIResourceMan.c` at the exe's, the Dock / Salvage / UnivUpdate AI counters, `AITeam.c` (the pointer message queue); the ai test's build / harvest rows and skirmish leg (16 checks); the 11 stage-4 tags closed; 18 IDENTICAL found modified, 45 reviews | 0.932, PASS-WITH-FIXES (an `aiaClose` review, the KAS lookup return, a naming claim, layout32 coverage, a comment) | 9b34dda |
+| r6-leftovers | [docs/m2-r7-r6-leftovers.md](../docs/m2-r7-r6-leftovers.md) | `rndShamelessPlug` / `rndLoadShamelessPlug`, the waypoint cursor 0x004e6e70 with its stream-0 draws (the hud test's leg), the pie line callback 0x004e6530 + `cat_pingListGet`, `selShipUnderMouse`'s FOW test, the `mrHold*` stand-ins retired, the ETG review of all 47 `etgEffectCreate` sites (`kasfSpawnEffect`; the audit's `startRepairEffect` cap), the motion-interp follow-ups (run-only switches, clamped objects / droids against a blended host), HW1's blob render removed, the Memory.c tag settled; 13 reviews | 0.9375, PASS-WITH-FIXES (the 150.0 cap, a sentence, an address) | 3e33fee |
+
+Round size (`git diff 4c31f6e`): 87 tracked files, +10,886 / −6,426 (plus the integrate edits); `src/` 71 files, +6,974
+/ −5,966 with 500 added lines carrying `CAT`; 7 new `src/` files, 0 deleted. Delta map: IDENTICAL / MODIFIED / REWRITTEN
+went from 2,942 / 1,394 / 84 (2,816 reviewed) to **2,854 / 1,482 / 84 (3,032 reviewed)**; 88 IDENTICAL bodies were found
+modified. Stage 4 is now **299 / 178 / 2 (77,515 + 169 B), 0 unread, + 23 cat-new all defined** (R6: 386 / 91 / 2, 60
+unread, 2 defined). The tree carries 134 `CAT-FIX` (R6: 121), 80 lines with `CAT-TODO` (71 owner tags: stage 5 25, stage
+6 46), 8 `CAT-PROVISIONAL`, 441 `HWI-FEATURE(motion-interp)`, 4 `HWI-EXPERIMENT`. 260 harness runs this round
+(runs.txt lines 1074-1333), 46 of them the integrate step's.
+
+### M2-R8 plan (the oracle's rung first, then stage 6 part A; stage 5 is the user's call; details, counts and the exit test in docs/m2-r7-summary.md "Plan for M2-R8")
+
+**NOT YET LAUNCHED.** The script `cycle/workflows/m2-r8.js` is not written; it is launched from the user's terminal
+session after the user's answers to docs/m2-r7-summary.md "What the user must decide" (decision 23 / 56 first). Four
+producers in sequence + four auditors + integrate (9 agents). Stage 6 at the end of R7: 344 / 124 / 26 HW1-matched (40,448
++ 1,565 B; 106 bodies unread, 29,334 B: KASFunc.c 35, SinglePlayer.c 26, KAS.c 15, Tutor.c 10, Timer.c 8, LevelLoad.c 7,
+Objectives.c 5) + 2,365 cat-new (2,085 kas2c mission functions, 612,687 B; 280 others, 45 defined) + 46 `CAT-TODO(stage 6
+...)`. Stage 5: 406 / 114 / 12 (116 unread, 92 of them `TitanInterface.cpp`: not applicable, stubbed) + 67 cat-new + 25
+`CAT-TODO(stage 5 ...)`; the oracle does not need its send sides. Reviews go into `ghidra/delta_map_review.json` (55).
 
 | # | producer | scope | counts | done when |
 |---|---|---|---|---|
-| 1 | the oracle's first divergence, AI ship + utilities | `cat_clExternalBuildUpdate` 0x0044dfc0's x87 single rounding (the increment in double, rounded once; the exe's operand loads checked first), the replay rerun; `AIShip.c` (`aishipFlyToPointAvoidingObjsFunc`'s two differences, the missile / mine bodies), `AIUtilities.c` (the `aiuWrap*` on `cat_shipIsTargetableBy`, `aiuFindCaptureTarget`, ...), `AITrack.c` / `AIVar.c` compares, `aimProcessDock`'s rest | 27 M/R, 17 unread (7,088 B); 1 cat-new | the replay of `oracle01` IDENTICAL to `oracle01-rec.hwo` in every simulation field through tick 176 at least, the next divergence owned with evidence; the bodies at the exe's; the stream hash before / after |
-| 2 | AI orders, moves, handlers, events | `AIOrders.c` (every `aioCreate*` with Cataclysm's types for the 14 stand-ins), `AIMoves.c` (flank / advanced / harass attacks, defend mothership, recon, capture), `AIHandler.c`, `AIEvents.c`, `AIAttackMan.c`, `AIDefenseMan.c`; 195 IDENTICAL to compare | 41 M/R, 29 unread (19,942 B) | the 14 stand-ins gone; a scripted `/catAiTest` (mode `ai`: the computer player of a headless Mission01 run with a scripted factory and RUs forms teams and issues attack / defence / recon moves) PASS, ASan 0, two runs byte-identical |
-| 3 | AI player, fleet, resource managers, teams, the Cataclysm skirmish AI | `AIPlayer.c` (`aiplayerStartup`'s exe arguments, `UpdateAll`, `PlayerDied`, `Save`; the AI save chunks for the mode-A loader), `AIFleetMan.c`, `AIResourceMan.c` (+ the AI resource counters of Dock.c / Salvage.c), `AITeam.c` (2 REWRITTEN), the 17 `cat_ais*` functions (11.9 KB: `cat_aisUpdateTeams` 4,691 B, scouts / leeches / workers / sentinels / carrier / processor / mothership / research updates, `cat_aisPlay`, `cat_aisReset`), `cat_aifRequestSupportModule`, `cat_aitMsgQueue*`, the computer player's dock order after a conversion | 25 M/R, 14 unread (9,508 B); 20 cat-new (14,230 B) | the computer player builds, researches and harvests in the ai self-test; the `cat_ais*` code at the exe's; no `CAT-TODO(stage 4 ...)` left |
-| 4 | the R6 leftovers (render / UI, no stream impact) | `rndShamelessPlug` / `rndLoadShamelessPlug`, the waypoint draw 0x004e6e70 (its stream-0 draw-time jitter judged), the ETG real32 variable parameters for every `etgEffectCreate` caller, `selShipUnderMouse`'s FOW test, the motion-interpolation follow-ups (a run-only override for the switches, droids / clamped objects against a blended host), `cat_cpValueGradientCreateSized`, `cat_pingListGet`, HW1's blob render cleanup, the `mrHoldRight` / `Left` stand-ins, the `Memory.c` tag | 4 `CAT-TODO(M2-R7 ...)` + the audits' leftovers | no `CAT-TODO` names M2-R7; the `/noInterp` dumps still equal the pre-feature hashes; the mission stream unchanged by this producer |
+| 1 | the oracle's divergence (tick 177 / tick 118), physics | decision 23 (the table `fsqrt`, if ruled), the x87 shape of `vecNormalize` 0x00550770 / `vecCapVector` 0x00550950 / the other `vecCap*` / `getVectDist*`, `aitrackHeadingFunc` 0x00418de0's intermediates, `physUpdateObjPosVelShip` 0x004e4950's rotation, `hyperspaceCost` 0x00443c30; a permanent per-ship dump switch; both recordings replayed | about 10 helpers + 2 physics bodies; the mission stream moves once | the 10-17 replay IDENTICAL beyond tick 177 (`ships_vel` at 177 = `(c20420c2, c110b4d6, 41d3f9da)`), the next divergence owned; the 10-18 replay IDENTICAL beyond 118 (`real` excluded); the stream hash before / after |
+| 2 | the KAS runtime, the kas2c dialect, Mission01 + Tutorial1, the NIS-first start, level load | `KAS.c` (15 unread) + the Cataclysm runtime helpers (`cat_kasHashString` 0x00491860, `cat_kasCallFunctionByName` 0x0045b9a0), `Timer.c` (8), `LevelLoad.c` (7: the start-position shuffle, `nebLoad_Nebula`'s chunks, the mission-number mapping), the generated code of Mission01 and Tutorial1 from docs/mission-code-map.md 8, `singlePlayerGameUpdate`'s `kasMissionStart`, the NIS-first start (`CAT_HW1_MISSION_SCRIPTS` retired), `cat_consoleKasCommand` | 30 unread + two missions' generated code | Mission01 starts NIS-first and its KAS objectives advance headlessly (a `/catMissionTest` + mode); the mission stream re-baselined once by the shuffle (`rng0` from tick 0) |
+| 3 | the kasf library | `KASFunc.c` (35 unread; the 184 Cataclysm-only kasf with their exe addresses; the task bar's removal, the letterbox callers, the tutorial buttons), `Objectives.c` (5), the KAS variable store's callers | 40 unread + 184 cat-new | every kasf Mission01 / Tutorial1 calls at the exe's; the console's KAS command lists the exe's 486-entry table |
+| 4 | single player and the tutorial | `SinglePlayer.c` (26 unread: the mission flow, `cat_spGameDifficulty`'s readers, the stats screen after `univKillPlayer`, the KAS end-of-mission), `Tutor.c` (10), the KAS-hashed selection names, `cat_trPrecacheShipTextures`' caller, the AITeam.c KAS tags | 36 unread | no `CAT-TODO(stage 6 single player / tutorial)` left; sp from the NIS-first start reaches the running universe with the mission running (1,248+, ASan 0) |
 
-**R7 integrate (stage-4 exit):** the R6 gates hold from a clean build (two 6,000-tick Mission01 streams identical in
-debug and release on the re-baselined stream with the moved fields stated against `49240abcf9f0ed97`; sp 1,248+ at
-340 s ASan 0; fe; the 18 self-tests PASS incl. the new `ai`, two runs byte-identical; release `SELFTEST PASS`; every
-quit rc 0; layout32 OK; the `/noInterp` dumps unchanged); **the oracle's next rung:** the replay of `oracle01` IDENTICAL
-to `oracle01-rec.hwo` in every simulation field (`rng10 rng6 ships_n ships_misc ships_pos ships_vel ships_health
-missiles bullets derelicts resources univcheck dt total real`; the stock `players` 93 and `rng6` 161 excluded) through
-tick 176 at least, with the next divergence owned and its fix proposed; no `CAT-TODO` naming M2-R6 or M2-R7; the stage-4
-tags gone or re-targeted with a reason. Then stage 5 (LAN, nice-to-have; 25 sites) and stage 6 (missions; 44 sites).
+**R8 integrate (stage-6 part A exit):** the R7 gates hold from a clean build (the stream re-baselined by the rung and by
+the shuffle, each move stated against `39a512d0465d73a6`'s content; sp, fe, the 19 self-tests PASS incl. `ai`; release
+`SELFTEST PASS`; every quit rc 0; layout32 OK; the `/noInterp` dumps unchanged); **the stage-6 exit test: Mission01
+playable from the NIS-first start through its KAS objectives in the headless harness**, the mission stream re-baselined
+once by the start-position shuffle; the 10-17 replay IDENTICAL beyond tick 177 (or the next divergence owned); no
+`CAT-TODO` naming M2-R7 or M2-R8; `CAT_HW1_MISSION_SCRIPTS` retired. Then M2-R9 (stage 6 part B: missions 02-17; stage 5
+if the user wants it) and M3 (the play-test, the 4K@144 soak, the Windows build), which can start its Linux play-test
+after stage 6 part A.
 
 ### Decisions the user owns
 
@@ -463,7 +529,9 @@ tags gone or re-targeted with a reason. Then stage 5 (LAN, nice-to-have; 25 site
 44. **The mission-stream baseline moved in managers**: `rng6` (10 draws ahead at tick 1) and `rng_all` only, the exe's
     computer-player per-ship timer (`cat_shipUpdateExternalBuildAndAI` 0x00543f10). Default: the new baseline
     `49240abcf9f0ed97` (the integrate step's build) is accepted; the droid / motion-cue draws did not appear in the
-    headless run (no damaged Sect ship in play), so no second move this round.
+    headless run (no damaged Sect ship in play), so no second move this round. **M2-R7: the content is unchanged** (the
+    AI ports do not reach Mission01's computer player without KAS fleet control, decision 57); the R7 build's hash is
+    `39a512d0465d73a6`, header build identity only.
 45. **Cataclysm's 18 animatics are 30 fps**; GoK's player assumed 15 (every animatic played at half speed until R6).
 46. **Motion interpolation**: `objInterpolate` / `nisInterpolate` both 1 (`Cataclysm.cfg` rows, `/noInterp`,
     `/noNISInterp`, console rows, the Smooth motion checkbox added in code to `Video_Options` and the in-game `Video`
@@ -478,7 +546,10 @@ tags gone or re-targeted with a reason. Then stage 5 (LAN, nice-to-have; 25 site
     simulation field list over ticks 1..9600.
 48. **The oracle DLL's `CAT_SHIP_coordsys` should be 0x98, not 0x80** (tools/oracle/dll/hook_sites.h); the DLL was not
     run or rebuilt this round. A one-line edit before the user's next recording.
-49. **The x87 single rounding of `cat_clExternalBuildUpdate`** is proposed, not made (M2-R7's first item).
+49. **The x87 single rounding of `cat_clExternalBuildUpdate`**: MADE in M2-R7 (`clExternalBuildAdvance`: the increment
+    in double, rounded once at the store, the clamp on the double sum); the tick-136 divergence is gone and the oracle's
+    first divergence is now **tick 177 `ships_vel`** (ship 35's turn from tick 171: the table `fsqrt` / x87 vector helpers,
+    M2-R8's first item, decision 56) in the 10-17 recording and tick 118 `ships_pos` / `ships_vel` in the 10-18 one.
 50. **Release vs debug replay** differ in stream 8 (battle chatter) from tick 1952 (a debug-only speech path);
     simulation fields identical. The oracle compares simulation fields only.
 51. **Latent 64-bit union aliasing** in `MCVSpec` and `P1StandardCorvetteSpec` (listed by `m2_save32_gen.py`): no owner
@@ -495,9 +566,47 @@ tags gone or re-targeted with a reason. Then stage 5 (LAN, nice-to-have; 25 site
 55. **Reviews go into `ghidra/delta_map_review.json`**: a note written into `delta_map.json` directly is reverted by the
     next `delta_map.py merge` (the integrate step restored 16 and added 107 such rows).
 
+**New from M2-R7** (each has a default in the tree; say if you want otherwise; details in docs/m2-r7-summary.md
+"Decisions" and "What the user must decide"):
+56. **The table `fsqrt`** (decision 23 restated as M2-R8's first question): the default stays `sqrtf`; the experiment switch
+    `/oracleTableFsqrt` (`FastMath.c`, HWI-EXPERIMENT) is compiled in, off by default (the default replay byte-identical to
+    before it existed). Without the table and the x87 vector helpers the replay cannot match GOG at tick 177 (the one
+    experiment came within -1 / +4 / -2 ulps). Recommendation: make it the default in M2-R8 (the mission baseline moves once).
+57. **The Mission01 stream does not see the AI**: no fleet control without the KAS call (`CAT_HW1_MISSION_SCRIPTS 0`), so
+    the four ports left the baseline's content unchanged; the `ai` self-test stream (`9d42fd414007fbe2` in the R7 build) is
+    the AI's guard-rail. Default: no re-baseline with fleet control forced on; stage 6 moves the stream when it lands.
+58. **`gunResetGimbleGuns` is uncalled** (GoK's gimbal reset left `aitrackSteadyShip*`; the exe has none). Default: keep.
+59. **Default move tactics**: Aggressive for the 26 creators the exe stores 2 for; Neutral for control / active resource
+    (the exe's 1) and for the five creators the exe does not contain (no evidence).
+60. **The recordings**: the install's `oracle01` is the 10-18 recording (1,763 packets, the unfixed DLL); the 10-17 one is
+    archived in `original/oracle/oracle01-rec-20261017-140428/` and stays the rung's reference (replayed through the
+    harness's `--recording-src` / `--recording-as`); for the 10-18 session `real` is excluded (a one-step `vqpc` clock
+    alignment from tick 2) and its first simulation divergence is tick 118 `ships_pos` / `ships_vel`.
+61. **Chosen names** where the exe's are unknown: `CAT_SHIPFLAG_KasMines`, the AISkirmish statics / globals
+    (`aisShipBeingBuilt`, `aisEnemyBigGun*`, `aisCrystalTarget`, `aisOwnBigGunShip`, `aisEnemyDFGNearMothership`,
+    `aisLeastBuiltShip`, `aisFirstPlay`, `aiBuildingShip`, `aiSupportUnitsPending`, `aiCarrier1Ship` / `2Ship`,
+    `aiHasExternalConstruction`), the five `AIS_TEAM_*` ids where CET's names differ, the AIPlayer fields
+    `catNumSupportModulesBeingBuilt` / `catSupportModuleRequested` / `catAirNumSupportModules`, `catMsgQueue`,
+    `cat_aihRescueSupportType`, `cat_aiuRoundToUdword`, `cat_aiuRemoveUntargetableTargets`, `aioCatEnabledOr` /
+    `aioCatAttackTactics`, `cat_pieWaypointCursorDraw`, the KASVar store names, the motion-interp helpers.
+62. **HWI deviations where the exe would fault or leak** (13 new `CAT-FIX`, 134 in all): `aiuFindClosestEnemyShipWorthCapturing`'s
+    NULL, `aioCreateGuardShips`' k/t alternatives, `aioCreateActiveSupport`'s empty team, `aioCreateTakeoutMothershipBig` and
+    the three numbers-low handlers for other races, `aimCreateGetShipsNoAdd` / `aimProcessActiveCapture` leaks,
+    `cat_aisUpdateTeams`' zero bounty, `cat_kasVarLoad`'s array, the saved creator pointer cleared on load.
+63. **AI save bytes**: the ICF-folded handlers are written as 16 / 19 where the exe writes 15 / 18 (same bodies). Keep.
+64. **`aiplayerUpdateAll`**: multiplayer computer players run the skirmish AI (`cat_aisPlay`), single player HW1's fleet
+    command with fleet control from KAS, the playback skip kept: the exe's.
+65. **Render leftovers**: HW1's cursor text stays (removing it re-baselines 144 frame CRCs of the motion guard-rail: your
+    call); the 30 remaining `UI_*` sound-id sites stay HW1's until each exe push is read (M2-R8, sound); the camera-derived
+    render values with interpolation on belong to the high-refresh-4k feature.
+66. **The harness replays archived recordings** (`--recording-src DIR --recording-as NAME2`); the install's directory is
+    the default and is never written.
+67. **Two faults in long AI soaks** (`ETG.c:7295` `nParams <= 8`, `univRemoveAllTargetReferencesFromBullets`' NULL owner; HW1
+    code, in the base binary too): M2-R8's combat / effects owner; the `ai` mode's default stays 400 ticks.
+
 ## M2-R6: COMPLETE 2026-10-18 (run from the user's terminal session 38027cce, not from the orchestrator)
 
-cycle/workflows/m2-r6.js finished in session 38027cce (Fable, Remote Control): the "## M2" subsection "M2-R6: COMPLETE" above has the exit test, the seven ports and the M2-R7 plan. The orchestrator must not relaunch it; the M2-R7 script (cycle/workflows/m2-r7.js) is not yet written. Merges to main are handled by the user.
+cycle/workflows/m2-r6.js finished in session 38027cce (Fable, Remote Control): the "## M2" subsection "M2-R6: COMPLETE" above has the exit test and the seven ports. **M2-R7 also finished in that session on 2026-10-18** (cycle/workflows/m2-r7.js, run id wf_b238b029-e72; "M2-R7: COMPLETE" above, docs/m2-r7-summary.md). The orchestrator must relaunch neither; the M2-R8 script (cycle/workflows/m2-r8.js) is not yet written and waits for the user's answers (docs/m2-r7-summary.md "What the user must decide"). Merges to main are handled by the user.
 
 ## Opus workflows in flight
 

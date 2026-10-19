@@ -187,6 +187,13 @@
 #                    at the switch, "aitest: status" every 256 ticks, "aitest: done ... result=PASS|FAIL" at ticks-2;
 #                    quits after <ticks> ticks (two runs must give byte-identical run.hwo streams)
 #   --recording NAME replay mode: the recorded game to replay (default oracle01)
+#   --recording-src DIR replay mode: the directory NAME and NAME.pkts are copied from (default the install's
+#                    SavedGames/RecordedGames). M2-R7 integrate: an archived recording (original/oracle/<session>/, where
+#                    tools/oracle/run_oracle.sh keeps each GOG session's copy next to its .hwo streams) can be replayed
+#                    after the install's copy was re-recorded, e.g. --recording oracle01 --recording-src
+#                    original/oracle/oracle01-rec-20261017-140428 --recording-as oracle01-r6; the archive is only read
+#   --recording-as NAME2 replay mode: the name the pair is copied to in the harness data dir and replayed under
+#                    (default NAME), so two recordings of the same name can coexist there
 #   --oracle-ticks N oracle mode: universe ticks to run (default 512)
 #   --mission-ticks N mission mode: universe ticks to run (default 3000)
 #   --dock-ticks N   dock mode: universe ticks to run (default 5000; about 30 s under ASan on the virtual clock)
@@ -272,7 +279,7 @@ shift
 mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"; extra=()
 oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=3000; rframes=600; hframes=600; uticks=400
 conticks=400; bticks=7000; aiticks=400
-motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01
+motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -295,6 +302,8 @@ while [[ $# -gt 0 ]]; do
 		--nis) nisspec=$2; shift ;;
 		--fps) vfps=$2; shift ;;
 		--recording) recording=$2; shift ;;
+		--recording-src) recsrc=$(realpath -- "$2"); shift ;;
+		--recording-as) recas=$2; shift ;;
 		--perturb) perturb=$2; shift ;;
 		--hwo) hwo=1 ;;
 		--) shift; extra=("$@"); break ;;
@@ -347,14 +356,18 @@ elif [[ "$mode" == motion ]]; then
 elif [[ "$mode" == replay ]]; then
 	# M2-R6 oracle-mode-a: the recording into the data dir's SavedGames/RecordedGames (as a real install keeps it),
 	# then linked into the run's settings dir, where the engine looks (saved games: /settingspath; the packets: the cwd)
-	src="$GAME/SavedGames/RecordedGames"
+	# M2-R7 integrate: --recording-src DIR takes the pair from an archived session directory instead (read only) and
+	# --recording-as NAME2 copies and replays it under another name, so the install's current recording of the same
+	# name is not replaced in the data dir (the engine names the packets <name>.pkts, OracleDump.c oracleStartReplay)
+	src="${recsrc:-$GAME/SavedGames/RecordedGames}"
 	[[ -f "$src/$recording" && -f "$src/$recording.pkts" ]] || { echo "m2_harness: no recording $src/$recording(.pkts)" >&2; exit 1; }
 	mkdir -p "$DATA/SavedGames/RecordedGames" "$out/settings/SavedGames/RecordedGames"
-	for f in "$recording" "$recording.pkts"; do
-		cmp -s "$src/$f" "$DATA/SavedGames/RecordedGames/$f" || cp -f -- "$src/$f" "$DATA/SavedGames/RecordedGames/$f"
-		ln -sf -- "$DATA/SavedGames/RecordedGames/$f" "$out/settings/SavedGames/RecordedGames/$f"
+	play="${recas:-$recording}"
+	for ext in "" ".pkts"; do
+		cmp -s "$src/$recording$ext" "$DATA/SavedGames/RecordedGames/$play$ext" || cp -f -- "$src/$recording$ext" "$DATA/SavedGames/RecordedGames/$play$ext"
+		ln -sf -- "$DATA/SavedGames/RecordedGames/$play$ext" "$out/settings/SavedGames/RecordedGames/$play$ext"
 	done
-	args+=(/oracleReplay "$recording" /oracleDump "$out/run.hwo")
+	args+=(/oracleReplay "$play" /oracleDump "$out/run.hwo")
 elif [[ "$mode" == nis ]]; then
 	# /noSpeech: the NIS's speech subtitles start and end with the audio thread's progress through the speech (wall
 	# clock, even on SDL's dummy driver), which made about 40 frame CRCs of n06's window differ run to run
