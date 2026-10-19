@@ -5556,7 +5556,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "message passed through unchanged (the hash/string question is inside aitMsgReceived)",
+  "note": "message passed through unchanged (the hash/string question is inside aitMsgReceived) [review: M2-R8 kasf-library audit] compared with the exe body (decompile): a pass-through as HW1's; the parameter is now the message's kas2c hash (udword) where HW1 passed a string, the hash question lives in aitMsgSend / aitMsgReceived (REWRITTEN): stays IDENTICAL",
   "sample": "reread-R2"
  },
  "0x00492260": {
@@ -5738,7 +5738,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same [review: M2-R8 kasf-library audit] compared with the exe body (decompile): a pass-through as HW1's; the parameter is now the message's kas2c hash (udword) where HW1 passed a string, the hash question lives in aitMsgSend / aitMsgReceived (REWRITTEN): stays IDENTICAL",
   "sample": "reread-R2"
  },
  "0x00494a30": {
@@ -22411,5 +22411,12 @@
   "change": "params 4 -> 0 (prototype); calls with a changed parameter count: spMainScreen 0->1; loops 1 -> 4",
   "note": "[review: M2-R8 kasf-library] compared: tbForceTaskbar(FALSE) is called (0x00532d48), kept",
   "sample": "port-R8-kasf-library"
+ },
+ "0x0052f690": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kasf-library audit] compared with the exe body (decompile): levelInit, the two lesson names cleared, kasMissionStart(\"tutorial1\", Init_Tutorial1 0x006704e0, Watch_Tutorial1 0x006708a0) when tutorial == 1, as HW1; this tree skips the start under CAT_HW1_MISSION_SCRIPTS 0 (CAT-PROVISIONAL until the generated Tutorial1)",
+  "sample": "audit-R8-kasf-library"
  }
 }

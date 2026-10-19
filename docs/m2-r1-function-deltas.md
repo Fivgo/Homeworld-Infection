@@ -13,7 +13,7 @@ Round M2-R1, item 3 of `cycle/M2_BRIEF.md`. For every function the binary map ma
 | **classified** | **4,420** | | **1,238,847** | |
 | not classified (no HW1 body found) | 6 | | 4,137 | |
 
-Estimated true split, correcting each automatic (class, confidence) bucket by its hand-review agreement (class-level agreement where a bucket has fewer than 5 reviewed functions); reviewed functions count with their reviewed class: IDENTICAL 2,664 functions / 485,878 bytes (39.2% of bytes), MODIFIED 1,679 / 737,746 (59.6%), REWRITTEN 76 / 15,223 (1.2%).
+Estimated true split, correcting each automatic (class, confidence) bucket by its hand-review agreement (class-level agreement where a bucket has fewer than 5 reviewed functions); reviewed functions count with their reviewed class: IDENTICAL 2,666 functions / 486,201 bytes (39.2% of bytes), MODIFIED 1,678 / 737,423 (59.5%), REWRITTEN 76 / 15,223 (1.2%).
 
 ## Key findings
 
@@ -65,15 +65,15 @@ Totals after M2-R2 (re-read, audit reclassifications, tool fixes), against M2-R1
 | MODIFIED | 983 | 1,549 | 569,953 | 715,328 | 57.7% |
 | REWRITTEN | 80 | 83 | 10,505 | 15,855 | 1.3% |
 
-**New IDENTICAL agreement estimate.** 2,788 functions are IDENTICAL now: 1,915 by hand review and 873 by the tool alone. Applying each automatic bucket's review agreement to the unread ones, about 715 of those 873 (81.9%) are expected to be truly identical, so about 2,630 of all 2,788 IDENTICAL functions (94.3%) are, against M2-R1's 80% audit estimate. The unread ones sit in the automatic IDENTICAL/high and /medium buckets, which have only 28 and 110 reviewed functions, so this is a rough figure.
+**New IDENTICAL agreement estimate.** 2,788 functions are IDENTICAL now: 1,916 by hand review and 872 by the tool alone. Applying each automatic bucket's review agreement to the unread ones, about 716 of those 872 (82.1%) are expected to be truly identical, so about 2,632 of all 2,788 IDENTICAL functions (94.4%) are, against M2-R1's 80% audit estimate. The unread ones sit in the automatic IDENTICAL/high and /medium buckets, which have only 28 and 111 reviewed functions, so this is a rough figure.
 
 ## Hand review and calibration
 
-3237 functions were reviewed by hand (both bodies read; for long bodies sometimes only the head, as the review note says). The calibration below uses the 1215 reviews drawn as samples (`--calib-samples calibration`: the M2-R1 buckets, the M2-R2 re-read and the audit reclassifications); the ports' targeted reviews (sample `port-*` or none, 2022 functions) are excluded because a port reads the functions it suspects of change. Rows: the tool's current automatic class; columns: the reviewed class.
+3238 functions were reviewed by hand (both bodies read; for long bodies sometimes only the head, as the review note says). The calibration below uses the 1216 reviews drawn as samples (`--calib-samples calibration`: the M2-R1 buckets, the M2-R2 re-read and the audit reclassifications); the ports' targeted reviews (sample `port-*` or none, 2022 functions) are excluded because a port reads the functions it suspects of change. Rows: the tool's current automatic class; columns: the reviewed class.
 
 | automatic \ reviewed | IDENTICAL | MODIFIED | REWRITTEN | agreement |
 |---|---:|---:|---:|---:|
-| IDENTICAL | 984 | 94 | 1 | 91.2% |
+| IDENTICAL | 985 | 94 | 1 | 91.2% |
 | MODIFIED | 13 | 108 | 2 | 87.8% |
 | REWRITTEN | 3 | 5 | 5 | 38.5% |
 
@@ -82,7 +82,7 @@ Per automatic bucket (functions in the bucket, reviewed, reviewed class agreeing
 | automatic class | confidence | functions | bytes | reviewed | agree |
 |---|---|---:|---:|---:|---:|
 | IDENTICAL | high | 380 | 119,105 | 28 | 27 (96.4%) |
-| IDENTICAL | medium | 1,873 | 450,016 | 110 | 87 (79.1%) |
+| IDENTICAL | medium | 1,873 | 450,016 | 111 | 88 (79.3%) |
 | IDENTICAL | low | 989 | 75,172 | 941 | 870 (92.5%) |
 | MODIFIED | high | 682 | 508,751 | 21 | 19 (90.5%) |
 | MODIFIED | medium | 263 | 65,926 | 25 | 22 (88.0%) |
@@ -91,7 +91,7 @@ Per automatic bucket (functions in the bucket, reviewed, reviewed class agreeing
 | REWRITTEN | medium | 36 | 7,172 | 7 | 3 (42.9%) |
 | REWRITTEN | low | 2 | 297 | 2 | 0 (0.0%) |
 
-Confidence per class (after review): IDENTICAL 1,890 high / 898 medium / 0 low; MODIFIED 1,275 high / 208 medium / 66 low; REWRITTEN 70 high / 12 medium / 1 low.
+Confidence per class (after review): IDENTICAL 1,891 high / 897 medium / 0 low; MODIFIED 1,275 high / 208 medium / 66 low; REWRITTEN 70 high / 12 medium / 1 low.
 
 ## Per HW1 source file
 
@@ -241,7 +241,7 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | TitanNet.c | 35 | 33 | 2 | 0 | 3,170 | 337 | 0 | 15 | 0 |
 | TradeMgr.c | 27 | 24 | 3 | 0 | 2,916 | 1,804 | 0 | 27 | 0 |
 | Transformer.c | 2 | 1 | 1 | 0 | 71 | 303 | 0 | 2 | 0 |
-| Tutor.c | 63 | 45 | 18 | 0 | 10,143 | 6,518 | 0 | 24 | 0 |
+| Tutor.c | 63 | 45 | 18 | 0 | 10,143 | 6,518 | 0 | 25 | 0 |
 | Tweak.c | 3 | 3 | 0 | 0 | 205 | 0 | 0 | 2 | 0 |
 | Twiddle.c | 2 | 2 | 0 | 0 | 55 | 0 | 0 | 2 | 0 |
 | UIControls.c | 47 | 42 | 5 | 0 | 15,450 | 1,899 | 0 | 47 | 0 |

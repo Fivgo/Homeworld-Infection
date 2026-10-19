@@ -1667,7 +1667,7 @@ udword uicButtonProcess(regionhandle region, smemsize ID, udword event, udword d
         case RPE_PressLeft:
             uicClearCurrent(region);
             uicSetCurrent(region, FALSE);
-            soundEvent(NULL, UI_Click);
+            soundEvent(NULL, UI_Click);  // CAT: the exe's id is HW1's 0x108 (uicButtonProcess 0x005349f9)
             mask |= RPR_Redraw;
 #ifdef HW_BUILD_FOR_DEBUGGING
             dbgMessagef("En: %c Fr: %c De: %c Es: %c It: %c", atom->hotKey[0], atom->hotKey[1], atom->hotKey[2], atom->hotKey[3], atom->hotKey[4]);
@@ -1675,7 +1675,7 @@ udword uicButtonProcess(regionhandle region, smemsize ID, udword event, udword d
         break;
 
         case RPE_KeyDown:
-            soundEvent(NULL, UI_Click);
+            soundEvent(NULL, UI_Click);  // CAT: the exe's id is HW1's 0x108 (uicButtonProcess 0x00534a2d)
             //fall through
         case RPE_ReleaseLeft:
             uicButtonReleased = TRUE;
@@ -1946,7 +1946,7 @@ udword uicScrollBarProcess(regionhandle region, smemsize ID, udword event, udwor
                     }
                     else
                     {
-                        soundEvent(NULL, UI_Click);
+                        soundEvent(NULL, UI_Click);  // CAT: the exe's id is HW1's 0x108 (uicScrollBarProcess 0x005350c6)
                         shandle->clickType = SC_Other;
                         shandle->mouseX = scRelativeX(shandle);
                         shandle->mouseY = scRelativeY(shandle);
@@ -2887,7 +2887,7 @@ newSelection:
                     bitSet(item->flags,UICLI_Selected);
                     // pass this onto the listwindow callback
                     listhandle->message = CM_NewItemSelected;
-                    soundEvent(NULL, UI_Click);
+                    soundEvent(NULL, UI_Click);  // CAT: the exe's id is HW1's 0x108 (uicListWindowProcess 0x0053620d)
                     feFunctionExecute(((featom *)region->atom)->name, region->atom, FALSE);
                 }
             }
@@ -3993,7 +3993,7 @@ udword uicTextEntryProcess(regionhandle reg, smemsize ID, udword event, udword d
             entry->message = CM_GainFocus;
             feFunctionExecute(atom->name, atom, FALSE);
 
-            soundEvent(NULL, UI_Click);
+            soundEvent(NULL, UI_Click);  // CAT: the exe's id is HW1's 0x108 (uicTextEntryProcess 0x00536c96)
             mask |= RPR_Redraw;
         break;
 
@@ -4170,7 +4170,7 @@ udword uicDragButtonProcess(regionhandle region, smemsize ID, udword event, udwo
         case RPE_PressLeft:
             uicClearCurrent(region);
             uicSetCurrent(region, FALSE);
-            soundEvent(NULL, UI_Click);
+            soundEvent(NULL, UI_Click);  // CAT: the exe's id is HW1's 0x108 (uicDragButtonProcess 0x00537f77)
             mask |= RPR_Redraw;
 
             ((buttonhandle)region)->clickX = mouseCursorX();//record where the user clicked
@@ -4179,7 +4179,7 @@ udword uicDragButtonProcess(regionhandle region, smemsize ID, udword event, udwo
             ((buttonhandle)region)->bDragged = FALSE;
             break;
         case RPE_KeyDown:
-            soundEvent(NULL, UI_Click);
+            soundEvent(NULL, UI_Click);  // CAT: the exe's id is HW1's 0x108 (uicDragButtonProcess 0x00537fe3)
             ((buttonhandle)region)->processFunction(region, ID, CM_ButtonClick, 0);
             ((buttonhandle)region)->bDragged = FALSE;
             break;
@@ -5745,7 +5745,7 @@ udword uicEscProcess(struct tagRegion *reg, sdword num_buttons, udword event, ud
     if (temp != NULL)
     {
         ((buttonhandle)temp)->processFunction(temp, temp->userID, CM_ButtonClick, 0);
-        soundEvent(NULL, UI_Click);
+        soundEvent(NULL, UI_Click);  // CAT: the exe's id is HW1's 0x108 (inlined in uicListWindowProcess 0x0053610c / uicTextEntryProcess 0x00536d59)
     }
 
     return 0;

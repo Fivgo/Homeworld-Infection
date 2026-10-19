@@ -2057,6 +2057,7 @@ void spMainScreenAndLockout(udword flags)
 ----------------------------------------------------------------------------*/
 void cat_spMainScreenAndLockoutKeepSensors(udword flags)
 {
+    // CAT-TODO(stage 6 single player): the exe's lockout part (0x00518ea4 ..: spUnlockout first when locked, flag 2 also hides the cursor) is spMainScreenAndLockout 0x00518e10's; this tree's spLockout differs (audit: the hand-off had no tag)
     cmCloseIfOpen();
     rmCloseIfOpen();
     lmCloseIfOpen();

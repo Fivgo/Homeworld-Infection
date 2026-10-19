@@ -140,7 +140,7 @@ extern real32 nisBlackFadeRate;
 
 extern bool32 debugScreenshots;
 
-void kasfMissionCompleted(void)
+void kasfMissionCompleted(void)  // KAS MissionCompleted, cataclysm.exe 0x00491c70
 {
     if (tutorial == TUTORIAL_ONLY)
     {
@@ -161,13 +161,13 @@ void kasfMissionCompleted(void)
     }
 }
 
-void kasfMissionFailed(void)
+void kasfMissionFailed(void)  // KAS MissionFailed, cataclysm.exe 0x00491cb0
 {
     //clCommandMessage("MISSION FAILED");
     singlePlayerMissionFailedCB();
 }
 
-void kasfFadeToWhite(void)
+void kasfFadeToWhite(void)  // KAS FadeToWhite, cataclysm.exe 0x00491cc0
 {
     soundEventStopSFX(3.0);
     nisBlackFadeDest = 1.0f;
@@ -273,7 +273,7 @@ void kasfVarDestroy(udword name)
     cat_kasVarDestroy(scope, name);
 }
 
-void kasfCommandMessage(char *message)
+void kasfCommandMessage(char *message)  // KAS Print, cataclysm.exe 0x00491eb0
 {
     clCommandMessage(message, 0xffffffff);
 }
@@ -286,19 +286,19 @@ void kasfTimerCreate(udword name)
     timTimerCreate(scope, name);
 }
 
-void kasfTimerSet(udword name, sdword duration)
+void kasfTimerSet(udword name, sdword duration)  // KAS TimerSet, cataclysm.exe 0x00491f00
 {
     udword scope = kasfScopeHash(&name);
     timTimerSet(scope, name, duration);
 }
 
-void kasfTimerStart(udword name)
+void kasfTimerStart(udword name)  // KAS TimerStart, cataclysm.exe 0x00491f50
 {
     udword scope = kasfScopeHash(&name);
     timTimerStart(scope, name);
 }
 
-void kasfTimerCreateSetStart(udword name, sdword duration)
+void kasfTimerCreateSetStart(udword name, sdword duration)  // KAS TimerCreateSetStart, cataclysm.exe 0x00491f90
 {
     udword scope = kasfScopeHash(&name);
     timTimerCreateSetStart(scope, name, duration);
@@ -311,19 +311,19 @@ void kasfTimerStop(udword name)
     timTimerStop(scope, name);
 }
 
-sdword kasfTimerRemaining(udword name)
+sdword kasfTimerRemaining(udword name)  // KAS TimerRemaining, cataclysm.exe 0x00492020
 {
     udword scope = kasfScopeHash(&name);
     return timTimerRemaining(scope, name);
 }
 
-sdword kasfTimerExpired(udword name)
+sdword kasfTimerExpired(udword name)  // KAS TimerExpired, cataclysm.exe 0x00492060
 {
     udword scope = kasfScopeHash(&name);
     return timTimerExpired(scope, name);
 }
 
-sdword kasfTimerExpiredDestroy(udword name)
+sdword kasfTimerExpiredDestroy(udword name)  // KAS TimerExpiredDestroy, cataclysm.exe 0x004920a0
 {
     udword scope = kasfScopeHash(&name);
     return timTimerExpiredDestroy(scope, name);
@@ -342,7 +342,7 @@ sdword kasfMsgReceived(udword msg)
     return aitMsgReceived(CurrentTeamP, msg);
 }
 
-void kasfAttackMothership(void)
+void kasfAttackMothership(void)  // KAS AttackMothership, cataclysm.exe 0x00492140
 {
     SelectCommand *target;
     target = (SelectCommand *)memAlloc(sizeofSelectCommand(1), "targetmoship", 0);
@@ -388,12 +388,12 @@ void kasfAttack(GrowSelection *targets)
 
 // gives a set of ships the attack command
 // this allows individual ships from a team to attack a target
-void kasfShipsAttack(GrowSelection *targets, GrowSelection *attackers)
+void kasfShipsAttack(GrowSelection *targets, GrowSelection *attackers)  // KAS ShipsAttack, cataclysm.exe 0x00492260
 {
     aiuWrapAttack(attackers->selection, targets->selection);
 }
 
-void kasfAttackSpecial(GrowSelection *targets)
+void kasfAttackSpecial(GrowSelection *targets)  // KAS AttackSpecial, cataclysm.exe 0x00492280
 {
     // alloc memory that the move can later free itself
     SelectCommand *dupeTargets = selectDupSelection(targets->selection);
@@ -404,7 +404,7 @@ void kasfAttackSpecial(GrowSelection *targets)
     }
 }
 
-void kasfMoveAttack(GrowSelection *targets)
+void kasfMoveAttack(GrowSelection *targets)  // KAS MoveAttack, cataclysm.exe 0x004922d0
 {
     //alloc memory that the move can later free itself
     SelectCommand *dupeTargets = selectDupSelection(targets->selection);
@@ -431,7 +431,7 @@ void kasfMoveAttack(GrowSelection *targets)
     Return      : the number of ships chosen to take out
 ----------------------------------------------------------------------------*/
 sdword kasfBulgeAttack(GrowSelection *targets, GrowSelection *bulgetargets,
-                       GrowSelection *attackers, sdword radius)
+                       GrowSelection *attackers, sdword radius)  // KAS BulgeAttack, cataclysm.exe 0x00492320
 {
     ShipPtr teamship;
     SelectCommand *teamships   = CurrentTeamP->shipList.selection,
@@ -492,7 +492,7 @@ sdword kasfBulgeAttack(GrowSelection *targets, GrowSelection *bulgetargets,
 
 
 
-void kasfIntercept(GrowSelection *targets)
+void kasfIntercept(GrowSelection *targets)  // KAS Intercept, cataclysm.exe 0x004924e0
 {
     //alloc memory that the move can later free itself
     if (targets->selection->numShips && targets->selection->ShipPtr[0] != NULL)
@@ -506,7 +506,7 @@ void kasfIntercept(GrowSelection *targets)
 
 // CAT (M2-R8 kasf library): kasfTargetDrop is gone (cataclysm.exe's function table 0x00755048 has no "TargetDrop")
 
-void kasfAttackFlank(GrowSelection *targets)
+void kasfAttackFlank(GrowSelection *targets)  // KAS AttackFlank, cataclysm.exe 0x00492530
 {
     // alloc memory that the move can later free itself
     SelectCommand *dupeTargets = selectDupSelection(targets->selection);
@@ -517,7 +517,7 @@ void kasfAttackFlank(GrowSelection *targets)
     }
 }
 
-void kasfAttackHarass(void)
+void kasfAttackHarass(void)  // KAS AttackHarass, cataclysm.exe 0x00492580
 {
     aitDeleteAllTeamMoves(CurrentTeamP);
     aimCreateHarassAttack(CurrentTeamP, FALSE, TRUE);
@@ -584,32 +584,32 @@ void kasfShipsSetFormation(GrowSelection *Ships, sdword Formation)
     clWrapFormation(&universe.mainCommandLayer, Ships->selection, (TypeOfFormation)Formation, 0);
 }
 
-void kasfFormationDelta(void)
+void kasfFormationDelta(void)  // KAS FormationDelta, cataclysm.exe 0x00492780
 {
     aiuKasWrapFormation(CurrentTeamP->shipList.selection, DELTA_FORMATION);
     CurrentTeamP->kasFormation = DELTA_FORMATION;
 }
-void kasfFormationBroad(void)
+void kasfFormationBroad(void)  // KAS FormationBroad, cataclysm.exe 0x004927b0
 {
     aiuKasWrapFormation(CurrentTeamP->shipList.selection, BROAD_FORMATION);
     CurrentTeamP->kasFormation = BROAD_FORMATION;
 }
-void kasfFormationDelta3D(void)
+void kasfFormationDelta3D(void)  // KAS FormationDelta3D, cataclysm.exe 0x004927e0
 {
     aiuKasWrapFormation(CurrentTeamP->shipList.selection, DELTA3D_FORMATION);
     CurrentTeamP->kasFormation = DELTA3D_FORMATION;
 }
-void kasfFormationClaw(void)
+void kasfFormationClaw(void)  // KAS FormationClaw, cataclysm.exe 0x00492810
 {
     aiuKasWrapFormation(CurrentTeamP->shipList.selection, CLAW_FORMATION);
     CurrentTeamP->kasFormation = CLAW_FORMATION;
 }
-void kasfFormationWall(void)
+void kasfFormationWall(void)  // KAS FormationWall, cataclysm.exe 0x00492840
 {
     aiuKasWrapFormation(CurrentTeamP->shipList.selection, WALL_FORMATION);
     CurrentTeamP->kasFormation = WALL_FORMATION;
 }
-void kasfFormationSphere(void)
+void kasfFormationSphere(void)  // KAS FormationSphere, cataclysm.exe 0x00492870
 {
     aiuKasWrapFormation(CurrentTeamP->shipList.selection, SPHERE_FORMATION);
     CurrentTeamP->kasFormation = SPHERE_FORMATION;
@@ -631,12 +631,12 @@ void kasfFormationParade(GrowSelection *pShips)
     clPresetShipsToPosition(&universe.mainCommandLayer);
 }
 
-void kasfFormationCustom(GrowSelection *ships)
+void kasfFormationCustom(GrowSelection *ships)  // KAS FormationCustom, cataclysm.exe 0x004928f0
 {
     aiuKasWrapFormation(ships->selection, CUSTOM_FORMATION);
 }
 
-sdword kasfRandom(sdword lowestNum, sdword highestNum)
+sdword kasfRandom(sdword lowestNum, sdword highestNum)  // KAS Random, cataclysm.exe 0x00492910
 {
     if (lowestNum > highestNum)
     {
@@ -647,7 +647,7 @@ sdword kasfRandom(sdword lowestNum, sdword highestNum)
     return lowestNum + (ranRandom(RANDOM_AI_PLAYER) % (highestNum - lowestNum + 1));
 }
 
-void kasfGuardMothership(void)
+void kasfGuardMothership(void)  // KAS GuardMothership, cataclysm.exe 0x00492940
 {
     aitDeleteAllTeamMoves(CurrentTeamP);
     aimCreateDefendMothership(CurrentTeamP, FALSE, TRUE);
@@ -676,14 +676,14 @@ void kasfShipsGuardShips(GrowSelection *Guard, GrowSelection *Ships)
     }
 }
 
-void kasfPatrolPath(Path *path)
+void kasfPatrolPath(Path *path)  // KAS PatrolPath, cataclysm.exe 0x004929d0
 {
     Path *dupePath = aiuPathDupe(path);
     aitDeleteAllTeamMoves(CurrentTeamP);
     aimCreatePatrolMove(CurrentTeamP, dupePath, 0, SAME_FORMATION, CurrentTeamP->kasTactics, FALSE, TRUE);
 }
 
-void kasfPatrolActive(void)
+void kasfPatrolActive(void)  // KAS Patrol, cataclysm.exe 0x00492a10
 {
     // an intelligent patrol that chooses its own path
     aitDeleteAllTeamMoves(CurrentTeamP);
@@ -696,7 +696,7 @@ void kasfLog(char *string)
     (void)string;
 }
 
-void kasfLogInteger(char *string, sdword integer)
+void kasfLogInteger(char *string, sdword integer)  // KAS LogInteger, cataclysm.exe 0x00492a40
 {
     char tempstr[256];
     char tempstr2[256];
@@ -710,7 +710,7 @@ void kasfLogInteger(char *string, sdword integer)
     aiplayerLog((0, tempstr2));
 }
 
-sdword kasfShipsOrder(GrowSelection *ships)
+sdword kasfShipsOrder(GrowSelection *ships)  // KAS ShipsOrder, cataclysm.exe 0x00492ab0
 {
     Ship *ship;
 
@@ -830,12 +830,12 @@ sdword kasfTeamFuelLowest(void)
     return lowestOne;
 }
 
-sdword kasfTeamCount(void)
+sdword kasfTeamCount(void)  // KAS TeamCount, cataclysm.exe 0x00492ce0
 {
     return CurrentTeamP->shipList.selection->numShips;
 }
 
-sdword kasfNewShipsAdded(void)
+sdword kasfNewShipsAdded(void)  // KAS NewShipsAdded, cataclysm.exe 0x00492cf0
 {
     sdword return_value = (sdword)CurrentTeamP->newships;
 
@@ -844,12 +844,12 @@ sdword kasfNewShipsAdded(void)
     return return_value;
 }
 
-void kasfGrowSelectionClear(GrowSelection *ships)
+void kasfGrowSelectionClear(GrowSelection *ships)  // KAS ShipsClear, cataclysm.exe 0x00492d10
 {
     kasGrowSelectionClear(ships);
 }
 
-sdword kasfShipsCount(GrowSelection *ships)
+sdword kasfShipsCount(GrowSelection *ships)  // KAS ShipsCount, cataclysm.exe 0x00492d20
 {
     if (ships == NULL)
         return 0;
@@ -857,7 +857,7 @@ sdword kasfShipsCount(GrowSelection *ships)
     return ships->selection->numShips;
 }
 
-sdword kasfPointInside(Volume *volume, hvector *location)
+sdword kasfPointInside(Volume *volume, hvector *location)  // KAS PointInside, cataclysm.exe 0x00492d30
 {
     vector position;
 
@@ -866,10 +866,6 @@ sdword kasfPointInside(Volume *volume, hvector *location)
     return volPointInside(volume, &position);
 }
 
-//
-//  given a volume, find all ships inside it.  make this the selection.
-//  return the number of ships in this selection.
-//
 /*-----------------------------------------------------------------------------
     Name        : kasfFindMeteors                                   0x00492d60
     Description : CAT: KAS "FindMeteors": every asteroid of the object list with the killer-collision attribute
@@ -891,6 +887,11 @@ void kasfFindMeteors(GrowSelection *meteors)
     }
 }
 
+//
+//  given a volume, find all ships inside it.  make this the selection.
+//  return the number of ships in this selection.
+//  [audit: M2-R8 kasf-library: this HW1 comment was left above kasfFindMeteors; KAS FindShipsInside, cataclysm.exe 0x00492db0]
+//
 sdword kasfFindShipsInside(Volume *volume, GrowSelection *ships)
 {
     Ship *ship;
@@ -960,7 +961,7 @@ sdword kasfFindEnemyShipsInside(Volume *volume, GrowSelection *ships)
 //  of those ships.  make this the new selection.  return the number
 //  of ships in the new selection.
 //
-sdword kasfFindEnemiesNearby(GrowSelection *ships, sdword radius)
+sdword kasfFindEnemiesNearby(GrowSelection *ships, sdword radius)  // KAS FindEnemiesNearby, cataclysm.exe 0x00492e90
 {
     Ship *medianShip, *ship;
     real32 rangeSquared = (real32)radius*(real32)radius;
@@ -1017,7 +1018,7 @@ sdword kasfFindEnemiesNearby(GrowSelection *ships, sdword radius)
 //  like FindEnemiesNearby, only check the radius relative to the current team,
 //  ignoring what might be in the initial ships list
 //
-sdword kasfFindEnemiesNearTeam(GrowSelection *ships, sdword radius)
+sdword kasfFindEnemiesNearTeam(GrowSelection *ships, sdword radius)  // KAS FindEnemiesNearTeam, cataclysm.exe 0x00492f80
 {
     Ship *medianShip, *ship;
     real32 rangeSquared = (real32)radius*(real32)radius;
@@ -1120,7 +1121,7 @@ sdword kasfFindMinesInside(Volume *volume, GrowSelection *ships)
     return ships->selection->numShips;
 }
 
-sdword kasfFindShipsNearPoint(GrowSelection *ships, hvector *location, sdword radius)
+sdword kasfFindShipsNearPoint(GrowSelection *ships, hvector *location, sdword radius)  // KAS FindShipsNearPoint, cataclysm.exe 0x004931a0
 {
     Ship *ship;
     real32 rangeSquared = (real32)radius*(real32)radius;
@@ -1164,7 +1165,7 @@ sdword kasfFindShipsNearPoint(GrowSelection *ships, hvector *location, sdword ra
 //
 //  combine FindShipsInside and FindEnemiesNearby because they commonly go together
 //
-sdword kasfFindEnemiesInside(Volume *volume, GrowSelection *ships, sdword neighborRadius)
+sdword kasfFindEnemiesInside(Volume *volume, GrowSelection *ships, sdword neighborRadius)  // KAS FindEnemiesInside, cataclysm.exe 0x00493280
 {
     return kasfFindEnemyShipsInside(volume, ships);
     //    return kasfFindEnemiesNearby(ships, neighborRadius);
@@ -1184,7 +1185,7 @@ sdword kasfTeamSkillGet(void)
     return 0;
 }
 
-void kasfShipsAttributesBitSet(GrowSelection *ships,sdword attributes)
+void kasfShipsAttributesBitSet(GrowSelection *ships,sdword attributes)  // KAS ShipsAttributesBitSet, cataclysm.exe 0x004932a0
 {
     SelectCommand *selection = ships->selection;
     sdword numShips = selection->numShips;
@@ -1237,7 +1238,7 @@ void kasfShipsAttributesBitClear(GrowSelection *ships,sdword attributes)
     }
 }
 
-void kasfShipsAttributesSet(GrowSelection *ships,sdword attributes)
+void kasfShipsAttributesSet(GrowSelection *ships,sdword attributes)  // KAS ShipsAttributesSet, cataclysm.exe 0x004933d0
 {
     SelectCommand *selection = ships->selection;
     sdword numShips = selection->numShips;
@@ -1289,7 +1290,7 @@ sdword kasfTimesHitByEMP(GrowSelection *ships)
     return count;
 }
 
-void kasfTeamAttributesBitSet(sdword attributes)
+void kasfTeamAttributesBitSet(sdword attributes)  // KAS TeamAttributesBitSet, cataclysm.exe 0x00493490
 {
     sdword i, numShips;
     Ship *shipP;
@@ -1306,7 +1307,7 @@ void kasfTeamAttributesBitSet(sdword attributes)
     }
 }
 
-void kasfTeamAttributesBitClear(sdword attributes)
+void kasfTeamAttributesBitClear(sdword attributes)  // KAS TeamAttributesBitClear, cataclysm.exe 0x004934d0
 {
     sdword i, numShips;
     Ship *shipP;
@@ -1323,7 +1324,7 @@ void kasfTeamAttributesBitClear(sdword attributes)
     }
 }
 
-void kasfTeamAttributesSet(sdword attributes)
+void kasfTeamAttributesSet(sdword attributes)  // KAS TeamAttributesSet, cataclysm.exe 0x00493510
 {
     sdword i, numShips;
     Ship *shipP;
@@ -1359,7 +1360,7 @@ sdword kasfTeamAttributesBitTest(sdword attributes)
     return (sdword)bits;
 }
 
-void kasfTeamMakeCrazy(sdword makecrazy)
+void kasfTeamMakeCrazy(sdword makecrazy)  // KAS TeamMakeCrazy, cataclysm.exe 0x00493580
 {
     sdword i, numShips;
     Ship *shipP;
@@ -1384,17 +1385,17 @@ void kasfTeamMakeCrazy(sdword makecrazy)
     }
 }
 
-void kasfDisablePlayerHyperspace(void)
+void kasfDisablePlayerHyperspace(void)  // KAS DisablePlayerHyperspace, cataclysm.exe 0x004935e0
 {
     singlePlayerGameInfo.hyperspaceFails = TRUE;
 }
 
-void kasfHoldHyperspaceWindow(bool32 hold)
+void kasfHoldHyperspaceWindow(bool32 hold)  // KAS HoldHyperspaceWindow, cataclysm.exe 0x004935f0
 {
     spHoldHyperspaceWindow = hold;
 }
 
-void kasfTeamHyperspaceIn(hvector *destination)
+void kasfTeamHyperspaceIn(hvector *destination)  // KAS TeamHyperspaceIn, cataclysm.exe 0x00493600
 {
     if (!CurrentTeamP)
         return;
@@ -1431,7 +1432,7 @@ void kasfHyperspaceDelay(sdword milliseconds)
     spHyperspaceDelay = (real32)((real64)milliseconds * (real64)0.001f);
 }
 
-void kasfTeamHyperspaceOut(void)
+void kasfTeamHyperspaceOut(void)  // KAS TeamHyperspaceOut, cataclysm.exe 0x00493800
 {
     MaxSelection filtered;
 
@@ -1447,7 +1448,7 @@ void kasfTeamHyperspaceOut(void)
     spHyperspaceDelay = 0.0f;
 }
 
-void kasfTeamSetMaxVelocity(sdword maxVelocity)
+void kasfTeamSetMaxVelocity(sdword maxVelocity)  // KAS TeamVelocityMaxSet, cataclysm.exe 0x00493860
 {
     sdword i, numShips;
     Ship *shipP;
@@ -1464,7 +1465,7 @@ void kasfTeamSetMaxVelocity(sdword maxVelocity)
     }
 }
 
-void kasfTeamClearMaxVelocity(void)
+void kasfTeamClearMaxVelocity(void)  // KAS TeamVelocityMaxClear, cataclysm.exe 0x004938b0
 {
     sdword i, numShips;
     Ship *shipP;
@@ -1489,7 +1490,7 @@ void kasfTeamClearMaxVelocity(void)
     Outputs     :
     Return      : void
 ----------------------------------------------------------------------------*/
-void kasfShipsSetMaxVelocity(GrowSelection *ships, sdword maxVelocity)
+void kasfShipsSetMaxVelocity(GrowSelection *ships, sdword maxVelocity)  // KAS ShipsVelocityMaxSet, cataclysm.exe 0x004938f0
 {
     sdword i, numShips;
     Ship *shipP;
@@ -1516,7 +1517,7 @@ void kasfShipsSetMaxVelocity(GrowSelection *ships, sdword maxVelocity)
     Return      : void
 ----------------------------------------------------------------------------*/
 // CAT: one argument, the ships (the function table's "ShipsVelocityMaxClear"; HW1's prototype had an unused second)
-void kasfShipsClearMaxVelocity(GrowSelection *ships)
+void kasfShipsClearMaxVelocity(GrowSelection *ships)  // KAS ShipsVelocityMaxClear, cataclysm.exe 0x00493940
 {
     sdword i, numShips;
     Ship *shipP;
@@ -1571,7 +1572,7 @@ void kasfShipsSetDamageFactor(GrowSelection *ships, sdword damagePercent)
     Outputs     :
     Return      : void
 ----------------------------------------------------------------------------*/
-void kasfShipsClearDamageFactor(GrowSelection *ships)
+void kasfShipsClearDamageFactor(GrowSelection *ships)  // KAS ShipsDamageModifierClear, cataclysm.exe 0x004939d0
 {
     sdword i, numShips;
     Ship *shipP;
@@ -1669,12 +1670,12 @@ void kasfTeamSetPercentFueled(sdword percentFueled)
             (real32)((real64)percentFueled * (real64)CurrentTeamP->shipList.selection->ShipPtr[i]->staticinfo->maxfuel * (real64)0.01f);
 }
 
-void kasfMissionSkillSet(sdword skillLevel)
+void kasfMissionSkillSet(sdword skillLevel)  // KAS MissionSkillSet, cataclysm.exe 0x00493b80
 {
     CurrentMissionSkillLevel = skillLevel;
 }
 
-sdword kasfMissionSkillGet(void)
+sdword kasfMissionSkillGet(void)  // KAS MissionSkillGet, cataclysm.exe 0x00493b90
 {
     return CurrentMissionSkillLevel;
 }
@@ -1738,7 +1739,7 @@ void kasfReinforceTeamWithNewShips(struct AITeam *teamtoreinforce, GrowSelection
     }
 }
 
-void kasfReinforceTeamWithShips(struct AITeam *teamtoreinforce,GrowSelection *shipstoadd)
+void kasfReinforceTeamWithShips(struct AITeam *teamtoreinforce,GrowSelection *shipstoadd)  // KAS ReinforceTeamWithShips, cataclysm.exe 0x00493cf0
 {
     sdword i;
     sdword numShips = shipstoadd->selection->numShips;
@@ -1755,13 +1756,13 @@ void kasfReinforceTeamWithShips(struct AITeam *teamtoreinforce,GrowSelection *sh
     }
 }
 
-void kasfReinforce(AITeam *team)
+void kasfReinforce(AITeam *team)  // KAS Reinforce, cataclysm.exe 0x00493d40
 {
     aitDeleteAllTeamMoves(CurrentTeamP);
     aimCreateReinforce(CurrentTeamP, team, SAME_FORMATION, CurrentTeamP->kasTactics, TRUE, TRUE);
 }
 
-void kasfForceCombatStatus(GrowSelection *ships, sdword on)
+void kasfForceCombatStatus(GrowSelection *ships, sdword on)  // KAS ForceCombatStatus, cataclysm.exe 0x00493d70
 {
     udword i;
 
@@ -1781,12 +1782,12 @@ void kasfForceCombatStatus(GrowSelection *ships, sdword on)
     }
 }
 
-sdword kasfThisTeamIs(AITeam *team)
+sdword kasfThisTeamIs(AITeam *team)  // KAS ThisTeamIs, cataclysm.exe 0x00493de0
 {
     return (team == CurrentTeamP);
 }
 
-sdword kasfTeamCountOriginal(void)
+sdword kasfTeamCountOriginal(void)  // KAS TeamCountOriginal, cataclysm.exe 0x00493e00
 {
     return CurrentTeamP->kasOrigShipsCount;
 }
@@ -1813,7 +1814,7 @@ void kasfTeamGiveToAI(void)
     }
 }
 
-void kasfDisableAIFeature(sdword feature, sdword type)
+void kasfDisableAIFeature(sdword feature, sdword type)  // KAS DisableAIFeature, cataclysm.exe 0x00493e70
 {
     AIPlayer *aiplayer = aiCurrentAIPlayer;
 
@@ -1836,7 +1837,7 @@ void kasfDisableAIFeature(sdword feature, sdword type)
             break;
     }
 }
-void kasfEnableAIFeature(sdword feature, sdword type)
+void kasfEnableAIFeature(sdword feature, sdword type)  // KAS EnableAIFeature, cataclysm.exe 0x00493ee0
 {
     AIPlayer *aiplayer = aiCurrentAIPlayer;
 
@@ -1860,14 +1861,14 @@ void kasfEnableAIFeature(sdword feature, sdword type)
     }
 }
 
-void kasfDisableAllAIFeatures(void)
+void kasfDisableAllAIFeatures(void)  // KAS DisableAllAIFeatures, cataclysm.exe 0x00493f40
 {
     aiCurrentAIPlayer->ResourceFeatures = 0;
     aiCurrentAIPlayer->DefenseFeatures = 0;
     aiCurrentAIPlayer->AttackFeatures = 0;
 //    aiCurrentAIPlayer->TeamFeatures = 0;
 }
-void kasfEnableAllAIFeatures(void)
+void kasfEnableAllAIFeatures(void)  // KAS EnableAllAIFeatures, cataclysm.exe 0x00493f60
 {
     aiCurrentAIPlayer->ResourceFeatures = 0xFFFFFFFF;
     aiCurrentAIPlayer->DefenseFeatures = 0xFFFFFFFF;
@@ -1985,7 +1986,7 @@ void kasfShipsSwitchPlayerOwner(GrowSelection *ships, sdword bMakeControllable)
     SelectionSwitchPlayerOwner(ships->selection, bMakeControllable);
 }
 
-void kasfMoveTo(hvector *destination)
+void kasfMoveTo(hvector *destination)  // KAS MoveTo, cataclysm.exe 0x004941a0
 {
     vector dest;
     vecGrabVecFromHVec(dest,*destination);
@@ -1993,7 +1994,7 @@ void kasfMoveTo(hvector *destination)
     aimCreateMoveTeam(CurrentTeamP, dest, SAME_FORMATION, FALSE, TRUE);
 }
 
-void kasfShipsMoveTo(GrowSelection *ships, hvector *destination)
+void kasfShipsMoveTo(GrowSelection *ships, hvector *destination)  // KAS ShipsMoveTo, cataclysm.exe 0x00494200
 {
     vector dest;
     vecGrabVecFromHVec(dest,*destination);
@@ -2010,19 +2011,19 @@ void kasfSetTactics(sdword Tactics)
     aiuWrapSetTactics(CurrentTeamP->shipList.selection, (TacticsType)Tactics);
 }
 
-void kasfTacticsAggressive(void)
+void kasfTacticsAggressive(void)  // KAS TacticsAggressive, cataclysm.exe 0x00494280
 {
     CurrentTeamP->kasTactics = Aggressive;
     aiuWrapSetTactics(CurrentTeamP->shipList.selection, Aggressive);
 }
 
-void kasfTacticsNeutral(void)
+void kasfTacticsNeutral(void)  // KAS TacticsNeutral, cataclysm.exe 0x004942b0
 {
     CurrentTeamP->kasTactics = Neutral;
     aiuWrapSetTactics(CurrentTeamP->shipList.selection, Neutral);
 }
 
-void kasfTacticsEvasive(void)
+void kasfTacticsEvasive(void)  // KAS TacticsEvasive, cataclysm.exe 0x004942e0
 {
     CurrentTeamP->kasTactics = Evasive;
     aiuWrapSetTactics(CurrentTeamP->shipList.selection, Evasive);
@@ -2031,7 +2032,7 @@ void kasfTacticsEvasive(void)
 //
 //  returns True if any ship in the team is a given distance from the given location
 //
-sdword kasfNearby(hvector *location, sdword distance)
+sdword kasfNearby(hvector *location, sdword distance)  // KAS Nearby, cataclysm.exe 0x00494310
 {
     real32 rangeSquared = (real32)distance*(real32)distance;
     sdword i, numShips;
@@ -2050,7 +2051,7 @@ sdword kasfNearby(hvector *location, sdword distance)
 //
 // returns the distance between two points
 //
-sdword kasfFindDistance(hvector *location1, hvector *location2)
+sdword kasfFindDistance(hvector *location1, hvector *location2)  // KAS FindDistance, cataclysm.exe 0x004943d0
 {
     vector loc1, loc2;
     real32 distsq;
@@ -2111,12 +2112,12 @@ sdword kasfUnderAttackElsewhere(struct AITeam *otherTeam, GrowSelection *attacke
     return attackers->selection->numShips;
 }
 
-sdword kasfUnderAttack(GrowSelection *attackers)
+sdword kasfUnderAttack(GrowSelection *attackers)  // KAS UnderAttack, cataclysm.exe 0x00494510
 {
     return kasfUnderAttackElsewhere(CurrentTeamP, attackers);
 }
 
-sdword kasfShipsCountType(GrowSelection *ships, char *shipType)
+sdword kasfShipsCountType(GrowSelection *ships, char *shipType)  // KAS ShipsCountType, cataclysm.exe 0x00494530
 {
     sdword i, count = 0, numShips = ships->selection->numShips;
     ShipType st = StrToShipType(shipType);
@@ -2162,7 +2163,7 @@ void DockSupportWith(struct AITeam * withTeam,sdword flags)
     aimCreateDock(CurrentTeamP, flags, dockwith, FALSE, TRUE);
 }
 
-void kasfDockSupportWith(struct AITeam * withTeam)
+void kasfDockSupportWith(struct AITeam * withTeam)  // KAS DockSupportWith, cataclysm.exe 0x004945a0
 {
     DockSupportWith(withTeam,0);
 }
@@ -2172,7 +2173,7 @@ void kasfShipsDockSupportWith(GrowSelection *ships, GrowSelection *withShips)
     aiuWrapDock(ships->selection, CAT_DOCK_SUPPORT, withShips->selection->ShipPtr[0]);  // CAT: purpose 0 (kasfShipsDockSupportWith 0x00494610)
 }
 
-void kasfDockStay(struct AITeam * withTeam)
+void kasfDockStay(struct AITeam * withTeam)  // KAS DockStay, cataclysm.exe 0x00494630
 {
     DockSupportWith(withTeam,dockmoveFlags_Stay);
 }
@@ -2191,7 +2192,7 @@ void kasfShipsDockStay(GrowSelection *ships, GrowSelection *withShips)
     aiuWrapDock(selection, CAT_DOCK_STAY, withShips->selection->ShipPtr[0]);
 }
 
-void kasfDockStayMothership(void)
+void kasfDockStayMothership(void)  // KAS DockStayMothership, cataclysm.exe 0x004946f0
 {
     Ship *dockwith;
 
@@ -2206,7 +2207,7 @@ void kasfDockStayMothership(void)
     }
 }
 
-void kasfDockInstant(struct AITeam * withTeam)
+void kasfDockInstant(struct AITeam * withTeam)  // KAS DockInstant, cataclysm.exe 0x00494750
 {
     //put in print command
     udword i;
@@ -2218,7 +2219,7 @@ void kasfDockInstant(struct AITeam * withTeam)
     DockSupportWith(withTeam,dockmoveFlags_Stay|dockmoveFlags_Instantaneously);
 }
 
-void kasfLaunch(void)
+void kasfLaunch(void)  // KAS Launch, cataclysm.exe 0x004947c0
 {
     udword i;
 
@@ -2249,7 +2250,7 @@ void kasfShipsLaunch(GrowSelection *ships, GrowSelection *host)
     aiuWrapDock(ships->selection, CAT_DOCK_LAUNCH, dockwith);
 }
 
-sdword kasfTeamDocking(void)
+sdword kasfTeamDocking(void)  // KAS TeamDocking, cataclysm.exe 0x00494890
 {
     //return bitTest(CurrentTeamP->teamFlags, TEAM_DOCKING);
     return ((CurrentTeamP->teamFlags & TEAM_DOCKING) != 0);  // ensure 0/1 return value
@@ -2326,7 +2327,7 @@ sdword kasfShipsFinishedLaunching(GrowSelection *Ships)
     return TRUE;
 }
 
-sdword kasfTeamDockedReadyForLaunch(void)
+sdword kasfTeamDockedReadyForLaunch(void)  // KAS TeamDockedReadyForLaunch, cataclysm.exe 0x00494940
 {
     SelectCommand *selection = CurrentTeamP->shipList.selection;
     sdword i;
@@ -2379,7 +2380,7 @@ void kasfMsgQueueFlush(struct AITeam *team)
     cat_aitMsgQueueFlush(team);
 }
 
-sdword kasfRUsEnemyCollected(void)
+sdword kasfRUsEnemyCollected(void)  // KAS RUsEnemyCollected, cataclysm.exe 0x00494a30
 {
     return singlePlayerGameInfo.resourceUnitsCollected;
 }
@@ -2472,18 +2473,18 @@ static sdword kasfFindPlayersShipsOfClass(GrowSelection *ships, char *shipClass,
 }
 
 //  (enemy == human)
-sdword kasfFindEnemyShipsOfClass(GrowSelection *ships, char *shipClass)
+sdword kasfFindEnemyShipsOfClass(GrowSelection *ships, char *shipClass)  // KAS FindEnemyShipsOfClass, cataclysm.exe 0x00494b40
 {
     return kasfFindPlayersShipsOfClass(ships, shipClass, 0);
 }
 
 //  (friendly == not human)
-sdword kasfFindFriendlyShipsOfClass(GrowSelection *ships, char *shipClass)
+sdword kasfFindFriendlyShipsOfClass(GrowSelection *ships, char *shipClass)  // KAS FindFriendlyShipsOfClass, cataclysm.exe 0x00494bc0
 {
     return kasfFindPlayersShipsOfClass(ships, shipClass, 1);
 }
 
-sdword kasfPathNextPoint(void)
+sdword kasfPathNextPoint(void)  // KAS PathNextPoint, cataclysm.exe 0x00494c40
 {
     AITeamMove *thisMove = CurrentTeamP->curMove;
 
@@ -2594,12 +2595,12 @@ void kasfPopupTextDraw(void)
 //
 //  new fleet-intelligence style popup
 //
-void kasfPopup(char *text)
+void kasfPopup(char *text)  // KAS Popup, cataclysm.exe 0x00494e00
 {
     fleetIntelligenceCreate(text, 1);
 }
 
-void kasfPopupInteger(char *text, sdword integer)
+void kasfPopupInteger(char *text, sdword integer)  // KAS PopupInteger, cataclysm.exe 0x00494e10
 {
     char tempstr[256];
 
@@ -2632,7 +2633,7 @@ void kasfObjectiveCreate(char *label, char *briefText, char *fullText)
     }
 }
 
-void kasfObjectiveCreateSecondary(char* label, char* briefText, char* fullText)
+void kasfObjectiveCreateSecondary(char* label, char* briefText, char* fullText)  // KAS ObjectiveCreateSecondary, cataclysm.exe 0x00494ed0
 {
     if ((fullText == NULL) || (fullText[0] == 0))
     {
@@ -2644,7 +2645,7 @@ void kasfObjectiveCreateSecondary(char* label, char* briefText, char* fullText)
     }
 }
 
-void kasfObjectiveSet(char *label, sdword status)
+void kasfObjectiveSet(char *label, sdword status)  // KAS ObjectiveSet, cataclysm.exe 0x00494f10
 {
     objectiveSet(label, status);
 }
@@ -2654,12 +2655,12 @@ void kasfObjectiveSet(char *label, sdword status)
 //    objectivePopupAll();
 //}
 
-sdword kasfObjectiveGet(char *label)
+sdword kasfObjectiveGet(char *label)  // KAS ObjectiveGet, cataclysm.exe 0x00494f30
 {
     return objectiveGet(label);
 }
 
-sdword kasfObjectiveGetAll(void)
+sdword kasfObjectiveGetAll(void)  // KAS ObjectivesGetAll, cataclysm.exe 0x00494f40
 {
     return objectiveGetAll();
 }
@@ -2674,18 +2675,18 @@ sdword kasfObjectiveGetAny(void)
     return cat_objectiveCountActive();
 }
 
-void kasfObjectiveDestroy(char *label)
+void kasfObjectiveDestroy(char *label)  // KAS ObjectiveDestroy, cataclysm.exe 0x00494f60
 {
     objectiveDestroy(label);
 }
 
-void kasfObjectiveDestroyAll(void)
+void kasfObjectiveDestroyAll(void)  // KAS ObjectivesDestroyAll, cataclysm.exe 0x00494f70
 {
     objectiveDestroyAll();
 }
 
 
-sdword kasfNISRunning(void)
+sdword kasfNISRunning(void)  // KAS NISRunning, cataclysm.exe 0x00494f80
 {
     return nisIsRunning;
 }
@@ -3326,7 +3327,7 @@ sdword kasfShipsSelectSpecial(GrowSelection *newShips, GrowSelection *originalSh
 //
 //  A = A + B
 //
-sdword kasfShipsAdd(GrowSelection *shipsA, GrowSelection *shipsB)
+sdword kasfShipsAdd(GrowSelection *shipsA, GrowSelection *shipsB)  // KAS ShipsAdd, cataclysm.exe 0x00495bd0
 {
     sdword i;
 
@@ -3346,7 +3347,7 @@ sdword kasfShipsAdd(GrowSelection *shipsA, GrowSelection *shipsB)
 //
 //  A = A - B
 //
-sdword kasfShipsRemove(GrowSelection *shipsA, GrowSelection *shipsB)
+sdword kasfShipsRemove(GrowSelection *shipsA, GrowSelection *shipsB)  // KAS ShipsRemove, cataclysm.exe 0x00495c40
 {
     sdword i;
 
@@ -3368,7 +3369,7 @@ sdword kasfShipsRemove(GrowSelection *shipsA, GrowSelection *shipsB)
 
 
 //returns TRUE if all the selected ships are in the specified formation
-sdword kasfSelectedShipsInFormation(sdword formation)
+sdword kasfSelectedShipsInFormation(sdword formation)  // KAS SelectedShipsInFormation, cataclysm.exe 0x00495cc0
 {
     udword i;
 
@@ -3424,7 +3425,7 @@ sdword kasfShipsInFormation(GrowSelection *ships, sdword formation)
 //
 // sets the ships so that the player's ships don't autoretaliate against them
 //
-void kasfShipsSetNonRetaliation(GrowSelection *ships)
+void kasfShipsSetNonRetaliation(GrowSelection *ships)  // KAS ShipsSetNonRetaliation, cataclysm.exe 0x00495da0
 {
     udword i;
 
@@ -3437,7 +3438,7 @@ void kasfShipsSetNonRetaliation(GrowSelection *ships)
 //
 // sets the ships so that the player's ships don't autoretaliate against them
 //
-void kasfShipsSetRetaliation(GrowSelection *ships)
+void kasfShipsSetRetaliation(GrowSelection *ships)  // KAS ShipsSetRetaliation, cataclysm.exe 0x00495de0
 {
     udword i;
 
@@ -3454,7 +3455,7 @@ void kasfShipsSetRetaliation(GrowSelection *ships)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void kasfPingAddSingleShip(GrowSelection *ships, char *label)
+void kasfPingAddSingleShip(GrowSelection *ships, char *label)  // KAS PingAddSingleShip, cataclysm.exe 0x00495e20
 {
     if (ships == NULL || ships->selection == NULL || ships->selection->ShipPtr[0] == NULL)
         return;
@@ -3470,7 +3471,7 @@ void kasfPingAddSingleShip(GrowSelection *ships, char *label)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void kasfPingAddShips(GrowSelection *ships, char *label)
+void kasfPingAddShips(GrowSelection *ships, char *label)  // KAS PingAddShips, cataclysm.exe 0x00495e50
 {
     if (ships == NULL || ships->selection == NULL || ships->selection->ShipPtr[0] == NULL)
         return;
@@ -3478,17 +3479,17 @@ void kasfPingAddShips(GrowSelection *ships, char *label)
     pingAnomalySelectionPingAdd(label, ships->selection);
 }
 
-void kasfPingAddPoint(hvector *point, char *label)
+void kasfPingAddPoint(hvector *point, char *label)  // KAS PingAddPoint, cataclysm.exe 0x00495e80
 {
     pingAnomalyPositionPingAdd(label, (vector *)point);
 }
 
-void kasfPingRemove(char *label)
+void kasfPingRemove(char *label)  // KAS PingRemove, cataclysm.exe 0x00495ea0
 {
     pingAnomalyPingRemove(label);
 }
 
-void kasfStop(void)
+void kasfStop(void)  // KAS Stop, cataclysm.exe 0x00495eb0
 {
     aitDeleteAllTeamMoves(CurrentTeamP);
     clWrapHalt(&universe.mainCommandLayer, CurrentTeamP->shipList.selection);
@@ -3520,19 +3521,19 @@ void kasfHarvest(void)
     }
 }
 
-void kasfBuildControl(sdword on)
+void kasfBuildControl(sdword on)  // KAS BuildControl, cataclysm.exe 0x00495f50
 {
     singlePlayerGameInfo.giveComputerFleetControl = on;
 }
 
 // sets the team as a building team for the KAS script
-void kasfBuildingTeam(struct AITeam *builder)
+void kasfBuildingTeam(struct AITeam *builder)  // KAS BuildingTeam, cataclysm.exe 0x00495f60
 {
     //for now, just set the first ship on the team (assume it only has one ship)
     aiCurrentAIPlayer->ScriptCreator = builder->shipList.selection->ShipPtr[0];
 }
 
-void kasfKamikaze(GrowSelection *targets)
+void kasfKamikaze(GrowSelection *targets)  // KAS Kamikaze, cataclysm.exe 0x00495f80
 {
     // alloc memory that the move can later free itself
     SelectCommand *dupeTargets = selectDupSelection(targets->selection);
@@ -3543,7 +3544,7 @@ void kasfKamikaze(GrowSelection *targets)
     }
 }
 
-void kasfKamikazeEveryone(GrowSelection *targets)
+void kasfKamikazeEveryone(GrowSelection *targets)  // KAS KamikazeEveryone, cataclysm.exe 0x00495fd0
 {
     AITeam *teamp;
     udword i;
@@ -3564,7 +3565,7 @@ void kasfKamikazeEveryone(GrowSelection *targets)
 
 }
 
-void kasfSpecialToggle(void)
+void kasfSpecialToggle(void)  // KAS SpecialToggle, cataclysm.exe 0x00496050
 {
     if (!CurrentTeamP || !CurrentTeamP->shipList.selection->numShips)
         return;
@@ -3583,7 +3584,7 @@ void kasfShipsSpecialToggle(GrowSelection *ships)
     }
 }
 
-void kasfShipsDamage(GrowSelection *ships, sdword points)
+void kasfShipsDamage(GrowSelection *ships, sdword points)  // KAS ShipsDamage, cataclysm.exe 0x004960b0
 {
     sdword i;
 
@@ -3606,27 +3607,27 @@ void kasfShipsDamage(GrowSelection *ships, sdword points)
 ----------------------------------------------------------------------------
 */
 
-void kasfBuilderRestrictShipTypes(char *shipTypes)
+void kasfBuilderRestrictShipTypes(char *shipTypes)  // KAS BuilderRestrictShipTypes, cataclysm.exe 0x00496110
 {
     tutBuilderSetRestrictions(shipTypes, 1);
 }
 
-void kasfBuilderUnrestrictShipTypes(char *shipTypes)
+void kasfBuilderUnrestrictShipTypes(char *shipTypes)  // KAS BuilderUnrestrictShipTypes, cataclysm.exe 0x00496120
 {
     tutBuilderSetRestrictions(shipTypes, 0);
 }
 
-void kasfBuilderRestrictAll(void)
+void kasfBuilderRestrictAll(void)  // KAS BuilderRestrictAll, cataclysm.exe 0x00496130
 {
     tutBuilderRestrictAll();
 }
 
-void kasfBuilderRestrictNone(void)
+void kasfBuilderRestrictNone(void)  // KAS BuilderRestrictNone, cataclysm.exe 0x00496140
 {
     tutBuilderRestrictNone();
 }
 
-void kasfBuilderCloseIfOpen(void)
+void kasfBuilderCloseIfOpen(void)  // KAS BuilderCloseIfOpen, cataclysm.exe 0x00496150
 {
     cmCloseIfOpen();
 }
@@ -3641,7 +3642,7 @@ void kasfResearchCloseIfOpen(void)
 }
 
 // figure out how to do this someday....
-void kasfForceBuildShipType(char *shipType)
+void kasfForceBuildShipType(char *shipType)  // KAS ForceBuildShipType, cataclysm.exe 0x00496170
 {
     ShipType st;
 
@@ -3688,7 +3689,7 @@ void kasfCameraSetDeclinationDeg(sdword declination)
     cameraSetEyePosition(&universe.mainCameraCommand.actualcamera);
 }
 
-sdword kasfCameraGetDistance(void)
+sdword kasfCameraGetDistance(void)  // KAS CameraGetDistance, cataclysm.exe 0x00496250
 {
     return (sdword)currentCameraStackEntry(&universe.mainCameraCommand)->remembercam.distance;
 }
@@ -3703,12 +3704,12 @@ void kasfCameraSetDistance(sdword distance)
     cameraSetEyePosition(&universe.mainCameraCommand.actualcamera);
 }
 
-sdword kasfSelectNumSelected(void)
+sdword kasfSelectNumSelected(void)  // KAS SelectNumSelected, cataclysm.exe 0x00496280
 {
     return selSelected.numShips;
 }
 
-sdword kasfSelectIsSelectionShipType(sdword Index, char *shipType)
+sdword kasfSelectIsSelectionShipType(sdword Index, char *shipType)  // KAS SelectIsSelectionShipType, cataclysm.exe 0x00496290
 {
 ShipType    st;
 
@@ -3716,32 +3717,32 @@ ShipType    st;
     return ((selSelected.numShips > Index) && selSelected.ShipPtr[Index]->shiptype == st);
 }
 
-sdword kasfSelectContainsShipTypes(char *shipTypes)
+sdword kasfSelectContainsShipTypes(char *shipTypes)  // KAS SelectContainsShipTypes, cataclysm.exe 0x004962d0
 {
     return tutSelectedContainsShipTypes(shipTypes);
 }
 
-void kasfTutSetPointerTargetXY(char *name, sdword x, sdword y)
+void kasfTutSetPointerTargetXY(char *name, sdword x, sdword y)  // KAS TutSetPointerTargetXY, cataclysm.exe 0x004962e0
 {
     tutSetPointerTargetXY(name, x,y);
 }
 
-void kasfTutSetPointerTargetXYRight(char *name, sdword x, sdword y)
+void kasfTutSetPointerTargetXYRight(char *name, sdword x, sdword y)  // KAS TutSetPointerTargetXYRight, cataclysm.exe 0x00496300
 {
     tutSetPointerTargetXYRight(name, x,y);
 }
 
-void kasfTutSetPointerTargetXYBottomRight(char *name, sdword x, sdword y)
+void kasfTutSetPointerTargetXYBottomRight(char *name, sdword x, sdword y)  // KAS TutSetPointerTargetXYBottomRight, cataclysm.exe 0x00496320
 {
     tutSetPointerTargetXYBottomRight(name, x,y);
 }
 
-void kasfTutSetPointerTargetXYTaskbar(char *name, sdword x, sdword y)
+void kasfTutSetPointerTargetXYTaskbar(char *name, sdword x, sdword y)  // KAS TutSetPointerTargetXYTaskbar, cataclysm.exe 0x00496340
 {
     tutSetPointerTargetXYTaskbar(name, x,y);
 }
 
-void kasfTutSetPointerTargetXYFE(char *name, sdword x, sdword y)
+void kasfTutSetPointerTargetXYFE(char *name, sdword x, sdword y)  // KAS TutSetPointerTargetXYFE, cataclysm.exe 0x00496360
 {
     tutSetPointerTargetXYFE(name, x,y);
 }
@@ -3785,13 +3786,13 @@ void kasfTutSetObjPointerTargetShipSelection(char *name, GrowSelection *pShipLis
     }
 }
 
-void kasfTutSetPointerTargetShipHealth(char *name, GrowSelection *ships)
+void kasfTutSetPointerTargetShipHealth(char *name, GrowSelection *ships)  // KAS TutSetPointerTargetShipHealth, cataclysm.exe 0x00496400
 {
     if(ships->selection->numShips > 0)
         tutSetPointerTargetShipHealth(name, ships->selection->ShipPtr[0]);
 }
 
-void kasfTutSetPointerTargetShipGroup(char *name, GrowSelection *ships)
+void kasfTutSetPointerTargetShipGroup(char *name, GrowSelection *ships)  // KAS TutSetPointerTargetShipGroup, cataclysm.exe 0x00496420
 {
     if(ships->selection->numShips > 0)
     {
@@ -3799,12 +3800,12 @@ void kasfTutSetPointerTargetShipGroup(char *name, GrowSelection *ships)
     }
 }
 
-void kasfTutSetPointerTargetFERegion(char *name, char *pAtomName)
+void kasfTutSetPointerTargetFERegion(char *name, char *pAtomName)  // KAS TutSetPointerTargetFERegion, cataclysm.exe 0x00496440
 {
     tutSetPointerTargetFERegion(name, pAtomName);
 }
 
-void kasfTutSetPointerTargetRect(char *name, sdword x0, sdword y0, sdword x1, sdword y1)
+void kasfTutSetPointerTargetRect(char *name, sdword x0, sdword y0, sdword x1, sdword y1)  // KAS TutSetPointerTargetRect, cataclysm.exe 0x00496460
 {
     tutSetPointerTargetRect(name, x0, y0, x1, y1);
 }
@@ -3846,41 +3847,41 @@ void kasfTutRemoveAllPointers(void)
     tutRemoveAllPointers();
 }
 
-void kasfTutSetTextDisplayBoxGame(sdword x, sdword y, sdword width, sdword height)
+void kasfTutSetTextDisplayBoxGame(sdword x, sdword y, sdword width, sdword height)  // KAS TutSetTextDisplayBoxGame, cataclysm.exe 0x00496570
 {
     tutSetTextDisplayBox(x, y, width, height, TRUE);
 }
 
-void kasfTutSetTextDisplayBoxToSubtitleRegion(void)
+void kasfTutSetTextDisplayBoxToSubtitleRegion(void)  // KAS TutSetTextDisplayBoxToSubtitleRegion, cataclysm.exe 0x00496590
 {
     tutSetTextDisplayBoxToSubtitleRegion();
 }
-void kasfTutSetTextDisplayBoxFE(sdword x, sdword y, sdword width, sdword height)
+void kasfTutSetTextDisplayBoxFE(sdword x, sdword y, sdword width, sdword height)  // KAS TutSetTextDisplayBoxFE, cataclysm.exe 0x004965a0
 {
     tutSetTextDisplayBox(x, y, width, height, FALSE);
 }
 
-void kasfTutShowText(char *szText)
+void kasfTutShowText(char *szText)  // KAS TutShowText, cataclysm.exe 0x004965c0
 {
     tutShowText(szText);
 }
 
-void kasfTutHideText(void)
+void kasfTutHideText(void)  // KAS TutHideText, cataclysm.exe 0x004965d0
 {
     tutHideText();
 }
 
-void kasfTutShowNextButton(void)
+void kasfTutShowNextButton(void)  // KAS TutShowNextButton, cataclysm.exe 0x004965e0
 {
     tutShowNextButton();
 }
 
-void kasfTutHideNextButton(void)
+void kasfTutHideNextButton(void)  // KAS TutHideNextButton, cataclysm.exe 0x004965f0
 {
     tutHideNextButton();
 }
 
-sdword kasfTutNextButtonClicked(void)
+sdword kasfTutNextButtonClicked(void)  // KAS TutNextButtonClicked, cataclysm.exe 0x00496600
 {
     return tutNextButtonClicked();
 }
@@ -3895,137 +3896,137 @@ void kasfTutShowNextTextButton(void)
     cat_tutShowNextTextButton();
 }
 
-void kasfTutHideNextTextButton(void)
+void kasfTutHideNextTextButton(void)  // KAS TutHideNextTextButton, cataclysm.exe 0x00496620
 {
     cat_tutHideNextTextButton();
 }
 
-sdword kasfTutNextTextButtonClicked(void)
+sdword kasfTutNextTextButtonClicked(void)  // KAS TutNextTextButtonClicked, cataclysm.exe 0x00496630
 {
     return cat_tutNextTextButtonClicked();
 }
 
-void kasfTutShowBackButton(void)
+void kasfTutShowBackButton(void)  // KAS TutShowBackButton, cataclysm.exe 0x004966a0
 {
     tutShowBackButton();
 }
 
-void kasfTutHideBackButton(void)
+void kasfTutHideBackButton(void)  // KAS TutHideBackButton, cataclysm.exe 0x004966b0
 {
     tutHideBackButton();
 }
 
-void kasfTutShowPrevButton(void)
+void kasfTutShowPrevButton(void)  // KAS TutShowPrevButton, cataclysm.exe 0x00496640
 {
     tutShowPrevButton();
 }
 
-void kasfTutHidePrevButton(void)
+void kasfTutHidePrevButton(void)  // KAS TutHidePrevButton, cataclysm.exe 0x00496650
 {
     cat_tutHidePrevButton();
 }
 
-sdword kasfTutPrevButtonClicked(void)
+sdword kasfTutPrevButtonClicked(void)  // KAS TutPrevButtonClicked, cataclysm.exe 0x00496660
 {
     return cat_tutPrevButtonClicked();
 }
 
-void kasfTutShowQuitButton(void)
+void kasfTutShowQuitButton(void)  // KAS TutShowQuitButton, cataclysm.exe 0x00496670
 {
     cat_tutShowQuitButton();
 }
 
-void kasfTutHideQuitButton(void)
+void kasfTutHideQuitButton(void)  // KAS TutHideQuitButton, cataclysm.exe 0x00496680
 {
     cat_tutHideQuitButton();
 }
 
-sdword kasfTutQuitButtonClicked(void)
+sdword kasfTutQuitButtonClicked(void)  // KAS TutQuitButtonClicked, cataclysm.exe 0x00496690
 {
     return cat_tutQuitButtonClicked();
 }
 
-void kasfTutSaveLesson(sdword Num, char *pName)
+void kasfTutSaveLesson(sdword Num, char *pName)  // KAS TutSaveLesson, cataclysm.exe 0x004966c0
 {
     tutSaveLesson(Num, pName);
 }
 
-void kasfTutShowImages(char *szImages)
+void kasfTutShowImages(char *szImages)  // KAS TutShowImages, cataclysm.exe 0x004966e0
 {
     tutShowImages(szImages);
 }
 
-void kasfTutHideImages(void)
+void kasfTutHideImages(void)  // KAS TutHideImages, cataclysm.exe 0x004966f0
 {
     tutHideImages();
 }
 
-void kasfTutEnableEverything(void)
+void kasfTutEnableEverything(void)  // KAS TutEnableEverything, cataclysm.exe 0x00496700
 {
     tutEnableEverything();
 }
 
-void kasfTutDisableEverything(void)
+void kasfTutDisableEverything(void)  // KAS TutDisableEverything, cataclysm.exe 0x00496710
 {
     tutDisableEverything();
 }
 
-void kasfTutEnableFlags(char *pFlags)
+void kasfTutEnableFlags(char *pFlags)  // KAS TutEnableFlags, cataclysm.exe 0x00496720
 {
     tutSetEnableFlags(pFlags, 1);
 }
 
-void kasfTutDisableFlags(char *pFlags)
+void kasfTutDisableFlags(char *pFlags)  // KAS TutDisableFlags, cataclysm.exe 0x00496730
 {
     tutSetEnableFlags(pFlags, 0);
 }
 
-void kasfTutForceUnpaused(void)
+void kasfTutForceUnpaused(void)  // KAS TutForceUnpaused, cataclysm.exe 0x00496740
 {
     universePause = FALSE;
 }
 
-sdword kasfTutGameSentMessage(char *commandNames)
+sdword kasfTutGameSentMessage(char *commandNames)  // KAS TutGameSentMessage, cataclysm.exe 0x00496750
 {
     return tutGameSentMessage(commandNames);
 }
 
-void kasfTutResetGameMessageQueue(void)
+void kasfTutResetGameMessageQueue(void)  // KAS TutResetGameMessageQueue, cataclysm.exe 0x00496760
 {
     tutResetGameMessageQueue();
 }
 
-sdword kasfTutContextMenuDisplayedForShipType(char *shipType)
+sdword kasfTutContextMenuDisplayedForShipType(char *shipType)  // KAS TutContextMenuDisplayedForShipType, cataclysm.exe 0x00496770
 {
     return tutContextMenuDisplayedForShipType(shipType);
 }
 
-void kasfTutResetContextMenuShipTypeTest(void)
+void kasfTutResetContextMenuShipTypeTest(void)  // KAS TutResetContextMenuShipTypeTest, cataclysm.exe 0x00496780
 {
     tutResetContextMenuShipTypeTest();
 }
 
-void kasfTutRedrawEverything(void)
+void kasfTutRedrawEverything(void)  // KAS TutRedrawEverything, cataclysm.exe 0x00496790
 {
     bitSet(regRootRegion.status, RSF_ReallyDirty);
 }
 
-sdword kasfBuildManagerShipTypeInBatchQueue(char *shipType)
+sdword kasfBuildManagerShipTypeInBatchQueue(char *shipType)  // KAS BuildManagerShipTypeInBatchQueue, cataclysm.exe 0x004967a0
 {
     return tutBuildManagerShipTypeInBatchQueue(shipType);
 }
 
-sdword kasfBuildManagerShipTypeInBuildQueue(char *shipType)
+sdword kasfBuildManagerShipTypeInBuildQueue(char *shipType)  // KAS BuildManagerShipTypeInBuildQueue, cataclysm.exe 0x004967b0
 {
     return tutBuildManagerShipTypeInBuildQueue(shipType);
 }
 
-sdword kasfBuildManagerShipTypeSelected(char *shipType)
+sdword kasfBuildManagerShipTypeSelected(char *shipType)  // KAS BuildManagerShipTypeSelected, cataclysm.exe 0x004967c0
 {
     return tutBuildManagerShipTypeSelected(shipType);
 }
 
-sdword kasfTutCameraFocusedOnShipType(char *shipTypes)
+sdword kasfTutCameraFocusedOnShipType(char *shipTypes)  // KAS TutCameraFocusedOnShipType, cataclysm.exe 0x004967d0
 {
     return tutCameraFocusedOnShipType(shipTypes);
 }
@@ -4123,7 +4124,7 @@ void kasfTutCameraFocus(GrowSelection *ships)
 
 }
 
-void kasfTutCameraFocusDerelictType(char *derelictType)
+void kasfTutCameraFocusDerelictType(char *derelictType)  // KAS TutCameraFocusDerelictType, cataclysm.exe 0x004969e0
 {
     Derelict *derelict;
     Node *node;
@@ -4177,7 +4178,7 @@ void kasfTutCameraFocusFar(GrowSelection *ships)
 }
 
 
-void kasfTutCameraFocusCancel(void)
+void kasfTutCameraFocusCancel(void)  // KAS TutCameraFocusCancel, cataclysm.exe 0x00496ae0
 {
     ccCameraTimeoutOverride = FALSE;
     ccCancelFocus(&universe.mainCameraCommand);
@@ -4192,7 +4193,7 @@ void kasfTutCameraFocusCancel(void)
     Outputs     :
     Return      : void
 ----------------------------------------------------------------------------*/
-void kasfDisablePlayer(bool32 toggle)
+void kasfDisablePlayer(bool32 toggle)  // KAS DisablePlayer, cataclysm.exe 0x00496b00
 {
     if (toggle)
     {
@@ -4205,7 +4206,7 @@ void kasfDisablePlayer(bool32 toggle)
 }
 
 
-sdword kasfTutShipsInView(GrowSelection *ships)
+sdword kasfTutShipsInView(GrowSelection *ships)  // KAS TutShipsInView, cataclysm.exe 0x00496b20
 {
     udword i, inview = 0;
 
@@ -4220,7 +4221,7 @@ sdword kasfTutShipsInView(GrowSelection *ships)
     return inview;
 }
 
-sdword kasfTutShipsTactics(GrowSelection *ships)
+sdword kasfTutShipsTactics(GrowSelection *ships)  // KAS TutShipsTactics, cataclysm.exe 0x00496b70
 {
     if (ships->selection->numShips)
         return ships->selection->ShipPtr[0]->tacticstype;
@@ -4228,26 +4229,26 @@ sdword kasfTutShipsTactics(GrowSelection *ships)
         return -1;
 }
 
-sdword kasfTutPieDistance(void)
+sdword kasfTutPieDistance(void)  // KAS TutPieDistance, cataclysm.exe 0x00496b90
 {
     extern real32 pieDistance;
 
     return (sdword)pieDistance;
 }
 
-sdword kasfTutPieHeight(void)
+sdword kasfTutPieHeight(void)  // KAS TutPieHeight, cataclysm.exe 0x00496ba0
 {
     extern real32 pieHeight;
 
     return (sdword)pieHeight;
 }
 
-void kasfForceFISensors(void)
+void kasfForceFISensors(void)  // KAS ForceFISensors, cataclysm.exe 0x00496bb0
 {
     smFleetIntel = TRUE;
 }
 
-void kasfOpenSensors(sdword flag)
+void kasfOpenSensors(sdword flag)  // KAS OpenSensors, cataclysm.exe 0x00496bc0
 {
     universeTurbo = FALSE;
 
@@ -4293,7 +4294,7 @@ void kasfCloseSensors(sdword flag)
     smFleetIntel = FALSE;
 }
 
-sdword kasfSensorsIsOpen(sdword flag)
+sdword kasfSensorsIsOpen(sdword flag)  // KAS SensorsIsOpen, cataclysm.exe 0x00496c80
 {
     if (flag)
     {
@@ -4323,7 +4324,7 @@ sdword kasfBuildIsOpen(sdword flags)
     return cat_cmIsOpen(flags);
 }
 
-void kasfSensorsWeirdness(sdword value)
+void kasfSensorsWeirdness(sdword value)  // KAS SensorsWeirdness, cataclysm.exe 0x00496ce0
 {
 //    static nisstatic stat2;
 //    static nisstatic stat3;
@@ -4348,92 +4349,92 @@ void kasfSensorsWeirdness(sdword value)
 */
 }
 
-void kasfAllowPlayerToResearch(char *name)
+void kasfAllowPlayerToResearch(char *name)  // KAS TechSetResearch, cataclysm.exe 0x00496cf0
 {
     AllowPlayerToResearch(name);
 }
 
-void kasfAllowPlayerToPurchase(char *name)
+void kasfAllowPlayerToPurchase(char *name)  // KAS TechSetPurchase, cataclysm.exe 0x00496d00
 {
     AllowPlayerToPurchase(name);
 }
 
-void kasfPlayerAcquiredTechnology(char *name)
+void kasfPlayerAcquiredTechnology(char *name)  // KAS TechSet, cataclysm.exe 0x00496d10
 {
     PlayerAcquiredTechnology(name);
 }
 
-sdword kasfCanPlayerResearch(char *name)
+sdword kasfCanPlayerResearch(char *name)  // KAS TechGetResearch, cataclysm.exe 0x00496d20
 {
     return CanPlayerResearch(name);
 }
 
-sdword kasfCanPlayerPurchase(char *name)
+sdword kasfCanPlayerPurchase(char *name)  // KAS TechGetPurchase, cataclysm.exe 0x00496d30
 {
     return CanPlayerPurchase(name);
 }
 
-sdword kasfDoesPlayerHave(char *name)
+sdword kasfDoesPlayerHave(char *name)  // KAS TechGet, cataclysm.exe 0x00496d40
 {
     return DoesPlayerHave(name);
 }
 
-void kasfSetBaseTechnologyCost(char *name, sdword cost)
+void kasfSetBaseTechnologyCost(char *name, sdword cost)  // KAS TechSetCost, cataclysm.exe 0x00496d50
 {
     SetBaseTechnologyCost(name, cost);
 }
 
-sdword kasfGetBaseTechnologyCost(char *name)
+sdword kasfGetBaseTechnologyCost(char *name)  // KAS TechGetCost, cataclysm.exe 0x00496d70
 {
     return GetBaseTechnologyCost(name);
 }
 
-sdword kasfTechIsResearching(void)
+sdword kasfTechIsResearching(void)  // KAS TechIsResearching, cataclysm.exe 0x00496d80
 {
     return rmResearchingAnything(&universe.players[0]);
 }
 
-void kasfEnableTraderGUI(void)
+void kasfEnableTraderGUI(void)  // KAS TraderGUIDisplay, cataclysm.exe 0x00496d90
 {
     tmEnableTraderGUI();
 }
 
-sdword kasfTraderGUIActive(void)
+sdword kasfTraderGUIActive(void)  // KAS TraderGUIIsDisplayed, cataclysm.exe 0x00496da0
 {
     return tmTraderGUIActive();
 }
 
-void kasfSetTraderDialog(sdword dialogNum, char *text)
+void kasfSetTraderDialog(sdword dialogNum, char *text)  // KAS TraderGUIDialogSet, cataclysm.exe 0x00496db0
 {
     tmSetDialog(dialogNum, text);
 }
 
-void kasfSetTraderPriceScale(sdword percent)
+void kasfSetTraderPriceScale(sdword percent)  // KAS TraderGUIPriceScaleSet, cataclysm.exe 0x00496dd0
 {
     tmSetPriceScale(percent);
 }
 
-void kasfSetTraderDisabled(sdword disable)
+void kasfSetTraderDisabled(sdword disable)  // KAS TraderGUIDisable, cataclysm.exe 0x00496de0
 {
     tmSetTradeDisabled(disable);
 }
 
-sdword kasfGetTraderPriceScale(void)
+sdword kasfGetTraderPriceScale(void)  // KAS TraderGUIPriceScaleGet, cataclysm.exe 0x00496df0
 {
     return tmGetPriceScale();
 }
 
-sdword kasfRUsGet(sdword player)
+sdword kasfRUsGet(sdword player)  // KAS RUsGet, cataclysm.exe 0x00496e00
 {
     return universe.players[player].resourceUnits;
 }
 
-void kasfRUsSet(sdword player, sdword RUs)
+void kasfRUsSet(sdword player, sdword RUs)  // KAS RUsSet, cataclysm.exe 0x00496e20
 {
     universe.players[player].resourceUnits = RUs;
 }
 
-sdword kasfGetWorldResources(void)
+sdword kasfGetWorldResources(void)  // KAS GetWorldResources, cataclysm.exe 0x00496e40
 {
     sdword total, numHarvestables, numAsteroid0s;
 
@@ -4442,12 +4443,12 @@ sdword kasfGetWorldResources(void)
     return total;
 }
 
-void kasfSoundEvent(sdword event)
+void kasfSoundEvent(sdword event)  // KAS SoundEvent, cataclysm.exe 0x00496e60
 {
     soundEventMisc(event);
 }
 
-void kasfSoundEventShips(GrowSelection *ships, sdword event)
+void kasfSoundEventShips(GrowSelection *ships, sdword event)  // KAS SoundEventShips, cataclysm.exe 0x00496e80
 {
     if (ships == NULL || ships->selection == NULL || ships->selection->numShips == 0)
         return;
@@ -4499,7 +4500,7 @@ void kasfSpeechEventNoLink(sdword event, sdword variable)
     speechEventQueue(NULL, event, variable, -1, -1, universe.curPlayerIndex, -1, -1.0f, -1);
 }
 
-void kasfSpeechEventShips(GrowSelection *ships, sdword event, sdword variable)
+void kasfSpeechEventShips(GrowSelection *ships, sdword event, sdword variable)  // KAS SpeechEventShips, cataclysm.exe 0x00496fc0
 {
     if (ships == NULL || ships->selection == NULL || ships->selection->numShips == 0)
         return;
@@ -4514,12 +4515,12 @@ void kasfToggleActor(sdword Actor, sdword on)
     (void)on;
 }
 
-void kasfMusicPlay(sdword trackNum)
+void kasfMusicPlay(sdword trackNum)  // KAS MusicPlay, cataclysm.exe 0x00497000
 {
     soundEventPlayMusic((udword)trackNum);
 }
 
-void kasfMusicStop(sdword fadeTime)
+void kasfMusicStop(sdword fadeTime)  // KAS MusicStop, cataclysm.exe 0x00497010
 {
     soundEventStopMusic((real32)fadeTime);
 }
@@ -4552,7 +4553,7 @@ sdword kasfRenderedShips(GrowSelection *ships, sdword LOD) {
     return 0;
 }
 
-void kasfResetShipRenderFlags(GrowSelection *ships)
+void kasfResetShipRenderFlags(GrowSelection *ships)  // KAS ResetShipRenderFlags, cataclysm.exe 0x00497080
 {
     sdword i;
 
@@ -4563,7 +4564,7 @@ void kasfResetShipRenderFlags(GrowSelection *ships)
         ships->selection->ShipPtr[i]->obj.renderedLODs = 0;
 }
 
-sdword kasfRenderedDerelicts(char *derelictType, sdword LOD)
+sdword kasfRenderedDerelicts(char *derelictType, sdword LOD)  // KAS RenderedDerelictType, cataclysm.exe 0x004970c0
 {
     Derelict *derelict;
     Node *node;
@@ -4582,7 +4583,7 @@ sdword kasfRenderedDerelicts(char *derelictType, sdword LOD)
     return 0;
 }
 
-void kasfResetDerelictRenderFlags(char *derelictType)
+void kasfResetDerelictRenderFlags(char *derelictType)  // KAS ResetDerelictRenderFlags, cataclysm.exe 0x00497110
 {
     Derelict *derelict;
     Node *node;
@@ -4607,19 +4608,19 @@ void kasfGateMoveToNearest(void)
 {
 }
 
-void kasfGateDestroy(hvector *gatePoint)
+void kasfGateDestroy(hvector *gatePoint)  // KAS GateDestroy, cataclysm.exe 0x00497140
 {
     //hyperspace
     hsStaticDestroy(gatePoint);
 }
 
-void kasfGateShipsIn(GrowSelection *ships, hvector *gatePoint)
+void kasfGateShipsIn(GrowSelection *ships, hvector *gatePoint)  // KAS GateShipsIn, cataclysm.exe 0x00497150
 {
     //hyperspace
     spHyperspaceSelectionInStatic(ships->selection, gatePoint);
 }
 
-void kasfGateShipsOut(GrowSelection *ships, hvector *gatePoint)
+void kasfGateShipsOut(GrowSelection *ships, hvector *gatePoint)  // KAS GateShipsOut, cataclysm.exe 0x00497170
 {
     //hyperspace
     RemoveShipsFromDoingStuff(&universe.mainCommandLayer,ships->selection,0x15);   // CAT: reason 0x15 as the exe (kasfGateShipsOut 0x00497178) [audit: M2-R5 command-tactics]
@@ -4636,7 +4637,7 @@ sdword kasfGateShipsOutNearest(GrowSelection *ships)
 
 //creates a list of the player's currently selected ships
 //added for the tutorial
-sdword kasfFindSelectedShips(GrowSelection *ships)       // CAT: the table's number (HW1 udword)
+sdword kasfFindSelectedShips(GrowSelection *ships)       // CAT: the table's number (HW1 udword); KAS FindSelectedShips, cataclysm.exe 0x004971a0
 {
     udword i;
 
@@ -4655,7 +4656,7 @@ sdword kasfFindSelectedShips(GrowSelection *ships)       // CAT: the table's num
 //
 //  returns how many ships in the selection are disabled
 //
-sdword kasfShipsDisabled(GrowSelection *ships)
+sdword kasfShipsDisabled(GrowSelection *ships)  // KAS ShipsDisabled, cataclysm.exe 0x00497200
 {
     udword i;
     sdword count = 0;
@@ -4747,7 +4748,7 @@ void cat_kasSaveLevelNow(void)
     cat_kasVarDestroyEntry(autoSave);
 }
 
-void kasfClearScreen(void)
+void kasfClearScreen(void)  // KAS ClearScreen, cataclysm.exe 0x004973b0
 {
     rndClear();
 }
@@ -4792,7 +4793,7 @@ void cat_kasWideScreenInFinish(void)
 // the body the exe has three times (kasfWideScreenIn 0x00497420, cat_kasWideScreenInHyperspace 0x004974d0,
 //      kasfWideScreenInDontCloseSensors 0x00497580: identical but for their addresses): the fast-forward off, the
 //      time compression back to normal, a fade-out cut short, the letterbox sound (0x123) and the fade-in (frames *
-//      0.0333f, 0x0072ab58) unless the bars are fully in already, the closing flag cleared, the letterbox active, the
+//      1/30 as a float, 0x3d088889 at 0x0072ab58 [audit: was the literal 0.0333333f, 0x3d088880]) unless the bars are fully in already, the closing flag cleared, the letterbox active, the
 //      camera's pilot mode bit cleared and the letterbox volume on
 static void kasfWideScreenInBody(sdword frames)
 {
@@ -4809,7 +4810,7 @@ static void kasfWideScreenInBody(sdword frames)
             nisScissorFadeTime = 0.0f;
         }
         soundEvent(NULL, CAT_UI_Letterbox);         // CAT: Cataclysm's id 0x123 (0x00497481)
-        nisScissorFadeIn = (real32)((real64)frames * (real64)0.0333333f);
+        nisScissorFadeIn = (real32)((real64)frames * (real64)(1.0f / 30.0f));
         nisTaskResume();
     }
     kasfWideScreenCloseSensors = FALSE;
@@ -4852,7 +4853,7 @@ void kasfWideScreenOut(sdword frames)
         nisScissorFadeTime = 0.0f;
     }
     soundEvent(NULL, CAT_UI_Unletterbox);           // CAT: Cataclysm's id 0x124 (0x0049766a)
-    nisScissorFadeOut = (real32)((real64)frames * (real64)0.0333333f);
+    nisScissorFadeOut = (real32)((real64)frames * (real64)(1.0f / 30.0f));
     nisTaskResume();
     spUnlockout();
     cat_soundEventLetterboxVolume(FALSE);
@@ -4891,13 +4892,13 @@ void kasfLocationCard(sdword milliseconds, char *location)
     kasfDummyEventNumber++;
 }
 
-sdword kasfRaceOfHuman(void)
+sdword kasfRaceOfHuman(void)  // KAS RaceOfHuman, cataclysm.exe 0x00497790
 {
     return universe.players[0].race;
 }
 
 //hides some ships and sets the SOF_HideSave bit where appropriate so the NIS can unhide them
-void kasfHideShips(GrowSelection *ships)
+void kasfHideShips(GrowSelection *ships)  // KAS HideShips, cataclysm.exe 0x004977a0
 {
     sdword index;
 
@@ -4917,7 +4918,7 @@ void kasfHideShips(GrowSelection *ships)
 }
 
 //unhides some ships and sets the SOF_HideSave bit where appropriate so the NIS can unhide them
-void kasfUnhideShips(GrowSelection *ships)
+void kasfUnhideShips(GrowSelection *ships)  // KAS UnhideShips, cataclysm.exe 0x00497800
 {
     sdword index;
 
@@ -5058,7 +5059,7 @@ void kasfRotateDerelictType(char *derelictType, sdword rot_x, sdword rot_y, sdwo
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void kasfUniversePause(void)
+void kasfUniversePause(void)  // KAS PauseUniverse, cataclysm.exe 0x00497a90
 {
     nisUniversePause = TRUE;
 #if NIS_VERBOSE_LEVEL >= 1
@@ -5074,7 +5075,7 @@ void kasfUniversePause(void)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void kasfUniverseUnpause(void)
+void kasfUniverseUnpause(void)  // KAS UnpauseUniverse, cataclysm.exe 0x00497aa0
 {
     nisUniversePause = FALSE;
 #if NIS_VERBOSE_LEVEL >= 1
@@ -5085,12 +5086,12 @@ void kasfUniverseUnpause(void)
 
 // pause the build
 
-void kasfPauseBuildShips(void)
+void kasfPauseBuildShips(void)  // KAS PauseShipBuilding, cataclysm.exe 0x00497ab0
 {
     cmPauseAllJbos();
 }
 
-void kasfUnpauseBuildShips(void)
+void kasfUnpauseBuildShips(void)  // KAS UnpauseShipBuilding, cataclysm.exe 0x00497ac0
 {
     cmUnPauseAllJobs();
 }
@@ -5110,7 +5111,7 @@ void kasfOtherKASPause(void)
     kasUnpausedTeam = CurrentTeamP;
     timTimerPauseAllNotScoped(CurrentMissionScopeName);     //pause all the other timers
 }
-void kasfOtherKASUnpause(void)
+void kasfOtherKASUnpause(void)  // KAS UnpauseOtherKAS, cataclysm.exe 0x00497af0
 {
     kasUnpausedTeam = NULL;
     timTimerUnpauseAll();                                   //unpause all paused timers
@@ -5126,7 +5127,7 @@ void kasfOtherKASUnpause(void)
     Return      : 1 if the current fleet intel subtitle expired, 2 if the user
                     hit space in the sensors manager.
 ----------------------------------------------------------------------------*/
-sdword kasfIntelEventEnded(void)
+sdword kasfIntelEventEnded(void)  // KAS IntelEventEnded, cataclysm.exe 0x00497b00
 {
     sdword returnValue = subMessageEnded;
     subMessageEnded = 0;                                //only return TRUE once for each event
@@ -5164,7 +5165,7 @@ sdword kasfIntelEventEnded(void)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void kasfIntelEventNotEnded(void)
+void kasfIntelEventNotEnded(void)  // KAS IntelEventNotEnded, cataclysm.exe 0x00497b80
 {
     subMessageEnded = FALSE;
 }
@@ -5177,7 +5178,7 @@ void kasfIntelEventNotEnded(void)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void kasfForceIntelEventEnded(void)
+void kasfForceIntelEventEnded(void)  // KAS ForceIntelEventEnded, cataclysm.exe 0x00497b90
 {
     subMessageEnded = TRUE;
 }
@@ -5189,7 +5190,7 @@ void kasfForceIntelEventEnded(void)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void kasfSensorsStaticOn(void)
+void kasfSensorsStaticOn(void)  // KAS SensorsStaticOn, cataclysm.exe 0x00497ba0
 {
     static nisstatic newStatic;                             //needs to be persistant
 
@@ -5224,7 +5225,7 @@ void kasfSensorsStaticOn(void)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void kasfSensorsStaticOff(void)
+void kasfSensorsStaticOff(void)  // KAS SensorsStaticOff, cataclysm.exe 0x00497ca0
 {
     nisStaticOffExp(NIS_SMStaticIndex);
 }
@@ -5251,7 +5252,7 @@ void kasfGameEnd(void)
     Return      :
     Note        : the first parameter to the effect will be the size of the ship.
 ----------------------------------------------------------------------------*/
-void kasfSpawnEffect(GrowSelection *ships, char *effectName, sdword parameter)
+void kasfSpawnEffect(GrowSelection *ships, char *effectName, sdword parameter)  // KAS SpawnEffect, cataclysm.exe 0x00497cb0
 {
     real32 floatParameter;
     udword intParameter, intSize, index, count;
@@ -5872,7 +5873,7 @@ sdword kasfFindEnemiesNearbyWithoutStealthy(GrowSelection *ships, sdword radius)
     return ships->selection->numShips;
 }
 
-sdword kasfFindEnemiesNearTeamWithoutStealthy(GrowSelection *ships, sdword radius)
+sdword kasfFindEnemiesNearTeamWithoutStealthy(GrowSelection *ships, sdword radius)  // KAS FindEnemiesNearTeamWithoutStealthy, cataclysm.exe 0x00498970
 {
     Ship *medianShip, *ship;
     real32 rangeSquared = (real32)radius*(real32)radius;
@@ -6811,7 +6812,8 @@ void kasfShipsSort(GrowSelection *ships, hvector *origin)
 {
     sdword i, j;
     Ship *a, *b;
-    real32 ax, ay, az, bx, by, bz;
+    real64 ax, ay, az, bx, by;
+    real32 bz;
 
     if (ships->selection->numShips == 0)
     {
@@ -6823,13 +6825,16 @@ void kasfShipsSort(GrowSelection *ships, hvector *origin)
         {
             a = ships->selection->ShipPtr[i];
             b = ships->selection->ShipPtr[j];
-            ax = origin->x - a->obj.posinfo.position.x;
-            ay = origin->y - a->obj.posinfo.position.y;
-            az = origin->z - a->obj.posinfo.position.z;
-            bx = origin->x - b->obj.posinfo.position.x;
-            by = origin->y - b->obj.posinfo.position.y;
-            bz = origin->z - b->obj.posinfo.position.z;
-            if (((real64)ax * ax + (real64)ay * ay + (real64)az * az) < ((real64)bx * bx + (real64)by * by + (real64)bz * bz))
+            // CAT [audit: M2-R8 kasf-library]: the exe's x87 shape at the 53-bit control word (0x0049a147 .. 0x0049a1bf):
+            //      five differences stay on the stack (double), only bz is stored as a float (0x0049a197), and each
+            //      sum is (z*z + y*y) + x*x
+            ax = (real64)origin->x - (real64)a->obj.posinfo.position.x;
+            ay = (real64)origin->y - (real64)a->obj.posinfo.position.y;
+            az = (real64)origin->z - (real64)a->obj.posinfo.position.z;
+            bx = (real64)origin->x - (real64)b->obj.posinfo.position.x;
+            by = (real64)origin->y - (real64)b->obj.posinfo.position.y;
+            bz = (real32)((real64)origin->z - (real64)b->obj.posinfo.position.z);
+            if (((az * az + ay * ay) + ax * ax) < (((real64)bz * bz + by * by) + bx * bx))
             {
                 ships->selection->ShipPtr[j] = a;
                 ships->selection->ShipPtr[i] = b;
@@ -6924,17 +6929,17 @@ sdword kasfNomadMoonEmitterCount(GrowSelection *NomadMoon)
     return cat_nomadMoonEmitterCount(NomadMoon->selection->ShipPtr[0]);
 }
 
-sdword kasfNomadMoonCanFire(GrowSelection *NomadMoon)
+sdword kasfNomadMoonCanFire(GrowSelection *NomadMoon)  // KAS NomadMoonCanFire, cataclysm.exe 0x0049a380
 {
     return cat_nomadMoonCanFire(NomadMoon->selection->ShipPtr[0]);
 }
 
-sdword kasfNomadMoonFire(GrowSelection *NomadMoon)
+sdword kasfNomadMoonFire(GrowSelection *NomadMoon)  // KAS NomadMoonFire, cataclysm.exe 0x0049a3a0
 {
     return cat_nomadMoonFire(NomadMoon->selection->ShipPtr[0]);
 }
 
-sdword kasfGetNaggarokMissiles(GrowSelection *Naggarok)
+sdword kasfGetNaggarokMissiles(GrowSelection *Naggarok)  // KAS GetNaggarokMissiles, cataclysm.exe 0x0049a3c0
 {
     return cat_rkoGetNaggarokMissiles(Naggarok->selection->ShipPtr[0]);
 }
@@ -7002,7 +7007,7 @@ void kasfShipsHyperspaceOut(GrowSelection *ships)
     }
 }
 
-void kasfShipsHyperspaceIn(GrowSelection *ships, hvector *point)
+void kasfShipsHyperspaceIn(GrowSelection *ships, hvector *point)  // KAS ShipsHyperspaceIn, cataclysm.exe 0x0049a530
 {
     if ((ships != NULL) && (ships->selection->numShips != 0))
     {
@@ -7082,7 +7087,7 @@ sdword kasfIsForceFieldActive(GrowSelection *Ships)
     return 0;
 }
 
-sdword kasfIsEMPReady(GrowSelection *Ships)
+sdword kasfIsEMPReady(GrowSelection *Ships)  // KAS IsEMPReady, cataclysm.exe 0x0049a6f0
 {
     sdword i;
 
@@ -7096,7 +7101,7 @@ sdword kasfIsEMPReady(GrowSelection *Ships)
     return 0;
 }
 
-sdword kasfIsBeastReady(GrowSelection *Ships)
+sdword kasfIsBeastReady(GrowSelection *Ships)  // KAS IsBeastReady, cataclysm.exe 0x0049a740
 {
     sdword i;
 
@@ -7222,7 +7227,7 @@ void kasfRKOBigGunPos(GrowSelection *RKO, hvector *Bullet)
     cat_rkoSetBigGunPos(RKO->selection->ShipPtr[0], &pos);
 }
 
-sdword kasfRKOIsSafe(GrowSelection *RKO)
+sdword kasfRKOIsSafe(GrowSelection *RKO)  // KAS RKOIsSafe, cataclysm.exe 0x0049aa40
 {
     if (RKO->selection->numShips >= 1)
     {
@@ -7231,7 +7236,7 @@ sdword kasfRKOIsSafe(GrowSelection *RKO)
     return 0;
 }
 
-sdword kasfRKOAvoidLocation(GrowSelection *RKO, hvector *Avoid, hvector *Safe)
+sdword kasfRKOAvoidLocation(GrowSelection *RKO, hvector *Avoid, hvector *Safe)  // KAS RKOAvoidLocation, cataclysm.exe 0x0049aa60
 {
     vector avoid, safe;
 
@@ -7271,7 +7276,7 @@ void kasfShipsSetColor(GrowSelection *Ships, sdword Color)
     }
 }
 
-sdword kasfIsSwarmReady(GrowSelection *Ships)
+sdword kasfIsSwarmReady(GrowSelection *Ships)  // KAS IsSwarmReady, cataclysm.exe 0x0049ab20
 {
     sdword i;
 
@@ -7377,12 +7382,12 @@ sdword kasfGetVectorX(hvector *vector)
     return (sdword)floor((real64)vector->x + (real64)0.5f);
 }
 
-sdword kasfGetVectorY(hvector *vector)
+sdword kasfGetVectorY(hvector *vector)  // KAS GetPointY, cataclysm.exe 0x0049ad00
 {
     return (sdword)floor((real64)vector->y + (real64)0.5f);
 }
 
-sdword kasfGetVectorZ(hvector *vector)
+sdword kasfGetVectorZ(hvector *vector)  // KAS GetPointZ, cataclysm.exe 0x0049ad20
 {
     return (sdword)floor((real64)vector->z + (real64)0.5f);
 }

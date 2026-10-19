@@ -1333,6 +1333,8 @@ static void cat_consoleExperienceShips(sdword type, void *data, void *value, cha
         ship one fighter kill more), "PROF", an unknown name ("Not a command"), saveConfig / loadConfig of a test file
         in the settings path (the file's size checked; what loadConfig reads back is logged: the exe's reader decodes
         the writer's little-endian words big-endian);
+      - M2-R8 kasf library: KAS lines (VarCreateSet / VarGet / VarInc / VarDestroy of a G_ variable, each reply checked)
+        through the generated KAS table and dispatcher, and the table's 486 rows counted;
       - types lines through the console's key handler (cat_consoleKeyPress with virtual-key codes, no OS input): a
         command and Enter (echo and effect checked), TAB completion, the history (up), backspace, Escape;
       - scrolls it out with the tilde key; when it is gone (the universe runs again) "consoletest: done ...
@@ -1344,6 +1346,7 @@ static sdword catConTestFrames = 0;
 static sdword catConTestSelected = 0;
 static sdword catConTestFailures = 0;
 static sdword catConTestShown = 0, catConTestSet = 0, catConTestCommands = 0, catConTestKeys = 0;
+static sdword catConTestKas = 0;                    // M2-R8 kasf library: KAS lines answered as expected
 static bool32 catConTestOpened = FALSE, catConTestClosed = FALSE;
 #define CAT_CON_TEST_SELECT_TICK    16
 #define CAT_CON_TEST_OPEN_TICK      24
@@ -1544,6 +1547,46 @@ static void catConTestTable(void)
         CAT_CON_TEST_FAIL("unknown command: '%s'", reply);
     }
 
+    // M2-R8 kasf library: KAS lines through cat_consoleKasCommand, the generated table and dispatcher
+    //      (KASFuncTable.c / KASFuncDispatch.c): a global variable (a "G_" name: bit 31, scope 0) created, read,
+    //      incremented and destroyed through the KAS variable store; the table's rows counted to its "*" sentinel
+    {
+        static const struct { char *line; char *expect; } kasLines[] =
+        {
+            {"VarCreateSet G_ConsoleTest 7", "KAS Ok"},
+            {"VarGet G_ConsoleTest",         "KAS Returned 7"},
+            {"VarInc G_ConsoleTest",         "KAS Ok"},
+            {"VarGet G_ConsoleTest",         "KAS Returned 8"},
+            {"VarDestroy G_ConsoleTest",     "KAS Ok"},
+            {"VarGet G_ConsoleTest",         "KAS Returned 0"},
+        };
+        const CatKasFunction *kasRow;
+        sdword kasRows = 0;
+
+        for (index = 0; index < (sdword)(sizeof(kasLines) / sizeof(kasLines[0])); index++)
+        {
+            reply = catConTestRun(kasLines[index].line);
+            if (strcmp(reply, kasLines[index].expect) != 0)
+            {
+                CAT_CON_TEST_FAIL("KAS '%s': '%s', not '%s'", kasLines[index].line, reply, kasLines[index].expect);
+            }
+            else
+            {
+                catConTestKas++;
+            }
+        }
+        for (kasRow = cat_kasFunctionTable; strcmp(kasRow->name, "*") != 0; kasRow++)
+        {
+            kasRows++;
+        }
+        if (kasRows != CAT_KAS_FUNCTION_COUNT)
+        {
+            CAT_CON_TEST_FAIL("KAS table: %d rows, not %d", kasRows, CAT_KAS_FUNCTION_COUNT);
+        }
+        dbgMessagef("consoletest: kas lines=%d ok=%d tablerows=%d last='%s'", (sdword)(sizeof(kasLines) / sizeof(kasLines[0])),
+                    catConTestKas, kasRows, reply);
+    }
+
     // the config file
     catConTestRun("saveConfig " CAT_CON_TEST_FILE);
     catConConfigFileName(path, CAT_CON_TEST_FILE);
@@ -1685,10 +1728,11 @@ void catConsoleSelfTestTick(void)
         catConTestStep = 4;
         catConTestClosed = (catConScreen == NULL) && (catConScrollPos == 0) && !(singlePlayerGame && universePause);
         pass = (catConTestSelected > 0) && catConTestOpened && catConTestClosed && (catConTestFailures == 0) &&
-               (catConTestShown == 29 + CAT_CON_HWI_ROWS) && (catConTestSet == 22 + CAT_CON_HWI_ROWS) && (catConTestFrames > 0);   // HWI-FEATURE(motion-interp): + the HWI rows
-        dbgMessagef("consoletest: done selected=%d frames=%d shown=%d set=%d commands=%d keys=%d closed=%d failures=%d "
+               (catConTestShown == 29 + CAT_CON_HWI_ROWS) && (catConTestSet == 22 + CAT_CON_HWI_ROWS) && (catConTestFrames > 0) &&
+               (catConTestKas == 6);   // HWI-FEATURE(motion-interp): + the HWI rows
+        dbgMessagef("consoletest: done selected=%d frames=%d shown=%d set=%d commands=%d keys=%d kas=%d closed=%d failures=%d "
                     "result=%s", catConTestSelected, catConTestFrames, catConTestShown, catConTestSet, catConTestCommands,
-                    catConTestKeys, catConTestClosed, catConTestFailures, pass ? "PASS" : "FAIL");
+                    catConTestKeys, catConTestKas, catConTestClosed, catConTestFailures, pass ? "PASS" : "FAIL");
         utyGameQuit(NULL, NULL);
     }
 }
