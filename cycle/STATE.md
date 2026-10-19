@@ -384,8 +384,7 @@ producers' and auditors' 214, the integrate step's first pass 46, the merge's ch
 
 ### M2-R8 plan (the oracle's rung first, then stage 6 part A; stage 5 is the user's call; details, counts and the exit test in docs/m2-r7-summary.md "Plan for M2-R8")
 
-**NOT YET LAUNCHED.** The script `cycle/workflows/m2-r8.js` is not written; it is launched from the user's terminal
-session after the user's answers to docs/m2-r7-summary.md "What the user must decide" (decision 23 / 56 first). Four
+**IN FLIGHT since 2026-10-19 11:10** from the user's terminal session 38027cce (Fable), `cycle/workflows/m2-r8.js` (4 producers + 4 auditors on Opus, integrate on Fable; ROUND_BASE 145352a; order: the rung, the kasf library, the KAS runtime + Mission01, single player). Launched with decision 23 / 56 UNCHANGED (`FSQRT_DEFAULT = 'sqrtf'`: the table fsqrt stays behind `/oracleTableFsqrt`; producer 1 judges the rung with the switch on and off); the user's answers to docs/m2-r7-summary.md "What the user must decide" fold in by flipping that constant (producer 1 then reruns from its report) and by the integrate. The orchestrator must NOT launch it; relaunch after a cut-off = Workflow({scriptPath, resumeFromRunId}) from that session (same-session cache only; a new session relaunches without the id and the probe skips audited ports). Four
 producers in sequence + four auditors + integrate (9 agents). Stage 6 at the end of R7: 343 / 125 / 26 HW1-matched (40,897
 + 1,565 B; 104 bodies unread, 27,781 B: KASFunc.c 35, SinglePlayer.c 26, KAS.c 15, Tutor.c 10, Timer.c 8, LevelLoad.c 5,
 Objectives.c 5) + 2,365 cat-new (2,085 kas2c mission functions, 612,687 B; 280 others, 45 defined) + 47 `CAT-TODO(stage 6
