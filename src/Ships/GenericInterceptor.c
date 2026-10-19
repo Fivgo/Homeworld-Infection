@@ -418,8 +418,18 @@ void GenericInterceptorPassiveAttack(Ship *ship,Ship *target,bool32 rotate)
     else
         aishipGetTrajectory(ship,(SpaceObjRotImpTarg *)target,&trajectory);
 
-    dist = fsqrt(vecMagnitudeSquared(trajectory));
-    vecDivideByScalar(trajectory,dist,temp);
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape (GenericInterceptorPassiveAttack 0x005b24dc): the double
+    //      (z*z + y*y) + x*x into fsqrt, the distance stored as a float, its double reciprocal scaling each component
+    //      with one rounding
+    dist = (real32)catFsqrtD(((double)trajectory.z * trajectory.z + (double)trajectory.y * trajectory.y) +
+                             (double)trajectory.x * trajectory.x);
+    {
+        double inv = 1.0 / (double)dist;
+        trajectory.x = (real32)(inv * trajectory.x);
+        trajectory.y = (real32)(inv * trajectory.y);
+        trajectory.z = (real32)(inv * trajectory.z);
+    }
+    (void)temp;
 
     range = RangeToTargetGivenDist(ship,(SpaceObjRotImpTarg *)target,dist);
 

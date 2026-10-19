@@ -457,17 +457,51 @@ bool32 aitrackHeadingAndUp(Ship *ship,vector *desiredHeading,vector *desiredUp,r
     Outputs     :
     Return      : TRUE if heading has been successfully tracked.
 ----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    Name        : catAitrackTurn
+    Description : CAT (M2-R8 oracle-rung-physics): one axis of aitrackHeadingFunc 0x00418de0 at the exe's x87 shape:
+                  the float rotation speed compared with the double desired speed; the torque
+                  ((desired - rotspeed) * moment of inertia) * oneovertime, or (rotspeed - desired) * ..., is a double
+                  compared with the float strength of that direction (test ah,0x41: above it, the strength is used)
+                  and otherwise rounded once to float, then applied
+    Inputs      : ship, desired (double), rotspeed, moment of inertia, 1/t, the two directions (ccw first)
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+static void catAitrackTurn(SpaceObjRotImpTargGuidance *ship, double desired, real32 rotspeed, real32 moi,
+                           real32 oneovertime, uword ccw, uword cw)
+{
+    double rotstr;
+    uword dir;
+
+    if ((double)rotspeed < desired)
+    {
+        rotstr = ((desired - (double)rotspeed) * moi) * oneovertime;
+        dir = ccw;
+    }
+    else
+    {
+        rotstr = (((double)rotspeed - desired) * moi) * oneovertime;
+        dir = cw;
+    }
+    if (rotstr > (double)ship->nonstatvars.rotstrength[dir])
+    {
+        physApplyRotToObj(&ship->rotatable, ship->nonstatvars.rotstrength[dir], dir);
+    }
+    else
+    {
+        physApplyRotToObj(&ship->rotatable, (real32)rotstr, dir);
+    }
+}
+
 bool32 aitrackHeadingFunc(SpaceObjRotImpTargGuidance *ship,vector *desiredHeading,real32 accuracy,real32 upaccuracy,real32 sinbank,udword flags)
 {
     StaticInfoHealthGuidance *shipstaticinfo = ship->staticinfo;
 
     vector curheading;
     vector curup;
-    real32 dotProdCheckHeading;
+    double dotProdCheckHeading;     // CAT: a double on the exe's FPU (M2-R8 oracle-rung-physics)
     real32 dotProdCheckUp;
-
-    real32 desiredrotspeed;
-    real32 rotspeed;
 
     vector desiredHeadingInShipCoordSys;
 
@@ -504,21 +538,24 @@ bool32 aitrackHeadingFunc(SpaceObjRotImpTargGuidance *ship,vector *desiredHeadin
     aishipStatsDesiredHeading(*desiredHeading);
     aishipStatsActualHeading(curheading);
 
-    dotProdCheckHeading = vecDotProduct(*desiredHeading,curheading);
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape (aitrackHeadingFunc 0x00418e8d): the dot product stays a double on
+    //      the FPU, (cur.z*des.z + cur.y*des.y) + cur.x*des.x, compared as such with -1.0f and the float accuracy
+    dotProdCheckHeading = ((double)curheading.z * desiredHeading->z + (double)curheading.y * desiredHeading->y) +
+                          (double)curheading.x * desiredHeading->x;
     dotProdCheckUp = curup.z; //vecDotProduct(desiredUp,curup);
 
 #if DEBUG_AITRACK
     dbgMessagef("Heading accuracy: %f",dotProdCheckHeading);
 #endif
 
-    if (dotProdCheckHeading <= -1.0f)
+    if (dotProdCheckHeading <= -1.0)
     {
         // Exactly opposite direction, so arbitrarily chose a direction and rotate that way
         physApplyRotToObj(&ship->rotatable,ship->nonstatvars.rotstrength[ROT_ABOUTXCW],ROT_ABOUTXCW);
         return FALSE;
     }
 
-    if ((dotProdCheckHeading >= accuracy) &&
+    if ((dotProdCheckHeading >= (double)accuracy) &&
         ((flags & (AITRACKHEADING_IGNOREUPVEC+AITRACKHEADING_DONTROLL)) || (dotProdCheckUp >= upaccuracy)) )
     {
 #if DEBUG_AITRACK
@@ -544,23 +581,31 @@ bool32 aitrackHeadingFunc(SpaceObjRotImpTargGuidance *ship,vector *desiredHeadin
 
     oneovertime = 1.0f / universe.phystimeelapsed;
 
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape (aitrackHeadingFunc 0x00418f56..0x004191f3): each desired
+    //      rotation speed stays a double (the yaw's -y * turnspeed, the pitch's x * turnspeed, the roll's
+    //      (up.y - yawcloseness) * turnspeed), compared with the float rotation speed as a double, and the torque
+    //      ((desired - rotspeed) * moment of inertia) * (1 / t) is one double rounded once where it is stored below its
+    //      cap (catAitrackTurn); yawcloseness is stored as a float, as in the exe
+
     // Check if we need to rotate about x axis (yaw)
     if (desiredHeadingInShipCoordSys.y != 0)
     {
+        double desiredrotspeedx;
+
         if (desiredHeadingInShipCoordSys.z < 0.0f)
         {
             if (desiredHeadingInShipCoordSys.y < 0.0f)
             {
-                desiredrotspeed = ship->nonstatvars.turnspeed[TURN_ABOUTX];
+                desiredrotspeedx = ship->nonstatvars.turnspeed[TURN_ABOUTX];
             }
             else
             {
-                desiredrotspeed = -ship->nonstatvars.turnspeed[TURN_ABOUTX];
+                desiredrotspeedx = -(double)ship->nonstatvars.turnspeed[TURN_ABOUTX];
             }
         }
         else
         {
-            desiredrotspeed = -desiredHeadingInShipCoordSys.y * ship->nonstatvars.turnspeed[TURN_ABOUTX];
+            desiredrotspeedx = -((double)desiredHeadingInShipCoordSys.y * ship->nonstatvars.turnspeed[TURN_ABOUTX]);
         }
 
         if (sinbank != 0.0f)
@@ -578,39 +623,19 @@ bool32 aitrackHeadingFunc(SpaceObjRotImpTargGuidance *ship,vector *desiredHeadin
             }
             else
             {
-                yawcloseness = -desiredHeadingInShipCoordSys.y * sinbank;
+                yawcloseness = (real32)(-((double)desiredHeadingInShipCoordSys.y * sinbank));
             }
         }
-        rotspeed = ship->rotatable.rotinfo.rotspeed.x;
-
-        if (rotspeed < desiredrotspeed)
-        {
-            rotstr = (desiredrotspeed - rotspeed) * shipstaticinfo->common.momentOfInertiaX * oneovertime;
-            physApplyRotToObj(&ship->rotatable,capNumber(rotstr,ship->nonstatvars.rotstrength[ROT_ABOUTXCCW]),ROT_ABOUTXCCW);
-        }
-        else
-        {
-            rotstr = (rotspeed - desiredrotspeed) * shipstaticinfo->common.momentOfInertiaX * oneovertime;
-            physApplyRotToObj(&ship->rotatable,capNumber(rotstr,ship->nonstatvars.rotstrength[ROT_ABOUTXCW]),ROT_ABOUTXCW);
-        }
+        catAitrackTurn(ship, desiredrotspeedx, ship->rotatable.rotinfo.rotspeed.x, shipstaticinfo->common.momentOfInertiaX,
+                       oneovertime, ROT_ABOUTXCCW, ROT_ABOUTXCW);
     }
 
     // Check if we need to rotate about y axis (pitch)
     if (desiredHeadingInShipCoordSys.x != 0)
     {
-        desiredrotspeed = desiredHeadingInShipCoordSys.x * ship->nonstatvars.turnspeed[TURN_ABOUTY];
-        rotspeed = ship->rotatable.rotinfo.rotspeed.y;
-
-        if (rotspeed < desiredrotspeed)
-        {
-            rotstr = (desiredrotspeed - rotspeed) * shipstaticinfo->common.momentOfInertiaY * oneovertime;
-            physApplyRotToObj(&ship->rotatable,capNumber(rotstr,ship->nonstatvars.rotstrength[ROT_ABOUTYCCW]),ROT_ABOUTYCCW);
-        }
-        else
-        {
-            rotstr = (rotspeed - desiredrotspeed) * shipstaticinfo->common.momentOfInertiaY * oneovertime;
-            physApplyRotToObj(&ship->rotatable,capNumber(rotstr,ship->nonstatvars.rotstrength[ROT_ABOUTYCW]),ROT_ABOUTYCW);
-        }
+        catAitrackTurn(ship, (double)desiredHeadingInShipCoordSys.x * ship->nonstatvars.turnspeed[TURN_ABOUTY],
+                       ship->rotatable.rotinfo.rotspeed.y, shipstaticinfo->common.momentOfInertiaY, oneovertime,
+                       ROT_ABOUTYCCW, ROT_ABOUTYCW);
     }
 
     if (flags & AITRACKHEADING_DONTROLL)
@@ -623,19 +648,9 @@ bool32 aitrackHeadingFunc(SpaceObjRotImpTargGuidance *ship,vector *desiredHeadin
 
     if (desiredUpInShipCoordSys.y != yawcloseness)
     {
-        desiredrotspeed = (desiredUpInShipCoordSys.y - yawcloseness) * ship->nonstatvars.turnspeed[TURN_ABOUTZ];
-        rotspeed = ship->rotatable.rotinfo.rotspeed.z;
-
-        if (rotspeed < desiredrotspeed)
-        {
-            rotstr = (desiredrotspeed - rotspeed) * shipstaticinfo->common.momentOfInertiaZ * oneovertime;
-            physApplyRotToObj(&ship->rotatable,capNumber(rotstr,ship->nonstatvars.rotstrength[ROT_ABOUTZCCW]),ROT_ABOUTZCCW);
-        }
-        else
-        {
-            rotstr = (rotspeed - desiredrotspeed) * shipstaticinfo->common.momentOfInertiaZ * oneovertime;
-            physApplyRotToObj(&ship->rotatable,capNumber(rotstr,ship->nonstatvars.rotstrength[ROT_ABOUTZCW]),ROT_ABOUTZCW);
-        }
+        catAitrackTurn(ship, ((double)desiredUpInShipCoordSys.y - yawcloseness) * ship->nonstatvars.turnspeed[TURN_ABOUTZ],
+                       ship->rotatable.rotinfo.rotspeed.z, shipstaticinfo->common.momentOfInertiaZ, oneovertime,
+                       ROT_ABOUTZCCW, ROT_ABOUTZCW);
     }
 
     return FALSE;
@@ -645,18 +660,22 @@ bool32 aitrackHeadingWithBankPitchFunc(Ship *ship,vector *desiredHeading,real32 
 {
     vector curheading;
     vector desheading;
-    real32 curheadingsqr,curheadingmag;
-    real32 desheadingsqr,desheadingmag;
+    real32 desheadingsqr;
+    double curheadingsqr;
+    real32 temp1;
+    double temp2;
+    double desheadingy;
 
     vector curup;
 
-    real32 dotprodheading;
+    double dotprodheading;
     real32 dotProdCheckUp;
 
-    real32 actualpitchturn;
-    real32 finalpitch;
-
-    real32 temp1,temp2;
+    double actualpitchturn;
+    double finalpitch;
+    long double tanpitch;
+    double tanhi;
+    double norm;
 
     if(ship->header.objtype == OBJ_ShipType)
     {
@@ -675,34 +694,40 @@ bool32 aitrackHeadingWithBankPitchFunc(Ship *ship,vector *desiredHeading,real32 
     desheading.y = desiredHeading->y;
     // I will treat desheading.z as = 0, but will not set it.
 
-    desheadingsqr = desheading.x * desheading.x + desheading.y * desheading.y;
-    curheadingsqr = curheading.x * curheading.x + curheading.y * curheading.y;
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape (aitrackHeadingWithBankPitchFunc 0x00419200): the desired
+    //      heading's square (y*y + x*x) is stored as a float, the current heading's stays a double; each goes to
+    //      fsqrt as a double; 1 / |cur| is stored as a float, 1 / |des| stays a double; the scaled des.y is stored as
+    //      a float but the dot product uses its unrounded double ((des.y * cur.y) + des.x * cur.x, a double); the
+    //      pitch is a double, its fptan is the x87's extended result (here tanl: long double is the x87 format on
+    //      the x86 builds), stored once as the float des.z and multiplied UNROUNDED by that float, + 1.0f, into
+    //      fsqrt; the double reciprocal scales the three stored components
+    desheadingsqr = (real32)((double)desheading.y * desheading.y + (double)desheading.x * desheading.x);
+    curheadingsqr = (double)curheading.y * curheading.y + (double)curheading.x * curheading.x;
     if (desheadingsqr == 0.0f)       // extreme case where heading directly up
     {
         desheading.x = 1.0f;
         desheadingsqr = 1.0f;
     }
-    if (curheadingsqr == 0.0f)      // extreme case where heading directly up
+    if (curheadingsqr == 0.0)      // extreme case where heading directly up
     {
         curheading.x = 1.0f;
-        curheadingsqr = 1.0f;
+        curheadingsqr = 1.0;
     }
 
-    curheadingmag = fsqrt(curheadingsqr);
-    desheadingmag = fsqrt(desheadingsqr);
-    temp1 = 1.0f / curheadingmag;
-    temp2 = 1.0f / desheadingmag;
+    temp1 = (real32)(1.0 / catFsqrtD(curheadingsqr));
+    temp2 = 1.0 / catFsqrtD(desheadingsqr);
 
-    curheading.x *= temp1;
-    curheading.y *= temp1;
-    desheading.x *= temp2;
-    desheading.y *= temp2;
+    curheading.x = (real32)((double)temp1 * curheading.x);
+    curheading.y = (real32)((double)temp1 * curheading.y);
+    desheading.x = (real32)(temp2 * desheading.x);
+    desheadingy = temp2 * desheading.y;
+    desheading.y = (real32)desheadingy;
 
-    dotprodheading = (curheading.x * desheading.x) + (curheading.y * desheading.y); // no need to mulitply z components because it is 0
+    dotprodheading = desheadingy * curheading.y + (double)desheading.x * curheading.x; // no need to mulitply z components because it is 0
 
     dotProdCheckUp = curup.z;   //vecDotProduct({0,0,1},curup);
 
-    if ((dotprodheading >= accuracy) && (pitchdescend == 0.0f) &&
+    if ((dotprodheading >= (double)accuracy) && (pitchdescend == 0.0f) &&
         isBetweenExclusive(curheading.z,STABILIZE_Z_LO,STABILIZE_Z_HI) &&
         ((flags & AITRACKHEADING_IGNOREUPVEC) || (dotProdCheckUp >= accuracy)) )
     {
@@ -715,12 +740,12 @@ bool32 aitrackHeadingWithBankPitchFunc(Ship *ship,vector *desiredHeading,real32 
         return TRUE;     // heading close enough to desired heading, so return
     }
 
-    actualpitchturn = (1.0f - ABS(dotprodheading)) * pitchturn;
+    actualpitchturn = (1.0 - ((dotprodheading < 0.0) ? -dotprodheading : dotprodheading)) * pitchturn;
 
     if (pitchdescend < 0.0f)
     {
         actualpitchturn = -actualpitchturn;
-        if (pitchdescend < actualpitchturn)
+        if ((double)pitchdescend < actualpitchturn)
         {
             finalpitch = pitchdescend;
         }
@@ -731,7 +756,7 @@ bool32 aitrackHeadingWithBankPitchFunc(Ship *ship,vector *desiredHeading,real32 
     }
     else
     {
-        if (pitchdescend > actualpitchturn)
+        if ((double)pitchdescend > actualpitchturn)
         {
             finalpitch = pitchdescend;
         }
@@ -743,13 +768,16 @@ bool32 aitrackHeadingWithBankPitchFunc(Ship *ship,vector *desiredHeading,real32 
 
     // we now have the final desired pitch, finalpitch.
 
-    desheading.z = (real32)tan(finalpitch);     // z = tan(theta) * 1 (because sqrt(desheading.x^2 + desheading.y^2) == 1)
+    tanpitch = tanl((long double)finalpitch);
+    desheading.z = (real32)tanpitch;     // z = tan(theta) * 1 (because sqrt(desheading.x^2 + desheading.y^2) == 1)
 
-    temp1 = 1.0f / fsqrt(desheading.z * desheading.z + 1.0f);
+    // the x87 rounds the extended tan times the float once, to 53 bits: fma over the exact split tan = hi + lo
+    tanhi = (double)tanpitch;
+    norm = 1.0 / catFsqrtD(fma(tanhi, (double)desheading.z, (double)(tanpitch - (long double)tanhi) * desheading.z) + 1.0);
 
-    desheading.x *= temp1;       // normalize vector
-    desheading.y *= temp1;
-    desheading.z *= temp1;
+    desheading.x = (real32)(norm * desheading.x);       // normalize vector
+    desheading.y = (real32)(norm * desheading.y);
+    desheading.z = (real32)((double)desheading.z * norm);
 
     return aitrackHeadingFunc((SpaceObjRotImpTargGuidance *)ship,&desheading,accuracy,accuracy, sinbank,flags);
 }
@@ -941,13 +969,49 @@ bool32 aitrackRightVector(Ship *ship,vector *desiredRightVector,real32 accuracy)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    Name        : catAitrackThrust
+    Description : CAT (M2-R8 oracle-rung-physics): one axis of aitrackVelocityVectorGuidance 0x00419460 at the exe's
+                  x87 shape: the difference of the two float components times the float mass / t is a double,
+                  compared with the float thrust strength (above it, the strength is applied) and otherwise rounded
+                  once to float
+----------------------------------------------------------------------------*/
+static void catAitrackThrust(SpaceObjRotImpTargGuidance *ship, real32 shipv, real32 desv, real32 massOverTime,
+                             uword up, uword down)
+{
+    double thruststr;
+    uword dir;
+
+    if (shipv < desv)
+    {
+        thruststr = ((double)desv - shipv) * massOverTime;
+        dir = up;
+    }
+    else if (shipv > desv)
+    {
+        thruststr = ((double)shipv - desv) * massOverTime;
+        dir = down;
+    }
+    else
+    {
+        return;
+    }
+    if (thruststr > (double)ship->nonstatvars.thruststrength[dir])
+    {
+        physApplyForceToObj(&ship->obj, ship->nonstatvars.thruststrength[dir], dir);
+    }
+    else
+    {
+        physApplyForceToObj(&ship->obj, (real32)thruststr, dir);
+    }
+}
+
 void aitrackVelocityVectorGuidance(SpaceObjRotImpTargGuidance *ship,vector *desiredVelocity)
 {
     StaticInfoHealthGuidance *shipstaticinfo = ship->staticinfo;
 
-    vector errorDifference;
-    real32 errorMagSquared;
-    real32 thruststr;
+    double ex, ey, ez;
+    double errorMagSquared;
     real32 massOverTime;
 
     vector desiredVelocityInShipCoordSys;
@@ -955,14 +1019,18 @@ void aitrackVelocityVectorGuidance(SpaceObjRotImpTargGuidance *ship,vector *desi
 
     // check if desiredVelocity is approximately the same as current velocity
 
-    vecSub(errorDifference,*desiredVelocity,ship->obj.posinfo.velocity); // later is there a faster way to do this?
-    errorMagSquared = vecMagnitudeSquared(errorDifference);
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape (aitrackVelocityVectorGuidance 0x00419460): the error vector and
+    //      its square (ez*ez + ey*ey) + ex*ex stay doubles, compared as such with ERROR_VELOCITY_SQUARED
+    ex = (double)desiredVelocity->x - ship->obj.posinfo.velocity.x;
+    ey = (double)desiredVelocity->y - ship->obj.posinfo.velocity.y;
+    ez = (double)desiredVelocity->z - ship->obj.posinfo.velocity.z;
+    errorMagSquared = (ez * ez + ey * ey) + ex * ex;
 
 #if DEBUG_AITRACK
     dbgMessagef("Velocity Error = %f",errorMagSquared);
 #endif
 
-    if (errorMagSquared < ERROR_VELOCITY_SQUARED)
+    if (errorMagSquared < (double)ERROR_VELOCITY_SQUARED)
     {
 #if DEBUG_AITRACK
         dbgMessage("Velocity tracking locked...");
@@ -981,39 +1049,9 @@ void aitrackVelocityVectorGuidance(SpaceObjRotImpTargGuidance *ship,vector *desi
 
     massOverTime = shipstaticinfo->common.mass / universe.phystimeelapsed;
 
-    if (shipVelocityInShipCoordSys.x < desiredVelocityInShipCoordSys.x)
-    {
-        thruststr = (desiredVelocityInShipCoordSys.x - shipVelocityInShipCoordSys.x) * massOverTime;
-        physApplyForceToObj(&ship->obj,capNumber(thruststr,ship->nonstatvars.thruststrength[TRANS_UP]),TRANS_UP);
-    }
-    else if (shipVelocityInShipCoordSys.x > desiredVelocityInShipCoordSys.x)
-    {
-        thruststr = (shipVelocityInShipCoordSys.x - desiredVelocityInShipCoordSys.x) * massOverTime;
-        physApplyForceToObj(&ship->obj,capNumber(thruststr,ship->nonstatvars.thruststrength[TRANS_DOWN]),TRANS_DOWN);
-    }
-
-    if (shipVelocityInShipCoordSys.y < desiredVelocityInShipCoordSys.y)
-    {
-        thruststr = (desiredVelocityInShipCoordSys.y - shipVelocityInShipCoordSys.y) * massOverTime;
-        physApplyForceToObj(&ship->obj,capNumber(thruststr,ship->nonstatvars.thruststrength[TRANS_RIGHT]),TRANS_RIGHT);
-    }
-    else if (shipVelocityInShipCoordSys.y > desiredVelocityInShipCoordSys.y)
-    {
-        thruststr = (shipVelocityInShipCoordSys.y - desiredVelocityInShipCoordSys.y) * massOverTime;
-        physApplyForceToObj(&ship->obj,capNumber(thruststr,ship->nonstatvars.thruststrength[TRANS_LEFT]),TRANS_LEFT);
-    }
-
-    if (shipVelocityInShipCoordSys.z < desiredVelocityInShipCoordSys.z)
-    {
-        thruststr = (desiredVelocityInShipCoordSys.z - shipVelocityInShipCoordSys.z) * massOverTime;
-        physApplyForceToObj(&ship->obj,capNumber(thruststr,ship->nonstatvars.thruststrength[TRANS_FORWARD]),TRANS_FORWARD);
-    }
-    else if (shipVelocityInShipCoordSys.z > desiredVelocityInShipCoordSys.z)
-    {
-        thruststr = (shipVelocityInShipCoordSys.z - desiredVelocityInShipCoordSys.z) * massOverTime;
-        physApplyForceToObj(&ship->obj,capNumber(thruststr,ship->nonstatvars.thruststrength[TRANS_BACKWARD]),TRANS_BACKWARD);
-    }
-
+    catAitrackThrust(ship, shipVelocityInShipCoordSys.x, desiredVelocityInShipCoordSys.x, massOverTime, TRANS_UP, TRANS_DOWN);
+    catAitrackThrust(ship, shipVelocityInShipCoordSys.y, desiredVelocityInShipCoordSys.y, massOverTime, TRANS_RIGHT, TRANS_LEFT);
+    catAitrackThrust(ship, shipVelocityInShipCoordSys.z, desiredVelocityInShipCoordSys.z, massOverTime, TRANS_FORWARD, TRANS_BACKWARD);
 }
 
 /*-----------------------------------------------------------------------------

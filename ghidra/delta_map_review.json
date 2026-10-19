@@ -695,15 +695,15 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "vecSub(collPosition - position) as three float subtractions | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside)",
-  "sample": "IDENTICAL/medium"
+  "note": "vecSub(collPosition - position) as three float subtractions | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside) | [review: M2-R8 oracle-rung-physics] compared: float differences, identical",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00413f90": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "three | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside)",
-  "sample": "reread-R2"
+  "change": "x87 shape: three double components (z+y)+x each, (heading*F + right*R) + up*U, * 0.5, returned as a double",
+  "note": "three | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00414100": {
   "class": "IDENTICAL",
@@ -715,9 +715,9 @@
  "0x00414610": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "adds calls cat_mimicGetAvoidRadius, cat_salvageGetSalvagerInfo, cat_shipGetSpeedMultiplier, cat_shipIsCloakedFully, sub_53F9F0; drops calls to attackSimple, proximityCanPlayerSeeShip (absent from Cataclysm); adds strings \"\\nWarning: ship %s %s flying with no ...\"; fields +attack, needFix, next, objlink (+3) -HaveMoved, Master, ShipSpecifics, TargetPtr (+44); globals +singlePlayerGame; constants 19, 21 not in body; loops 2 -> 5",
-  "note": "[review: M2-R5 layout-dock] the SPECIAL_2_CatNoAvoidance (specialFlags2 0x40) skip of the exe added (0x00413e40) | [review: M2-R5 command-tactics] the escort speed limit (0x004149c6), the linking Acolyte/Mimic skip (0x00414cb9) and the force-field sphere Sentinel exceptions (0x0041546c) ported; open: the small-target pass skip on static+0x48 < 500 (0x00414c8a) and the Ship+0x608 / mission-type exceptions (0x00414e0e) | [review: M2-R7 oracle-rung-aiship] whole body read and ported (AIShip.c): single-player hyperspace-effect skip (0x0041468d), formation leader speed not for COMMAND_DOCK and for FORCEFIELD_SPHERE_FORMATION (0x004149e2), speed multiplier in the cap (0x00414ab2), mimic avoid radius for both ships (0x00414b28, 0x004152b5), no right of way for a docking fighter/corvette at a dock point (0x00414b59), the small-target pass skipped below originalCollSphereSize 500 (0x00414c8a), the link exception skips only the small pass, the Ship+0x608 / clamped-component / single-player FloatingCity-SlipgateNode and Ecclesiam-Mothership exceptions (0x00414e0e), no asteroid potshot (attackSimple) or Asteroid3 row bonus, parade padding by CLASS_Mothership without the R2 variant and without changing the ship pad, clamp info NULL test, cloak test cat_shipIsCloakedFully + cat_shipDetectedByPlayer, squared range test before the sqrt, no R1-mothership repulse flattening, pass-on-right from 30 m (900.0 at 0x0072a4cc); the salvager target compared as a pointer (the UBSan member-access-within-null at AIShip.c:1467 fixed faithfully)",
-  "sample": "audit-R5-layout-dock-sync"
+  "change": "adds calls cat_mimicGetAvoidRadius, cat_salvageGetSalvagerInfo, cat_shipGetSpeedMultiplier, cat_shipIsCloakedFully, sub_53F9F0; drops calls to attackSimple, proximityCanPlayerSeeShip (absent from Cataclysm); adds strings \"\\nWarning: ship %s %s flying with no ...\"; fields +attack, needFix, next, objlink (+3) -HaveMoved, Master, ShipSpecifics, TargetPtr (+44); globals +singlePlayerGame; constants 19, 21 not in body; loops 2 -> 5; x87 shape of the avoidance: squared distance and maxdistconsider squared double, fsqrt of the double, double reciprocals for the normal and the 1/(dtc*scale) repulsion, the collision size of the second object added as a double, the obscured-point size and test in double, the pass-on-right dot stored float and the target square double, pass-right z added with one rounding, maxpossibledist and the formation / parade pads rounded once",
+  "note": "[review: M2-R5 layout-dock] the SPECIAL_2_CatNoAvoidance (specialFlags2 0x40) skip of the exe added (0x00413e40) | [review: M2-R5 command-tactics] the escort speed limit (0x004149c6), the linking Acolyte/Mimic skip (0x00414cb9) and the force-field sphere Sentinel exceptions (0x0041546c) ported; open: the small-target pass skip on static+0x48 < 500 (0x00414c8a) and the Ship+0x608 / mission-type exceptions (0x00414e0e) | [review: M2-R7 oracle-rung-aiship] whole body read and ported (AIShip.c): single-player hyperspace-effect skip (0x0041468d), formation leader speed not for COMMAND_DOCK and for FORCEFIELD_SPHERE_FORMATION (0x004149e2), speed multiplier in the cap (0x00414ab2), mimic avoid radius for both ships (0x00414b28, 0x004152b5), no right of way for a docking fighter/corvette at a dock point (0x00414b59), the small-target pass skipped below originalCollSphereSize 500 (0x00414c8a), the link exception skips only the small pass, the Ship+0x608 / clamped-component / single-player FloatingCity-SlipgateNode and Ecclesiam-Mothership exceptions (0x00414e0e), no asteroid potshot (attackSimple) or Asteroid3 row bonus, parade padding by CLASS_Mothership without the R2 variant and without changing the ship pad, clamp info NULL test, cloak test cat_shipIsCloakedFully + cat_shipDetectedByPlayer, squared range test before the sqrt, no R1-mothership repulse flattening, pass-on-right from 30 m (900.0 at 0x0072a4cc); the salvager target compared as a pointer (the UBSan member-access-within-null at AIShip.c:1467 fixed faithfully) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00416b80": {
   "class": "IDENTICAL",
@@ -1671,8 +1671,8 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same (staticinfo field mistyped by Ghidra)",
-  "sample": "reread-R2"
+  "note": "same (staticinfo field mistyped by Ghidra) | [review: M2-R8 oracle-rung-physics] compared: identical",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x0043a110": {
   "class": "IDENTICAL",
@@ -1697,9 +1697,9 @@
  "0x0043ade0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "salvagers inside a target's cone do not collide; the exe's clamp test (cat_shipsClampedTogether); ramming frigates act first; no bump damage from a salvager just let go, an attached Leech or between RKO pieces",
-  "note": "M2-R4 combat: ported; the ramming frigate call and the Leech query are M2-R4 #4 (CAT-TODO / provisional FALSE) | [review: M2-R5 layout-dock] cat_collSentinelFieldExempt 0x0043acc0 called before the distance test as the exe does | [review: M2-R6 managers] M2-R6 managers: the SOF_CatDocking exemption (unless SPECIAL_2_CatBeingBuilt) for either ship added (0x0043ae38 / 0x0043ae9d); found by the dock self-test",
-  "sample": "port-R6-managers"
+  "change": "salvagers inside a target's cone do not collide; the exe's clamp test (cat_shipsClampedTogether); ramming frigates act first; no bump damage from a salvager just let go, an attached Leech or between RKO pieces; the clamped-host test (SOF_Clamped, the clamp info's host is the other ship, either way round; 0x0043aec4) before the sphere distance; the squared distance (z+y)+x a double stored float and compared unrounded with colldist squared before any root, the root taken after the too-close case and the bump tests",
+  "note": "M2-R4 combat: ported; the ramming frigate call and the Leech query are M2-R4 #4 (CAT-TODO / provisional FALSE) | [review: M2-R5 layout-dock] cat_collSentinelFieldExempt 0x0043acc0 called before the distance test as the exe does | [review: M2-R6 managers] M2-R6 managers: the SOF_CatDocking exemption (unless SPECIAL_2_CatBeingBuilt) for either ship added (0x0043ae38 / 0x0043ae9d); found by the dock self-test | [review: M2-R8 oracle-rung-physics] ported (Collision.c); the other exe-only tests (docking exemption, Sentinel field, salvager, clamp exemption, Leech, RKO) compared: as the tree",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x0043b460": {
   "class": "MODIFIED",
@@ -2164,11 +2164,11 @@
   "sample": "port-R5-command-tactics"
  },
  "0x00443c30": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "[review: M2-R5 command-tactics] compared",
-  "sample": "port-R5-command-tactics"
+  "change": "x87 shape: distance, per-ship cost and sum kept as doubles across the ships (HW1's cumulative distance subtraction kept), rounded once at the return",
+  "note": "[review: M2-R5 command-tactics] compared | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00443cb0": {
   "class": "MODIFIED",
@@ -2291,11 +2291,11 @@
   "sample": "port-R5-command-tactics"
  },
  "0x00445bf0": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "[review: M2-R5 command-tactics] compared",
-  "sample": "port-R5-command-tactics"
+  "change": "x87 shape: to - from double into fsqrt (stored float), the squared distances double against the stored float maximum, the maximum's root, ratio and scale doubles, offsets scaled once",
+  "note": "[review: M2-R5 command-tactics] compared | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x004460d0": {
   "class": "MODIFIED",
@@ -3355,9 +3355,9 @@
  "0x0046a5b0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "user parameters arrive as an array through a 4th argument (0x0046a68e), not as variable arguments",
-  "note": "the variable/rate/effectID layout is as HW1 (earlier review); callers etgEffectCreate/etgSpawnNewEffect/etgCreateEffects pass the array; was IDENTICAL/medium",
-  "sample": "port-R3"
+  "change": "user parameters arrive as an array through a 4th argument (0x0046a68e), not as variable arguments; the user parameters are written with no bound (the tree stops at the end of the variable block: CAT-FIX)",
+  "note": "the variable/rate/effectID layout is as HW1 (earlier review); callers etgEffectCreate/etgSpawnNewEffect/etgCreateEffects pass the array; was IDENTICAL/medium | [review: M2-R8 oracle-rung-physics] compared; CAT-FIX",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x0046ac20": {
   "class": "IDENTICAL",
@@ -4946,11 +4946,11 @@
   "sample": "port-R5-command-tactics"
  },
  "0x00482890": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "[review: M2-R5 command-tactics] compared",
-  "sample": "port-R5-command-tactics"
+  "change": "x87 shape: separation (size + size) * 1.5 rounded once; desired x = (right.x - heading.x) * sep + leader x with one rounding, y and z stored after each step",
+  "note": "[review: M2-R5 command-tactics] compared | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00482a00": {
   "class": "MODIFIED",
@@ -5058,9 +5058,9 @@
  "0x00485280": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "the exe's order of the sums; no ParadeNeedTomoveCloser step",
-  "note": "[review: M2-R5 command-tactics] ported",
-  "sample": "port-R5-command-tactics"
+  "change": "the exe's order of the sums; no ParadeNeedTomoveCloser step; x87 shape of the slot position: leader position + up*upoffset, + right*rightoffset, + heading*headingoffset, each step rounded once; the spacing x heading*hs + (up*us + right*rs) once, y and z step by step",
+  "note": "[review: M2-R5 command-tactics] ported | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00485760": {
   "class": "IDENTICAL",
@@ -5072,9 +5072,9 @@
  "0x00485790": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "the exe's order of the sums; cat_univSetShipPosition; no assertion",
-  "note": "[review: M2-R5 command-tactics] ported",
-  "sample": "port-R5-command-tactics"
+  "change": "the exe's order of the sums; cat_univSetShipPosition; no assertion; the same slot-position shape as processMilitaryParadeToDo",
+  "note": "[review: M2-R5 command-tactics] ported | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00485b00": {
   "class": "IDENTICAL",
@@ -6805,11 +6805,11 @@
   "sample": "audit-R5-layout-dock-sync"
  },
  "0x004ad010": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "audit-R5-layout-dock-sync"
+  "change": "x87 shape: each cross-product component a double difference of double products, rounded once",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x004ad150": {
   "class": "IDENTICAL",
@@ -6819,25 +6819,25 @@
   "sample": "audit-R5-layout-dock-sync"
  },
  "0x004ad1a0": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "HW1 inline-asm version (#if 1): the three static pointers are stored, then the x87 loop [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "reread-R2"
+  "change": "x87 shape of the exe's hand-written loop: each element (a2*b2j + a?*b?j) + ... in the exe's order, double, rounded once",
+  "note": "HW1 inline-asm version (#if 1): the three static pointers are stored, then the x87 loop [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x004ad260": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "HW1 inline asm, same arithmetic [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "reread-R2"
+  "change": "x87 shape: x = (p0 + p1) + p2, y and z = p0 + (p1 + p2), doubles rounded once",
+  "note": "HW1 inline asm, same arithmetic [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x004ad2f0": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "HW1 inline asm, same arithmetic [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "reread-R2"
+  "change": "x87 shape: as matMultiplyMatByVec over the columns",
+  "note": "HW1 inline asm, same arithmetic [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x004ad380": {
   "class": "IDENTICAL",
@@ -6857,22 +6857,22 @@
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "audit-R5-layout-dock-sync"
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] compared: stores of cos, sin, -sin, 0, 1; identical",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x004ad430": {
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "audit-R5-layout-dock-sync"
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] compared: identical",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x004ad470": {
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "audit-R5-layout-dock-sync"
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] compared: identical",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x004ad4b0": {
   "class": "IDENTICAL",
@@ -9107,16 +9107,16 @@
  "0x004e43f0": {
   "class": "MODIFIED",
   "confidence": "medium",
-  "change": "new single-player condition: a ship gets no translation force when singlePlayerGame and a pointer field of the ship (Ghidra: obj[9].cameraDistanceVector) refers to an object of type 6 or whose state at +0x40 is neither 0 nor 7",
-  "note": "dontapplyforceever, SOF_Crazy and the TRANS_* axis/sign logic as HW1",
-  "sample": "reread-R2"
+  "change": "new single-player condition: a ship gets no translation force when singlePlayerGame and a pointer field of the ship (Ghidra: obj[9].cameraDistanceVector) refers to an object of type 6 or whose state at +0x40 is neither 0 nor 7; x87 shape: x and y products stored before the add, z product added to force.z with one rounding",
+  "note": "dontapplyforceever, SOF_Crazy and the TRANS_* axis/sign logic as HW1 | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x004e4520": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "SOF_Crazy test and the ROT_* torque cases as HW1 (Ghidra mislabels torque)",
-  "sample": "reread-R2"
+  "note": "SOF_Crazy test and the ROT_* torque cases as HW1 (Ghidra mislabels torque) | [review: M2-R8 oracle-rung-physics] compared: float adds, identical",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x004e45b0": {
   "class": "MODIFIED",
@@ -9127,9 +9127,9 @@
  "0x004e4950": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "a drifting ship is not accelerated and may reach 1400; top speed times the speed multiplier; helpless or drifting ships keep their speed; no fuel; FOW grid update of fog-seeing ships; universe clamp in multiplayer; physUpdateObjPosVelShip: the FOW update (cat_shipAffectsFOW, cat_univShipFOWUpdate from the old to the new position) ported",
-  "note": "M2-R4 combat: ported; the FOW update is stage 3 | [review: M2-R6 nis-fow-camera] physUpdateObjPosVelShip: the FOW update (cat_shipAffectsFOW, cat_univShipFOWUpdate from the old to the new position) ported",
-  "sample": "port-R6-nis-fow-camera"
+  "change": "a drifting ship is not accelerated and may reach 1400; top speed times the speed multiplier; helpless or drifting ships keep their speed; no fuel; FOW grid update of fog-seeing ships; universe clamp in multiplayer; physUpdateObjPosVelShip: the FOW update (cat_shipAffectsFOW, cat_univShipFOWUpdate from the old to the new position) ported; x87 shape: (F/m)*t for x on the FPU; position x += t*v.x with one rounding; the rotation's w.x += (T/I)*t with one rounding; the angles double into fsin / fcos rounded once; the drift cap in double",
+  "note": "M2-R4 combat: ported; the FOW update is stage 3 | [review: M2-R6 nis-fow-camera] physUpdateObjPosVelShip: the FOW update (cat_shipAffectsFOW, cat_univShipFOWUpdate from the old to the new position) ported | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x004e5720": {
   "class": "MODIFIED",
@@ -12969,8 +12969,9 @@
  "0x00540a30": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "creates the (NULL) mesh state for non-Asteroid0 asteroids; clears the new SpaceObj +0x80/+0x84",
-  "note": "M2-R4 univupdate: compared and ported | [review: M2-R6 oracle-mode-a] univAddAsteroid: catMimicShip = NULL for a new asteroid (CAT-FIX: the exe leaves the allocator word, a garbage pointer that univFindNearestResource followed at tick 7313 of the oracle01 replay)"
+  "change": "creates the (NULL) mesh state for non-Asteroid0 asteroids; clears the new SpaceObj +0x80/+0x84; the wrap box +0x1A8 .. +0x1B0 zeroed (CAT-FIX)",
+  "note": "M2-R4 univupdate: compared and ported | [review: M2-R6 oracle-mode-a] univAddAsteroid: catMimicShip = NULL for a new asteroid (CAT-FIX: the exe leaves the allocator word, a garbage pointer that univFindNearestResource followed at tick 7313 of the oracle01 replay) | [review: M2-R8 oracle-rung-physics] univAddAsteroid: the killer-asteroid wrap box zeroed (CAT-FIX: the exe leaves the allocator words; zero = no wrap)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00540c40": {
   "class": "IDENTICAL",
@@ -13063,8 +13064,9 @@
  "0x005432d0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "after the physics step, a resource whose attribute word (exe SpaceObj +0x38) has bit 0x200 is clamped into the box +-(exe +0x1A8, +0x1AC, +0x1B0) (new per-object bounds at the end of the 0x1B4-byte asteroid)",
-  "note": "M2-R4 univupdate: found modified (was IDENTICAL); CAT-TODO in the tree (the bounds field and its setter are not ported: M2-R4 #3 asteroids / #5 level-load attributes)"
+  "change": "after the physics step, a resource whose attribute word (exe SpaceObj +0x38) has bit 0x200 wraps around the box +-(exe +0x1A8, +0x1AC, +0x1B0): below -e on an axis to +e, above +e to -e",
+  "note": "M2-R4 univupdate: found modified (was IDENTICAL); CAT-TODO in the tree (the bounds field and its setter are not ported: M2-R4 #3 asteroids / #5 level-load attributes) | [review: M2-R8 oracle-rung-physics] the wrap ported (catResourceWrap, Asteroid.catWrapExtent; the exe stores the opposite bound, a wrap, not a clamp): found by the 10-17 replay at tick 243 (asteroid 200 at z +40,000 in the GOG stream); the box writer for a new game stays a CAT-TODO(stage 6 level load / KAS)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00544f40": {
   "class": "MODIFIED",
@@ -13163,16 +13165,18 @@
   "note": "M2-R4 univupdate: compared, not ported (M2-R4 #3)"
  },
  "0x005474d0": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "M2-R4 univupdate: compared: owner/gunowner cleared, a beam (bullet +0x108 == 2) gets +10000 s, target cleared"
+  "change": "the owner pointer itself compared with the target (no member address of a NULL owner)",
+  "note": "M2-R4 univupdate: compared: owner/gunowner cleared, a beam (bullet +0x108 == 2) gets +10000 s, target cleared | [review: M2-R8 oracle-rung-physics] ported (UnivUpdate.c)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00547570": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "a missile that loses its target gets totallifetime = min(totallifetime, timelived + 5.0) (0x008b5c68)",
-  "note": "M2-R4 univupdate: found modified (was IDENTICAL); ported"
+  "change": "a missile that loses its target gets totallifetime = min(totallifetime, timelived + 5.0) (0x008b5c68); the owner pointer itself compared with the target",
+  "note": "M2-R4 univupdate: found modified (was IDENTICAL); ported | [review: M2-R8 oracle-rung-physics] ported (UnivUpdate.c)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00547640": {
   "class": "MODIFIED",
@@ -13234,9 +13238,9 @@
  "0x00547d00": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "CustShipDied first, factory only for player 0 in single player, external-build death, repair effect, launch manager by class, big-ship death explosions (10 parameters), inline bullet/missile clean-up, smObjectDied always, clamps released, no death sound for -1, grow-selection entries nulled; univDeleteDeadShip: cat_droidFreeArray on Ship+0x4C0 ported",
-  "note": "M2-R4 univupdate: ported except salvage depot, external build, droids, cat_clampUnclampAllFromShip, the second grow-selection and the speed multiplier (owners in the CAT-TODOs) | [review: M2-R5 layout-dock] the explosion's speed term uses cat_shipGetSpeedMultiplier x maxvelocity as the exe | [review: M2-R5 render] the repair droids' free re-targeted to M2-R6 ships (random stream 0) | [review: M2-R6 nis-fow-camera] univDeleteDeadShip: cat_droidFreeArray on Ship+0x4C0 ported",
-  "sample": "port-R6-nis-fow-camera"
+  "change": "CustShipDied first, factory only for player 0 in single player, external-build death, repair effect, launch manager by class, big-ship death explosions (10 parameters), inline bullet/missile clean-up, smObjectDied always, clamps released, no death sound for -1, grow-selection entries nulled; univDeleteDeadShip: cat_droidFreeArray on Ship+0x4C0 ported; the big death explosion passes ten parameters (the tenth collrectoffset.z + forwardlength)",
+  "note": "M2-R4 univupdate: ported except salvage depot, external build, droids, cat_clampUnclampAllFromShip, the second grow-selection and the speed multiplier (owners in the CAT-TODOs) | [review: M2-R5 layout-dock] the explosion's speed term uses cat_shipGetSpeedMultiplier x maxvelocity as the exe | [review: M2-R5 render] the repair droids' free re-targeted to M2-R6 ships (random stream 0) | [review: M2-R6 nis-fow-camera] univDeleteDeadShip: cat_droidFreeArray on Ship+0x4C0 ported | [review: M2-R8 oracle-rung-physics] ported (UnivUpdate.c; the R7 ai soak's ETG nParams fatal)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00548450": {
   "class": "MODIFIED",
@@ -13346,9 +13350,9 @@
  "0x00549c50": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "univFindNearestResource: ported with the fourth argument (the fog of war for a player without an AI), the attribute 0x200 test, the mimic-asteroid test with its stream-0 draw, and the exe's clip test (pieMovePointClipToLimits on a copy, which drops nothing) in place of univObjectOutsideWorld",
-  "note": "[review: M2-R6 nis-fow-camera] univFindNearestResource: ported with the fourth argument (the fog of war for a player without an AI), the attribute 0x200 test, the mimic-asteroid test with its stream-0 draw, and the exe's clip test (pieMovePointClipToLimits on a copy, which drops nothing) in place of univObjectOutsideWorld",
-  "sample": "port-R6-nis-fow-camera"
+  "change": "univFindNearestResource: ported with the fourth argument (the fog of war for a player without an AI), the attribute 0x200 test, the mimic-asteroid test with its stream-0 draw, and the exe's clip test (pieMovePointClipToLimits on a copy, which drops nothing) in place of univObjectOutsideWorld; x87 shape of the distance test: differences and (z*z + y*y) + x*x double, compared with the stored float minimum",
+  "note": "[review: M2-R6 nis-fow-camera] univFindNearestResource: ported with the fourth argument (the fog of war for a player without an AI), the attribute 0x200 test, the mimic-asteroid test with its stream-0 draw, and the exe's clip test (pieMovePointClipToLimits on a copy, which drops nothing) in place of univObjectOutsideWorld | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00549f50": {
   "class": "MODIFIED",
@@ -13489,102 +13493,102 @@
   "sample": "integrate-R6"
  },
  "0x00550770": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "medium",
-  "change": "",
-  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "audit-R5-layout-dock-sync"
+  "change": "x87 shape: the double (x*x + y*y) + z*z into fsqrt, double reciprocal, one rounding per component",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x005507d0": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "medium",
-  "change": "",
-  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "audit-R5-layout-dock-sync"
+  "change": "x87 shape: 1.0f / w a double, one rounding per component",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00550820": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "medium",
-  "change": "",
-  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "audit-R5-layout-dock-sync"
+  "change": "x87 shape: the double magnitude into fsqrt, double reciprocal, one rounding per component",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00550880": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "medium",
-  "change": "",
-  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "audit-R5-layout-dock-sync"
+  "change": "x87 shape: length / magnitude a double ratio",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x005508d0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "reread-R2"
+  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] compared: float compares and stores only, identical",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00550950": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "medium",
-  "change": "",
-  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "audit-R5-layout-dock-sync"
+  "change": "x87 shape: the double magnitude compared with the float maximum, double ratio",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x005509b0": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "medium",
-  "change": "",
-  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "audit-R5-layout-dock-sync"
+  "change": "x87 shape: as vecCapVector for the minimum",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00550a10": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "medium",
-  "change": "",
-  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "audit-R5-layout-dock-sync"
+  "change": "x87 shape: both tests on the one double magnitude, double ratios",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00550a90": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "abs() as sign tests [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "reread-R2"
+  "note": "abs() as sign tests [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] compared: sign tests and compares only, identical",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00550b10": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "reread-R2"
+  "change": "x87 shape: k a double, each component rounded once",
+  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00550b50": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "reread-R2"
+  "change": "x87 shape: k a double, each component rounded once",
+  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00550b90": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "reread-R2"
+  "change": "x87 shape: k a double, each component rounded once",
+  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00550bd0": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "reread-R2"
+  "change": "x87 shape: (Rl-Rp) and both dot products double in the exe's order, t a double; no assertion in the exe",
+  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00550c40": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
-  "sample": "reread-R2"
+  "change": "x87 shape: 1 - factor a double, one rounding per component",
+  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00550da0": {
   "class": "IDENTICAL",
@@ -16597,9 +16601,9 @@
  "0x005b2470": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "cat_gunGetBulletSpeed of gun 0, only with a gun info",
-  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
-  "sample": "port-R4"
+  "change": "cat_gunGetBulletSpeed of gun 0, only with a gun info; x87 shape: the trajectory's double square into fsqrt, the distance stored float, its double reciprocal scaling each component once",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x005b25c0": {
   "class": "IDENTICAL",
@@ -19511,11 +19515,11 @@
   "sample": "port-R7-oracle-rung-aiship"
  },
  "0x00413e10": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside)",
-  "sample": "port-R7-oracle-rung-aiship"
+  "change": "x87 shape: the double (z*z + y*y) + x*x into fsqrt divided by the bullet speed as a double; z's product added with one rounding",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00413f10": {
   "class": "IDENTICAL",
@@ -19623,18 +19627,18 @@
   "sample": "port-R7-oracle-rung-aiship"
  },
  "0x00419200": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
-  "sample": "port-R7-oracle-rung-aiship"
+  "change": "x87 shape: des. square stored float, cur. square double, 1/|cur| stored float, 1/|des| double, the dot product with the unrounded des.y, the pitch a double, fptan extended stored once and multiplied unrounded, + 1 into fsqrt, double reciprocal",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00419460": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
-  "sample": "port-R7-oracle-rung-aiship"
+  "change": "x87 shape: the error vector and its square double; each thrust (difference * mass/t) a double compared with the strength and rounded once",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x004196c0": {
   "class": "IDENTICAL",
@@ -19661,22 +19665,22 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
-  "sample": "port-R7-oracle-rung-aiship"
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md) | [review: M2-R8 oracle-rung-physics] compared: x stays a double in the compares (exact float difference): no change of result; not ported",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00419df0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
-  "sample": "port-R7-oracle-rung-aiship"
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md) | [review: M2-R8 oracle-rung-physics] compared: z returned as a double (the exact float difference, rounded by the caller): identical results",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00418de0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "a zero desired heading counts as reached (returns TRUE before the pitch test)",
-  "note": "[review: M2-R7 oracle-rung-aiship] found modified: a zero desired heading returns TRUE at once (0x00418e34, the double 0.0 at 0x0072a4e8); ported (AITrack.c)",
-  "sample": "port-R7-oracle-rung-aiship"
+  "change": "a zero desired heading counts as reached (returns TRUE before the pitch test); x87 shape: the heading dot product a double; each desired rotation speed a double; the torque ((desired - w) * I) * (1/t) a double compared with the strength and rounded once",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: a zero desired heading returns TRUE at once (0x00418e34, the double 0.0 at 0x0072a4e8); ported (AITrack.c) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
  },
  "0x00419a00": {
   "class": "IDENTICAL",
@@ -21000,5 +21004,19 @@
   "change": "",
   "note": "[review: skirmish-start] compared with the disassembly: HW1's body (LANGame 0, IPGame 1, numComputers 1, numPlayers 1, the Skirmish_Basic screen); the tree had GoK's keep-the-previous-count change, HW1's line restored",
   "sample": "port-skirmish-start"
+ },
+ "0x00439c30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "x87 shape: (x*x + y*y) + z*z into fsqrt as a double, minus the sphere size on the FPU, rounded once",
+  "note": "[review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "sample": "port-R8-oracle-rung-physics"
+ },
+ "0x00470990": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the parameter block is the ten-dword local area, filled for nParams > 0 without a bound",
+  "note": "[review: M2-R8 oracle-rung-physics] ported (ETG.c CAT_ETG_CREATE_PARAMETERS 10)",
+  "sample": "port-R8-oracle-rung-physics"
  }
 }

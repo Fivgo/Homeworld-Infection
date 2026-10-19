@@ -10,6 +10,23 @@
 #include "Debug.h"
 #include "FastMath.h"
 
+// CAT (M2-R8 oracle-rung-physics): the x87 shape of cataclysm.exe's vector helpers. The exe evaluates them on the FPU
+//      at the 53-bit precision of its control word (0x027f, every 'T' record of the GOG streams): the float operands
+//      are loaded as they are, products and sums are DOUBLE, the magnitude goes to fsqrt 0x00472860 as a double
+//      (catFsqrtD, FastMath.h), the reciprocal / ratio is a double, and each component is rounded to float once, at
+//      its fstp. catVecMagSqD is the exe's x*x + y*y + z*z (fld z; fld y; fld x: (x*x + y*y) + z*z)
+static double catVecMagSqD(const vector *a)
+{
+    return ((double)a->x * (double)a->x + (double)a->y * (double)a->y) + (double)a->z * (double)a->z;
+}
+
+static void catVecScaleD(vector *dst, const vector *src, double k)
+{
+    dst->x = (real32)(k * (double)src->x);
+    dst->y = (real32)(k * (double)src->y);
+    dst->z = (real32)(k * (double)src->z);
+}
+
 /*=============================================================================
     Functions:
 =============================================================================*/
@@ -23,22 +40,19 @@
 ----------------------------------------------------------------------------*/
 void vecNormalize(vector *a)
 {
-    real32 mag = fsqrt(vecMagnitudeSquared(*a));
-    real32 oneOverMag;
+    // CAT: the x87 shape (vecNormalize 0x00550770): the double magnitude into fsqrt, compared with 0.0f, then
+    //      fdivr 1.0f (a double reciprocal) and one rounding per component
+    double mag = catFsqrtD(catVecMagSqD(a));
 
 #ifdef OPTIMIZE_VERBOSE
    // vecNormalizeCounter++;
 #endif
-    if (mag == 0.0f)
+    if (mag == 0.0)
     {
         return;
     }
 
-    oneOverMag = 1.0f / mag;
-
-    a->x *= oneOverMag;
-    a->y *= oneOverMag;
-    a->z *= oneOverMag;
+    catVecScaleD(a, a, 1.0 / mag);
 }
 
 /*-----------------------------------------------------------------------------
@@ -59,10 +73,9 @@ void vecHomogenize(vector* dst, hvector* src)
         return;
     }
 
-    oneOverW = 1.0f / src->w;
-    dst->x *= oneOverW;
-    dst->y *= oneOverW;
-    dst->z *= oneOverW;
+    // CAT: 1.0f / w stays a double on the FPU, one rounding per component (vecHomogenize 0x005507d0)
+    catVecScaleD(dst, dst, 1.0 / (double)src->w);
+    (void)oneOverW;
 }
 
 /*-----------------------------------------------------------------------------
@@ -75,12 +88,10 @@ void vecHomogenize(vector* dst, hvector* src)
 ----------------------------------------------------------------------------*/
 void vecCopyAndNormalize(vector *src,vector *dst)
 {
-    real32 mag = fsqrt(vecMagnitudeSquared(*src));
-    real32 oneOverMag = 1.0f / mag;
+    // CAT: the x87 shape, no zero test (vecCopyAndNormalize 0x00550820)
+    double mag = catFsqrtD(catVecMagSqD(src));
 
-    dst->x = src->x * oneOverMag;
-    dst->y = src->y * oneOverMag;
-    dst->z = src->z * oneOverMag;
+    catVecScaleD(dst, src, 1.0 / mag);
 }
 
 /*-----------------------------------------------------------------------------
@@ -92,12 +103,10 @@ void vecCopyAndNormalize(vector *src,vector *dst)
 ----------------------------------------------------------------------------*/
 void vecNormalizeToLength(vector *a,real32 length)
 {
-    real32 mag = fsqrt(vecMagnitudeSquared(*a));
-    real32 ratio = length / mag;
+    // CAT: the x87 shape: fdivr length, a double ratio (vecNormalizeToLength 0x00550880)
+    double mag = catFsqrtD(catVecMagSqD(a));
 
-    a->x *= ratio;
-    a->y *= ratio;
-    a->z *= ratio;
+    catVecScaleD(a, a, (double)length / mag);
 }
 
 /*-----------------------------------------------------------------------------
@@ -150,15 +159,13 @@ void vecCapVectorSloppy(vector *vectorToCap,real32 maxMagnitude)
 ----------------------------------------------------------------------------*/
 void vecCapVector(vector *vectorToCap,real32 maxMagnitude)
 {
-    real32 actualMag = fsqrt(vecMagnitudeSquared(*vectorToCap));
-    real32 ratio;
+    // CAT: the x87 shape (vecCapVector 0x00550950): the double magnitude compared with the float maximum, the double
+    //      ratio, one rounding per component
+    double actualMag = catFsqrtD(catVecMagSqD(vectorToCap));
 
-    if (actualMag > maxMagnitude)
+    if (actualMag > (double)maxMagnitude)
     {
-        ratio = maxMagnitude / actualMag;
-        vectorToCap->x *= ratio;
-        vectorToCap->y *= ratio;
-        vectorToCap->z *= ratio;
+        catVecScaleD(vectorToCap, vectorToCap, (double)maxMagnitude / actualMag);
     }
 }
 
@@ -193,15 +200,12 @@ void vecCapVectorWithMag(vector *vectorToCap,real32 maxMagnitude,real32 actualMa
 ----------------------------------------------------------------------------*/
 void vecCapMinVector(vector *vectorToCap,real32 minMagnitude)
 {
-    real32 actualMag = fsqrt(vecMagnitudeSquared(*vectorToCap));
-    real32 ratio;
+    // CAT: the x87 shape (vecCapMinVector 0x005509b0)
+    double actualMag = catFsqrtD(catVecMagSqD(vectorToCap));
 
-    if (actualMag < minMagnitude)
+    if (actualMag < (double)minMagnitude)
     {
-        ratio = minMagnitude / actualMag;
-        vectorToCap->x *= ratio;
-        vectorToCap->y *= ratio;
-        vectorToCap->z *= ratio;
+        catVecScaleD(vectorToCap, vectorToCap, (double)minMagnitude / actualMag);
     }
 }
 
@@ -214,23 +218,17 @@ void vecCapMinVector(vector *vectorToCap,real32 minMagnitude)
 ----------------------------------------------------------------------------*/
 void vecCapMinMaxVector(vector *vectorToCap,real32 minMagnitude,real32 maxMagnitude)
 {
-    real32 actualMag = fsqrt(vecMagnitudeSquared(*vectorToCap));
-    real32 ratio;
+    // CAT: the x87 shape (vecCapMinMaxVector 0x00550a10): both tests on the one double magnitude
+    double actualMag = catFsqrtD(catVecMagSqD(vectorToCap));
 
-    if (actualMag < minMagnitude)
+    if (actualMag < (double)minMagnitude)
     {
-        ratio = minMagnitude / actualMag;
-        vectorToCap->x *= ratio;
-        vectorToCap->y *= ratio;
-        vectorToCap->z *= ratio;
+        catVecScaleD(vectorToCap, vectorToCap, (double)minMagnitude / actualMag);
     }
 
-    if (actualMag > maxMagnitude)
+    if (actualMag > (double)maxMagnitude)
     {
-        ratio = maxMagnitude / actualMag;
-        vectorToCap->x *= ratio;
-        vectorToCap->y *= ratio;
-        vectorToCap->z *= ratio;
+        catVecScaleD(vectorToCap, vectorToCap, (double)maxMagnitude / actualMag);
     }
 }
 
@@ -284,11 +282,13 @@ void vecLineIntersectWithXYPlane(vector *result,vector *linepoint1,vector *linep
 {
     real32 k;
 
-    k = (zp - linepoint1->z) / (linepoint2->z - linepoint1->z);
+    // CAT: k stays a double on the FPU, each component rounded once (vecLineIntersectWithXYPlane 0x00550b10)
+    double kd = ((double)zp - linepoint1->z) / ((double)linepoint2->z - linepoint1->z);
 
-    result->x = (linepoint2->x - linepoint1->x)*k + linepoint1->x;
-    result->y = (linepoint2->y - linepoint1->y)*k + linepoint1->y;
+    result->x = (real32)(((double)linepoint2->x - linepoint1->x) * kd + linepoint1->x);
+    result->y = (real32)(((double)linepoint2->y - linepoint1->y) * kd + linepoint1->y);
     result->z = zp;
+    (void)k;
 }
 
 /*-----------------------------------------------------------------------------
@@ -304,11 +304,13 @@ void vecLineIntersectWithYZPlane(vector *result,vector *linepoint1,vector *linep
 {
     real32 k;
 
-    k = (xp - linepoint1->x) / (linepoint2->x - linepoint1->x);
+    // CAT: the same x87 shape (vecLineIntersectWithYZPlane 0x00550b50)
+    double kd = ((double)xp - linepoint1->x) / ((double)linepoint2->x - linepoint1->x);
 
-    result->y = (linepoint2->y - linepoint1->y)*k + linepoint1->y;
-    result->z = (linepoint2->z - linepoint1->z)*k + linepoint1->z;
+    result->y = (real32)(((double)linepoint2->y - linepoint1->y) * kd + linepoint1->y);
+    result->z = (real32)(((double)linepoint2->z - linepoint1->z) * kd + linepoint1->z);
     result->x = xp;
+    (void)k;
 }
 
 /*-----------------------------------------------------------------------------
@@ -324,11 +326,13 @@ void vecLineIntersectWithXZPlane(vector *result,vector *linepoint1,vector *linep
 {
     real32 k;
 
-    k = (yp - linepoint1->y) / (linepoint2->y - linepoint1->y);
+    // CAT: the same x87 shape (vecLineIntersectWithXZPlane 0x00550b90)
+    double kd = ((double)yp - linepoint1->y) / ((double)linepoint2->y - linepoint1->y);
 
-    result->x = (linepoint2->x - linepoint1->x)*k + linepoint1->x;
-    result->z = (linepoint2->z - linepoint1->z)*k + linepoint1->z;
+    result->x = (real32)(((double)linepoint2->x - linepoint1->x) * kd + linepoint1->x);
+    result->z = (real32)(((double)linepoint2->z - linepoint1->z) * kd + linepoint1->z);
     result->y = yp;
+    (void)k;
 }
 
 /*-----------------------------------------------------------------------------
@@ -345,22 +349,25 @@ void vecLineIntersectWithXZPlane(vector *result,vector *linepoint1,vector *linep
 ----------------------------------------------------------------------------*/
 void vecLineIntersectWithPlane(vector *dest, vector *Vplane, vector *Vnormal, vector *Vline, vector *Vdirection)
 {
-    real32 tScalar, value;
-    vector temp;
+    // CAT: the x87 shape (vecLineIntersectWithPlane 0x00550bd0): (Rl - Rp) stays double, (Rl-Rp).N is
+    //      (tz*nz + tx*nx) + ty*ny, V.N is (nz*dz + nx*dx) + dy*ny, t = -(the quotient) a double, each component
+    //      t*V + Rl rounded once; no assertion in the exe
+    double tx = (double)Vline->x - Vplane->x;
+    double ty = (double)Vline->y - Vplane->y;
+    double tz = (double)Vline->z - Vplane->z;
+    double value = ((double)Vnormal->z * Vdirection->z + (double)Vnormal->x * Vdirection->x) + (double)Vdirection->y * Vnormal->y;
+    double tScalar;
 
-    value = vecDotProduct(*Vdirection, *Vnormal);
-    dbgAssertOrIgnore(value != 0.0f);
-
-    vecSub(temp, *Vline, *Vplane);
+    dbgAssertOrIgnore(value != 0.0);
 
     //t = _-(Rl-Rp).N_
     //         V.N
-    tScalar = -vecDotProduct(temp, *Vnormal) / value;
+    tScalar = -(((tz * Vnormal->z + tx * Vnormal->x) + ty * Vnormal->y) / value);
 
     //R = Rl + tV
-    dest->x = Vline->x + tScalar * Vdirection->x;
-    dest->y = Vline->y + tScalar * Vdirection->y;
-    dest->z = Vline->z + tScalar * Vdirection->z;
+    dest->x = (real32)(tScalar * Vdirection->x + Vline->x);
+    dest->y = (real32)(tScalar * Vdirection->y + Vline->y);
+    dest->z = (real32)(tScalar * Vdirection->z + Vline->z);
 }
 
 /*-----------------------------------------------------------------------------
@@ -373,10 +380,11 @@ void vecLineIntersectWithPlane(vector *dest, vector *Vplane, vector *Vnormal, ve
 ----------------------------------------------------------------------------*/
 void vecVectorsBlend(vector *result, vector *start, vector *end, real32 factor)
 {
-    real32 oneMinusFactor = 1.0f - factor;
-    result->x = start->x * oneMinusFactor + end->x * factor;
-    result->y = start->y * oneMinusFactor + end->y * factor;
-    result->z = start->z * oneMinusFactor + end->z * factor;
+    // CAT: the x87 shape (vecVectorsBlend 0x00550c40): 1.0f - factor stays a double, one rounding per component
+    double oneMinusFactor = 1.0 - (double)factor;
+    result->x = (real32)(oneMinusFactor * start->x + (double)factor * end->x);
+    result->y = (real32)(oneMinusFactor * start->y + (double)factor * end->y);
+    result->z = (real32)(oneMinusFactor * start->z + (double)factor * end->z);
 }
 
 /*-----------------------------------------------------------------------------
@@ -388,7 +396,13 @@ void vecVectorsBlend(vector *result, vector *start, vector *end, real32 factor)
 ----------------------------------------------------------------------------*/
 real32 cat_vecDistance(vector *a, vector *b)
 {
-    return fsqrt((a->x - b->x) * (a->x - b->x) + (a->y - b->y) * (a->y - b->y) + (a->z - b->z) * (a->z - b->z));
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape: the differences double, (dz*dz + dy*dy) + dx*dx into fsqrt as a
+    //      double (cat_vecDistance 0x00550d60 returns fsqrt's double on the FPU; rounded to float at this return)
+    double dx = (double)a->x - b->x;
+    double dy = (double)a->y - b->y;
+    double dz = (double)a->z - b->z;
+
+    return (real32)catFsqrtD((dz * dz + dy * dy) + dx * dx);
 }
 
 /*-----------------------------------------------------------------------------
@@ -401,17 +415,23 @@ real32 cat_vecDistance(vector *a, vector *b)
 ----------------------------------------------------------------------------*/
 void cat_vecPlaneNormalFrom3Points(vector *a, vector *b, vector *c, vector *normal)
 {
-    real32 length;
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape (cat_vecPlaneNormalFrom3Points 0x00550c90): a - b and c.z - b.z
+    //      stay double, c.x - b.x and c.y - b.y are stored as floats; each normal component is rounded once at its store,
+    //      the length sums the DOUBLE z component with the stored x and y ((nz*nz + ny*ny) + nx*nx), the double
+    //      reciprocal scales the stored components
+    double ax = (double)a->x - b->x, ay = (double)a->y - b->y, az = (double)a->z - b->z;
+    real32 cx = (real32)((double)c->x - b->x), cy = (real32)((double)c->y - b->y);
+    double cz = (double)c->z - b->z;
+    double nz;
+    double length;
 
-    normal->x = (c->z - b->z) * (a->y - b->y) - (c->y - b->y) * (a->z - b->z);
-    normal->y = (c->x - b->x) * (a->z - b->z) - (c->z - b->z) * (a->x - b->x);
-    normal->z = (c->y - b->y) * (a->x - b->x) - (c->x - b->x) * (a->y - b->y);
-    length = fsqrt(normal->x * normal->x + normal->y * normal->y + normal->z * normal->z);
-    if (length != 0.0f)
+    normal->x = (real32)(cz * ay - (double)cy * az);
+    normal->y = (real32)(az * cx - cz * ax);
+    nz = ax * cy - (double)cx * ay;
+    normal->z = (real32)nz;
+    length = catFsqrtD((nz * nz + (double)normal->y * normal->y) + (double)normal->x * normal->x);
+    if (length != 0.0)
     {
-        length = 1.0f / length;
-        normal->x = length * normal->x;
-        normal->y = length * normal->y;
-        normal->z = length * normal->z;
+        catVecScaleD(normal, normal, 1.0 / length);
     }
 }

@@ -2711,28 +2711,32 @@ real32 hyperspaceCost(real32 distance,SelectCommand *selection)
 {
     sdword i;
     Ship *ship;
-    real32 tempcost;
-    real32 cost=0.0f;
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape (hyperspaceCost 0x00443c30): the distance, each ship's cost and
+    //      the sum stay doubles on the FPU across the ships (HW1's cumulative "distance -= minDistance" included); each
+    //      cost is (distance * slope) + min, compared as a double with the float max; one rounding at the return
+    // CAT-TODO(M2-R9 physics): the exe returns the double sum on the FPU (no rounding) and its callers _ftol it (0x00407ea9, 0x0044750a, 0x00564c1c) or add it as a double (0x00433170); this real32 return rounds it first [audit: M2-R8 oracle-rung-physics]
+    double dist = distance;
+    double tempcost;
+    double cost = 0.0;
     for(i=0;i<selection->numShips;i++)
     {
         ship = selection->ShipPtr[i];
-        if(distance < TW_HyperSpaceCostStruct[ship->shiptype].minDistance)
+        if(dist < (double)TW_HyperSpaceCostStruct[ship->shiptype].minDistance)
         {
             tempcost = TW_HyperSpaceCostStruct[ship->shiptype].min;
         }
         else
         {
-            distance-= TW_HyperSpaceCostStruct[ship->shiptype].minDistance;
-            tempcost = TW_HyperSpaceCostStruct[ship->shiptype].min +
-                TW_HyperSpaceCostStruct[ship->shiptype].distanceSlope*distance;
+            dist -= TW_HyperSpaceCostStruct[ship->shiptype].minDistance;
+            tempcost = dist * TW_HyperSpaceCostStruct[ship->shiptype].distanceSlope + TW_HyperSpaceCostStruct[ship->shiptype].min;
         }
-        if(tempcost > TW_HyperSpaceCostStruct[ship->shiptype].max)
+        if(tempcost > (double)TW_HyperSpaceCostStruct[ship->shiptype].max)
         {
             tempcost = TW_HyperSpaceCostStruct[ship->shiptype].max;
         }
-        cost+= tempcost;
+        cost += tempcost;
     }
-    return(cost);
+    return((real32)cost);
 }
 
 
@@ -4245,10 +4249,12 @@ void CalculateMoveToPoints(SelectCommand *selection,vector from,vector to)
     bool32 moveCalcsAllocated = FALSE;
     ShipMoveCalcs *movecalcs;
     sdword i;
-    vector d,r;
-    real32 dsqr,rsqr,dmag;
-    real32 maxrsqr,maxrmag;
-    real32 scale,doverr;
+    vector r;
+    double dx, dy, dz, rsqrd, maxrsqrd;
+    real32 dmag;
+    real32 maxrsqr;
+    double maxrmag;
+    double scale,doverr;
 
     dbgAssertOrIgnore(numShips > 0);
 
@@ -4258,9 +4264,15 @@ void CalculateMoveToPoints(SelectCommand *selection,vector from,vector to)
         return;
     }
 
-    vecSub(d,to,from);
-    dsqr = vecMagnitudeSquared(d);
-    dmag = fsqrt(dsqr);
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape (CalculateMoveToPoints 0x00445bf0): to - from stays double, its
+    //      (z*z + y*y) + x*x goes to fsqrt and the distance is stored as a float; each ship's squared distance is a double
+    //      compared with the running maximum, which is kept as the float the exe stores; the maximum's square root, the
+    //      ratio and the scale ((SHRINKMAX - SHRINKMIN) * (d/r - 1)) / (DISTMAXRATIO - 1) + SHRINKMIN are doubles, and
+    //      each offset is scaled with one rounding per component
+    dx = (double)to.x - from.x;
+    dy = (double)to.y - from.y;
+    dz = (double)to.z - from.z;
+    dmag = (real32)catFsqrtD((dz * dz + dy * dy) + dx * dx);
 
     if (numShips > NUM_STACK_MOVECALCS)
     {
@@ -4272,6 +4284,7 @@ void CalculateMoveToPoints(SelectCommand *selection,vector from,vector to)
         movecalcs = stackMoveCalcs;
     }
 
+    maxrsqrd = -1.0;
     maxrsqr = -1.0f;
 
     for (i=0;i<numShips;i++)
@@ -4280,20 +4293,21 @@ void CalculateMoveToPoints(SelectCommand *selection,vector from,vector to)
         movecalcs[i].fromtoship = r;
         movecalcs[i].totoship = r;
 
-        rsqr = vecMagnitudeSquared(r);
-        if (rsqr > maxrsqr)
+        rsqrd = ((double)r.z * r.z + (double)r.y * r.y) + (double)r.x * r.x;
+        if (rsqrd > maxrsqrd)
         {
-            maxrsqr = rsqr;
+            maxrsqr = (real32)rsqrd;
+            maxrsqrd = maxrsqr;
         }
     }
 
     dbgAssertOrIgnore(maxrsqr >= 0.0f);
-    maxrmag = fsqrt(maxrsqr);
+    maxrmag = catFsqrtD(maxrsqr);
 
     // scales from a d/r ratio of DISTMINRATIO      to      SHRINKMIN
     //                            DISTMAXRATIO              SHRINKMAX
 
-    if (dmag < maxrmag)      // assumes DISTMINRATIO = 1.0
+    if ((double)dmag < maxrmag)      // assumes DISTMINRATIO = 1.0
     {
         // shrink to a point:
         scale = SHRINKMIN;
@@ -4301,9 +4315,9 @@ void CalculateMoveToPoints(SelectCommand *selection,vector from,vector to)
     else
     {
         // preserve relative movement
-        doverr = dmag / maxrmag;
+        doverr = (double)dmag / maxrmag;
 
-        if (doverr >= DISTMAXRATIO)
+        if (doverr >= (double)DISTMAXRATIO)
         {
             // skip scaling
             scale = SHRINKMAX;
@@ -4312,14 +4326,16 @@ void CalculateMoveToPoints(SelectCommand *selection,vector from,vector to)
         {
             // somewhere between moving to a point and relative movement
 
-            scale = ((doverr - DISTMINRATIO) * (SHRINKMAX - SHRINKMIN) / (DISTMAXRATIO - DISTMINRATIO)) + SHRINKMIN;
+            scale = (((double)SHRINKMAX - SHRINKMIN) * (doverr - 1.0)) / ((double)DISTMAXRATIO - 1.0) + SHRINKMIN;
         }
     }
 
-    if (scale != 1.0f)
+    if (scale != 1.0)
     for (i=0;i<numShips;i++)
     {
-        vecMultiplyByScalar(movecalcs[i].totoship,scale);
+        movecalcs[i].totoship.x = (real32)(scale * movecalcs[i].totoship.x);
+        movecalcs[i].totoship.y = (real32)(scale * movecalcs[i].totoship.y);
+        movecalcs[i].totoship.z = (real32)(scale * movecalcs[i].totoship.z);
     }
 
     for (i=0;i<numShips;i++)

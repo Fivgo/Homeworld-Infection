@@ -2008,8 +2008,14 @@ void etgEffectCodeStart(etgeffectstatic *stat, Effect *effect, sdword nParams, e
             stat->variableInitData[index];
     }
     //init the user parameters, if any
+    // CAT-FIX (M2-R8 oracle-rung-physics): the exe writes nParams parameters with no bound (etgEffectCodeStart
+    //      0x0046a684); the tree stops at the end of the effect's variable block, where the exe would write past it
     for (index = 0; index < nParams; index++)
     {
+        if ((udword)(index + 1) * sizeof(memsize) > (udword)stat->variableSize)
+        {
+            break;
+        }
         ((memsize *)effect->variable)[index] = params[index];
     }
     //clear out the flags list
@@ -7217,7 +7223,7 @@ Effect* etgEffectCreate(etgeffectstatic* stat, Ship* owner, vector* pos, vector*
                         udword flags, sdword nParams, ...) {
     sdword index;
     va_list argList;
-    etgarg arg[ETG_NumberParameters];
+    etgarg arg[CAT_ETG_CREATE_PARAMETERS];     // CAT: ten in the exe (etgEffectCreate 0x00470990: sub esp,0x28)
     Effect *newEffect;
 
     newEffect = memAlloc(stat->effectSize, "GE(GenEffect)", Pyrophoric);//allocate the new effect
@@ -7291,8 +7297,10 @@ Effect* etgEffectCreate(etgeffectstatic* stat, Ship* owner, vector* pos, vector*
     newEffect->magnitudeSquared = nLips;                    //set initial nLips value
 
     //prepare to pass the parameters through
-    // CAT: the exe copies the variable arguments into an array and passes its address (0x00470b16-0x00470b3c)
-    dbgAssertOrIgnore(nParams >= 0 && nParams <= ETG_NumberParameters);
+    // CAT: the exe copies the variable arguments into an array and passes its address (0x00470b16-0x00470b3c);
+    //      the array is the function's ten-dword local block (sub esp,0x28), filled for nParams > 0 with no other
+    //      bound: univDeleteDeadShip's big explosion passes ten (M2-R8 oracle-rung-physics)
+    dbgAssertOrIgnore(nParams >= 0 && nParams <= CAT_ETG_CREATE_PARAMETERS);
     va_start(argList, nParams);
     for (index = 0; index < nParams; index++)
     {

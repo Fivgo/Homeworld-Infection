@@ -2397,7 +2397,10 @@ typedef struct Asteroid
     // CAT (M2-R4 ships-b): the mimic posing as this asteroid (exe Asteroid+0x1A4: MimicHouseKeep 0x005b8f30 sets it on
     //      the fake asteroid of cat_univAddMimicResource 0x005408b0; NULL for a real asteroid). Name chosen here.
     struct Ship *catMimicShip;      // +0x1A4
-    udword catAsteroidReserved1A8[3];   // +0x1A8 .. +0x1B0
+    // CAT (M2-R8 oracle-rung-physics): the half extents of the box a CAT_ATTRIBUTES_KillerCollision asteroid wraps
+    //      around in (univUpdateAllPosVelResources 0x005432d0 reads +0x1A8 .. +0x1B0; a saved or recorded game
+    //      carries them, LoadSpaceObj copies the dwords). Name chosen here; the writer for a new game is unknown
+    vector catWrapExtent;           // +0x1A8 .. +0x1B0
 } Asteroid;
 
 /*-----------------------------------------------------------------------------

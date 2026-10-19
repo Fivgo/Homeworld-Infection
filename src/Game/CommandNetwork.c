@@ -14,6 +14,7 @@
 #include "LagPrint.h"
 #include "MultiplayerGame.h"
 #include "NetCheck.h"
+#include "OracleDump.h"     // HWI-ORACLE (M2-R8 oracle-rung-physics): the per-packet half of /oracleShipDump
 #include "Sensors.h"
 #include "TimeoutTimer.h"
 #include "Titan.h"
@@ -1630,6 +1631,9 @@ void clProcessSyncPacket(CommandLayer *comlayer,ubyte *packet,udword sizeofPacke
 
     while (numberOfCommandsLeft > 0)
     {
+#if HWI_ORACLE
+        const ubyte *cmdstart = body;       // HWI-ORACLE (M2-R8 oracle-rung-physics): /oracleShipDump's 'C' line
+#endif
         commandType = clPktU16(body);
         from = (commandType >> 8) & 255;
         commandType &= 255;
@@ -1861,6 +1865,11 @@ void clProcessSyncPacket(CommandLayer *comlayer,ubyte *packet,udword sizeofPacke
                 //      body in Cataclysm; HW1's GODSYNC is gone)
                 break;
         }
+#if HWI_ORACLE
+        oracleShipDumpCommand((udword)((HWPacketHeader *)packet)->frame,
+                              (udword)((HWPacketHeader *)packet)->numberOfCommands - numberOfCommandsLeft,
+                              (udword)commandType, (udword)from, cmdstart, (udword)(body - cmdstart));
+#endif
 
         numberOfCommandsLeft--;
     }

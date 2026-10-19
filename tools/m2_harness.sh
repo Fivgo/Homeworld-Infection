@@ -186,6 +186,15 @@
 #                    harvesting; "aitest: <check> tick=N ..." the first tick each holds, "aitest: skirmish tick=N ..."
 #                    at the switch, "aitest: status" every 256 ticks, "aitest: done ... result=PASS|FAIL" at ticks-2;
 #                    quits after <ticks> ticks (two runs must give byte-identical run.hwo streams)
+#                    The permanent per-ship / per-packet dump (M2-R8 oracle-rung-physics,
+#                    docs/m2-r8-oracle-rung-physics.md "dump"): pass "-- /oracleShipDump <ships>[@<from>-<to>]" to any mode
+#                    that writes run.hwo (replay, mission, ai, build, skirmish, --hwo); <ships> is a ship number (the
+#                    shipID the stream hashes), a comma-separated list or "all"; <run>/shipdump.txt gets, per universe
+#                    tick, one 'S' line per dumped ship (position, velocity, rotation speed, coordsys, health as float
+#                    bits and values, order, attributes, AI state, flags), 'A' / 'F' lines (each force / torque given and
+#                    the sums the physics integrates), 'V' lines (the flight's target, avoidance terms and desired
+#                    velocity) and one 'C' line per command of every sync packet; the stream is unchanged (read only).
+#                    tools/oracle/hwo_invert.py recovers a reference stream's per-ship words from an "all" dump
 #   --recording NAME replay mode: the recorded game to replay (default oracle01)
 #   --recording-src DIR replay mode: the directory NAME and NAME.pkts are copied from (default the install's
 #                    SavedGames/RecordedGames). M2-R7 integrate: an archived recording (original/oracle/<session>/, where

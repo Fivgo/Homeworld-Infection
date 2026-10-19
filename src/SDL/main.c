@@ -559,6 +559,13 @@ bool32 OracleSelfTestPerturbSet(char *string)
     return TRUE;
 }
 
+// HWI-ORACLE (M2-R8 oracle-rung-physics): the permanent per-ship / per-packet dump
+bool32 OracleShipDumpSet(char *string)
+{
+    oracleSetShipDump(string);
+    return TRUE;
+}
+
 bool32 OracleMissionSet(char *string)
 {
     oracleSetMission(string);
@@ -1180,6 +1187,7 @@ commandoption commandOptions[] =
     entryFnParam("/oracleDump",     OracleDumpSet, " <file> - write the checksum-oracle stream (.hwo) to file."),
     entryFnParam("/oracleSelfTest", OracleSelfTestSet, " <ticks> - run the oracle's scripted lockstep start for <ticks> universe ticks, then exit."),
     entryFnParam("/oracleSelfTestPerturb", OracleSelfTestPerturbSet, " <tick> - oracle self-test or mission run: draw one extra gamerand() at <tick>."),
+    entryFnParam("/oracleShipDump", OracleShipDumpSet, " <ships>[@<from>-<to>] - write shipdump.txt next to the /oracleDump file: per tick each listed ship (numbers, comma-separated, or all) with position, velocity, rotation, coordsys, order and health as bits, and every sync-packet command."),
     entryFnParam("/oracleMission",  OracleMissionSet, " <ticks> - headless oracle run: start single player at once, no animatic, one universe tick per frame, exit after <ticks> ticks."),
     entryVr("/oracleTableFsqrt",    catFsqrtTable, TRUE, " - HWI-EXPERIMENT: fsqrt and fmathSqrt use the exe's table square root (fsqrt 0x00472860) instead of sqrtf (the default, decision 23)."),
     entryFnParam("/oracleReplay",   OracleReplaySet, " <name> - oracle mode A: replay SavedGames/RecordedGames/<name> (+ .pkts) as LoadRecordedGame does, one universe tick per frame, exit at the end of the packets."),

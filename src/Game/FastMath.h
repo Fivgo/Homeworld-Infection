@@ -21,6 +21,12 @@ double catFmathSqrtDouble(double f);
 #define fmathSqrt(x) (catFsqrtTable ? (real32)catFmathSqrtDouble((real32)(x)) : (real32)sqrtf((real32)(x)))
 #define fmathSqrtDouble sqrt
 
+// CAT (M2-R8 oracle-rung-physics): the exe's fsqrt 0x00472860 takes a DOUBLE (its callers fstp qword the magnitude they
+//      summed on the x87 at the 53-bit precision of its control word 0x027f) and returns the double on the FPU. The
+//      helpers that keep the exe's x87 shape (Vector.c, Matrix.c) call this one: with /oracleTableFsqrt the exe's table
+//      on the double argument, by default (decision 23 / 56: "sqrtf") sqrtf of the argument rounded to float, widened
+#define catFsqrtD(x) (catFsqrtTable ? catFmathSqrtDouble((double)(x)) : (double)sqrtf((real32)(x)))
+
 // pi
 #ifndef PI
     #define PI 3.14159265358979f

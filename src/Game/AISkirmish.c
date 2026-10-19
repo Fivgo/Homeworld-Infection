@@ -62,11 +62,32 @@ static Ship *aisLeastBuiltShip = NULL;                      // 0x00a2d9b0: the o
 static bool32 aisFirstPlay = TRUE;                          // 0x007525e4: .data 1, cleared by the first play (read nowhere else)
 
 // the attack targets of cat_aisPlay's five cat_aisTeamAttack calls, as team indexes (.data 0x00752578..0x007525e0)
-static const sdword aisFighterTargets[8]       = { 5, 25, 9, 32, 7, 3, 18, 20 };    // 0x00752578
-static const sdword aisAntiFighterTargets[6]   = { 25, 3, 7, 9, 18, 20 };           // 0x00752598
-static const sdword aisMediumTargets[4]        = { 18, 9, 7, 20 };                  // 0x007525b0
-static const sdword aisMimicTargets[4]         = { 9, 32, 18, 20 };                 // 0x007525c0
-static const sdword aisCruiseMissileTargets[5] = { 5, 9, 32, 18, 20 };              // 0x007525d0
+// CAT-FIX (M2-R8 oracle-rung-physics, found by the 4,000-tick ai soak): the five tables are one contiguous block, as in
+//      the exe's .data, because cat_aisTeamAttack 0x00432eb5 reads targetTeams[numTargetTeams] (one past its table)
+//      when the previous selection found no target in any team: the exe then reads the next table's first entry, or,
+//      past the last table, the dword at 0x007525e4 (aisFirstPlay); catAisTargetTeam returns the same values
+static const sdword aisTargetTables[8 + 6 + 4 + 4 + 5] = {
+    5, 25, 9, 32, 7, 3, 18, 20,                                                     // 0x00752578 fighters
+    25, 3, 7, 9, 18, 20,                                                            // 0x00752598 anti-fighter
+    18, 9, 7, 20,                                                                   // 0x007525b0 medium combat
+    9, 32, 18, 20,                                                                  // 0x007525c0 mimics
+    5, 9, 32, 18, 20 };                                                             // 0x007525d0 cruise missiles
+#define aisFighterTargets           (&aisTargetTables[0])
+#define aisAntiFighterTargets       (&aisTargetTables[8])
+#define aisMediumTargets            (&aisTargetTables[14])
+#define aisMimicTargets             (&aisTargetTables[18])
+#define aisCruiseMissileTargets     (&aisTargetTables[22])
+#define AIS_TARGET_TABLES_END       (&aisTargetTables[27])
+
+static sdword catAisTargetTeam(const sdword *targetTeams, sdword index)
+{
+    if (targetTeams + index == AIS_TARGET_TABLES_END)
+    {
+        return (sdword)aisFirstPlay;                    // CAT-FIX: the exe's dword after the block, 0x007525e4
+    }
+    dbgAssertOrIgnore(targetTeams + index < AIS_TARGET_TABLES_END);
+    return targetTeams[index];
+}
 
 // the research order of cat_aisResearchUpdate (.data 0x007524bc..0x00752574): per Sect module, then the Beast list
 static const TechnologyType aisResearchDockingBay[7] = { TECH_DRIVE_FIGHTER, TECH_DRIVE_FRIGATE, TECH_DRIVE_DESTROYER,
@@ -1527,7 +1548,7 @@ void cat_aisTeamAttack(AISTeamEntry *team, sdword minSize, sdword groupSize, boo
             }
         }
 
-        nearest = cat_aisTeamFindNearestSelection(targetTeams[targetIdx], &mine->center);
+        nearest = cat_aisTeamFindNearestSelection(catAisTargetTeam(targetTeams, targetIdx), &mine->center);
         while (nearest == NULL)
         {
             if (targetIdx >= numTargetTeams)
@@ -1538,7 +1559,7 @@ void cat_aisTeamAttack(AISTeamEntry *team, sdword minSize, sdword groupSize, boo
             accumulated = 0;
             if (targetIdx < numTargetTeams)
             {
-                nearest = cat_aisTeamFindNearestSelection(targetTeams[targetIdx], &mine->center);
+                nearest = cat_aisTeamFindNearestSelection(catAisTargetTeam(targetTeams, targetIdx), &mine->center);
             }
         }
         if (nearest == NULL)

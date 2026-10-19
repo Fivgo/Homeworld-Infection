@@ -1060,14 +1060,20 @@ void formationWingmanTrackLeader(struct Ship *ship,struct Ship *leader,bool32 ro
     matGetVectFromMatrixCol2(right,leader->rotatable.rotinfo.coordsys);
     matGetVectFromMatrixCol3(heading,leader->rotatable.rotinfo.coordsys);
 
-    sepdist = leader->staticinfo->common.staticCollInfo.collspheresize;
-    sepdist += ship->staticinfo->common.staticCollInfo.collspheresize;
-    sepdist *= DELTA_FORMATION_PADDING_SCALE;
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape (formationWingmanTrackLeader 0x004828d4): the separation is
+    //      (sum of the two sphere sizes) * 1.5 rounded once; (right - heading).x * separation stays a double and is added
+    //      to the leader's x with one rounding, y and z are stored after the difference and again after the product
+    sepdist = (real32)(((double)leader->staticinfo->common.staticCollInfo.collspheresize +
+                        ship->staticinfo->common.staticCollInfo.collspheresize) * DELTA_FORMATION_PADDING_SCALE);
 
-    vecSub(rightback,right,heading);
-    vecMultiplyByScalar(rightback,sepdist);
+    rightback.y = right.y - heading.y;
+    rightback.z = right.z - heading.z;
+    rightback.y *= sepdist;
+    rightback.z *= sepdist;
 
-    vecAdd(desiredpos,leader->obj.posinfo.position,rightback);
+    desiredpos.x = (real32)(((double)right.x - heading.x) * sepdist + leader->obj.posinfo.position.x);
+    desiredpos.y = rightback.y + leader->obj.posinfo.position.y;
+    desiredpos.z = rightback.z + leader->obj.posinfo.position.z;
 
 //    FormationShipMoveTo(desiredpos,heading);
     if (rotate)
@@ -3132,12 +3138,29 @@ void paradeSetTweakables(void)
 //      processMilitaryParadeToDo 0x00485280): offsets heading, right, up, then the position; steps heading, up, right
 static void catParadeSlotPosition(vector *positionat,vector *positionchange,vector *position,vector *up,vector *right,vector *heading,SlotInfo *slotinfo)
 {
-    positionat->x = heading->x * slotinfo->headingoffset + right->x * slotinfo->rightoffset + up->x * slotinfo->upoffset + position->x;
-    positionat->y = heading->y * slotinfo->headingoffset + right->y * slotinfo->rightoffset + up->y * slotinfo->upoffset + position->y;
-    positionat->z = heading->z * slotinfo->headingoffset + right->z * slotinfo->rightoffset + up->z * slotinfo->upoffset + position->z;
-    positionchange->x = heading->x * slotinfo->headingspacing + up->x * slotinfo->upspacing + right->x * slotinfo->rightspacing;
-    positionchange->y = heading->y * slotinfo->headingspacing + up->y * slotinfo->upspacing + right->y * slotinfo->rightspacing;
-    positionchange->z = heading->z * slotinfo->headingspacing + up->z * slotinfo->upspacing + right->z * slotinfo->rightspacing;
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape of setMilitaryParade 0x00485837 and processMilitaryParadeToDo
+    //      0x00485363: the slot position is the leader's position plus up * upoffset, then right * rightoffset, then
+    //      heading * headingoffset, each product added to the stored float with one rounding; the spacing's x is
+    //      heading.x * headingspacing + (up.x * upspacing + right.x * rightspacing) rounded once, y and z store
+    //      right * rightspacing, then add up * upspacing, then heading * headingspacing, one rounding each
+    positionat->x = (real32)((double)up->x * slotinfo->upoffset + position->x);
+    positionat->y = (real32)((double)up->y * slotinfo->upoffset + position->y);
+    positionat->z = (real32)((double)up->z * slotinfo->upoffset + position->z);
+    positionat->x = (real32)((double)right->x * slotinfo->rightoffset + positionat->x);
+    positionat->y = (real32)((double)right->y * slotinfo->rightoffset + positionat->y);
+    positionat->z = (real32)((double)right->z * slotinfo->rightoffset + positionat->z);
+    positionat->x = (real32)((double)heading->x * slotinfo->headingoffset + positionat->x);
+    positionat->y = (real32)((double)heading->y * slotinfo->headingoffset + positionat->y);
+    positionat->z = (real32)((double)heading->z * slotinfo->headingoffset + positionat->z);
+
+    positionchange->x = (real32)((double)heading->x * slotinfo->headingspacing +
+                                 ((double)up->x * slotinfo->upspacing + (double)right->x * slotinfo->rightspacing));
+    positionchange->y = right->y * slotinfo->rightspacing;
+    positionchange->z = right->z * slotinfo->rightspacing;
+    positionchange->y = (real32)((double)up->y * slotinfo->upspacing + positionchange->y);
+    positionchange->z = (real32)((double)up->z * slotinfo->upspacing + positionchange->z);
+    positionchange->y = (real32)((double)heading->y * slotinfo->headingspacing + positionchange->y);
+    positionchange->z = (real32)((double)heading->z * slotinfo->headingspacing + positionchange->z);
 }
 
 /*-----------------------------------------------------------------------------

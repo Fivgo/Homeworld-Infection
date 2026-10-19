@@ -89,6 +89,20 @@ static char oracleReplayName[MAX_RECORDPACKETFILENAME_STRLEN] = "";     // /orac
 static bool32 oracleReplayDone = FALSE;
 static udword oracleReplayPackets = 0;              // sync packets processed by the replay
 
+// HWI-ORACLE (M2-R8 oracle-rung-physics): /oracleShipDump <ships>[@<from>-<to>], the permanent per-ship / per-packet
+// dump (docs/m2-r8-oracle-rung-physics.md "dump"): <ships> is a ship number (shipID.shipNumber, the id the stream
+// hashes), a comma-separated list of them or "all"; one 'S' line per dumped ship and tick, one 'C' line per command of
+// every sync packet, written to shipdump.txt next to the /oracleDump file. Read only: it draws nothing and changes nothing
+#define ORACLE_SHIPDUMP_MAX     32
+static bool32 oracleShipDumpOn = FALSE;
+static bool32 oracleShipDumpAll = FALSE;
+static udword oracleShipDumpIds[ORACLE_SHIPDUMP_MAX];
+static udword oracleShipDumpNum = 0;
+static udword oracleShipDumpFrom = 0;
+static udword oracleShipDumpTo = 0xFFFFFFFFu;
+static FILE *oracleShipDumpFile = NULL;
+static bool32 oracleShipDumpFailed = FALSE;
+
 static void oracleEmitEvent(uint16_t code, const char *text);
 static void oracleClose(void);
 
@@ -124,6 +138,49 @@ void oracleSetSelfTest(char *string)
 void oracleSetSelfTestPerturb(char *string)
 {
     oracleSelfTestPerturbTick = (sdword)strtol(string, NULL, 10);
+}
+
+// HWI-ORACLE (M2-R8 oracle-rung-physics): /oracleShipDump <ships>[@<from>-<to>]
+void oracleSetShipDump(char *string)
+{
+    char *p = string;
+    char *end;
+    long v;
+
+    oracleShipDumpOn = TRUE;
+    oracleShipDumpAll = FALSE;
+    oracleShipDumpNum = 0;
+    if (strncmp(p, "all", 3) == 0)
+    {
+        oracleShipDumpAll = TRUE;
+        p += 3;
+    }
+    else
+    {
+        for (;;)
+        {
+            v = strtol(p, &end, 10);
+            if (end == p)
+            {
+                break;
+            }
+            if (oracleShipDumpNum < ORACLE_SHIPDUMP_MAX)
+            {
+                oracleShipDumpIds[oracleShipDumpNum++] = (udword)v;
+            }
+            p = end;
+            if (*p != ',')
+            {
+                break;
+            }
+            p++;
+        }
+    }
+    if (*p == '@')
+    {
+        oracleShipDumpFrom = (udword)strtoul(p + 1, &end, 10);
+        oracleShipDumpTo = (*end == '-') ? (udword)strtoul(end + 1, NULL, 10) : oracleShipDumpFrom;
+    }
 }
 
 bool32 oracleSelfTestRequested(void)
@@ -306,6 +363,12 @@ static void oracleClose(void)
     {
         fclose(oracleFile);
         oracleFile = NULL;
+    }
+    if (oracleShipDumpFile != NULL)
+    {
+        fclose(oracleShipDumpFile);
+        oracleShipDumpFile = NULL;
+        oracleShipDumpFailed = TRUE;                // complete: nothing may reopen (and truncate) it
     }
 }
 
@@ -575,6 +638,207 @@ static void oracleFillTick(HwoTick *t)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    HWI-ORACLE (M2-R8 oracle-rung-physics): the per-ship / per-packet dump (/oracleShipDump). Every float is written
+    as its bits and its value, so a line gives the exact words the stream hashes (ships_pos, ships_vel, ships_rot,
+    ships_health) and tools/oracle/hwo_invert.py can rebuild a tick's hashes from an "all" dump.
+      S <tick> <ship> <type> <owner> <order> <attributes> <aistate> <flags> pos=<3> vel=<3> rotspeed=<3>
+        coordsys=<9: m11 m21 m31 m12 m22 m32 m13 m23 m33> health=<1> (<x> = hex bits:value)
+      C <tick> <frame> <index> <type> <from> <bytes>: one command of a sync packet before clProcessSyncPacket runs it
+      A <tick> <ship> force|rot <dir> <value>: a force / torque given to the ship (physApplyForceToObj / physApplyRotToObj)
+      F <tick> <ship> force=<3> torque=<3>: the sums the ship's physics update integrates (physUpdateObjPosVelShip)
+      V <tick> <ship> target|repulse|desired v=<3>: the flight's vectors (aishipFlyToPointAvoidingObjsFunc)
+      R <tick> <index> <objtype> pos=<3> vel=<3>: with "all", every live resource in ResourceList order
+----------------------------------------------------------------------------*/
+static bool32 oracleShipDumpOpen(void)
+{
+    char path[1100];
+    const char *slash;
+    size_t dirlen = 0;
+
+    if (oracleShipDumpFile != NULL)
+    {
+        return TRUE;
+    }
+    if (!oracleShipDumpOn || oracleShipDumpFailed)
+    {
+        return FALSE;
+    }
+    slash = strrchr(oracleFileName, ORACLE_PATH_SEP);
+    if (slash != NULL)
+    {
+        dirlen = (size_t)(slash - oracleFileName) + 1;
+    }
+    snprintf(path, sizeof(path), "%.*sshipdump.txt", (int)dirlen, oracleFileName);
+    oracleShipDumpFile = fopen(path, "w");
+    if (oracleShipDumpFile == NULL)
+    {
+        fprintf(stdout, "oracle: shipdump cannot open '%s'\n", path);
+        oracleShipDumpFailed = TRUE;
+        return FALSE;
+    }
+    fprintf(stdout, "oracle: shipdump file=%s ships=%s from=%u to=%u\n", path, oracleShipDumpAll ? "all" : "list",
+            (unsigned)oracleShipDumpFrom, (unsigned)oracleShipDumpTo);
+    fflush(stdout);
+    return TRUE;
+}
+
+static bool32 oracleShipDumpWanted(udword tick, udword shipnumber)
+{
+    udword i;
+
+    if (!oracleShipDumpOn || (tick < oracleShipDumpFrom) || (tick > oracleShipDumpTo))
+    {
+        return FALSE;
+    }
+    if (oracleShipDumpAll)
+    {
+        return TRUE;
+    }
+    for (i = 0; i < oracleShipDumpNum; i++)
+    {
+        if (oracleShipDumpIds[i] == shipnumber)
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+static void oracleShipDumpFloats(const char *name, const real32 *f, udword n)
+{
+    udword i;
+
+    fprintf(oracleShipDumpFile, " %s=", name);
+    for (i = 0; i < n; i++)
+    {
+        fprintf(oracleShipDumpFile, "%s%08x:%.9g", (i == 0) ? "" : ",", (unsigned)oracleFloatBits(f[i]), (double)f[i]);
+    }
+}
+
+static void oracleShipDumpTick(void)
+{
+    Node *node;
+    Ship *ship;
+    const matrix *m;
+    real32 cs[9];
+    udword tick = universe.univUpdateCounter;
+
+    if (!oracleShipDumpOn || (tick < oracleShipDumpFrom) || (tick > oracleShipDumpTo) || !oracleShipDumpOpen())
+    {
+        return;
+    }
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if ((ship->header.flags & SOF_Dead) || !oracleShipDumpWanted(tick, (udword)ship->shipID.shipNumber))
+        {
+            continue;
+        }
+        m = &ship->rotatable.rotinfo.coordsys;
+        cs[0] = m->m11; cs[1] = m->m21; cs[2] = m->m31;
+        cs[3] = m->m12; cs[4] = m->m22; cs[5] = m->m32;
+        cs[6] = m->m13; cs[7] = m->m23; cs[8] = m->m33;
+        fprintf(oracleShipDumpFile, "S %u %u %s %d %d %d %u %08x", (unsigned)tick, (unsigned)ship->shipID.shipNumber,
+                ShipTypeToStr(ship->shiptype), (ship->playerowner != NULL) ? (int)ship->playerowner->playerIndex : -1,
+                (ship->command != NULL) ? (int)ship->command->ordertype.order : -1,
+                (ship->command != NULL) ? (int)ship->command->ordertype.attributes : -1,
+                (unsigned)ship->shipOrDerelict.aistate, (unsigned)ship->header.flags);
+        oracleShipDumpFloats("pos", &ship->obj.posinfo.position.x, 3);
+        oracleShipDumpFloats("vel", &ship->obj.posinfo.velocity.x, 3);
+        oracleShipDumpFloats("rotspeed", &ship->rotatable.rotinfo.rotspeed.x, 3);
+        oracleShipDumpFloats("coordsys", cs, 9);
+        oracleShipDumpFloats("health", &ship->targetable.health, 1);
+        fputc('\n', oracleShipDumpFile);
+    }
+    // with "all": one 'R' line per live resource in ResourceList order (the 'resources' hash's order: positions only)
+    if (oracleShipDumpAll)
+    {
+        SpaceObj *obj;
+        udword index = 0;
+
+        for (node = universe.ResourceList.head; node != NULL; node = node->next)
+        {
+            obj = (SpaceObj *)listGetStructOfNode(node);
+            if (obj->header.flags & SOF_Dead)
+            {
+                continue;
+            }
+            fprintf(oracleShipDumpFile, "R %u %u %d", (unsigned)tick, (unsigned)index, (int)obj->header.objtype);
+            oracleShipDumpFloats("pos", &obj->posinfo.position.x, 3);
+            oracleShipDumpFloats("vel", &obj->posinfo.velocity.x, 3);
+            fputc('\n', oracleShipDumpFile);
+            index++;
+        }
+    }
+}
+
+// 'A' / 'F' lines: the forces and torques a dumped ship is given during a tick (physApplyForceToObj /
+// physApplyRotToObj, kind "force" / "rot", the direction and the value's bits) and their sums as the ship's physics
+// update integrates them (physUpdateObjPosVelShip); <tick> is univUpdateCounter while the update runs
+void oracleShipDumpApply(void *shipobj, const char *kind, udword dir, real32 value)
+{
+    SpaceObj *obj = (SpaceObj *)shipobj;
+    udword tick = universe.univUpdateCounter;
+
+    if (!oracleShipDumpOn || (obj->header.objtype != OBJ_ShipType) ||
+        !oracleShipDumpWanted(tick, (udword)((Ship *)obj)->shipID.shipNumber) || !oracleShipDumpOpen())
+    {
+        return;
+    }
+    fprintf(oracleShipDumpFile, "A %u %u %s %u %08x:%.9g\n", (unsigned)tick, (unsigned)((Ship *)obj)->shipID.shipNumber,
+            kind, (unsigned)dir, (unsigned)oracleFloatBits(value), (double)value);
+}
+
+// 'V' lines: the flight's vectors of a dumped ship (aishipFlyToPointAvoidingObjsFunc: "target" the capped target
+// velocity, "repulse" each avoidance term added, "desired" the velocity handed to the guidance)
+void oracleShipDumpVector(void *shipobj, const char *kind, const vector *v)
+{
+    Ship *ship = (Ship *)shipobj;
+    udword tick = universe.univUpdateCounter;
+
+    if (!oracleShipDumpOn || !oracleShipDumpWanted(tick, (udword)ship->shipID.shipNumber) || !oracleShipDumpOpen())
+    {
+        return;
+    }
+    fprintf(oracleShipDumpFile, "V %u %u %s", (unsigned)tick, (unsigned)ship->shipID.shipNumber, kind);
+    oracleShipDumpFloats("v", &v->x, 3);
+    fputc('\n', oracleShipDumpFile);
+}
+
+void oracleShipDumpPhys(void *shipobj)
+{
+    Ship *ship = (Ship *)shipobj;
+    udword tick = universe.univUpdateCounter;
+
+    if (!oracleShipDumpOn || !oracleShipDumpWanted(tick, (udword)ship->shipID.shipNumber) || !oracleShipDumpOpen())
+    {
+        return;
+    }
+    fprintf(oracleShipDumpFile, "F %u %u", (unsigned)tick, (unsigned)ship->shipID.shipNumber);
+    oracleShipDumpFloats("force", &ship->obj.posinfo.force.x, 3);
+    oracleShipDumpFloats("torque", &ship->rotatable.rotinfo.torque.x, 3);
+    fputc('\n', oracleShipDumpFile);
+}
+
+void oracleShipDumpCommand(udword frame, udword index, udword type, udword from, const ubyte *body, udword size)
+{
+    udword i;
+    udword tick = universe.univUpdateCounter;
+
+    if (!oracleShipDumpOn || (tick + 1 < oracleShipDumpFrom) || (tick > oracleShipDumpTo) || !oracleShipDumpOpen())
+    {
+        return;
+    }
+    fprintf(oracleShipDumpFile, "C %u %u %u %u %u ", (unsigned)tick, (unsigned)frame, (unsigned)index, (unsigned)type,
+            (unsigned)from);
+    for (i = 0; i < size; i++)
+    {
+        fprintf(oracleShipDumpFile, "%02x", (unsigned)body[i]);
+    }
+    fputc('\n', oracleShipDumpFile);
+}
+
 static void oracleEmitTick(void)
 {
     HwoTick tick;
@@ -675,6 +939,11 @@ bool32 oracleUnivUpdate(real32 phystimeelapsed)
     if ((oracleFileName[0] != '\0' || oracleInSelfTest) && universe.univUpdateCounter != before)
     {
         oracleEmitTick();
+    }
+    // HWI-ORACLE (M2-R8 oracle-rung-physics): the per-ship dump's 'S' lines of this tick (/oracleShipDump)
+    if (oracleShipDumpOn && (universe.univUpdateCounter != before))
+    {
+        oracleShipDumpTick();
     }
     // the mission run: a progress line every 256 ticks, then the stop at the requested tick (utyGameQuit only pushes
     // the exit event; the main loop quits normally, so the stream and the logs are complete)

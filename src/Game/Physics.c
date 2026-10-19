@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "Physics.h"
+#include "OracleDump.h"     // HWI-ORACLE (M2-R8 oracle-rung-physics): /oracleShipDump
 #include "DFGFrigate.h"
 
 #include <math.h>
@@ -99,8 +100,16 @@ void physApplyForceToObj(SpaceObj *obj,real32 force,uword transdir)
         force = -force;
     }
 
-    vecMultiplyByScalar(vectorforce,force);
-    vecAddTo(obj->posinfo.force,vectorforce);
+#if HWI_ORACLE
+    oracleShipDumpApply(obj, "force", transdir, force);    // HWI-ORACLE (M2-R8 oracle-rung-physics): /oracleShipDump
+#endif
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape (physApplyForceToObj 0x004e44c2): x and y are scaled and stored
+    //      as floats before they are added; z's product stays a double and is added to force.z with one rounding
+    vectorforce.x *= force;
+    vectorforce.y *= force;
+    obj->posinfo.force.x += vectorforce.x;
+    obj->posinfo.force.y += vectorforce.y;
+    obj->posinfo.force.z = (real32)((double)vectorforce.z * force + obj->posinfo.force.z);
 }
 
 /*-----------------------------------------------------------------------------
@@ -127,6 +136,9 @@ void physApplyRotToObj(SpaceObjRot *obj,real32 torque,uword rotdir)
     {
         torque = -torque;
     }
+#if HWI_ORACLE
+    oracleShipDumpApply(obj, "rot", rotdir, torque);       // HWI-ORACLE (M2-R8 oracle-rung-physics): /oracleShipDump
+#endif
 
     switch (rotdir)
     {
@@ -290,19 +302,27 @@ void physUpdateObjPosVelShip(Ship *obj,real32 phystimeelapsed)
     matrix rotymatrix;
     matrix rotzmatrix;
     matrix tempmat;
-    real32 angxrotate;
-    real32 angyrotate;
-    real32 angzrotate;
+    double angxrotate;      // CAT: doubles on the exe's FPU (M2-R8 oracle-rung-physics)
+    double angyrotate;
+    double angzrotate;
 
 /*-----------------------------------------------------------------------------
     Update object position
 -----------------------------------------------------------------------------*/
 
-    // a = F/m
-    vecScalarMultiply(a,obj->obj.posinfo.force,staticheader->oneOverMass);
+#if HWI_ORACLE
+    oracleShipDumpPhys(obj);       // HWI-ORACLE (M2-R8 oracle-rung-physics): /oracleShipDump
+#endif
 
+    // a = F/m
     // a = at
-    vecMultiplyByScalar(a,phystimeelapsed);
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape (physUpdateObjPosVelShip 0x004e4964): a.y and a.z are stored as
+    //      floats after F/m and again after * t, a.x is (F/m) * t on the FPU, rounded once
+    a.x = (real32)(((double)staticheader->oneOverMass * obj->obj.posinfo.force.x) * phystimeelapsed);
+    a.y = staticheader->oneOverMass * obj->obj.posinfo.force.y;
+    a.z = staticheader->oneOverMass * obj->obj.posinfo.force.z;
+    a.y *= phystimeelapsed;
+    a.z *= phystimeelapsed;
 
     // v = v + at
     // CAT: a drifting ship is not accelerated (physUpdateObjPosVelShip 0x004e4950: Ship+0x550)
@@ -332,9 +352,11 @@ void physUpdateObjPosVelShip(Ship *obj,real32 phystimeelapsed)
                 maxspeed = 1400.0f;
             }
             fraction = cat_timerFractionElapsed(&obj->catDriftTimer);
-            if ((fraction < 0.5f) && (0.0f < 1400.0f - speedmult))
+            // CAT (M2-R8 oracle-rung-physics): 1400 - speedmult and 1 - fraction stay doubles, rounded once at the
+            //      store (0x004e4a63)
+            if ((fraction < 0.5f) && (0.0 < 1400.0 - (double)speedmult))
             {
-                maxspeed = (1.0f - fraction) * (1400.0f - speedmult) + speedmult;
+                maxspeed = (real32)((1.0 - (double)fraction) * (1400.0 - (double)speedmult) + speedmult);
             }
         }
         vecCapVectorSloppy(&obj->obj.posinfo.velocity,maxspeed);
@@ -347,8 +369,12 @@ void physUpdateObjPosVelShip(Ship *obj,real32 phystimeelapsed)
         vecScalarMultiply(d,obj->obj.posinfo.velocity,phystimeelapsed);
 
         // x = x + d
+        // CAT (M2-R8 oracle-rung-physics): the x87 shape (0x004e4ab0): t * v.x stays a double and is added to x with
+        //      one rounding; d.y and d.z are stored first
         oldPosition = obj->obj.posinfo.position;
-        vecAddTo(obj->obj.posinfo.position,d);
+        obj->obj.posinfo.position.x = (real32)((double)phystimeelapsed * obj->obj.posinfo.velocity.x + obj->obj.posinfo.position.x);
+        obj->obj.posinfo.position.y += d.y;
+        obj->obj.posinfo.position.z += d.z;
         // CAT (M2-R6 nis-fow-camera): a ship that affects the fog of war moves its cube on its player's grid from the
         //      old to the new position (physUpdateObjPosVelShip 0x004e4950: cat_shipAffectsFOW, cat_univShipFOWUpdate)
         if (cat_shipAffectsFOW(obj))
@@ -470,15 +496,19 @@ void physUpdateObjPosVelShip(Ship *obj,real32 phystimeelapsed)
         {
 
             // alpha = Torque/momentOfInertia (about each axis)
-            a.x = robj->rotinfo.torque.x * staticheader->oneOverMomentOfInertiaX;
+            // alpha = alpha*t
+            // CAT (M2-R8 oracle-rung-physics): the x87 shape (0x004e4c4e .. 0x004e4c9e): (torque.x / I) * t stays on
+            //      the FPU and is added to w.x with ONE rounding; alpha.y and alpha.z are stored after each product
             a.y = robj->rotinfo.torque.y * staticheader->oneOverMomentOfInertiaY;
             a.z = robj->rotinfo.torque.z * staticheader->oneOverMomentOfInertiaZ;
-
-            // alpha = alpha*t
-            vecMultiplyByScalar(a,phystimeelapsed);
+            a.y *= phystimeelapsed;
+            a.z *= phystimeelapsed;
 
             // w = w + alpha*t
-            vecAddTo(robj->rotinfo.rotspeed,a);
+            robj->rotinfo.rotspeed.x = (real32)(((double)staticheader->oneOverMomentOfInertiaX * robj->rotinfo.torque.x) *
+                                                phystimeelapsed + robj->rotinfo.rotspeed.x);
+            robj->rotinfo.rotspeed.y += a.y;
+            robj->rotinfo.rotspeed.z += a.z;
 
             // cap rotation speed
             vecCapVectorSloppy(&robj->rotinfo.rotspeed,staticheader->maxrot);
@@ -494,7 +524,9 @@ void physUpdateObjPosVelShip(Ship *obj,real32 phystimeelapsed)
 
         if (robj->rotinfo.rotspeed.x)
         {
-            angxrotate = robj->rotinfo.rotspeed.x * phystimeelapsed;
+            // CAT (M2-R8 oracle-rung-physics): the angle t * w.x stays a double; fsin and fcos of it are rounded to
+            //      float once, at their fstp (0x004e4ce5 / 0x004e4d55 / 0x004e4dcb)
+            angxrotate = (double)phystimeelapsed * robj->rotinfo.rotspeed.x;
 
             matMakeRotAboutX(&rotxmatrix,(real32)cos(angxrotate),(real32)sin(angxrotate));
 
@@ -506,7 +538,9 @@ void physUpdateObjPosVelShip(Ship *obj,real32 phystimeelapsed)
 
         if (robj->rotinfo.rotspeed.y)
         {
-            angyrotate = robj->rotinfo.rotspeed.y * phystimeelapsed;
+            // CAT (M2-R8 oracle-rung-physics): the angle t * w.y stays a double; fsin and fcos of it are rounded to
+            //      float once, at their fstp (0x004e4ce5 / 0x004e4d55 / 0x004e4dcb)
+            angyrotate = (double)phystimeelapsed * robj->rotinfo.rotspeed.y;
 
             matMakeRotAboutY(&rotymatrix,(real32)cos(angyrotate),(real32)sin(angyrotate));
 
@@ -518,7 +552,9 @@ void physUpdateObjPosVelShip(Ship *obj,real32 phystimeelapsed)
 
         if (robj->rotinfo.rotspeed.z)
         {
-            angzrotate = robj->rotinfo.rotspeed.z * phystimeelapsed;
+            // CAT (M2-R8 oracle-rung-physics): the angle t * w.z stays a double; fsin and fcos of it are rounded to
+            //      float once, at their fstp (0x004e4ce5 / 0x004e4d55 / 0x004e4dcb)
+            angzrotate = (double)phystimeelapsed * robj->rotinfo.rotspeed.z;
 
             matMakeRotAboutZ(&rotzmatrix,(real32)cos(angzrotate),(real32)sin(angzrotate));
 

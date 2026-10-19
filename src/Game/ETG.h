@@ -257,6 +257,7 @@ etgopcode;
 #define ETG_ResourceRadiusParam     1              //width parameter of resourcing effects
 #define ETG_ResourceDurationParam   SCALESHIFT(2)  //duration parameter of resourcing effects
 #define ETG_NumberParameters        8              //number of parameters supported by variable-parameter functions
+#define CAT_ETG_CREATE_PARAMETERS   10             // CAT: etgEffectCreate's parameter block holds ten (0x00470990, sub esp,0x28)
 
 //effect flags
 #define EF_Rendered                 0x00000010

@@ -22,6 +22,7 @@
 #include "FlightManDefs.h"
 #include "FormationDefs.h"
 #include "FastMath.h"
+#include "OracleDump.h"     // HWI-ORACLE (M2-R8 oracle-rung-physics): /oracleShipDump
 #include "Physics.h"
 #include "SinglePlayer.h"   // CAT: ShipSinglePlayerGameInfo.hyperspaceEffect (aishipFlyToPointAvoidingObjsFunc)
 #include "ProfileTimers.h"
@@ -396,13 +397,23 @@ void aishipGetTrajectoryWithVelPrediction(Ship *ship,SpaceObjRotImpTarg *target,
         goto settrajectory;
     }
 
-    distToTargetMag = fsqrt(vecMagnitudeSquared(distToTargetVec));
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape (aishipGetTrajectoryWithVelPrediction 0x00413e10): the double
+    //      (z*z + y*y) + x*x into fsqrt, divided by the bullet speed as a double; x and y of the velocity times it are
+    //      stored before they are added, z's product is added with one rounding
+    {
+        double traveltime = catFsqrtD(((double)distToTargetVec.z * distToTargetVec.z + (double)distToTargetVec.y * distToTargetVec.y) +
+                                      (double)distToTargetVec.x * distToTargetVec.x) / bulletspeed;
 
-    bullettraveltime = distToTargetMag / bulletspeed;
-
-    vecScalarMultiply(deltatarget,target->obj.posinfo.velocity,bullettraveltime);
-
-    vecAddTo(distToTargetVec,deltatarget);
+        deltatarget.x = (real32)(traveltime * target->obj.posinfo.velocity.x);
+        deltatarget.y = (real32)(traveltime * target->obj.posinfo.velocity.y);
+        distToTargetVec.x += deltatarget.x;
+        distToTargetVec.y += deltatarget.y;
+        distToTargetVec.z = (real32)(traveltime * target->obj.posinfo.velocity.z + distToTargetVec.z);
+        distToTargetMag = 0.0f;
+        bullettraveltime = (real32)traveltime;
+        (void)distToTargetMag;
+        (void)bullettraveltime;
+    }
 
 settrajectory:
     *trajectory = distToTargetVec;
@@ -427,23 +438,27 @@ void aishipGetTrajectoryWithAngleCorrection(Ship *ship,SpaceObjRotImpTarg *targe
 #define STATE_POINT_IN_DIRECTION    1
 #define STATE_START_FLYING          2
 
+// CAT (M2-R8 oracle-rung-physics): the x87 shape (GetCollSizeInDirection 0x00413f90): the three components are
+//      doubles, (d.z*c.z + d.y*c.y) + d.x*c.x each, made positive, summed as (heading*forward + right*right) + up*up and
+//      halved; the exe returns that double on the FPU, which its callers add or store as they need (catGetCollSizeD)
+static double catGetCollSizeD(SpaceObjRotImp *obj, const vector *dir)
+{
+    const matrix *m = &obj->rotatable.rotinfo.coordsys;
+    StaticCollInfo *collInfo = &obj->obj.staticinfo->staticCollInfo;
+    double upcomp = ((double)dir->z * m->m31 + (double)dir->y * m->m21) + (double)dir->x * m->m11;
+    double rightcomp = ((double)dir->z * m->m32 + (double)dir->y * m->m22) + (double)dir->x * m->m12;
+    double headingcomp = ((double)dir->z * m->m33 + (double)dir->y * m->m23) + (double)dir->x * m->m13;
+
+    if (upcomp < 0.0) upcomp = -upcomp;
+    if (rightcomp < 0.0) rightcomp = -rightcomp;
+    if (headingcomp < 0.0) headingcomp = -headingcomp;
+
+    return ((headingcomp * collInfo->forwardlength + rightcomp * collInfo->rightlength) + upcomp * collInfo->uplength) * 0.5;
+}
+
 real32 GetCollSizeInDirection(SpaceObjRotImp *obj,vector dir)
 {
-    vector up;
-    vector right;
-    vector heading;
-    real32 upcomp,rightcomp,headingcomp;
-    StaticCollInfo *collInfo = &obj->obj.staticinfo->staticCollInfo;
-
-    matGetVectFromMatrixCol1(up,obj->rotatable.rotinfo.coordsys);
-    matGetVectFromMatrixCol2(right,obj->rotatable.rotinfo.coordsys);
-    matGetVectFromMatrixCol3(heading,obj->rotatable.rotinfo.coordsys);
-
-    upcomp = ABS(vecDotProduct(up,dir));
-    rightcomp = ABS(vecDotProduct(right,dir));
-    headingcomp = ABS(vecDotProduct(heading,dir));
-
-    return (upcomp*collInfo->uplength + rightcomp*collInfo->rightlength + headingcomp*collInfo->forwardlength)*0.5f;
+    return (real32)catGetCollSizeD(obj, &dir);
 }
 
 /*-----------------------------------------------------------------------------
@@ -1079,6 +1094,9 @@ startflying:
         #endif
 
             desiredVel = targetVec;
+#if HWI_ORACLE
+            oracleShipDumpVector(ship, "target", &targetVec);   // HWI-ORACLE (M2-R8 oracle-rung-physics): /oracleShipDump
+#endif
 
             if (aishipTempDisableAvoiding)
             {
@@ -1182,7 +1200,8 @@ passagain:
                 }
                 maxavoidcollsize = thisBlob->blobMaxSTargetCollSphereSize;
                 maxavoidcollpad = maxavoidcollsize * AVOID_OBJ_PADDING_SCALE;
-                maxpossibledist = shiprowcollpad + maxavoidcollpad;
+                // CAT (M2-R8 oracle-rung-physics): size * scale + pad on the FPU, rounded once (0x00414d28)
+                maxpossibledist = (real32)((double)maxavoidcollsize * AVOID_OBJ_PADDING_SCALE + shiprowcollpad);
 
                 // binary search targetindex such that
                 // (ship->obj.collOptimizeDist - avoidobj->obj.collOptimizeDist) <= maxpossibledist
@@ -1217,7 +1236,8 @@ passagain:
                 }
                 maxavoidcollsize = thisBlob->blobMaxBTargetCollSphereSize;
                 maxavoidcollpad = maxavoidcollsize * ((maxavoidcollsize > AISHIP_BIGSHIP) ? AVOID_OBJ_PADDING_SCALE_BIG : AVOID_OBJ_PADDING_SCALE);
-                maxpossibledist = shiprowcollpad + maxavoidcollpad;
+                // CAT (M2-R8 oracle-rung-physics): size * scale + pad on the FPU, rounded once (0x00414d96)
+                maxpossibledist = (real32)((double)maxavoidcollsize * ((maxavoidcollsize > AISHIP_BIGSHIP) ? AVOID_OBJ_PADDING_SCALE_BIG : AVOID_OBJ_PADDING_SCALE) + shiprowcollpad);
                 objindex = 0;
             }
 
@@ -1421,7 +1441,10 @@ norowcheck:
 
                             avoidcollpad = avoidcollsize * AVOID_OBJ_FORMATION_PADDING_SCALE;
                             shipcollpad = shipcollsize * AVOID_OBJ_FORMATION_PADDING_SCALE;
-                            goto getmaxdist;
+                            // CAT (M2-R8 oracle-rung-physics): the avoided pad stays a double, added to the stored ship
+                            //      pad with one rounding (0x004152eb .. 0x00415343)
+                            maxdistconsider = (real32)((double)shipcollpad + (double)AVOID_OBJ_FORMATION_PADDING_SCALE * avoidcollsize);
+                            goto getmaxdistchecks;
                         }
 
                         if ( (shipcommand->ordertype.order == COMMAND_MILITARY_PARADE) && (shipcommand->militaryParade->aroundShip == avoidShip))
@@ -1436,8 +1459,10 @@ norowcheck:
                             {
                                 avoidcollpad = avoidcollsize * AVOID_OBJ_FORMATION_PADDING_SCALE;
                             }
-                       getmaxdist:
-                            maxdistconsider = avoidcollpad + shipcollpad;
+                            // CAT (M2-R8 oracle-rung-physics): the same one rounding (0x00415339 .. 0x00415343)
+                            maxdistconsider = (real32)((double)shipcollpad + ((avoidShip->staticinfo->shipclass == CLASS_Mothership) ?
+                                                       (double)AVOID_OBJ_MSHIP_MILPARADE_PADDING_SCALE : (double)AVOID_OBJ_FORMATION_PADDING_SCALE) * avoidcollsize);
+                       getmaxdistchecks:
 
                             if (!isBetweenInclusive(repulse.x,-maxdistconsider,maxdistconsider))
                             {
@@ -1535,45 +1560,65 @@ norowcheck:
                 }
 
                 // CAT: the squared distance is tested before the square root (0x00415516 .. 0x00415543)
-                repulsemag2 = vecMagnitudeSquared(repulse);
-                if (repulsemag2 > (maxdistconsider*maxdistconsider))
+                // CAT (M2-R8 oracle-rung-physics): the x87 shape (0x00415516 .. 0x0041563f): the squared distance
+                //      (z*z + y*y) + x*x and maxdistconsider squared are doubles; the double goes to fsqrt and the
+                //      distance is stored as a float; the normal is repulse * (1.0f / that float), a double reciprocal,
+                //      rounded once per component; the collision distance adds the second size's double to the first
+                //      size stored as a float, distance - that is a double (raised to 20), times the scale factor, and
+                //      its double reciprocal scales the normal, one rounding per component
                 {
-                    goto nextnode;
-                }
-                repulsedist = fsqrt(repulsemag2);
+                    double repulsemag2d = ((double)repulse.z * repulse.z + (double)repulse.y * repulse.y) + (double)repulse.x * repulse.x;
+                    double invd;
+                    double dtc;
+                    real32 firstsize;
+
+                    if (repulsemag2d > (double)maxdistconsider * maxdistconsider)
+                    {
+                        goto nextnode;
+                    }
+                    repulsedist = (real32)catFsqrtD(repulsemag2d);
+                    repulsemag2 = (real32)repulsemag2d;
 
 #ifdef HW_BUILD_FOR_DEBUGGING
-                considered++;
+                    considered++;
 #endif
-                aishipStatsAvoidedConsidered();
+                    aishipStatsAvoidedConsidered();
 
-                if (repulsedist < 0.1f)         // special case
-                {
-                    repulse.x = 0.1f;
-                    repulsedist = 0.1f;
-                    repulsemag2 = 0.01f;
-                }
+                    if (repulsedist < 0.1f)         // special case
+                    {
+                        repulse.x = 0.1f;
+                        repulsedist = 0.1f;
+                        repulsemag2 = 0.01f;
+                    }
 
-                vecScalarDivide(repulsenorm,repulse,repulsedist,temp);
+                    invd = 1.0 / (double)repulsedist;
+                    repulsenorm.x = (real32)(invd * repulse.x);
+                    repulsenorm.y = (real32)(invd * repulse.y);
+                    repulsenorm.z = (real32)(invd * repulse.z);
 
-                // very close, so figure out collidedist based on collision cubes
-                collidedist = GetCollSizeInDirection(&ship->impactable,repulsenorm) + GetCollSizeInDirection(avoidobj,repulsenorm);
+                    // very close, so figure out collidedist based on collision cubes
+                    firstsize = (real32)catGetCollSizeD(&ship->impactable, &repulsenorm);
+                    dtc = (double)repulsedist - (catGetCollSizeD(avoidobj, &repulsenorm) + firstsize);
+                    collidedist = (real32)((double)repulsedist - dtc);
 #if VELFACTOR
-                velfactor = -vecDotProduct(ship->obj.posinfo.velocity,repulsenorm);
+                    velfactor = -vecDotProduct(ship->obj.posinfo.velocity,repulsenorm);
 #endif
-                distanceToCollision = repulsedist - collidedist;
-                if (distanceToCollision < 20.0f)
-                {
-                    distanceToCollision = 20.0f;
+                    if (dtc < 20.0)
+                    {
+                        dtc = 20.0;
+                    }
+                    distanceToCollision = (real32)dtc;
+
+                    aishipStatsDistanceToCollision(distanceToCollision);
+
+                    // CAT: no HW1 R1-mothership flattening of the repulsion (the exe scales the normal at once, 0x00415600)
+
+                    invd = 1.0 / (dtc * useAVOID_OBJ_SCALE_FACTOR);
+                    repulse.x = (real32)(invd * repulsenorm.x);
+                    repulse.y = (real32)(invd * repulsenorm.y);
+                    repulse.z = (real32)(invd * repulsenorm.z);
+                    (void)temp;
                 }
-                repulse = repulsenorm;
-
-                aishipStatsDistanceToCollision(distanceToCollision);
-
-                // CAT: no HW1 R1-mothership flattening of the repulsion (the exe scales the normal at once, 0x00415600)
-
-                distanceToCollision *= useAVOID_OBJ_SCALE_FACTOR;
-                vecDivideByScalar(repulse,distanceToCollision,temp);
 
 #if VELFACTOR
                 if (velfactor > 1)
@@ -1611,8 +1656,12 @@ norowcheck:
                         }
                     }
 
-                    obscurecollsize = avoidcollsize*AVOID_OBJ_OBSCUREDPOINT_SCALE + obscureaddcollsize; // + DEST_OBSCURED_BY_OBJ_PADDING;
+                    // CAT (M2-R8 oracle-rung-physics): the x87 shape (0x00415682 .. 0x004157b6): the obscuring size
+                    //      stays a double, the squared distance is stored as a float and compared with its double square;
+                    //      the distance is fsqrt of that float, stored, and the normal is a double reciprocal's product
+                    double obscurecollsized = (double)AVOID_OBJ_OBSCUREDPOINT_SCALE * avoidcollsize + obscureaddcollsize; // + DEST_OBSCURED_BY_OBJ_PADDING;
 
+                    obscurecollsize = (real32)obscurecollsized;
                     obscureaddcollsize += AVOID_SPREAD_OUT_DIST;
 
                     // test if trying to move to a point that is being obscured by avoidobj
@@ -1626,19 +1675,24 @@ norowcheck:
                         vecSub(destToObj,avoidobj->collInfo.collPosition,ship->obj.posinfo.position);
                     }
 
-                    destToObjMag2 = vecMagnitudeSquared(destToObj);
+                    destToObjMag2 = (real32)(((double)destToObj.z * destToObj.z + (double)destToObj.y * destToObj.y) + (double)destToObj.x * destToObj.x);
 
-                    if (destToObjMag2 < (obscurecollsize*obscurecollsize))
+                    if ((double)destToObjMag2 < (obscurecollsized*obscurecollsized))
                     {
                         if (avoidobj->obj.staticinfo->staticCollInfo.avoidcollmodifier == 0.0f)
                         {
                             goto skipobscurecollsizedirectioncheck;
                         }
 
-                        destToObjDist = fsqrt(destToObjMag2);
-                        vecScalarDivide(destToObjNorm,destToObj,destToObjDist,temp);
+                        destToObjDist = (real32)catFsqrtD(destToObjMag2);
+                        {
+                            double invo = 1.0 / (double)destToObjDist;
+                            destToObjNorm.x = (real32)((double)destToObj.x * invo);
+                            destToObjNorm.y = (real32)((double)destToObj.y * invo);
+                            destToObjNorm.z = (real32)((double)destToObj.z * invo);
+                        }
 
-                        if (destToObjDist < (GetCollSizeInDirection(avoidobj,destToObjNorm)))
+                        if ((double)destToObjDist < catGetCollSizeD(avoidobj,&destToObjNorm))
                         {
 skipobscurecollsizedirectioncheck:
                             if (bitTest(aishipflags,AISHIP_ReturnImmedIfPointObscured))
@@ -1659,28 +1713,38 @@ skipobscurecheck:;
                 // test if repulsion vector is opposite of desired velocity by USE_PASS_RIGHT_ANGLE
                 // so that we can add pass on right to repulsion vector so objects
                 // will be able to go around each other
-                testExactOpposite = vecDotProduct(repulsenorm,targetVec);
+                // CAT (M2-R8 oracle-rung-physics): the x87 shape (0x004157c6 .. 0x004158d1): the dot product
+                //      (t.z*n.z + t.y*n.y) + t.x*n.x is stored as a float; the target vector's square stays a double;
+                //      the pass-right vector is (t.y - 0, 0 - t.x, 0), normalised; its scale PASS_RIGHT_FACTOR *
+                //      repulsedist is a double; x and y are stored, z's product is added to repulse.z with one rounding
+                testExactOpposite = (real32)(((double)targetVec.z * repulsenorm.z + (double)targetVec.y * repulsenorm.y) +
+                                             (double)targetVec.x * repulsenorm.x);
                 if (testExactOpposite < 0)
                 {
-                    real32 targetVecMag2 = vecMagnitudeSquared(targetVec);
+                    double targetVecMag2 = ((double)targetVec.z * targetVec.z + (double)targetVec.y * targetVec.y) +
+                                           (double)targetVec.x * targetVec.x;
                     // CAT: at least 30 m away (the float 900.0 at 0x0072a4cc, 0x00415813), where HW1 had 20 m
-                    if (targetVecMag2 >= (30.0f*30.0f))     // must be at least 30m away before we consider passing on right (avoid jitter)
+                    if (targetVecMag2 >= (30.0*30.0))     // must be at least 30m away before we consider passing on right (avoid jitter)
                     {
-                        if ((testExactOpposite*testExactOpposite) >= (targetVecMag2 * USE_PASS_RIGHT_ANGLE))
+                        if (((double)testExactOpposite*testExactOpposite) >= (targetVecMag2 * USE_PASS_RIGHT_ANGLE))
                         {
                             vector passright;
-                            vector upvector = { 0.0f,0.0f,1.0f };
-                            real32 passrightmag;
+                            double passrightmag;
 
-                            vecCrossProduct(passright,targetVec,upvector);
+                            passright.x = targetVec.y - 0.0f;
+                            passright.y = 0.0f - targetVec.x;
+                            passright.z = 0.0f;
                             vecNormalize(&passright);
 
-                            passrightmag = repulsedist * PASS_RIGHT_FACTOR;
-                            vecMultiplyByScalar(passright,passrightmag);
+                            passrightmag = (double)PASS_RIGHT_FACTOR * repulsedist;
+                            passright.x = (real32)(passrightmag * passright.x);
+                            passright.y = (real32)(passrightmag * passright.y);
 
                             aishipStatsPassingOnRight(passright);
 
-                            vecAddTo(repulse,passright);
+                            repulse.x += passright.x;
+                            repulse.y += passright.y;
+                            repulse.z = (real32)(passrightmag * passright.z + repulse.z);
                         }
                     }
                 }
@@ -1691,6 +1755,9 @@ skipobscurecheck:;
                 aishipStatsRepulse(repulse);
 
                 vecAddTo(desiredVel,repulse);
+#if HWI_ORACLE
+                oracleShipDumpVector(ship, "repulse", &repulse);   // HWI-ORACLE (M2-R8 oracle-rung-physics): /oracleShipDump
+#endif
 
         nextnode:
                 objindex++;
@@ -1770,6 +1837,9 @@ noavoid:
             // CAT: no HW1 attackSimple on an asteroid in the way (the exe never takes it out)
 
             aitrackVelocityVector(ship,&desiredVel);
+#if HWI_ORACLE
+            oracleShipDumpVector(ship, "desired", &desiredVel);   // HWI-ORACLE (M2-R8 oracle-rung-physics): /oracleShipDump
+#endif
 
             aishipStatsClose();
             PTEND(2);

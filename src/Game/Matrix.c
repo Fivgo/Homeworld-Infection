@@ -344,8 +344,14 @@ void matCreateCoordSysFromHeading(matrix *result,vector *heading)
         up.x = 0.11914522f;                                 //point vector not quite along z
         up.z = 0.99287684f;
     }
-    vecCrossProduct(right, LOF, up);
-    vecCrossProduct(up, right, LOF);
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape (matCreateCoordSysFromHeading 0x004ad010): each cross-product
+    //      component is a double difference of double products, rounded once at its store (up.y is the constant 0)
+    right.x = (real32)((double)LOF.y * up.z);
+    right.y = (real32)((double)LOF.z * up.x - (double)LOF.x * up.z);
+    right.z = (real32)(-((double)LOF.y * up.x));
+    up.x = (real32)((double)right.y * LOF.z - (double)right.z * LOF.y);
+    up.y = (real32)((double)right.z * LOF.x - (double)right.x * LOF.z);
+    up.z = (real32)((double)right.x * LOF.y - (double)right.y * LOF.x);
     vecNormalize(&right);
     vecNormalize(&up);
 
@@ -384,16 +390,18 @@ void matMultiplyMatByMat(matrix *result,matrix *first,matrix *second)
     real32 *c = (real32*)result;
     real32 *a = (real32*)first;
     real32 *b = (real32*)second;
-    real32 ai0, ai1, ai2;
+    double ai0, ai1, ai2;
     sdword i;
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape of the exe's hand-written loop (matMultiplyMatByMat 0x004ad1a0):
+    //      each element is a sum of three double products in the exe's order, rounded once at its fstp
     for (i = 0; i < 3; i++)
     {
         ai0 = A(i,0);
         ai1 = A(i,1);
         ai2 = A(i,2);
-        P(i,0) = ai0 * B(0,0) + ai1 * B(1,0) + ai2 * B(2,0);
-        P(i,1) = ai0 * B(0,1) + ai1 * B(1,1) + ai2 * B(2,1);
-        P(i,2) = ai0 * B(0,2) + ai1 * B(1,2) + ai2 * B(2,2);
+        P(i,0) = (real32)((ai2 * B(2,0) + ai0 * B(0,0)) + ai1 * B(1,0));
+        P(i,1) = (real32)((ai2 * B(2,1) + ai1 * B(1,1)) + ai0 * B(0,1));
+        P(i,2) = (real32)((ai1 * B(1,2) + ai2 * B(2,2)) + ai0 * B(0,2));
     }
 #undef A
 #undef B
@@ -410,9 +418,16 @@ void matMultiplyMatByMat(matrix *result,matrix *first,matrix *second)
 ----------------------------------------------------------------------------*/
 void matMultiplyMatByVec(vector *result,matrix *matrix,vector *vector)
 {
-    result->x = matrixdot(matrix->m11,matrix->m12,matrix->m13,vector->x,vector->y,vector->z);
-    result->y = matrixdot(matrix->m21,matrix->m22,matrix->m23,vector->x,vector->y,vector->z);
-    result->z = matrixdot(matrix->m31,matrix->m32,matrix->m33,vector->x,vector->y,vector->z);
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape (matMultiplyMatByVec 0x004ad260): double products summed as
+    //      x = (p0 + p1) + p2, y and z = p0 + (p1 + p2), each rounded once at its fstp
+    double vx = vector->x, vy = vector->y, vz = vector->z;
+    real32 rx = (real32)((vx * matrix->m11 + vy * matrix->m12) + vz * matrix->m13);
+    real32 ry = (real32)(vx * matrix->m21 + (vy * matrix->m22 + vz * matrix->m23));
+    real32 rz = (real32)(vx * matrix->m31 + (vy * matrix->m32 + vz * matrix->m33));
+
+    result->x = rx;
+    result->y = ry;
+    result->z = rz;
 }
 
 /*-----------------------------------------------------------------------------
@@ -425,9 +440,16 @@ void matMultiplyMatByVec(vector *result,matrix *matrix,vector *vector)
 ----------------------------------------------------------------------------*/
 void matMultiplyVecByMat(vector *result,vector *vector,matrix *matrix)
 {
-    result->x = matrixdot(vector->x,vector->y,vector->z,matrix->m11,matrix->m21,matrix->m31);
-    result->y = matrixdot(vector->x,vector->y,vector->z,matrix->m12,matrix->m22,matrix->m32);
-    result->z = matrixdot(vector->x,vector->y,vector->z,matrix->m13,matrix->m23,matrix->m33);
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape (matMultiplyVecByMat 0x004ad2f0), the same sums as
+    //      matMultiplyMatByVec over the matrix's columns
+    double vx = vector->x, vy = vector->y, vz = vector->z;
+    real32 rx = (real32)((vx * matrix->m11 + vy * matrix->m21) + vz * matrix->m31);
+    real32 ry = (real32)(vx * matrix->m12 + (vy * matrix->m22 + vz * matrix->m32));
+    real32 rz = (real32)(vx * matrix->m13 + (vy * matrix->m23 + vz * matrix->m33));
+
+    result->x = rx;
+    result->y = ry;
+    result->z = rz;
 }
 
 /*-----------------------------------------------------------------------------

@@ -750,6 +750,9 @@ Asteroid *univAddAsteroid(AsteroidType asteroidtype,vector *astpos)
     //      heap had it (memAlloc does not clear); univFindNearestResource reads it, and the replay of the skirmish
     //      recording crashed on a reused block's garbage there (asteroid 1552, tick 7313)
     newAsteroid->catMimicShip = NULL;
+    // CAT-FIX (M2-R8 oracle-rung-physics): the wrap box of a killer asteroid (+0x1A8 .. +0x1B0) is left as the heap had
+    //      it by the exe too, and its writer for a new game is not ported: zero, which catResourceWrap reads as no wrap
+    vecZeroVector(newAsteroid->catWrapExtent);
 
     newAsteroid->resource.resourceID.resourceNumber = universe.resourceNumber;
     IDToPtrTableAdd(&ResourceIDToPtr,universe.resourceNumber,(SpaceObj *)newAsteroid);
@@ -2761,6 +2764,31 @@ void univUpdateAllPosVelDerelicts()
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT (M2-R8 oracle-rung-physics): one axis of the wrap of univUpdateAllPosVelResources 0x00543308: -e above the
+//      position (test ah,0x41 fails) puts it at +e; else a position above +e is put at -e
+static void catResourceWrapAxis(real32 *pos, real32 extent)
+{
+    if (extent == 0.0f)
+    {
+        return;     // CAT-FIX: no box on this axis (a new game's asteroid; univAddAsteroid zeroes it here)
+    }
+    if (*pos < -extent)
+    {
+        *pos = extent;
+    }
+    else if (*pos > extent)
+    {
+        *pos = -extent;
+    }
+}
+
+static void catResourceWrap(vector *pos, vector *extent)
+{
+    catResourceWrapAxis(&pos->x, extent->x);
+    catResourceWrapAxis(&pos->y, extent->y);
+    catResourceWrapAxis(&pos->z, extent->z);
+}
+
 void univUpdateAllPosVelResources()
 {
     Node *objnode = universe.ResourceList.head;
@@ -2773,12 +2801,19 @@ void univUpdateAllPosVelResources()
         if ((resource->header.flags & (SOF_DontApplyPhysics|SOF_NISShip)) == 0)
         {
             physUpdateObjPosVelBasic(&resource->obj,universe.phystimeelapsed);
-            // CAT-TODO(stage 6 level load / KAS): univUpdateAllPosVelResources 0x005432d0 then clamps a resource whose
-            //      attribute dword (exe +0x38) has bit 0x200 into the box +-(exe +0x1A8, +0x1AC, +0x1B0): three of the
-            //      reserved dwords of this tree's Asteroid (SpaceObj.h), which nothing writes yet. The box is level
-            //      data: neither univAddAsteroid 0x00540a30 nor scriptSetResourcesCB 0x004a07b0 stores it, so its
-            //      writer is a mission-script path; port the clamp with that writer and name the three fields then
-            //      [integrate: M2-R5; was an M2-R4 #3 asteroids, #5 level-load attributes TODO]
+            // CAT (M2-R8 oracle-rung-physics): univUpdateAllPosVelResources 0x00543308 then wraps a resource whose
+            //      attribute dword (exe +0x38) has bit 0x200 (CAT_ATTRIBUTES_KillerCollision) around the box
+            //      +-(Asteroid +0x1A8, +0x1AC, +0x1B0): below -e on an axis it is put at +e, above +e at -e (the x87
+            //      compares are float against float). Found by the oracle's rung: the 10-17 recording's 82 drifting
+            //      asteroids (v.z -1000) wrap at z -40,000 -> +40,000 in the GOG stream (tick 243, asteroid 200,
+            //      recovered by tools/oracle/hwo_invert.py). CAT-FIX: only an asteroid is read (the exe reads the
+            //      three dwords of any resource with the bit; only asteroids carry it)
+            if (bitTest(resource->obj.attributes, CAT_ATTRIBUTES_KillerCollision) && (resource->header.objtype == OBJ_AsteroidType))
+            {
+                catResourceWrap(&resource->obj.posinfo.position, &((Asteroid *)resource)->catWrapExtent);
+            }
+            // CAT-TODO(stage 6 level load / KAS): the box's writer for a new game: neither univAddAsteroid 0x00540a30 nor
+            //      scriptSetResourcesCB 0x004a07b0 stores Asteroid +0x1A8 .. +0x1B0 (a saved or recorded game carries it)
         }
 
         if (resource->resourceNotAccessible > 0)
@@ -4478,7 +4513,10 @@ void univRemoveAllTargetReferencesFromBullets(SpaceObjRotImpTarg *target)
         bullet = (Bullet *)listGetStructOfNode(objnodebullet);
         dbgAssertOrIgnore(bullet->header.objtype == OBJ_BulletType);
 
-        if (&bullet->owner->targetable == target)
+        // CAT (M2-R8 oracle-rung-physics): the exe compares the owner pointer itself with the target (the targetable
+        //      part is at offset 0; univRemoveAllTargetReferencesFromBullets 0x005474e4 cmp [eax+0x11c],edx): no member
+        //      address is taken of a bullet whose owner is already NULL (the UBSan null member access of the R7 soak)
+        if ((void *)bullet->owner == (void *)target)
         {
             bullet->owner = NULL;       // bullet has no owner now that parent ship died
             bullet->gunowner = NULL;
@@ -4531,7 +4569,9 @@ void univRemoveAllTargetReferencesFromMissiles(SpaceObjRotImpTarg *target)
         missile = (Missile *)listGetStructOfNode(objnodemissile);
         dbgAssertOrIgnore(missile->header.objtype == OBJ_MissileType);
 
-        if (&missile->owner->targetable == target)
+        // CAT (M2-R8 oracle-rung-physics): the owner pointer itself is compared (univRemoveAllTargetReferencesFromMissiles
+        //      0x00547585 cmp [ecx+0x1fc],esi), as for the bullets: no member address of a NULL owner
+        if ((void *)missile->owner == (void *)target)
         {
             missile->owner = NULL;       // missile has no owner now that parent ship died
         }
@@ -5257,7 +5297,11 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
                                          SCALECAST(Real32ToUdword(coll->collrectoffset.y)),     // +0x64
                                          SCALECAST(Real32ToUdword(coll->collrectoffset.z)),     // +0x68
                                          SCALECAST(Real32ToUdword(coll->collrectoffset.x + coll->uplength)),    // +0x60 + +0x78
-                                         SCALECAST(Real32ToUdword(coll->collrectoffset.y + coll->rightlength)));// +0x64 + +0x7C
+                                         SCALECAST(Real32ToUdword(coll->collrectoffset.y + coll->rightlength)), // +0x64 + +0x7C
+                                         // CAT (M2-R8 oracle-rung-physics): the exe passes ten parameters, the tenth
+                                         //      +0x68 + +0x80 (univDeleteDeadShip 0x0054811c push edx, nParams 0xa); the
+                                         //      call had nine with nParams 10 (the R7 ai soak's ETG.c nParams fatal)
+                                         SCALECAST(Real32ToUdword(coll->collrectoffset.z + coll->forwardlength)));
             }
             else
             {
@@ -6458,13 +6502,20 @@ Resource *univFindNearestResource(Ship *ship,real32 volumeRadius,vector *volumeP
             }
         }
 
-        vecSub(diff,resource->obj.posinfo.position,ship->obj.posinfo.position);
-        dist = vecMagnitudeSquared(diff);
-
-        if (dist < mindist)
+        // CAT (M2-R8 oracle-rung-physics): the x87 shape (univFindNearestResource 0x00549ef9): the differences stay
+        //      doubles, (dz*dz + dy*dy) + dx*dx is compared unrounded with the stored float minimum and stored rounded
         {
-            mindist = dist;
-            closestResource = resource;
+            double dx = (double)resource->obj.posinfo.position.x - ship->obj.posinfo.position.x;
+            double dy = (double)resource->obj.posinfo.position.y - ship->obj.posinfo.position.y;
+            double dz = (double)resource->obj.posinfo.position.z - ship->obj.posinfo.position.z;
+            double distd = (dz * dz + dy * dy) + dx * dx;
+
+            if (distd < (double)mindist)
+            {
+                mindist = (real32)distd;
+                closestResource = resource;
+            }
+            (void)dist;
         }
 
 nextnode:

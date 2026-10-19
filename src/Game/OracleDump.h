@@ -29,6 +29,13 @@
 void oracleSetDumpFile(char *string);           // /oracleDump <file>
 void oracleSetSelfTest(char *string);           // /oracleSelfTest <ticks>
 void oracleSetSelfTestPerturb(char *string);    // /oracleSelfTestPerturb <tick>
+void oracleSetShipDump(char *string);           // /oracleShipDump <ships>[@<from>-<to>] (M2-R8 oracle-rung-physics)
+// the per-packet half of the ship dump: one command of a sync packet (CommandNetwork.c clProcessSyncPacket)
+void oracleShipDumpCommand(udword frame, udword index, udword type, udword from, const ubyte *body, udword size);
+// the physics half of the ship dump (Physics.c): each force / torque given and the sums integrated
+void oracleShipDumpApply(void *shipobj, const char *kind, udword dir, real32 value);
+void oracleShipDumpPhys(void *shipobj);
+void oracleShipDumpVector(void *shipobj, const char *kind, const vector *v);    // the flight's vectors (AIShip.c)
 
 // self-test: the scripted lockstep start (utyGameSystemsInit), then the caller quits
 bool32 oracleSelfTestRequested(void);

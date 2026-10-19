@@ -103,14 +103,17 @@ udword minechecks;
 ----------------------------------------------------------------------------*/
 real32 RangeToTarget(Ship *ship,SpaceObjRotImpTarg *target,vector *trajectory)
 {
-    real32 dist;
+    double dist;
 
-    dist = fsqrt(vecMagnitudeSquared(*trajectory));
+    // CAT (M2-R8 oracle-rung-physics): the x87 shape (RangeToTarget 0x00439c30): (x*x + y*y) + z*z into fsqrt as a
+    //      double, the sphere size subtracted on the FPU, one rounding at the return
+    dist = catFsqrtD(((double)trajectory->x * trajectory->x + (double)trajectory->y * trajectory->y) +
+                     (double)trajectory->z * trajectory->z);
     dist -= target->staticinfo->common.staticCollInfo.approxcollspheresize;
 
-    if (dist > 0.0f)
+    if (dist > 0.0)
     {
-        return dist;
+        return (real32)dist;
     }
     else
     {
@@ -1067,6 +1070,20 @@ void collCheckShipShipColl(blob *thisBlob,bool32 checkSmallShips)
                 goto nocollision;
             }
 
+            // CAT (M2-R8 oracle-rung-physics): a ship clamped to the other one does not collide with it
+            //      (collCheckShipShipColl 0x0043aec4 .. 0x0043aef3: SOF_Clamped, the clamp info and its host, either way
+            //      round), before the sphere distance and the Sentinel test
+            if (bitTest(obj1->header.flags, SOF_Clamped) && (obj1->guidance.clampInfo != NULL) &&
+                ((void *)obj1->guidance.clampInfo->host == (void *)obj2))
+            {
+                goto nocollision;
+            }
+            if (bitTest(obj2->header.flags, SOF_Clamped) && (obj2->guidance.clampInfo != NULL) &&
+                ((void *)obj2->guidance.clampInfo->host == (void *)obj1))
+            {
+                goto nocollision;
+            }
+
             colldist = obj1collspheresize + obj2->staticinfo->common.staticCollInfo.collspheresize;
 
             if (checkdist > colldist)
@@ -1139,10 +1156,21 @@ void collCheckShipShipColl(blob *thisBlob,bool32 checkSmallShips)
             {
                 goto nocollision;
             }
-            distsquared = vecMagnitudeSquared(distvector);
-            dist = (real32)fsqrt(distsquared);
+            // CAT (M2-R8 oracle-rung-physics): the x87 shape (collCheckShipShipColl 0x0043b1ba .. 0x0043b252): the double
+            //      (z*z + y*y) + x*x is stored as the float distsquared and compared, unrounded, with colldist squared
+            //      before any square root; the distance is fsqrt of the stored float, taken after the too-close special
+            //      case and the bump tests
+            {
+                double distsquaredd = ((double)distvector.z * distvector.z + (double)distvector.y * distvector.y) +
+                                      (double)distvector.x * distvector.x;
 
-            if (dist < colldist)
+                distsquared = (real32)distsquaredd;
+                if (!(distsquaredd < (double)colldist * colldist))
+                {
+                    goto nocollision;
+                }
+            }
+
             {
                 if (collCheckRectBumpCollision(&obj1->impactable,&obj2->impactable))
                 {
@@ -1150,11 +1178,11 @@ void collCheckShipShipColl(blob *thisBlob,bool32 checkSmallShips)
                     {
                         distvector.x = 10.0f;   // special case, if objects are too close together
                         distsquared = 100.0f;
-                        dist = 10.0f;
                     }
 
                     if (!bitTest(obj1->header.flags, SOF_NotBumpable) && !bitTest(obj2->header.flags, SOF_NotBumpable))
                     {
+                        dist = (real32)catFsqrtD(distsquared);
                         if(!kamikazeCheck(&obj1->targetable, &obj2->targetable))    //return true if kamikaze collision is true
                         {
                             // CAT: a ramming frigate acts first (cat_rammingFrigateCollide 0x005c14a0: latch, release,

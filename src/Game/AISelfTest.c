@@ -733,6 +733,8 @@ static void catAiTestFinish(sdword tick)
     dbgMessagef("%s", line);
 }
 
+static bool32 catAiTestGameOverLogged = FALSE;     // HWI-TEST (M2-R8): the game-over line once
+
 void catAiSelfTestTick(void)
 {
     sdword tick = (sdword)universe.univUpdateCounter;
@@ -763,6 +765,24 @@ void catAiSelfTestTick(void)
     if (catAiTestSkirmishTick >= 0)
     {
         catAiTestSkirmishPlay(ai);
+    }
+
+    // HWI-TEST (M2-R8 oracle-rung-physics): a long soak (--ai-ticks 4000) outlives the human player: the computer player
+    //      destroys player 0's mothership near tick 1,400, univKillPlayer / CheckPlayerWin set the quit time and the
+    //      game would end on the game-over screen with the universe stopped. The test keeps the universe running (the
+    //      quit and win times cleared, once logged) so that the computer player is exercised to the end of the run;
+    //      the 400-tick exit-test run never reaches it
+    if ((universe.quittime != 0.0f) || (universe.wintime != 0.0f))
+    {
+        if (!catAiTestGameOverLogged)
+        {
+            catAiTestGameOverLogged = TRUE;
+            dbgMessagef("aitest: game over tick=%d player0=%s player1=%s (the test keeps the universe running)", (int)tick,
+                        (universe.players[0].playerState == PLAYER_DEAD) ? "dead" : "alive",
+                        (universe.players[1].playerState == PLAYER_DEAD) ? "dead" : "alive");
+        }
+        universe.quittime = 0.0f;
+        universe.wintime = 0.0f;
     }
 
     for (c = 0; c < CAT_AITEST_NUM_CHECKS; c++)
