@@ -23,6 +23,7 @@
 #include "Memory.h"
 #include "MultiplayerGame.h"
 #include "Nebulae.h"
+#include "OracleDump.h"     // HWI-TEST (skirmish-start): the skirmish self-test rides on the headless mission run's clock
 #include "Ping.h"
 #include "Randy.h"
 #include "ResearchAPI.h"
@@ -37,6 +38,7 @@
 #include "Tweak.h"
 #include "Universe.h"
 #include "UnivUpdate.h"
+#include "utility.h"        // HWI-TEST (skirmish-start): the front end's start callbacks
 #include "Vector.h"
 
 #ifdef _MSC_VER
@@ -935,19 +937,29 @@ ShipType GetAppropriateShipTypeForRace(ShipType request,ShipRace shiprace)
         ship->colorScheme = (MAX_MULTIPLAYER_PLAYERS-1);                                \
     }
 
+// CAT: the 16 types of the switch the exe inlines in scriptSetMissionSphereCB 0x004a2420 and scriptSetShipsToBeNeeded
+//      0x004a2f30 (0x2d, 0x3c, 0x3f, 0x40, 0x42, 0x45, 0x49, 0x4a, 0x4d .. 0x50, 0x53, 0x55, 0x5a, 0x5b): HW1's nine
+//      capital ships in their Kushan and Taiidan versions where the race has one, and the Beast DFG frigate
 bool32 isCapturableCapitalShip(ShipType shiptype)
 {
     switch (shiptype)
     {
-        case AdvanceSupportFrigate:
-        case CloakGenerator       :
-        case DFGFrigate           :
-        case GravWellGenerator    :
-        case HeavyCruiser         :
-        case IonCannonFrigate     :
-        case MissileDestroyer     :
-        case StandardDestroyer    :
-        case StandardFrigate      :
+        case bDFGFrigate           :
+        case kAdvanceSupportFrigate:
+        case kCloakGenerator       :
+        case kGravWellGenerator    :
+        case kHeavyCruiser         :
+        case kIonCannonFrigate     :
+        case kStandardDestroyer    :
+        case tAdvanceSupportFrigate:
+        case tCloakGenerator       :
+        case tDFGFrigate           :
+        case tGravWellGenerator    :
+        case tHeavyCruiser         :
+        case tIonCannonFrigate     :
+        case tMissileDestroyer     :
+        case tStandardDestroyer    :
+        case tStandardFrigate      :
             return TRUE;
         default:
             break;
@@ -977,11 +989,29 @@ bool32 PlayerDoesntHaveCapturableCapitalShip(Player *player)
     return TRUE;
 }
 
+// CAT: the gift is the race's Hive Frigate (scriptSetMissionSphereCB 0x004a2420, inlined; HW1 gave
+//      CapturableCapitalShipToGive, a Standard Frigate)
 void GivePlayerCapitalShip(Player *player)
 {
-    ShipType shiptype = CapturableCapitalShipToGive;
+    ShipType shiptype;
     ShipRace shiprace = player->race;
     Ship *ship;
+
+#ifdef HW_BUILD_FOR_DEBUGGING
+    dbgMessage("@@@@@@@@@@ Giving Hive Frigate as default");      // CAT: the exe's call of it is compiled out
+#endif
+    if (shiprace == RACE_Sect)
+    {
+        shiptype = sHiveFrigate;
+    }
+    else if (shiprace == RACE_Beast)
+    {
+        shiptype = bHiveFrigate;
+    }
+    else
+    {                                                       // CAT-FIX: the exe takes an unset local as the type here (a skirmish player is always Sect or Beast)
+        return;
+    }
 
     if (player->PlayerMothership)
     {
@@ -1596,9 +1626,52 @@ static void scriptSetBackgroundCB(char* directory, char* field, void* dataToFill
     }
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : catMissionSphereStartPositions
+    Description : CAT: the start-position table both MissionSphere readers map a sphere's player number through: each
+                  copies it into a local table of 8 first (scriptSetMissionSphereCB 0x004a2420 /
+                  scriptPreMissionSphereCB 0x004a2820). Outside a network game it is gameStart's table 0x00ab77e0
+                  (catStartPositions, SDL/utility.c)
+    Inputs      : table - the 8 entries to fill
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+static void catMissionSphereStartPositions(sdword table[MAX_MULTIPLAYER_PLAYERS])
+{
+    sdword index;
+
+    if (!multiPlayerGame)
+    {
+        memcpy(table, catStartPositions, MAX_MULTIPLAYER_PLAYERS * sizeof(sdword));
+    }
+    else
+    {
+        // CAT-TODO(stage 5 LAN): a network game's table is the 8 start-position bytes of Cataclysm's CaptainGameInfo (tpGameCreated +0xC8, 0x008860f0; the tree's struct has no such field), shuffled by mgStartGameCB 0x004bc7a0 / lgStartGame 0x004c5900 with 20 swaps of two ranRandomFn(0) picks and sent with the game info; the identity until then
+        for (index = 0; index < MAX_MULTIPLAYER_PLAYERS; index++)
+        {
+            table[index] = index;
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : scriptSetMissionSphereCB
+    Description : Level load callback for a MissionSphere line: gives the sphere's player its starting RUs and creates
+                    the sphere's contents (ships, resources, ...)
+    Inputs      :
+    Outputs     :
+    Return      :
+    Note        : CAT (scriptSetMissionSphereCB 0x004a2420): the sphere's player number is a start position, mapped to
+                    a game player through the start-position table (catMissionSphereStartPositions). A map carries a
+                    sphere for each position it has room for (armed8: 0..7) whatever the number of players, so a
+                    sphere whose position maps to no player of this game is skipped; -1 is the sphere of no owner (a
+                    ResourceSphere, race "?"), which loads its contents for the misc player and touches no player. HW1
+                    asserted playerNumber < numPlayers and indexed universe.players with the raw number, -1 included.
+----------------------------------------------------------------------------*/
 static void scriptSetMissionSphereCB(char *directory,char *field,void *dataToFillIn)
 {
     sdword playerNumber;
+    sdword startPosition[MAX_MULTIPLAYER_PLAYERS];          // CAT: the readers' local copy of the table
     char raceName[50];
     ShipRace shiprace;
     vector position;
@@ -1623,7 +1696,16 @@ static void scriptSetMissionSphereCB(char *directory,char *field,void *dataToFil
                                                   &sphererotz,contents,&startingResourceUnits);
     }
 
-    dbgAssertOrIgnore(playerNumber < numPlayers);
+    catMissionSphereStartPositions(startPosition);
+    if (playerNumber >= MAX_MULTIPLAYER_PLAYERS)
+    {                                                       // CAT-FIX: the exe reads past its local table of 8; no level has such a sphere
+        return;
+    }
+    if ((playerNumber >= 0) && (startPosition[playerNumber] >= numPlayers))
+    {                                                       // CAT: a position no player of this game starts at
+        return;
+    }
+
     shiprace = StrToShipRace(raceName);
 
     if ((playerNumber >= 0) && (!(tutorial==TUTORIAL_ONLY)))
@@ -1632,19 +1714,21 @@ static void scriptSetMissionSphereCB(char *directory,char *field,void *dataToFil
         {
             dbgFatalf(DBG_Loc,"Bad shiprace in %s",field);
         }
+        player = &universe.players[startPosition[playerNumber]];
         if (!missionman)
         {
-            if (shiprace != universe.players[playerNumber].race)
+            if (shiprace != player->race)
             {
                 return;     // ignore, until we find correct race for player
             }
         }
         else
         {
-            if ((shiprace != R1) && (shiprace != R2))
+            // CAT: a race that is none of RACE_Kushan / RACE_Taiidan (HW1's R1 / R2 ids) / RACE_Sect / RACE_Beast is
+            //      given to the player (P1, Traders: "specified pirates, so let's give it to them"); HW1 tested R1 / R2
+            if ((shiprace != RACE_Kushan) && (shiprace != RACE_Taiidan) && (shiprace != RACE_Sect) && (shiprace != RACE_Beast))
             {
-                // specified pirates, so let's give it to them:
-                universe.players[playerNumber].race = shiprace;
+                player->race = shiprace;
             }
         }
     }
@@ -1654,8 +1738,8 @@ static void scriptSetMissionSphereCB(char *directory,char *field,void *dataToFil
         missionSphereInfo.playerNumber = 1;
     }
     else
-    {
-        missionSphereInfo.playerNumber = playerNumber;
+    {                                                       // CAT: the mapped player; no owner: the misc player for autoguns, etc.
+        missionSphereInfo.playerNumber = (playerNumber >= 0) ? startPosition[playerNumber] : MAX_MULTIPLAYER_PLAYERS;
     }
     missionSphereInfo.position = position;
 
@@ -1672,27 +1756,23 @@ static void scriptSetMissionSphereCB(char *directory,char *field,void *dataToFil
     {
         // this is a player's mission sphere
 
-        player = &universe.players[playerNumber];
+        player = &universe.players[startPosition[playerNumber]];
 
         player->resourceUnits = startingResourceUnits;
         player->playerState = PLAYER_ALIVE;
         universe.gameStats.playerStats[player->playerIndex].totalResourceUnits += startingResourceUnits;
 
-        universeSwitchToPlayer((uword)playerNumber);
-    }
-
-    if (missionSphereInfo.playerNumber < 0)
-    {
-        missionSphereInfo.playerNumber = MAX_MULTIPLAYER_PLAYERS;       // misc player for autoguns, etc.
+        universeSwitchToPlayer((uword)startPosition[playerNumber]);
     }
 
     scriptSetStruct(directory,contents,MissionSphereScriptTable,(ubyte *)&missionSphereInfo);
 
-    if ((playerNumber >= 0) && (playerNumber < universe.numPlayers))
+    // CAT: the exe inlines PlayerDoesntHaveCapturableCapitalShip and GivePlayerCapitalShip here, for the mapped player
+    if ((playerNumber >= 0) && (startPosition[playerNumber] >= 0) && (startPosition[playerNumber] < (sdword)universe.numPlayers))
     {
         if ((!singlePlayerGame) && (bitTest(tpGameCreated.flag,MG_CaptureCapitalShip)))
         {
-            player = &universe.players[playerNumber];
+            player = &universe.players[startPosition[playerNumber]];
             if (PlayerDoesntHaveCapturableCapitalShip(player)) GivePlayerCapitalShip(player);
         }
     }
@@ -1705,10 +1785,14 @@ static void scriptSetMissionSphereCB(char *directory,char *field,void *dataToFil
     Inputs      :
     Outputs     :
     Return      :
+    Note        : CAT (scriptPreMissionSphereCB 0x004a2820): the same mapping and skip as scriptSetMissionSphereCB; the
+                    sphere of no owner keeps the number -1 here, so scriptSetShipsToBeNeeded touches no player for it.
+                    HW1 asserted playerNumber < numPlayers. The race name is read and not used, as in HW1.
 ----------------------------------------------------------------------------*/
 static void scriptPreMissionSphereCB(char *directory,char *field,void *dataToFillIn)
 {
     sdword playerNumber;
+    sdword startPosition[MAX_MULTIPLAYER_PLAYERS];          // CAT: the readers' local copy of the table
     char raceName[50];
     vector position;
     real32 radius;
@@ -1716,7 +1800,6 @@ static void scriptPreMissionSphereCB(char *directory,char *field,void *dataToFil
     udword startingResourceUnits;
     real32 sphererotz = 0.0f;
     MissionSphereInfo missionSphereInfo;
-    ShipRace shiprace;
 
     RemoveCommasFromString(field);
 
@@ -1732,16 +1815,23 @@ static void scriptPreMissionSphereCB(char *directory,char *field,void *dataToFil
                                                   &sphererotz,contents,&startingResourceUnits);
     }
 
-    dbgAssertOrIgnore(playerNumber < numPlayers);
-    shiprace = StrToShipRace(raceName);
+    catMissionSphereStartPositions(startPosition);
+    if (playerNumber >= MAX_MULTIPLAYER_PLAYERS)
+    {                                                       // CAT-FIX: the exe reads past its local table of 8; no level has such a sphere
+        return;
+    }
+    if ((playerNumber >= 0) && (startPosition[playerNumber] >= numPlayers))
+    {                                                       // CAT: a position no player of this game starts at
+        return;
+    }
 
     if ((singlePlayerGame) && (!(tutorial==TUTORIAL_ONLY)))
     {
         missionSphereInfo.playerNumber = 1;
     }
     else
-    {
-        missionSphereInfo.playerNumber = playerNumber;
+    {                                                       // CAT: the mapped player, or -1 for no owner
+        missionSphereInfo.playerNumber = (playerNumber >= 0) ? startPosition[playerNumber] : playerNumber;
     }
     missionSphereInfo.position = position;
 
@@ -2069,10 +2159,11 @@ static void llAvailableColorScheme(char *directory,char *field,void *dataToFillI
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT-TODO(stage 6 level load): scriptSetShipsToBeNeeded 0x004a2f30's other deltas are not ported (only the no-owner lookup is, skirmish-start): it has no single-player race swap, parses colorScheme but loads no team colour, and clears the need-capital-ship words 0x00a447ac / 0x00a447b0 for a player of race 2 / 3 (RACE_Kushan / RACE_Taiidan), which levelPreInit 0x004a3230 only zeroes and tests
 static void scriptSetShipsToBeNeeded(char *directory,char *field,void *dataToFillIn)
 {
     MissionSphereInfo *missionSphereInfo = (MissionSphereInfo *)dataToFillIn;
-    Player *player = &universe.players[missionSphereInfo->playerNumber];
+    Player *player;
     vector position;
     real32 rot;
     char racestr[50];
@@ -2153,6 +2244,9 @@ static void scriptSetShipsToBeNeeded(char *directory,char *field,void *dataToFil
     if ((!singlePlayerGame) && (bitTest(tpGameCreated.flag,MG_CaptureCapitalShip)) && (missionSphereInfo->playerNumber >= 0))
     if (isCapturableCapitalShip(shiptype))
     {
+        // CAT: the player is looked up only here, after the test of the number (scriptSetShipsToBeNeeded 0x004a2f30):
+        //      the sphere of no owner passes -1 (scriptPreMissionSphereCB); HW1 indexed universe.players with it on entry
+        player = &universe.players[missionSphereInfo->playerNumber];
         if (player->race == R1)
             needR1CapitalShip = FALSE;
         else if (player->race == R2)
@@ -2524,5 +2618,183 @@ next:
     }
 
     return FALSE;
+}
+
+/*=============================================================================
+    HWI-TEST (skirmish-start), port diagnostic, not in the exe: /catSkirmishTest <ticks> [/catSkirmishMap <name>]
+    (harness mode skirmish; docs/skirmish-start-fix.md). The front end's skirmish start, headless and with no input,
+    so that the level loader's skirmish path (the mission-sphere readers) is covered:
+      start      once the start-up has put up the main screen (utyGameSystemsInit), the buttons' own callbacks in
+                 the order a player presses them: FE_Multiplayer_Game (utyMultiplayerGameStart), MG_Skirmish
+                 (mgSkirmish: one human and one computer opponent), the map picked as the scenario picker's OK does
+                 (ScenPick.c catSpScenarioPickForTest: the map's description game type, spCurrentSelected; the default
+                 LiveFireExercise2 is commented out in multiPlayerMissions.script, so the test adds its line first),
+                 Sect as the colour screen's race toggle sets it (whichRaceSelected), then StartNewGame
+                 (utyNewGameStart: gameStart, levelPreInit / levelInit with the map's MissionSphere lines). Every other
+                 skirmish option keeps the value the options file and the map's description give it
+      run        the universe runs on the virtual clock of /oracleMission (one tick per frame, the oracle stream
+                 written with /oracleDump, the quit after <ticks>)
+      judgement  at tick <ticks>: the game has the two players asked for, player 0 the human and player 1 the
+                 computer player; both have a mothership in the universe, player 0's an sMothership and player 0 the
+                 Sect; the no-owner resource sphere's asteroids exist (no player sphere of either map has any); no
+                 player is in a state other than alive; no ship belongs to a player the map has a sphere for but the
+                 game does not have (an 8-player map with 2 players: spheres 2..7 skipped); "skirmishtest: done
+                 ticks=N ships=N result=PASS|FAIL", then the mission run's own quit
+=============================================================================*/
+#define CAT_SKIRMISHTEST_PLAYERS        2
+#define CAT_SKIRMISHTEST_DEFAULT_TICKS  600
+#define CAT_SKIRMISHTEST_DEFAULT_MAP    "LiveFireExercise2"
+
+static sdword catSkirmishSelfTestTicks = 0;
+static char catSkirmishSelfTestMap[64] = CAT_SKIRMISHTEST_DEFAULT_MAP;
+static bool32 catSkirmishSelfTestStarted = FALSE;
+static bool32 catSkirmishSelfTestDone = FALSE;
+static bool32 catSkirmishSelfTestPass = TRUE;
+
+void catSkirmishSelfTestSet(char *string)
+{
+    catSkirmishSelfTestTicks = (sdword)strtol(string, NULL, 10);
+    if (catSkirmishSelfTestTicks <= 0)
+    {
+        catSkirmishSelfTestTicks = CAT_SKIRMISHTEST_DEFAULT_TICKS;
+    }
+    oracleSetMission(string);                               // the virtual clock and the quit after <ticks>
+}
+
+void catSkirmishSelfTestSetMap(char *string)
+{
+    strncpy(catSkirmishSelfTestMap, string, sizeof(catSkirmishSelfTestMap) - 1);
+    catSkirmishSelfTestMap[sizeof(catSkirmishSelfTestMap) - 1] = '\0';
+}
+
+bool32 catSkirmishSelfTestRequested(void)
+{
+    return (catSkirmishSelfTestTicks > 0);
+}
+
+static void catSkirmishSelfTestExpect(bool32 condition, const char *what, sdword index)
+{
+    if (!condition)
+    {
+        catSkirmishSelfTestPass = FALSE;
+        dbgMessagef("skirmishtest: FAIL tick=%u %s (player %d)", (unsigned)universe.univUpdateCounter, what, (int)index);
+    }
+}
+
+void catSkirmishSelfTestStart(void)
+{
+    sdword index;
+
+    dbgMessagef("skirmishtest: start map=%s ticks=%d", catSkirmishSelfTestMap, (int)catSkirmishSelfTestTicks);
+    utyMultiplayerGameStart(NULL, NULL);                    // FE_Multiplayer_Game
+    mgSkirmish(NULL, NULL);                                 // MG_Skirmish
+    index = catSpScenarioPickForTest(catSkirmishSelfTestMap);   // MG_ChooseScenario, a line, OK
+    if (index < 0)
+    {
+        catSkirmishSelfTestPass = FALSE;
+        dbgMessagef("skirmishtest: FAIL no map '%s' (no .level title in MultiPlayer)", catSkirmishSelfTestMap);
+        dbgMessagef("skirmishtest: done ticks=0 ships=0 result=FAIL");
+        catSkirmishSelfTestDone = TRUE;
+        utyGameQuit(NULL, NULL);
+        return;
+    }
+    whichRaceSelected = RACE_Sect;                          // Skirmish_Colour's CP_RaceOne
+    dbgMessagef("skirmishtest: picked index=%d file=%s title='%s' maxplayers=%u selected=%d humans=%u computers=%u race=%d flag=0x%x fleet=%u resources=%u",
+                (int)index, spScenarios[index].fileSpec, spScenarios[index].title, (unsigned)spScenarios[index].maxplayers,
+                (int)spCurrentSelected, (unsigned)tpGameCreated.numPlayers, (unsigned)tpGameCreated.numComputers,
+                (int)whichRaceSelected, (unsigned)tpGameCreated.flag, (unsigned)tpGameCreated.startingFleet,
+                (unsigned)tpGameCreated.startingResources);
+    catSkirmishSelfTestStarted = TRUE;
+    utyNewGameStart(NULL, NULL);                            // StartNewGame
+    dbgMessagef("skirmishtest: started numPlayers=%u universe.numPlayers=%u curPlayer=%u singlePlayerGame=%d multiPlayerGame=%d missionman=%d ships=%u resources=%u",
+                (unsigned)numPlayers, (unsigned)universe.numPlayers, (unsigned)curPlayer, (int)singlePlayerGame,
+                (int)multiPlayerGame, (int)missionman, (unsigned)universe.ShipList.num, (unsigned)universe.ResourceList.num);
+}
+
+void catSkirmishSelfTestTick(void)
+{
+    Node *node;
+    Ship *ship;
+    Resource *resource;
+    Player *player;
+    sdword i;
+    udword owned[MAX_MULTIPLAYER_PLAYERS + 1];
+    udword strays = 0, absent = 0, asteroids = 0, dust = 0, gas = 0, nebulae = 0;
+
+    if (!catSkirmishSelfTestStarted || catSkirmishSelfTestDone ||
+        ((sdword)universe.univUpdateCounter < catSkirmishSelfTestTicks))
+    {
+        return;
+    }
+    catSkirmishSelfTestDone = TRUE;
+
+    for (i = 0; i <= MAX_MULTIPLAYER_PLAYERS; i++)
+    {
+        owned[i] = 0;
+    }
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if (bitTest(ship->header.flags, SOF_Dead) || (ship->playerowner == NULL))
+        {
+            continue;
+        }
+        i = ship->playerowner->playerIndex;
+        if ((i >= 0) && (i <= MAX_MULTIPLAYER_PLAYERS))
+        {
+            owned[i]++;
+        }
+        else
+        {
+            strays++;
+        }
+    }
+    for (node = universe.ResourceList.head; node != NULL; node = node->next)
+    {
+        resource = (Resource *)listGetStructOfNode(node);
+        switch (resource->header.objtype)
+        {
+            case OBJ_AsteroidType: asteroids++; break;
+            case OBJ_DustType:     dust++;      break;
+            case OBJ_GasType:      gas++;       break;
+            case OBJ_NebulaType:   nebulae++;   break;
+            default: break;
+        }
+    }
+
+    catSkirmishSelfTestExpect(universe.numPlayers == CAT_SKIRMISHTEST_PLAYERS, "the game does not have the players asked for", universe.numPlayers);
+    for (i = 0; i < universe.numPlayers; i++)
+    {
+        player = &universe.players[i];
+        ship = player->PlayerMothership;
+        dbgMessagef("skirmishtest: player %d race=%d state=%d mothership=%s ships=%u RU=%u computer=%s",
+                    (int)i, (int)player->race, (int)player->playerState,
+                    (ship != NULL) ? ShipTypeToStr(ship->shiptype) : "none", (unsigned)owned[i],
+                    (unsigned)player->resourceUnits, (player->aiPlayer != NULL) ? "yes" : "no");
+        catSkirmishSelfTestExpect(ship != NULL, "no mothership", i);
+        if (ship != NULL)
+        {
+            catSkirmishSelfTestExpect(!bitTest(ship->header.flags, SOF_Dead) && (ship->playerowner == player),
+                                      "the mothership is dead or not the player's", i);
+        }
+        catSkirmishSelfTestExpect(player->playerState == PLAYER_ALIVE, "the player is not alive", i);
+    }
+    catSkirmishSelfTestExpect((universe.players[0].PlayerMothership != NULL) &&
+                              (universe.players[0].PlayerMothership->shiptype == sMothership), "player 0's mothership is not an sMothership", 0);
+    catSkirmishSelfTestExpect(universe.players[0].race == RACE_Sect, "player 0 is not the Sect", 0);
+    catSkirmishSelfTestExpect((universe.players[0].aiPlayer == NULL) && (universe.players[1].aiPlayer != NULL),
+                              "player 0 is not the human and player 1 the computer player", 1);
+    for (i = universe.numPlayers; i < MAX_MULTIPLAYER_PLAYERS; i++)
+    {
+        catSkirmishSelfTestExpect(owned[i] == 0, "a ship belongs to a player the game does not have", i);
+        absent += owned[i];
+    }
+    catSkirmishSelfTestExpect(strays == 0, "a ship has an owner outside the player table", -1);
+    catSkirmishSelfTestExpect(asteroids > 0, "no asteroid from the resource sphere", -1);
+    dbgMessagef("skirmishtest: resources asteroids=%u dust=%u gas=%u nebulae=%u; no-owner ships=%u (player %d); absent players' ships=%u",
+                (unsigned)asteroids, (unsigned)dust, (unsigned)gas, (unsigned)nebulae, (unsigned)owned[MAX_MULTIPLAYER_PLAYERS],
+                MAX_MULTIPLAYER_PLAYERS, (unsigned)absent);
+    dbgMessagef("skirmishtest: done ticks=%u ships=%u result=%s", (unsigned)universe.univUpdateCounter,
+                (unsigned)universe.ShipList.num, catSkirmishSelfTestPass ? "PASS" : "FAIL");
 }
 

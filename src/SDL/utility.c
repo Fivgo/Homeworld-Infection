@@ -1647,6 +1647,11 @@ sdword utyNonFatalErrorWaitLoop(void)
 bool8 etgHasBeenStarted;
 void FancyFightPreLoad(void);
 
+// CAT: the start-position table 0x00ab77e0 (.bss; name chosen): gameStart fills it in every non-tutorial new game, the
+//      MissionSphere readers map a sphere's player number through it outside a network game (LevelLoad.c
+//      catMissionSphereStartPositions)
+sdword catStartPositions[MAX_MULTIPLAYER_PLAYERS];
+
 void gameStart(char *loadfilename)
 {
     char *useScenarioFile = 0;
@@ -1837,7 +1842,9 @@ void gameStart(char *loadfilename)
                 dbgMessagef("player is race %u", universe.players[0].race);
 #endif
 
-                // CAT-TODO(stage 6 level load): gameStart 0x005a9290 here shuffles a start-position table (0x00ab77e0, the 8 indices 0..7) with 20 swaps of two ranRandomFn(stream 0) % spScenarios[].maxplayers picks, which scriptSetMissionSphereCB 0x004a2420 / scriptPreMissionSphereCB 0x004a2820 read outside multiplayer to map a sphere's player number; both come with the level loader's port (it draws 40 numbers from stream 0 in every non-tutorial new game, the Mission01 stream included)
+                // CAT: gameStart 0x005a9290 sets the start-position table to the 8 indices 0..7 here (read by the MissionSphere readers)
+                // CAT-TODO(stage 6 level load): gameStart 0x005a9290 then shuffles catStartPositions with 20 swaps of two ranRandomFn(stream 0) % spScenarios[spCurrentSelected].maxplayers picks; the readers scriptSetMissionSphereCB 0x004a2420 / scriptPreMissionSphereCB 0x004a2820 are ported (skirmish-start), only these 40 stream-0 draws are left (they move the Mission01 stream's rng0)
+                for (i = 0; i < MAX_MULTIPLAYER_PLAYERS; i++) catStartPositions[i] = i;     // CAT-PROVISIONAL: no shuffle until stage 6, player i starts at the map's position i
                 for (i = 1; i < numPlayers; i++)
                 {
                     universe.players[i].race = otherRace;
@@ -4772,6 +4779,12 @@ DONE_INTROS:
         utySinglePlayerGameStart("", NULL);
     }
 #if HWI_ORACLE
+    // HWI-TEST (skirmish-start): /catSkirmishTest <ticks> starts a skirmish through the front end's own callbacks
+    //      (LevelLoad.c catSkirmishSelfTestStart); it runs on the mission run's clock, so it comes first
+    else if (catSkirmishSelfTestRequested())
+    {
+        catSkirmishSelfTestStart();
+    }
     // HWI-ORACLE: /oracleMission <ticks> starts single player at once too (no screenshots, no next-level loop)
     else if (oracleMissionRequested())
     {

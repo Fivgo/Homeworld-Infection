@@ -62,6 +62,7 @@ void dbgWarningf (char *file, sdword line, char *format, ... );
 
 void dbgFatal    (char *file, sdword line, char *string      );
 void dbgFatalf   (char *file, sdword line, char *format, ... );
+void dbgFatalSignalsInstall(void);     // HWI-FIX: a build without ASan reports a crash signal on stderr
 
 void dbgNonFatal (char *file, sdword line, char *string      );
 void dbgNonFatalf(char *file, sdword line, char *format, ... );

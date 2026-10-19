@@ -860,6 +860,92 @@ void spFindMap(char *MapName)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : catSpScenarioPickForTest
+    Description : HWI-TEST (skirmish-start), port diagnostic, not in the exe: the scenario picker's choice of a map with
+                  no input, for /catSkirmishTest (LevelLoad.c). The map's scenario is found by its directory name; a
+                  map that multiPlayerMissions.script lists commented out (LiveFireExercise2) is added first the way
+                  spTitleListLoad adds a line (its .level title, maxplayers the name's number, minplayers 2). Then
+                  what a click on its line and OK do: spNewItem reads the description's game type
+                  (MultiPlayer\<name>\description.txt, StaticMGInfoScriptTable) and spDonePicking sets it
+                  (mgSetGameTypeByStruct, the screen's buttons updated) and selects the map if spSelectionValid lets it
+    Inputs      : name - the map's directory name (case does not matter)
+    Outputs     : spCurrentSelected, tpGameCreated's game type
+    Return      : the scenario index, or -1 if the map has no .level title
+----------------------------------------------------------------------------*/
+sdword catSpScenarioPickForTest(char *name)
+{
+    char descriptionFile[PATH_MAX];
+    char *pString;
+    char *title;
+    sdword index, numplayers = 0;
+    GameType *gameType = NULL;
+
+    for (index = 0; index < spNumberScenarios; index++)
+    {
+        if (strcasecmp(spScenarios[index].fileSpec, name) == 0)
+        {
+            break;
+        }
+    }
+    if (index >= spNumberScenarios)
+    {                                                       // not listed: add it as spTitleListLoad adds a line
+        for (pString = name; *pString != 0; pString++)
+        {
+            if (strchr("0123456789", *pString) != NULL)
+            {
+                sscanf(pString, "%d", &numplayers);
+                break;
+            }
+        }
+#ifdef _WIN32
+        title = spTitleFind("MultiPlayer\\", name);
+#else
+        title = spTitleFind("MultiPlayer/", name);
+#endif
+        if ((title == NULL) || (numplayers == 0))
+        {
+            return -1;
+        }
+        if (spNumberScenarios >= spScenarioListLength)
+        {
+            spScenarioListLength += SP_ScenarioListGrowth;
+            spScenarios = memRealloc(spScenarios, spScenarioListLength * sizeof(spscenario), "spScenarios", NonVolatile);
+        }
+        index = spNumberScenarios;
+        spScenarios[index].fileSpec = memStringDupe(name);
+        spScenarios[index].bitmapfileSpec = memStringDupe(name);
+        spScenarios[index].title = title;
+        spScenarios[index].maxplayers = numplayers;
+        spScenarios[index].minplayers = 2;
+        spNumberScenarios++;
+        dbgMessagef("skirmishtest: '%s' is not in the scenario list (multiPlayerMissions.script): added as spTitleListLoad adds a line", name);
+    }
+
+    // spNewItem: the description's game type
+    sprintf(descriptionFile, "%s%s\\description.txt", "MultiPlayer\\", spScenarios[index].bitmapfileSpec);
+    if (fileExists(descriptionFile, 0))
+    {
+        gameType = memAlloc(sizeof(GameType), "DescGameType", 0);
+        memset(gameType, 0xff, sizeof(GameType));
+        gameType->flag = gameType->flagNeeded = 0;
+        scriptSetStruct(NULL, descriptionFile, StaticMGInfoScriptTable, (ubyte *)gameType);
+    }
+    // spDonePicking: the game type set, the buttons of the screen below the picker (the skirmish screen) updated
+    if (gameType != NULL)
+    {
+        mgSetGameTypeByStruct(gameType);
+        feAllCallOnCreate(feStack[feStackIndex].screen);
+        mgGameTypesOtherButtonPressed();
+        memFree(gameType);
+    }
+    if (spSelectionValid(index))
+    {
+        spCurrentSelected = index;
+    }
+    return index;
+}
+
 
 
 

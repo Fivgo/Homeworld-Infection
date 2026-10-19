@@ -35,6 +35,7 @@
 #include "HorseRace.h"
 #include "Key.h"
 #include "LaunchMgr.h"
+#include "LevelLoad.h"      // HWI-TEST (skirmish-start): /catSkirmishTest, /catSkirmishMap
 #include "main.h"
 #include "mainrgn.h"
 #include "Memory.h"
@@ -430,6 +431,20 @@ bool32 CatBuildTestSet(char *string)
 bool32 CatAiTestSet(char *string)
 {
     catAiSelfTestSet(string);
+    return TRUE;
+}
+
+// HWI-TEST (skirmish-start): port diagnostic: /catSkirmishTest <ticks>, /catSkirmishMap <name> (LevelLoad.c
+//      catSkirmishSelfTestStart / Tick: the front end's skirmish start with no input, judged after <ticks> ticks)
+bool32 CatSkirmishTestSet(char *string)
+{
+    catSkirmishSelfTestSet(string);
+    return TRUE;
+}
+
+bool32 CatSkirmishMapSet(char *string)
+{
+    catSkirmishSelfTestSetMap(string);
     return TRUE;
 }
 
@@ -1135,6 +1150,8 @@ commandoption commandOptions[] =
     entryFnParam("/catDockTest",        CatDockTestSet, " <ticks> - headless Mission01 run: dock, deposit, harvest and launch orders with no input, exit after <ticks> ticks."),
     entryFnParam("/catAiTest",          CatAiTestSet, " <ticks> - headless Mission01 run: the computer player (player 1) gets a scripted factory, RUs and fleet and fleet control with no input, logs aitest lines (teams, orders, moves, commands), exit after <ticks> ticks."),
     entryFnParam("/catBuildTest",       CatBuildTestSet, " <ticks> - headless Mission01 run: the construction manager builds a docking bay module, a destroyer (both built externally) and an acolyte at a scripted mothership with no input, logs buildtest lines, exit after <ticks> ticks."),
+    entryFnParam("/catSkirmishTest",    CatSkirmishTestSet, " <ticks> - start a 2-player skirmish (Sect against a computer player) through the front end's own callbacks with no input, run <ticks> universe ticks on the virtual clock, judge the universe, log skirmishtest lines, exit."),
+    entryFnParam("/catSkirmishMap",     CatSkirmishMapSet, " <name> - the map of /catSkirmishTest (a MultiPlayer directory name; default LiveFireExercise2)."),
     entryFnParam("/catCommandTest",     CatCommandTestSet, " <ticks> - headless Mission01 run: link, unlink, mimic, research, point orders and force-field formations with no input, exit after <ticks> ticks."),
     entryFnParam("/catHudTest",         CatHudTestSet, " <frames> - headless Mission01 run with the player's ships selected through the selection API: status bars, ship info panel, main overlay and pie plate drawn offscreen, logs the HUD counts, exit after <frames> ticks."),
     // CAT: port diagnostics, not Cataclysm options (FEFlow.c catFeScreensRunSelfTest, StringSupport.c
@@ -2526,6 +2543,9 @@ int main (int argc, char* argv[])
     //      SOFTWARE/Sierra On-Line/Cataclysm), the OS tests (glCapNT / glCap95 / cat_glCapWin2K), the device enumeration and rGL /
     //      Glide selection (GoK's GL backend, decision 28), the loop's patch launch (CataclysmPatch.exe) and the
     //      error message box titled "Emergence" (stderr here)
+
+    // HWI-FIX: a crash in a build without ASan (the release build) leaves a line on stderr (Debug.c dbgFatalSignalsInstall)
+    dbgFatalSignalsInstall();
 
     // set audio resampling to highest quality
     SDL_SetHint(SDL_HINT_AUDIO_RESAMPLING_MODE, "3");

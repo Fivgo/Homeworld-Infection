@@ -93,4 +93,6 @@ void spFindMap(char *MapName);
 
 sdword spScenarioFind(char *scenarioName);
 
+sdword catSpScenarioPickForTest(char *name);    // HWI-TEST (skirmish-start): the picker's choice of a map, no input
+
 #endif
