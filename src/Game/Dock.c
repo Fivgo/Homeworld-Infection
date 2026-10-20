@@ -1906,18 +1906,39 @@ bool32 cat_dockFlyOutOfCone(Ship *ship,Ship *dockwith)
         matMultiplyMatByVec(&normal,&dockwith->rotatable.rotinfo.coordsys,&point->conenormal);
         matMultiplyMatByVec(&origin,&dockwith->rotatable.rotinfo.coordsys,&point->position);
         vecAddTo(origin,dockwith->obj.posinfo.position);
-        vecScalarMultiply(target,normal,flyawaydist * CAT_DOCK_TIME_BONUS_RESOURCES);   // x 4.0 (0x0072a530)
-        vecAddTo(target,origin);
-        vecSub(diff,ship->obj.posinfo.position,origin);
-        t = vecDotProduct(diff,normal) / vecDotProduct(normal,normal);
-        vecScalarMultiply(onaxis,normal,t);
+        // CAT (M2-R9 oracle-rung-physics): the exe's x87 shape (0x0046515e .. 0x0046528e): flyawaydist x 4.0 stays a
+        //      double; target x and y are its products stored and then added to the origin, z's product is added
+        //      unrounded (one rounding); diff z stays unrounded in the dot product ((dz*nz + dy*ny) + dx*nx) over
+        //      ((nz*nz + ny*ny) + nx*nx), and the quotient t is a double; the distance test compares the double
+        //      (dz*dz + dy*dy) + dx*dx of the stored differences with flyawaydist squared as a double
+        {
+            double far4 = (double)flyawaydist * CAT_DOCK_TIME_BONUS_RESOURCES;   // x 4.0 (0x0072a530)
+            double dzd;
+            double td;
+
+            target.x = (real32)(far4 * normal.x);
+            target.y = (real32)(far4 * normal.y);
+            target.x += origin.x;
+            target.y += origin.y;
+            target.z = (real32)(far4 * normal.z + origin.z);
+            diff.x = ship->obj.posinfo.position.x - origin.x;
+            diff.y = ship->obj.posinfo.position.y - origin.y;
+            dzd = (double)ship->obj.posinfo.position.z - origin.z;
+            diff.z = (real32)dzd;
+            td = ((dzd * normal.z + (double)diff.y * normal.y) + (double)diff.x * normal.x) /
+                 (((double)normal.z * normal.z + (double)normal.y * normal.y) + (double)normal.x * normal.x);
+            onaxis.x = (real32)(td * normal.x);
+            onaxis.y = (real32)(td * normal.y);
+            onaxis.z = (real32)(td * normal.z);
+            t = (real32)td;
+        }
         vecAddTo(onaxis,origin);
         cat_univSetShipPosition(ship,&onaxis);
         if ((dockwith->shiptype == sCarrier) && !cat_carrierDoorAnimUpdate(dockwith,point->type))
         {
             return FALSE;
         }
-        if (vecMagnitudeSquared(diff) < flyawaydist * flyawaydist)
+        if (((double)diff.z * diff.z + (double)diff.y * diff.y) + (double)diff.x * diff.x < (double)flyawaydist * flyawaydist)
         {
             aishipFlyToPointAvoidingObjsFunc(ship,&target,0,0.0f,&dockwith->obj.posinfo.velocity);
             return FALSE;

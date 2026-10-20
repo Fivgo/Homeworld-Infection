@@ -1,12 +1,13 @@
 /*=============================================================================
     Name    : FastMath.c
-    Purpose : HWI-EXPERIMENT (M2-R7 oracle-rung-aiship): the exe's table square
-              root, fsqrt 0x00472860 (HW1 fastmath.c fmathSqrtDouble) with its
-              table filled as fmathInit 0x004728c0 does, behind the engine
-              switch /oracleTableFsqrt. The default stays sqrtf (decision 23,
-              the user's): FastMath.h only takes this path while the switch
-              is set, for the oracle's one-experiment-per-round rule
-              (docs/m2-r7-oracle-rung-aiship.md "fsqrt experiment").
+    Purpose : CAT: the exe's table square root, fsqrt 0x00472860 (HW1
+              fastmath.c fmathSqrtDouble) with its table filled as fmathInit
+              0x004728c0 does. Added behind the switch /oracleTableFsqrt in
+              M2-R7 (docs/m2-r7-oracle-rung-aiship.md "fsqrt experiment"); the
+              engine default since M2-R9 (the user's ruling on decision 23 /
+              56 / 70, 2026-10-19). HWI-EXPERIMENT: the engine switch
+              /oracleLibmSqrt clears catFsqrtTable, and FastMath.h then takes
+              libm's sqrtf, for an A/B run (docs/m2-r9-oracle-rung-physics.md).
 
     Created 2026-10-18 for Homeworld-Infection (M2-R7 oracle-rung-aiship).
     This tree is REULA-licensed, see src/COPYING.REULA.
@@ -22,7 +23,7 @@
     Data:
 =============================================================================*/
 
-bool32 catFsqrtTable = FALSE;               // /oracleTableFsqrt (default off: fsqrt is sqrtf)
+bool32 catFsqrtTable = TRUE;                // CAT (M2-R9): the table is the default; /oracleLibmSqrt clears it (HWI-EXPERIMENT)
 
 #define CAT_SQRT_TAB_SIZE   16384           // the exe's table: 0x00a2e144 .. 0x00a3e144, 2 x 0x2000 dwords
 #define CAT_MANT_SHIFTS     7
@@ -86,7 +87,9 @@ double catFmathSqrtDouble(double f)
     {
         catFmathInit();
     }
-    if (f == 0.0)
+    // CAT: fcomp with 0.0 and test ah,0x40 (C3) at 0x00472864 .. 0x0047286f: C3 is also set for an unordered compare,
+    //      so a NaN argument returns 0.0 too [audit: M2-R9 oracle-rung-physics; was f == 0.0 only]
+    if ((f == 0.0) || isnan(f))
     {
         return 0.0;
     }

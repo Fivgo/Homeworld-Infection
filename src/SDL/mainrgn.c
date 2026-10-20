@@ -1516,9 +1516,13 @@ void cat_mrMoveCallback(vector *point)
         }
         if (MP_HyperSpaceFlag)
         {
-            vector dist;
-            vecSub(dist, selCentrePoint, destination);
-            if (universe.curPlayerPtr->resourceUnits < (sdword)hyperspaceCost(fsqrt(vecMagnitudeSquared(dist)),
+            // CAT (M2-R9 oracle-rung-physics): the exe's x87 shape (0x00564bca .. 0x00564c1c): the differences stay
+            //      doubles, (dz*dz + dy*dy) + dx*dx goes to fsqrt, the distance is stored, hyperspaceCost's double is
+            //      truncated (_ftol)
+            double dx = (double)selCentrePoint.x - destination.x;
+            double dy = (double)selCentrePoint.y - destination.y;
+            double dz = (double)selCentrePoint.z - destination.z;
+            if (universe.curPlayerPtr->resourceUnits < (sdword)hyperspaceCost((real32)catFsqrtD((dz * dz + dy * dy) + dx * dx),
                                                                               (SelectCommand *)&selSelected))
             {
                 if (battleCanChatterAtThisTime(BCE_CannotComply, selSelected.ShipPtr[0]))

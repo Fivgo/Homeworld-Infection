@@ -1,4 +1,4 @@
-<!-- done: tool, Game a-f, Game g-m, Game n-s, Game t-z, Ships, other, review, write-up, reread:AIAttackMan-AIHandler, reread:AIMoves, reread:AIOrders-AIVar, reread:Alliance-BTG, reread:Camera-ColPick, reread:CommandLayer-Dock, reread:ETG, reread:fastmath-HS, reread:KAS-KASFunc, reread:Key-MEX, reread:MultiplayerGame-NetCheck, reread:NIS-Options, reread:Particle, reread:Physics-ResearchGUI, reread:SaveGame, reread:ScenPick-SinglePlayer, reread:SoundEvent-StringSupport, reread:Tactical-TradeMgr, reread:Tutor-Universe, reread:UnivUpdate-Ships, reread:bink-Light, reread:main-Queue, reread:render-Titan, reread:TitanInterface-utility, audit-reclass-R2, toolfix-R2, m2r3:closeout-review, m2r3:closeout-audit, m2r3:etg-particles-review, m2r3:etg-particles-audit, m2r3:selection-review, m2r4:univupdate-review, m2r4:univupdate-audit, command, m2r4:command-audit, m2r4:combat-review, m2r4:combat-audit, m2r4:ships-b, port-R4-rest-oracle, m2r5:layout-dock, m2r5:command-tactics, m2r5:render, m2r5:sound, m2r5:sound-audit, m2r5:hud, m2r5:hud-audit, m2r6:mainrgn-popup, m2r6:frontend, m2r6:startup-keys, m2r6:managers, m2r6:nis-fow-camera, m2r6:integrate, m2r7:oracle-rung-aiship, m2r7:ai-orders-moves, m2r7:ai-player-skirmish, m2r7:r6-leftovers, m2r7:integrate, m2r7:skirmish-start, m2r8:oracle-rung-physics, m2r8:kasf-library, m2r8:kas-runtime-mission01, m2r8:singleplayer-tutorial -->
+<!-- done: tool, Game a-f, Game g-m, Game n-s, Game t-z, Ships, other, review, write-up, reread:AIAttackMan-AIHandler, reread:AIMoves, reread:AIOrders-AIVar, reread:Alliance-BTG, reread:Camera-ColPick, reread:CommandLayer-Dock, reread:ETG, reread:fastmath-HS, reread:KAS-KASFunc, reread:Key-MEX, reread:MultiplayerGame-NetCheck, reread:NIS-Options, reread:Particle, reread:Physics-ResearchGUI, reread:SaveGame, reread:ScenPick-SinglePlayer, reread:SoundEvent-StringSupport, reread:Tactical-TradeMgr, reread:Tutor-Universe, reread:UnivUpdate-Ships, reread:bink-Light, reread:main-Queue, reread:render-Titan, reread:TitanInterface-utility, audit-reclass-R2, toolfix-R2, m2r3:closeout-review, m2r3:closeout-audit, m2r3:etg-particles-review, m2r3:etg-particles-audit, m2r3:selection-review, m2r4:univupdate-review, m2r4:univupdate-audit, command, m2r4:command-audit, m2r4:combat-review, m2r4:combat-audit, m2r4:ships-b, port-R4-rest-oracle, m2r5:layout-dock, m2r5:command-tactics, m2r5:render, m2r5:sound, m2r5:sound-audit, m2r5:hud, m2r5:hud-audit, m2r6:mainrgn-popup, m2r6:frontend, m2r6:startup-keys, m2r6:managers, m2r6:nis-fow-camera, m2r6:integrate, m2r7:oracle-rung-aiship, m2r7:ai-orders-moves, m2r7:ai-player-skirmish, m2r7:r6-leftovers, m2r7:integrate, m2r7:skirmish-start, m2r8:oracle-rung-physics, m2r8:kasf-library, m2r8:kas-runtime-mission01, m2r8:singleplayer-tutorial, m2r9:oracle-rung-physics -->
 # M2-R1 function deltas: Cataclysm vs Homeworld 1
 
 Round M2-R1, item 3 of `cycle/M2_BRIEF.md`. For every function the binary map matched to Homeworld 1 (class `hw1:<File>`, plus CET's `hw1_equivalent` entries, the rule behind the 4,426 HW1 matches of docs/binary-map.md round 5), this compares the decompiled Cataclysm body (`ghidra/exports/cataclysm_gog_r6`, since M2-R4; r5 before) with Relic's original source (gardens-of-kadesh root commit `ad1bb82`) and classifies it IDENTICAL, MODIFIED or REWRITTEN. Per-function data: `ghidra/delta_map.json`. Tool: `tools/delta_map.py`. Hand-review verdicts: `ghidra/delta_map_review.json`.
@@ -7,13 +7,13 @@ Round M2-R1, item 3 of `cycle/M2_BRIEF.md`. For every function the binary map ma
 
 | | functions | share | Cataclysm bytes | share of bytes |
 |---|---:|---:|---:|---:|
-| IDENTICAL | 2,773 | 62.7% | 500,313 | 40.4% |
-| MODIFIED | 1,564 | 35.4% | 722,679 | 58.3% |
+| IDENTICAL | 2,762 | 62.5% | 495,962 | 40.0% |
+| MODIFIED | 1,575 | 35.6% | 727,030 | 58.7% |
 | REWRITTEN | 83 | 1.9% | 15,855 | 1.3% |
 | **classified** | **4,420** | | **1,238,847** | |
 | not classified (no HW1 body found) | 6 | | 4,137 | |
 
-Estimated true split, correcting each automatic (class, confidence) bucket by its hand-review agreement (class-level agreement where a bucket has fewer than 5 reviewed functions); reviewed functions count with their reviewed class: IDENTICAL 2,659 functions / 480,005 bytes (38.7% of bytes), MODIFIED 1,684 / 743,542 (60.0%), REWRITTEN 77 / 15,300 (1.2%).
+Estimated true split, correcting each automatic (class, confidence) bucket by its hand-review agreement (class-level agreement where a bucket has fewer than 5 reviewed functions); reviewed functions count with their reviewed class: IDENTICAL 2,652 functions / 476,613 bytes (38.5% of bytes), MODIFIED 1,691 / 746,934 (60.3%), REWRITTEN 77 / 15,300 (1.2%).
 
 ## Key findings
 
@@ -34,16 +34,16 @@ Estimated true split, correcting each automatic (class, confidence) bucket by it
 
 ## M2-R2 re-read
 
-M2-R2 read both bodies of every function M2-R1 had left IDENTICAL/low: 971 functions. For each, it read the Cataclysm decompilation and Relic's ad1bb82 source side by side, and the GoK `src/` body where it differs from ad1bb82. A difference that is only a header-level constant (renumbered enum, struct offset or size, macro value), an inlined or linker-folded callee, Ghidra prototype noise or compiled-out debug code counts as IDENTICAL. Review entries carry `sample: reread-R2`.
+M2-R2 read both bodies of every function M2-R1 had left IDENTICAL/low: 968 functions. For each, it read the Cataclysm decompilation and Relic's ad1bb82 source side by side, and the GoK `src/` body where it differs from ad1bb82. A difference that is only a header-level constant (renumbered enum, struct offset or size, macro value), an inlined or linker-folded callee, Ghidra prototype noise or compiled-out debug code counts as IDENTICAL. Review entries carry `sample: reread-R2`.
 
 | result | functions | share | high | medium | low |
 |---|---:|---:|---:|---:|---:|
-| IDENTICAL | 833 | 85.8% | 809 | 24 | 0 |
-| MODIFIED | 137 | 14.1% | 126 | 11 | 0 |
+| IDENTICAL | 831 | 85.8% | 807 | 24 | 0 |
+| MODIFIED | 136 | 14.0% | 126 | 10 | 0 |
 | REWRITTEN | 1 | 0.1% | 0 | 1 | 0 |
-| **read** | **971** | | | | |
+| **read** | **968** | | | | |
 
-**138 of 971 changed class (14.2%)**: 137 MODIFIED and 1 REWRITTEN. 6 of the MODIFIED ones differ only in which ship types or races a test names (per-race Cataclysm types replacing HW1's, added or dropped types); their change line starts with `enum:`. **The re-read IDENTICAL agreement for the IDENTICAL/low bucket is 85.8%** (M2-R1's 51-function sample said 86%).
+**137 of 968 changed class (14.2%)**: 136 MODIFIED and 1 REWRITTEN. 6 of the MODIFIED ones differ only in which ship types or races a test names (per-race Cataclysm types replacing HW1's, added or dropped types); their change line starts with `enum:`. **The re-read IDENTICAL agreement for the IDENTICAL/low bucket is 85.8%** (M2-R1's 51-function sample said 86%).
 
 The audit's reclassifications (`docs/audits/m2-r1-function-deltas.md`) were checked by hand and applied to 18 functions (review entries with `sample: audit-R2`), now 10 IDENTICAL, 7 MODIFIED, 1 REWRITTEN.
 
@@ -61,19 +61,19 @@ Totals after M2-R2 (re-read, audit reclassifications, tool fixes), against M2-R1
 
 | class | M2-R1 functions | M2-R2 functions | M2-R1 bytes | M2-R2 bytes | M2-R2 share of bytes |
 |---|---:|---:|---:|---:|---:|
-| IDENTICAL | 3,357 | 2,773 | 658,389 | 500,313 | 40.4% |
-| MODIFIED | 983 | 1,564 | 569,953 | 722,679 | 58.3% |
+| IDENTICAL | 3,357 | 2,762 | 658,389 | 495,962 | 40.0% |
+| MODIFIED | 983 | 1,575 | 569,953 | 727,030 | 58.7% |
 | REWRITTEN | 80 | 83 | 10,505 | 15,855 | 1.3% |
 
-**New IDENTICAL agreement estimate.** 2,773 functions are IDENTICAL now: 1,964 by hand review and 809 by the tool alone. Applying each automatic bucket's review agreement to the unread ones, about 665 of those 809 (82.2%) are expected to be truly identical, so about 2,629 of all 2,773 IDENTICAL functions (94.8%) are, against M2-R1's 80% audit estimate. The unread ones sit in the automatic IDENTICAL/high and /medium buckets, which have only 28 and 111 reviewed functions, so this is a rough figure.
+**New IDENTICAL agreement estimate.** 2,762 functions are IDENTICAL now: 1,959 by hand review and 803 by the tool alone. Applying each automatic bucket's review agreement to the unread ones, about 663 of those 803 (82.6%) are expected to be truly identical, so about 2,622 of all 2,762 IDENTICAL functions (94.9%) are, against M2-R1's 80% audit estimate. The unread ones sit in the automatic IDENTICAL/high and /medium buckets, which have only 28 and 109 reviewed functions, so this is a rough figure.
 
 ## Hand review and calibration
 
-3340 functions were reviewed by hand (both bodies read; for long bodies sometimes only the head, as the review note says). The calibration below uses the 1216 reviews drawn as samples (`--calib-samples calibration`: the M2-R1 buckets, the M2-R2 re-read and the audit reclassifications); the ports' targeted reviews (sample `port-*` or none, 2124 functions) are excluded because a port reads the functions it suspects of change. Rows: the tool's current automatic class; columns: the reviewed class.
+3346 functions were reviewed by hand (both bodies read; for long bodies sometimes only the head, as the review note says). The calibration below uses the 1212 reviews drawn as samples (`--calib-samples calibration`: the M2-R1 buckets, the M2-R2 re-read and the audit reclassifications); the ports' targeted reviews (sample `port-*` or none, 2134 functions) are excluded because a port reads the functions it suspects of change. Rows: the tool's current automatic class; columns: the reviewed class.
 
 | automatic \ reviewed | IDENTICAL | MODIFIED | REWRITTEN | agreement |
 |---|---:|---:|---:|---:|
-| IDENTICAL | 985 | 94 | 1 | 91.2% |
+| IDENTICAL | 982 | 93 | 1 | 91.3% |
 | MODIFIED | 13 | 108 | 2 | 87.8% |
 | REWRITTEN | 3 | 5 | 5 | 38.5% |
 
@@ -82,8 +82,8 @@ Per automatic bucket (functions in the bucket, reviewed, reviewed class agreeing
 | automatic class | confidence | functions | bytes | reviewed | agree |
 |---|---|---:|---:|---:|---:|
 | IDENTICAL | high | 380 | 119,105 | 28 | 27 (96.4%) |
-| IDENTICAL | medium | 1,873 | 450,016 | 111 | 88 (79.3%) |
-| IDENTICAL | low | 989 | 75,172 | 941 | 870 (92.5%) |
+| IDENTICAL | medium | 1,873 | 450,016 | 109 | 87 (79.8%) |
+| IDENTICAL | low | 989 | 75,172 | 939 | 868 (92.4%) |
 | MODIFIED | high | 682 | 508,751 | 21 | 19 (90.5%) |
 | MODIFIED | medium | 263 | 65,926 | 25 | 22 (88.0%) |
 | MODIFIED | low | 152 | 9,066 | 77 | 67 (87.0%) |
@@ -91,13 +91,13 @@ Per automatic bucket (functions in the bucket, reviewed, reviewed class agreeing
 | REWRITTEN | medium | 36 | 7,172 | 7 | 3 (42.9%) |
 | REWRITTEN | low | 2 | 297 | 2 | 0 (0.0%) |
 
-Confidence per class (after review): IDENTICAL 1,907 high / 866 medium / 0 low; MODIFIED 1,283 high / 215 medium / 66 low; REWRITTEN 71 high / 11 medium / 1 low.
+Confidence per class (after review): IDENTICAL 1,901 high / 861 medium / 0 low; MODIFIED 1,293 high / 216 medium / 66 low; REWRITTEN 71 high / 11 medium / 1 low.
 
 ## Per HW1 source file
 
 Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and GoK-only). Bytes are Cataclysm function sizes. `matched` counts the classified functions only; `unres` = matched functions with no HW1 body, additional to `matched` (BitIO.c: 2 classified + 2 unresolved bitio functions). `rev` = hand-reviewed functions in the file.
 
-### Game a-f (1,399 functions, 414,570 bytes, 44.5% of bytes IDENTICAL)
+### Game a-f (1,399 functions, 414,570 bytes, 43.9% of bytes IDENTICAL)
 
 | file | matched | identical | modified | rewritten | bytes identical | bytes modified | bytes rewritten | rev | unres |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -113,10 +113,10 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | AIShip.c | 20 | 11 | 9 | 0 | 2,556 | 8,462 | 0 | 20 | 0 |
 | AITeam.c | 44 | 28 | 14 | 2 | 2,715 | 3,589 | 169 | 26 | 0 |
 | AITrack.c | 19 | 16 | 3 | 0 | 4,562 | 2,254 | 0 | 19 | 0 |
-| AIUtilities.c | 85 | 46 | 39 | 0 | 11,515 | 13,066 | 0 | 85 | 0 |
+| AIUtilities.c | 85 | 45 | 40 | 0 | 11,468 | 13,113 | 0 | 85 | 0 |
 | AIVar.c | 13 | 13 | 0 | 0 | 1,374 | 0 | 0 | 13 | 0 |
 | Alliance.c | 6 | 4 | 2 | 0 | 447 | 1,268 | 0 | 3 | 0 |
-| Animatic.c | 4 | 3 | 1 | 0 | 662 | 499 | 0 | 4 | 0 |
+| Animatic.c | 4 | 2 | 2 | 0 | 226 | 935 | 0 | 4 | 0 |
 | Attack.c | 6 | 4 | 2 | 0 | 1,769 | 790 | 0 | 3 | 0 |
 | AutoDownloadMap.c | 11 | 11 | 0 | 0 | 2,109 | 0 | 0 | 7 | 0 |
 | AutoLOD.c | 5 | 5 | 0 | 0 | 329 | 0 | 0 | 3 | 0 |
@@ -124,10 +124,10 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | Battle.c | 19 | 7 | 11 | 1 | 1,101 | 5,591 | 94 | 19 | 0 |
 | BigFile.c | 8 | 8 | 0 | 0 | 3,088 | 0 | 0 | 3 | 0 |
 | BitIO.c | 2 | 2 | 0 | 0 | 62 | 0 | 0 | 2 | 2 |
-| Blobs.c | 21 | 19 | 2 | 0 | 7,094 | 1,325 | 0 | 3 | 0 |
+| Blobs.c | 21 | 15 | 6 | 0 | 5,678 | 2,741 | 0 | 9 | 0 |
 | BMP.c | 2 | 1 | 1 | 0 | 148 | 79 | 0 | 0 | 0 |
 | Bounties.c | 4 | 1 | 3 | 0 | 274 | 232 | 0 | 4 | 0 |
-| BTG.c | 17 | 12 | 5 | 0 | 1,673 | 3,892 | 0 | 17 | 0 |
+| BTG.c | 17 | 11 | 6 | 0 | 1,353 | 4,212 | 0 | 17 | 0 |
 | Camera.c | 8 | 5 | 3 | 0 | 925 | 1,531 | 0 | 8 | 0 |
 | CameraCommand.c | 28 | 17 | 11 | 0 | 2,642 | 4,670 | 0 | 28 | 0 |
 | Captaincy.c | 10 | 8 | 1 | 1 | 1,319 | 1,960 | 85 | 3 | 0 |
@@ -156,14 +156,14 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | File.c | 19 | 16 | 3 | 0 | 5,850 | 630 | 0 | 4 | 0 |
 | FlightMan.c | 45 | 45 | 0 | 0 | 13,987 | 0 | 0 | 45 | 0 |
 | FontReg.c | 6 | 6 | 0 | 0 | 935 | 0 | 0 | 6 | 0 |
-| Formation.c | 33 | 16 | 17 | 0 | 3,160 | 13,469 | 0 | 33 | 0 |
+| Formation.c | 33 | 15 | 18 | 0 | 2,637 | 13,992 | 0 | 33 | 0 |
 
-### Game g-m (821 functions, 160,446 bytes, 47.6% of bytes IDENTICAL)
+### Game g-m (821 functions, 160,446 bytes, 47.3% of bytes IDENTICAL)
 
 | file | matched | identical | modified | rewritten | bytes identical | bytes modified | bytes rewritten | rev | unres |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | GameChat.c | 12 | 8 | 4 | 0 | 1,140 | 2,620 | 0 | 4 | 0 |
-| GamePick.c | 11 | 10 | 1 | 0 | 1,979 | 404 | 0 | 11 | 0 |
+| GamePick.c | 11 | 9 | 2 | 0 | 1,434 | 949 | 0 | 11 | 0 |
 | Globals.c | 2 | 1 | 1 | 0 | 17 | 317 | 0 | 2 | 0 |
 | Gun.c | 8 | 1 | 6 | 1 | 152 | 6,739 | 474 | 7 | 0 |
 | HorseRace.c | 16 | 7 | 9 | 0 | 3,076 | 5,195 | 0 | 16 | 0 |
@@ -213,7 +213,7 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | SaveGame.c | 86 | 62 | 24 | 0 | 8,687 | 15,994 | 0 | 54 | 0 |
 | ScenPick.c | 15 | 8 | 7 | 0 | 1,097 | 3,362 | 0 | 15 | 0 |
 | Scroller.c | 6 | 6 | 0 | 0 | 530 | 0 | 0 | 6 | 0 |
-| Select.c | 29 | 14 | 11 | 4 | 1,364 | 10,476 | 1,631 | 19 | 0 |
+| Select.c | 29 | 13 | 12 | 4 | 1,242 | 10,598 | 1,631 | 19 | 0 |
 | Sensors.c | 19 | 9 | 10 | 0 | 1,833 | 6,440 | 0 | 19 | 0 |
 | Shader.c | 20 | 18 | 2 | 0 | 3,444 | 1,615 | 0 | 20 | 0 |
 | ShipSelect.c | 52 | 20 | 32 | 0 | 1,249 | 3,857 | 0 | 46 | 0 |
@@ -228,7 +228,7 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | StatScript.c | 42 | 32 | 10 | 0 | 3,472 | 6,165 | 0 | 21 | 0 |
 | StringSupport.c | 5 | 3 | 2 | 0 | 195 | 685 | 0 | 5 | 0 |
 
-### Game t-z (409 functions, 118,515 bytes, 38.7% of bytes IDENTICAL)
+### Game t-z (409 functions, 118,515 bytes, 37.9% of bytes IDENTICAL)
 
 | file | matched | identical | modified | rewritten | bytes identical | bytes modified | bytes rewritten | rev | unres |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -247,7 +247,7 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | UIControls.c | 47 | 42 | 5 | 0 | 15,450 | 1,899 | 0 | 47 | 0 |
 | Undo.c | 2 | 2 | 0 | 0 | 62 | 0 | 0 | 2 | 0 |
 | Universe.c | 56 | 27 | 29 | 0 | 5,923 | 15,192 | 0 | 41 | 0 |
-| UnivUpdate.c | 98 | 43 | 54 | 1 | 5,889 | 34,040 | 386 | 98 | 0 |
+| UnivUpdate.c | 98 | 42 | 55 | 1 | 4,947 | 34,982 | 386 | 98 | 0 |
 | Vector.c | 14 | 2 | 12 | 0 | 247 | 999 | 0 | 14 | 0 |
 | Volume.c | 4 | 3 | 1 | 0 | 976 | 154 | 0 | 4 | 0 |
 
@@ -362,7 +362,7 @@ The 60 largest by Cataclysm bytes; `change` is the hand-written line where revie
 | 0x0057f850 | isoundmixerprocess | smixer.c | 2,494 | high | yes | no effect, q-noise, delay or acoustic-model stage and no effect scale; volume clamps and the SFX stop test rounded with rint; a channel without a patch is released; the decode inlined |
 | 0x004a13f0 | scriptSetShipsCB | LevelLoad.c | 2,450 | high | yes | cat_kasHashString teams; no harvest/carrier gates; RacesAllowedForGivenShip before the race swap; cat_shipInitResearchUpgrades per ship; cat_rmResearchModuleActivated for Sect; clFormation 4 args |
 | 0x0053bab0 | InitStatShipInfo | Universe.c | 2,432 | high | yes | adds calls ShipTypeToNiceStr, cat_univInitShipTypeFlags, dockFindDockStaticPoint; drops calls precalcStaticInfoGuidance; drops calls to dockInitializeCustomFunctions, mexGetTractorBeamStatic (absent from Cataclysm); adds strings "\nSHP file loaded:  %s"; "\nWARNING: could not set gunbindings ..."; " |
-| 0x00587a50 | trRegistryRefresh | texreg.c | 2,421 | medium | yes | size-sort qsort + trCramRAMScaleCompute/trCramIntoRAM replaced by one call to trCramRAMComputeAndScale(); trMeshSortList nulled after free |
+| 0x00587a50 | trRegistryRefresh | texreg.c | 2,421 | medium | yes | size-sort qsort + trCramRAMScaleCompute/trCramIntoRAM replaced by one call to trCramRAMComputeAndScale(); trMeshSortList nulled after free; sorts with the exe's qsort |
 | 0x00542320 | univCreateShip | UnivUpdate.c | 2,417 | high | yes | 7 arguments, adds the ship to the universe itself, 0x63C-byte ship with gun/mad/precise blocks, droids, damage points, upgrades, dock info, external build, mothership modules, experience, stealth, dissolve, names, FOW, mesh state; univCreateShip: the repair-droid array (droidCreateArray at 0x0054265 |
 | 0x00413240 | airResourceManager | AIResourceMan.c | 2,349 | high | yes | research requests only in multiplayer with research on; collectors with harvesting on (or single player) by race; one processor (Sect with a docking bay, Beast); a multiplayer carrier near the support-unit cap (0x00413929) |
 | 0x00460ed0 | cratesRewardPlayer | Crates.c | 2,334 | high | yes | gamerand()/2^32 probabilities; per-race 12-step ship ladders and 20-step technology ladders (double thresholds 0x0072a470..0x0072a7b0); up to 5 tech draws; no mothership gift, no SHIP_PROBS pick |

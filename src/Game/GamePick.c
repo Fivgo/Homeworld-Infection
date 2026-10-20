@@ -50,6 +50,7 @@
 #include "Timer.h"
 #include "utility.h"
 
+#include "CatSort.h"         // CAT (M2-R9 oracle-rung-physics): the exe's qsort
 #ifdef _WIN32
     #include <windows.h>
 #endif
@@ -434,7 +435,8 @@ alreadyLoaded:;
     if (gpNumberGames > 1)
     {
         //alphabetically sort the game list
-        qsort(&gpGames[0],gpNumberGames,sizeof(gpgame),compareGamesCB);
+        // CAT (M2-R9 oracle-rung-physics): the exe's qsort 0x00671060 (CatSort.c; gpTitleListLoad 0x00487440 at 0x00487644): ties sort as in the exe
+        catQsort(&gpGames[0],gpNumberGames,sizeof(gpgame),compareGamesCB);
     }
     gpCurrentSelected = gpCurrentGame = 0;      //set default game
 }

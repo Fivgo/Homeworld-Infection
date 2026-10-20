@@ -12,9 +12,10 @@
 
 #include <math.h>
 
-// HWI-EXPERIMENT (M2-R7 oracle-rung-aiship): /oracleTableFsqrt switches both to the exe's table square root
-//      (fsqrt 0x00472860, HW1's (real32)fmathSqrtDouble((real32)(x)); FastMath.c) for the oracle's one fsqrt experiment
-//      per round; the default is sqrtf (decision 23, the user's: never switch the default)
+// CAT (M2-R9 oracle-rung-physics): fsqrt and fmathSqrt are the exe's table square root (fsqrt 0x00472860, HW1's
+//      (real32)fmathSqrtDouble((real32)(x)); the table filled as fmathInit 0x004728c0 does; FastMath.c): the engine default
+//      since the user's ruling on decision 23 / 56 / 70 (2026-10-19: "keep the game relying on fsqrt").
+//      HWI-EXPERIMENT: /oracleLibmSqrt (catFsqrtTable FALSE) takes libm's sqrtf instead, for an A/B run only
 extern bool32 catFsqrtTable;
 double catFmathSqrtDouble(double f);
 #define fsqrt(x)     (catFsqrtTable ? (real32)catFmathSqrtDouble((real32)(x)) : (real32)sqrtf((real32)(x)))
@@ -23,8 +24,9 @@ double catFmathSqrtDouble(double f);
 
 // CAT (M2-R8 oracle-rung-physics): the exe's fsqrt 0x00472860 takes a DOUBLE (its callers fstp qword the magnitude they
 //      summed on the x87 at the 53-bit precision of its control word 0x027f) and returns the double on the FPU. The
-//      helpers that keep the exe's x87 shape (Vector.c, Matrix.c) call this one: with /oracleTableFsqrt the exe's table
-//      on the double argument, by default (decision 23 / 56: "sqrtf") sqrtf of the argument rounded to float, widened
+//      helpers that keep the exe's x87 shape (Vector.c, Matrix.c) call this one: by default (decision 70, M2-R9) the exe's
+//      table on the double argument; with the HWI-EXPERIMENT switch /oracleLibmSqrt sqrtf of the argument rounded to float,
+//      widened
 #define catFsqrtD(x) (catFsqrtTable ? catFmathSqrtDouble((double)(x)) : (double)sqrtf((real32)(x)))
 
 // pi

@@ -1344,6 +1344,20 @@ void collCheckBigShipSmallShipColl(blob *thisBlob)
                 goto nocollision;
             }
 
+            // CAT (M2-R9 oracle-rung-physics): a ship clamped to the other one does not collide with it
+            //      (collCheckBigShipSmallShipColl 0x0043b578 .. 0x0043b5a7: SOF_Clamped, the clamp info and its host,
+            //      either way round, as collCheckShipShipColl 0x0043aec4): a mothership and the module it is building
+            if (bitTest(obj1->header.flags, SOF_Clamped) && (obj1->guidance.clampInfo != NULL) &&
+                ((void *)obj1->guidance.clampInfo->host == (void *)obj2))
+            {
+                goto nocollision;
+            }
+            if (bitTest(obj2->header.flags, SOF_Clamped) && (obj2->guidance.clampInfo != NULL) &&
+                ((void *)obj2->guidance.clampInfo->host == (void *)obj1))
+            {
+                goto nocollision;
+            }
+
             colldist = obj1collspheresize + obj2->staticinfo->common.staticCollInfo.collspheresize;
 
             if (checkdist > colldist)
@@ -1409,10 +1423,21 @@ void collCheckBigShipSmallShipColl(blob *thisBlob)
             {
                 goto nocollision;
             }
-            distsquared = vecMagnitudeSquared(distvector);
-            dist = (real32)fsqrt(distsquared);
+            // CAT (M2-R9 oracle-rung-physics): the exe's distance test (collCheckBigShipSmallShipColl 0x0043b83f ..
+            //      0x0043b8d7, as collCheckShipShipColl's): (z*z + y*y) + x*x is stored as the float distsquared and
+            //      compared, unrounded, with colldist squared before any root; the distance is fsqrt of the stored
+            //      float, taken after the too-close special case and the bump tests
+            {
+                double distsquaredd = ((double)distvector.z * distvector.z + (double)distvector.y * distvector.y) +
+                                      (double)distvector.x * distvector.x;
 
-            if (dist < colldist)
+                distsquared = (real32)distsquaredd;
+                if (!(distsquaredd < (double)colldist * colldist))
+                {
+                    goto nocollision;
+                }
+            }
+
             {
                 if (collCheckRectBumpCollision(&obj1->impactable,&obj2->impactable))
                 {
@@ -1420,11 +1445,11 @@ void collCheckBigShipSmallShipColl(blob *thisBlob)
                     {
                         distvector.x = 10.0f;   // special case, if objects are too close together
                         distsquared = 100.0f;
-                        dist = 10.0f;
                     }
 
                     if (!bitTest(obj1->header.flags, SOF_NotBumpable) && !bitTest(obj2->header.flags, SOF_NotBumpable))
                     {
+                        dist = (real32)catFsqrtD(distsquared);
                         if(!kamikazeCheck(&obj1->targetable,&obj2->targetable))    //return true if kamikaze collision is true
                         {
                             // CAT: a ramming frigate acts first (cat_rammingFrigateCollide 0x005c14a0: latch, release,

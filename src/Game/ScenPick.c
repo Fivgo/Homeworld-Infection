@@ -41,6 +41,7 @@
 #include "Subtitle.h"
 #include "StringSupport.h"
 
+#include "CatSort.h"         // CAT (M2-R9 oracle-rung-physics): the exe's qsort
 #ifdef _MSC_VER
     #define strcasecmp _stricmp
 #endif
@@ -584,7 +585,8 @@ alreadyLoadedFromFileSystem:;
     if (spNumberScenarios > 1)
     {
         //alphabetically sort the scenario list
-        qsort(&spScenarios[0],spNumberScenarios,sizeof(spscenario),compareScenariosCB);
+        // CAT (M2-R9 oracle-rung-physics): the exe's qsort 0x00671060 (CatSort.c; spTitleListLoad 0x005040c0 at 0x00504462): ties sort as in the exe
+        catQsort(&spScenarios[0],spNumberScenarios,sizeof(spscenario),compareScenariosCB);
     }
 
     //find the default scenario's index

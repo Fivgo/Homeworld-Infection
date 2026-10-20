@@ -54,6 +54,7 @@
 #include "SinglePlayer.h"
 #include "Task.h"
 
+#include "CatSort.h"         // CAT (M2-R9 oracle-rung-physics): the exe's qsort
 // CAT: the stealth types' bit of ShipStaticInfo.catTypeFlags (cat_univInitShipTypeFlags 0x0053b8c0 sets it for sMimic,
 //      sLeech and sMCV; cat_selStatusStealthDetectDraw 0x00507920 tests it). Name chosen here.
 #define CAT_TYPEFLAG_Stealth    0x00020000
@@ -2207,8 +2208,9 @@ sdword selSelectionCompare(MaxAnySelection *s0, MaxAnySelection *s1)
     dbgAssertOrIgnore(s0->numTargets < COMMAND_MAX_SHIPS);
     dbgAssertOrIgnore(s1->numTargets < COMMAND_MAX_SHIPS);
 
-    qsort(s0->TargetPtr, s0->numTargets, sizeof(TargetPtr), selSortCompare);
-    qsort(s1->TargetPtr, s1->numTargets, sizeof(TargetPtr), selSortCompare);
+    // CAT (M2-R9 oracle-rung-physics): the exe's qsort 0x00671060 (CatSort.c; selSelectionCompare 0x00508fb0 at 0x00508fcd / 0x00508fde): ties sort as in the exe
+    catQsort(s0->TargetPtr, s0->numTargets, sizeof(TargetPtr), selSortCompare);
+    catQsort(s1->TargetPtr, s1->numTargets, sizeof(TargetPtr), selSortCompare);
     if (s0->numTargets != s1->numTargets)
     {
         return(1);

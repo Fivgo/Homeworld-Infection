@@ -194,7 +194,16 @@
 #                    bits and values, order, attributes, AI state, flags), 'A' / 'F' lines (each force / torque given and
 #                    the sums the physics integrates), 'V' lines (the flight's target, avoidance terms and desired
 #                    velocity) and one 'C' line per command of every sync packet; the stream is unchanged (read only).
+#                    M2-R9 oracle-rung-physics adds: 'V <tick> <ship> fly' (the flight's destination, AISHIP_ flags,
+#                    limitvel and the velocity it flies with), 'O' (each object the flight avoids: its type and ship
+#                    number, collision position and coordsys, the distance, the normal and the three doubles of the
+#                    collision distance as raw words) and, with "all", 'B' (every live bullet in BulletList order: the
+#                    firing ship, its target, position, velocity)
 #                    tools/oracle/hwo_invert.py recovers a reference stream's per-ship words from an "all" dump
+#                    The square root (M2-R9 oracle-rung-physics, decision 70): the engine's fsqrt / fmathSqrt / catFsqrtD
+#                    are the exe's table square root (fsqrt 0x00472860, src/Game/FastMath.c) by default; pass
+#                    "-- /oracleLibmSqrt" (HWI-EXPERIMENT) to any mode for libm's sqrtf instead, the A/B run of the rung
+#                    (docs/m2-r9-oracle-rung-physics.md). The old switch /oracleTableFsqrt (M2-R7 / R8) is gone
 #   --recording NAME replay mode: the recorded game to replay (default oracle01)
 #   --recording-src DIR replay mode: the directory NAME and NAME.pkts are copied from (default the install's
 #                    SavedGames/RecordedGames). M2-R7 integrate: an archived recording (original/oracle/<session>/, where

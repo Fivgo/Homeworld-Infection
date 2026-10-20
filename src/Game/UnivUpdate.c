@@ -3411,43 +3411,61 @@ bool32 ShouldDoGlancingCollision(SpaceObjRotImpTarg *fastobj,real32 fastobjvelma
 ----------------------------------------------------------------------------*/
 void ObjectsCollided(SpaceObjRotImpTarg *obj1,SpaceObjRotImpTarg *obj2,real32 colldist,vector *distvector,real32 dist,real32 distsquared)
 {
+    // CAT (M2-R9 oracle-rung-physics): the exe's x87 shape (ObjectsCollided 0x005456d0, ObjectsHaveCollidedLately and
+    //      ShouldDoGlancingCollision inlined): the repulsion ((colldist - dist) * factor) / dist is one double rounded at
+    //      its store (0x005456ef); the elapsed times since the last collisions are doubles; obj1's speed squared
+    //      (vx*vx + vy*vy) + vz*vz stays a double, obj2's is stored as a float, and the double is compared with the
+    //      float: the faster one's is stored as a float, the slower one's stays as it is (obj1's double, or obj2's
+    //      float); the momenta m*v of x stay doubles and their difference is scaled by the UNROUNDED double 1/t
+    //      (0x00545813 fst stores 1/t as a float but 0x00545817 multiplies st(0), the double) with one rounding
+    //      [audit: M2-R9 oracle-rung-physics; was "the stored 1/t": the same words while t is 1/16 s], y and z are
+    //      stored after each product and after the difference and scaled by the stored float 1/t; the speed ratio and the dot
+    //      product of the velocities (z*z' + y*y') + x*x' are doubles; the tangential force's magnitude is fsqrt of
+    //      (z*z + y*y) + x*x; the left / right test is dx*vy - dy*vx over the unrounded differences of the collision
+    //      positions
     vector collforce;
-    vector cforce1;
-    vector cforce2;
     vector repulseoverlap;
-    real32 temp;
-    real32 repulse = (colldist - dist) * COLLISION_REPULSE_FACTOR / dist;
-    vector up = { 0.0f, 0.0f, 1.0f };
+    real32 repulse = (real32)((((double)colldist - dist) * COLLISION_REPULSE_FACTOR) / dist);
     real32 collforcemag;
     vector tangforce;
 
-    real32 obj1velmag2;
+    double obj1velmag2;
     real32 obj2velmag2;
 
-    real32 slowobjvelmag2;
+    double slowobjvelmag2;
     real32 fastobjvelmag2;
 
     SpaceObjRotImpTarg *slowobj;
     SpaceObjRotImpTarg *fastobj;
 
-    vector fastesttoslowest;
+    double collforcexd;
+    real32 oneovertime;
+    bool32 glancing;
 
-    vector leftrightdecidevec;
+    (void)distsquared;
 
 #if DEBUG_COLLISIONS
     dbgMessagef("%x and %x collided, Repulsion %f",(udword)obj1,(udword)obj2,repulse);
 #endif
 
-    if (!ObjectsHaveCollidedLately(obj1,obj2))
+    if (!(((double)universe.totaltimeelapsed - obj1->lasttimecollided < (double)COLLISION_CLEAR_TIME) &&
+          ((double)universe.totaltimeelapsed - obj2->lasttimecollided < (double)COLLISION_CLEAR_TIME)))
     {
+        obj1->lasttimecollided = universe.totaltimeelapsed;
+        obj2->lasttimecollided = universe.totaltimeelapsed;
+
         // decide which ship is fastest ship in collision
 
-        obj1velmag2 = vecMagnitudeSquared(obj1->obj.posinfo.velocity);
-        obj2velmag2 = vecMagnitudeSquared(obj2->obj.posinfo.velocity);
+        obj1velmag2 = ((double)obj1->obj.posinfo.velocity.x * obj1->obj.posinfo.velocity.x +
+                       (double)obj1->obj.posinfo.velocity.y * obj1->obj.posinfo.velocity.y) +
+                      (double)obj1->obj.posinfo.velocity.z * obj1->obj.posinfo.velocity.z;
+        obj2velmag2 = (real32)(((double)obj2->obj.posinfo.velocity.x * obj2->obj.posinfo.velocity.x +
+                                (double)obj2->obj.posinfo.velocity.y * obj2->obj.posinfo.velocity.y) +
+                               (double)obj2->obj.posinfo.velocity.z * obj2->obj.posinfo.velocity.z);
 
-        if (obj1velmag2 > obj2velmag2)
+        if (obj1velmag2 > (double)obj2velmag2)
         {
-            fastobj = obj1; fastobjvelmag2 = obj1velmag2;
+            fastobj = obj1; fastobjvelmag2 = (real32)obj1velmag2;
             slowobj = obj2; slowobjvelmag2 = obj2velmag2;
         }
         else
@@ -3457,12 +3475,37 @@ void ObjectsCollided(SpaceObjRotImpTarg *obj1,SpaceObjRotImpTarg *obj2,real32 co
         }
 
         // collforce = (m2v2 - m1v1)/t
-        vecScalarMultiply(cforce1,obj2->obj.posinfo.velocity,obj2->staticinfo->common.mass);
-        vecScalarMultiply(cforce2,obj1->obj.posinfo.velocity,obj1->staticinfo->common.mass);
-        vecSub(collforce,cforce1,cforce2);
-        vecDivideByScalar(collforce,universe.phystimeelapsed,temp);
+        collforcexd = (double)obj2->staticinfo->common.mass * obj2->obj.posinfo.velocity.x -
+                      (double)obj1->staticinfo->common.mass * obj1->obj.posinfo.velocity.x;
+        collforce.y = (obj2->staticinfo->common.mass * obj2->obj.posinfo.velocity.y) -
+                      (obj1->staticinfo->common.mass * obj1->obj.posinfo.velocity.y);
+        collforce.z = (obj2->staticinfo->common.mass * obj2->obj.posinfo.velocity.z) -
+                      (obj1->staticinfo->common.mass * obj1->obj.posinfo.velocity.z);
+        oneovertime = 1.0f / universe.phystimeelapsed;
+        collforce.x = (real32)((1.0 / (double)universe.phystimeelapsed) * collforcexd);   // [audit: M2-R9] the unrounded 1/t
+        collforce.y *= oneovertime;
+        collforce.z *= oneovertime;
 
-        if (ShouldDoGlancingCollision(fastobj,fastobjvelmag2,slowobj,slowobjvelmag2))
+        // don't do glancing collision for kamikaze stuff
+        if (((fastobj->header.objtype == OBJ_ShipType) &&
+             bitTest(((Ship *)fastobj)->shipOrDerelict.specialFlags,SPECIAL_Kamikaze)) ||
+            ((slowobj->header.objtype == OBJ_ShipType) &&
+             bitTest(((Ship *)slowobj)->shipOrDerelict.specialFlags,SPECIAL_Kamikaze)))
+        {
+            glancing = FALSE;
+        }
+        else if ((double)fastobjvelmag2 / slowobjvelmag2 >= (double)GLANCE_COLLISION_VEL_RATIO)
+        {
+            glancing = TRUE;    // 0x0054585e fcomp, test ah,1: an unordered ratio (two ships at rest: 0 / 0) is not
+        }                       //      glancing and goes on to the dot product
+        else
+        {
+            glancing = !((((double)fastobj->obj.posinfo.velocity.z * slowobj->obj.posinfo.velocity.z +
+                           (double)fastobj->obj.posinfo.velocity.y * slowobj->obj.posinfo.velocity.y) +
+                          (double)fastobj->obj.posinfo.velocity.x * slowobj->obj.posinfo.velocity.x) >= 0.0);
+        }
+
+        if (glancing)
         {
 #if DEBUG_COLLISIONS
         dbgMessage("Glancing Collision");
@@ -3472,21 +3515,23 @@ void ObjectsCollided(SpaceObjRotImpTarg *obj1,SpaceObjRotImpTarg *obj2,real32 co
                 collforce.x = 0.1f;     // so cross product with up doesn't blow up
             }
 
-            collforcemag = fsqrt(vecMagnitudeSquared(collforce));
+            collforcemag = (real32)catFsqrtD(((double)collforce.z * collforce.z + (double)collforce.y * collforce.y) +
+                                             (double)collforce.x * collforce.x);
 
-            // make force tangential:
+            // make force tangential: collforce x up = (y - 0, 0 - x, 0)
 
-            vecCrossProduct(tangforce,collforce,up);
+            tangforce.x = collforce.y - 0.0f;
+            tangforce.y = 0.0f - collforce.x;
+            tangforce.z = 0.0f;
             vecNormalizeToLength(&tangforce,collforcemag);
 
             // decide which way to apply tangential force based on if "velocity" vector of fastest obj is left or right
             // of vector from fastestobj to slowestobj
 
-            vecSub(fastesttoslowest,slowobj->impactable.collInfo.collPosition,fastobj->impactable.collInfo.collPosition);
-
-            vecCrossProduct(leftrightdecidevec,fastesttoslowest,fastobj->obj.posinfo.velocity);
-
-            if (leftrightdecidevec.z > 0)
+            if (((double)slowobj->impactable.collInfo.collPosition.x - fastobj->impactable.collInfo.collPosition.x) *
+                    fastobj->obj.posinfo.velocity.y -
+                ((double)slowobj->impactable.collInfo.collPosition.y - fastobj->impactable.collInfo.collPosition.y) *
+                    fastobj->obj.posinfo.velocity.x > 0.0)
             {
                 vecCopyAndNegate(collforce,tangforce);
             }

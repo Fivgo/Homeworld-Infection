@@ -54,6 +54,7 @@
 #include "UnivUpdate.h"
 #include "KASFunc.h"
 
+#include "CatSort.h"         // CAT (M2-R9 oracle-rung-physics): the exe's qsort
 #ifndef SW_Render
     #ifdef _WIN32
         #include <windows.h>
@@ -5522,7 +5523,8 @@ nisheader *nisLoad(char *fileName, char *scriptName)
 #endif
 
     //sort the object headers based upon their parentage
-    qsort(newHeader->objectPath, newHeader->nObjectPaths, sizeof(spaceobjpath), nisCompareFunc);
+    // CAT (M2-R9 oracle-rung-physics): the exe's qsort 0x00671060 (CatSort.c; nisLoad 0x004d4a00 at 0x004d4ab1): ties sort as in the exe
+    catQsort(newHeader->objectPath, newHeader->nObjectPaths, sizeof(spaceobjpath), nisCompareFunc);
 
     for (index = 0; index < newHeader->nObjectPaths; index++)
     {                                                       //for each object motion path
@@ -5756,7 +5758,8 @@ foundOne:;
         if (newHeader->nEvents != 0)
         {
             newHeader->events = nisEventList;               //copy reference to event list
-            qsort(newHeader->events, newHeader->nEvents, sizeof(nisevent), nisEventSortCB);//qsort this list by time
+            // CAT (M2-R9 oracle-rung-physics): the exe's qsort 0x00671060 (CatSort.c; nisLoad 0x004d4a00 at 0x004d4f62)
+            catQsort(newHeader->events, newHeader->nEvents, sizeof(nisevent), nisEventSortCB);//qsort this list by time
             nisEventList = NULL;                            //forget about this list
         }
         else

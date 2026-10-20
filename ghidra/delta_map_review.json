@@ -702,8 +702,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "x87 shape: three double components (z+y)+x each, (heading*F + right*R) + up*U, * 0.5, returned as a double",
-  "note": "three | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
-  "sample": "port-R8-oracle-rung-physics"
+  "note": "three | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component) | [review: M2-R9 oracle-rung-physics] compared again with the exe: matches",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x00414100": {
   "class": "IDENTICAL",
@@ -715,9 +715,9 @@
  "0x00414610": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "adds calls cat_mimicGetAvoidRadius, cat_salvageGetSalvagerInfo, cat_shipGetSpeedMultiplier, cat_shipIsCloakedFully, sub_53F9F0; drops calls to attackSimple, proximityCanPlayerSeeShip (absent from Cataclysm); adds strings \"\\nWarning: ship %s %s flying with no ...\"; fields +attack, needFix, next, objlink (+3) -HaveMoved, Master, ShipSpecifics, TargetPtr (+44); globals +singlePlayerGame; constants 19, 21 not in body; loops 2 -> 5; x87 shape of the avoidance: squared distance and maxdistconsider squared double, fsqrt of the double, double reciprocals for the normal and the 1/(dtc*scale) repulsion, the collision size of the second object added as a double, the obscured-point size and test in double, the pass-on-right dot stored float and the target square double, pass-right z added with one rounding, maxpossibledist and the formation / parade pads rounded once",
-  "note": "[review: M2-R5 layout-dock] the SPECIAL_2_CatNoAvoidance (specialFlags2 0x40) skip of the exe added (0x00413e40) | [review: M2-R5 command-tactics] the escort speed limit (0x004149c6), the linking Acolyte/Mimic skip (0x00414cb9) and the force-field sphere Sentinel exceptions (0x0041546c) ported; open: the small-target pass skip on static+0x48 < 500 (0x00414c8a) and the Ship+0x608 / mission-type exceptions (0x00414e0e) | [review: M2-R7 oracle-rung-aiship] whole body read and ported (AIShip.c): single-player hyperspace-effect skip (0x0041468d), formation leader speed not for COMMAND_DOCK and for FORCEFIELD_SPHERE_FORMATION (0x004149e2), speed multiplier in the cap (0x00414ab2), mimic avoid radius for both ships (0x00414b28, 0x004152b5), no right of way for a docking fighter/corvette at a dock point (0x00414b59), the small-target pass skipped below originalCollSphereSize 500 (0x00414c8a), the link exception skips only the small pass, the Ship+0x608 / clamped-component / single-player FloatingCity-SlipgateNode and Ecclesiam-Mothership exceptions (0x00414e0e), no asteroid potshot (attackSimple) or Asteroid3 row bonus, parade padding by CLASS_Mothership without the R2 variant and without changing the ship pad, clamp info NULL test, cloak test cat_shipIsCloakedFully + cat_shipDetectedByPlayer, squared range test before the sqrt, no R1-mothership repulse flattening, pass-on-right from 30 m (900.0 at 0x0072a4cc); the salvager target compared as a pointer (the UBSan member-access-within-null at AIShip.c:1467 fixed faithfully) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
-  "sample": "port-R8-oracle-rung-physics"
+  "change": "adds calls cat_mimicGetAvoidRadius, cat_salvageGetSalvagerInfo, cat_shipGetSpeedMultiplier, cat_shipIsCloakedFully, sub_53F9F0; drops calls to attackSimple, proximityCanPlayerSeeShip (absent from Cataclysm); adds strings \"\\nWarning: ship %s %s flying with no ...\"; fields +attack, needFix, next, objlink (+3) -HaveMoved, Master, ShipSpecifics, TargetPtr (+44); globals +singlePlayerGame; constants 19, 21 not in body; loops 2 -> 5; x87 shape of the avoidance: squared distance and maxdistconsider squared double, fsqrt of the double, double reciprocals for the normal and the 1/(dtc*scale) repulsion, the collision size of the second object added as a double, the obscured-point size and test in double, the pass-on-right dot stored float and the target square double, pass-right z added with one rounding, maxpossibledist and the formation / parade pads rounded once; the avoided object's collision size is the stored float of the collision distance, the ship's the double; the too-close test on the unrounded root",
+  "note": "[review: M2-R5 layout-dock] the SPECIAL_2_CatNoAvoidance (specialFlags2 0x40) skip of the exe added (0x00413e40) | [review: M2-R5 command-tactics] the escort speed limit (0x004149c6), the linking Acolyte/Mimic skip (0x00414cb9) and the force-field sphere Sentinel exceptions (0x0041546c) ported; open: the small-target pass skip on static+0x48 < 500 (0x00414c8a) and the Ship+0x608 / mission-type exceptions (0x00414e0e) | [review: M2-R7 oracle-rung-aiship] whole body read and ported (AIShip.c): single-player hyperspace-effect skip (0x0041468d), formation leader speed not for COMMAND_DOCK and for FORCEFIELD_SPHERE_FORMATION (0x004149e2), speed multiplier in the cap (0x00414ab2), mimic avoid radius for both ships (0x00414b28, 0x004152b5), no right of way for a docking fighter/corvette at a dock point (0x00414b59), the small-target pass skipped below originalCollSphereSize 500 (0x00414c8a), the link exception skips only the small pass, the Ship+0x608 / clamped-component / single-player FloatingCity-SlipgateNode and Ecclesiam-Mothership exceptions (0x00414e0e), no asteroid potshot (attackSimple) or Asteroid3 row bonus, parade padding by CLASS_Mothership without the R2 variant and without changing the ship pad, clamp info NULL test, cloak test cat_shipIsCloakedFully + cat_shipDetectedByPlayer, squared range test before the sqrt, no R1-mothership repulse flattening, pass-on-right from 30 m (900.0 at 0x0072a4cc); the salvager target compared as a pointer (the UBSan member-access-within-null at AIShip.c:1467 fixed faithfully) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component) | [review: M2-R9 oracle-rung-physics] the avoidance takes the avoided object's collision size first and stores it as a float, the ship's stays a double (0x0041558b push esi = avoidobj; R8 had them swapped); the 0.1 special case compares fsqrt's unrounded double (0x0041555b); the oracle dump's O / V fly hooks (HWI-ORACLE)",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x00416b80": {
   "class": "IDENTICAL",
@@ -832,11 +832,11 @@
   "sample": "reread-R2"
  },
  "0x0041a2c0": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "same | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
-  "sample": "reread-R2"
+  "change": "returns the unrounded double on the FPU (not yet ported)",
+  "note": "same | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree) | [review: M2-R9 oracle-rung-physics] compared with the exe: returns the unrounded double (dz*dz + dy*dy) + dx*dx of the double differences on the FPU; not ported (about 70 callers): CAT-TODO(M2-R10 physics) at the function; aimProcessHyperspace's use ported locally",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x0041a530": {
   "class": "IDENTICAL",
@@ -1021,11 +1021,11 @@
   "sample": "reread-R2"
  },
  "0x00421610": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "medium",
-  "change": "",
-  "note": "header alloc/memset/iLookyObject/length as HW1; localisation loop in tail not compared",
-  "sample": "IDENTICAL/medium"
+  "change": "sorts with the exe's qsort",
+  "note": "header alloc/memset/iLookyObject/length as HW1; localisation loop in tail not compared | [review: M2-R9 oracle-rung-physics] the exe's CRT qsort 0x00671060 (CatSort.c) in place of the C library's (0x00421798)",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x00421a60": {
   "class": "MODIFIED",
@@ -1308,9 +1308,9 @@
  "0x004271d0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "cat_shipIsCloakedFully instead of the SOF_Cloaked test; no probe code",
-  "note": "ported",
-  "sample": "port-R4"
+  "change": "cat_shipIsCloakedFully instead of the SOF_Cloaked test; no probe code; the attacking flag needs the attack started",
+  "note": "ported | [review: M2-R9 oracle-rung-physics] BTF_Attacking only when shipisattacking and catAttackStarted (+0x358, +0x616; 0x00427371 .. 0x00427381); ported",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x00428050": {
   "class": "MODIFIED",
@@ -1411,11 +1411,11 @@
   "sample": "port-R5-render"
  },
  "0x00428a40": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "[review: M2-R5 render] same left/right edge lists, sort and polygon re-indexing",
-  "sample": "port-R5-render"
+  "change": "sorts with the exe's qsort",
+  "note": "[review: M2-R5 render] same left/right edge lists, sort and polygon re-indexing | [review: M2-R9 oracle-rung-physics] the exe's CRT qsort 0x00671060 (CatSort.c; btgSortByY inlined: 0x00428ae9 / 0x00428afb)",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x00428b80": {
   "class": "IDENTICAL",
@@ -1704,9 +1704,9 @@
  "0x0043b460": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "same Cataclysm tests as collCheckShipShipColl (salvager cone, clamp test, ramming, Leech)",
-  "note": "M2-R4 combat: ported as collCheckShipShipColl | [review: M2-R6 managers] M2-R6 managers: the same SOF_CatDocking exemption added",
-  "sample": "port-R6-managers"
+  "change": "same Cataclysm tests as collCheckShipShipColl (salvager cone, clamp test, ramming, Leech); the clamped-host test; the squared distance double before any root",
+  "note": "M2-R4 combat: ported as collCheckShipShipColl | [review: M2-R6 managers] M2-R6 managers: the same SOF_CatDocking exemption added | [review: M2-R9 oracle-rung-physics] compared with the exe: the clamped-host test (0x0043b578 .. 0x0043b5a7, as collCheckShipShipColl) and the distance test's shape (the double square against colldist squared before the root, 0x0043b83f) ported",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x0043bac0": {
   "class": "MODIFIED",
@@ -2077,14 +2077,16 @@
  "0x004411c0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "capital range for kGravWellGenerator/tGravWellGenerator (no cloak generator); follow-behind for sProcessor/bProcessor; no DDDFrigateMakeSureItCanGuard; CircularGuard is specialFlags 0x40000000",
-  "note": "M2-R4 command: ported"
+  "change": "capital range for kGravWellGenerator/tGravWellGenerator (no cloak generator); follow-behind for sProcessor/bProcessor; no DDDFrigateMakeSureItCanGuard; CircularGuard is specialFlags 0x40000000; x87 shape of the range and the follow-behind point",
+  "note": "M2-R4 command: ported | [review: M2-R9 oracle-rung-physics] compared with the exe: desiredrange = (range + the larger size) + the ship's size, one rounding; the processors' follow-behind point with the double followbehind and one rounding per component; ported",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x004413f0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "capital range for both races' grav-well and cloak generators (64/79/63/77); docking-with-me scan without the canReceiveSomething gate; no DDDFrigate; CircularGuard is specialFlags 0x40000000",
-  "note": "M2-R4 command: ported"
+  "change": "capital range for both races' grav-well and cloak generators (64/79/63/77); docking-with-me scan without the canReceiveSomething gate; no DDDFrigate; CircularGuard is specialFlags 0x40000000; x87 shape of the average velocity and the range test",
+  "note": "M2-R4 command: ported | [review: M2-R9 oracle-rung-physics] compared with the exe (the range and the average velocity): 1 / numShips a double, one rounding per component; range + size a double compared unrounded; ported",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x00441750": {
   "class": "IDENTICAL",
@@ -2166,9 +2168,9 @@
  "0x00443c30": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "x87 shape: distance, per-ship cost and sum kept as doubles across the ships (HW1's cumulative distance subtraction kept), rounded once at the return",
-  "note": "[review: M2-R5 command-tactics] compared | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
-  "sample": "port-R8-oracle-rung-physics"
+  "change": "x87 shape: distance, per-ship cost and sum kept as doubles across the ships (HW1's cumulative distance subtraction kept), the sum returned unrounded on the FPU (M2-R9; R8 rounded it once at the return) [audit: M2-R9 oracle-rung-physics; said both]",
+  "note": "[review: M2-R5 command-tactics] compared | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component) | [review: M2-R9 oracle-rung-physics] the double sum returned unrounded (the CAT-TODO(M2-R9 physics) of the R8 audit closed); callers truncate or add it as the exe does",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x00443cb0": {
   "class": "MODIFIED",
@@ -2335,9 +2337,9 @@
  "0x004474a0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "RemoveShipFromBeingTargeted with a fourth argument 0; the one-point path",
-  "note": "[review: M2-R5 command-tactics] ported",
-  "sample": "port-R5-command-tactics"
+  "change": "RemoveShipFromBeingTargeted with a fourth argument 0; the one-point path; the hyperspace cost's x87 shape",
+  "note": "[review: M2-R5 command-tactics] ported | [review: M2-R9 oracle-rung-physics] compared with the exe at 0x004474bf .. 0x0044750a: the double square into fsqrt, the stored distance, hyperspaceCost's double truncated; ported",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x00447740": {
   "class": "IDENTICAL",
@@ -4046,14 +4048,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "HW1 fmathSqrtDouble (binary-map name fsqrt); double split into two dwords by Ghidra [review: M2-R5 layout-dock] compared with 0x00472860: the exe keeps HW1's table fsqrt (fmathInit 0x004728c0 fills 2 x 8192 mantissa entries at 0x00a2e144); this tree's FastMath.h maps fsqrt to sqrtf (GoK's choice) and has no fmathInit: NOT ported, left as an open question for the user (changes every distance in the simulation; the oracle's reference recording will tell)",
+  "note": "HW1 fmathSqrtDouble (binary-map name fsqrt); double split into two dwords by Ghidra [review: M2-R5 layout-dock] compared with 0x00472860: the exe keeps HW1's table fsqrt (fmathInit 0x004728c0 fills 2 x 8192 mantissa entries at 0x00a2e144); this tree's FastMath.h maps fsqrt to sqrtf (GoK's choice) and has no fmathInit: NOT ported, left as an open question for the user (changes every distance in the simulation; the oracle's reference recording will tell) | [review: M2-R9 oracle-rung-physics audit] the open question is closed: the table square root is ported as catFmathSqrtDouble (src/Game/FastMath.c, M2-R7) and is the engine default since M2-R9 (decision 70, the user's); /oracleLibmSqrt (HWI-EXPERIMENT) gives sqrtf; compared again with 0x00472860: identical but for a NaN argument, which the exe's fcomp / test ah,0x40 also sends to 0.0 (fixed by the audit)",
   "sample": "reread-R2"
  },
  "0x004728c0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "fmathInitSqrt inlined [review: M2-R5 layout-dock] compared with 0x004728c0: the table builder of the exe's fsqrt; absent from this tree (FastMath.h uses sqrtf); see fsqrt",
+  "note": "fmathInitSqrt inlined [review: M2-R5 layout-dock] compared with 0x004728c0: the table builder of the exe's fsqrt; absent from this tree (FastMath.h uses sqrtf); see fsqrt | [review: M2-R9 oracle-rung-physics audit] ported as catFmathInit (src/Game/FastMath.c, M2-R7), filled on the first catFmathSqrtDouble call; the table square root is the engine default since M2-R9 (decision 70); compared again with 0x004728c0: identical",
   "sample": "reread-R2"
  },
  "0x00472950": {
@@ -4918,11 +4920,11 @@
   "sample": "reread-R2"
  },
  "0x00481200": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "[review: M2-R5 command-tactics] compared: the exe's body is HW1's formationBiggestThenClosestOptimum (one sort type)",
-  "sample": "port-R5-command-tactics"
+  "change": "sorts with the exe's qsort",
+  "note": "[review: M2-R5 command-tactics] compared: the exe's body is HW1's formationBiggestThenClosestOptimum (one sort type) | [review: M2-R9 oracle-rung-physics] the exe's CRT qsort 0x00671060 (CatSort.c; formationBiggestThenClosestOptimum inlined, 0x0048138b)",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x00481410": {
   "class": "MODIFIED",
@@ -5154,11 +5156,11 @@
   "sample": "port-R5-hud"
  },
  "0x00487440": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "[review: M2-R5 hud] compared with r6 (as gpCountTrainingSavegames)",
-  "sample": "port-R5-hud"
+  "change": "sorts with the exe's qsort",
+  "note": "[review: M2-R5 hud] compared with r6 (as gpCountTrainingSavegames) | [review: M2-R9 oracle-rung-physics] the exe's CRT qsort 0x00671060 (CatSort.c; 0x00487644)",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x00487670": {
   "class": "IDENTICAL",
@@ -6822,8 +6824,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "x87 shape of the exe's hand-written loop: each element (a2*b2j + a?*b?j) + ... in the exe's order, double, rounded once",
-  "note": "HW1 inline-asm version (#if 1): the three static pointers are stored, then the x87 loop [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
-  "sample": "port-R8-oracle-rung-physics"
+  "note": "HW1 inline-asm version (#if 1): the three static pointers are stored, then the x87 loop [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component) | [review: M2-R9 oracle-rung-physics] compared again with the exe (the stack traced through every fxch): matches",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x004ad260": {
   "class": "MODIFIED",
@@ -6857,22 +6859,22 @@
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] compared: stores of cos, sin, -sin, 0, 1; identical",
-  "sample": "port-R8-oracle-rung-physics"
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] compared: stores of cos, sin, -sin, 0, 1; identical | [review: M2-R9 oracle-rung-physics] compared with the exe: identical",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x004ad430": {
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] compared: identical",
-  "sample": "port-R8-oracle-rung-physics"
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] compared: identical | [review: M2-R9 oracle-rung-physics] compared with the exe: identical",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x004ad470": {
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] compared: identical",
-  "sample": "port-R8-oracle-rung-physics"
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match) | [review: M2-R8 oracle-rung-physics] compared: identical | [review: M2-R9 oracle-rung-physics] compared with the exe: identical",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x004ad4b0": {
   "class": "IDENTICAL",
@@ -9128,8 +9130,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "a drifting ship is not accelerated and may reach 1400; top speed times the speed multiplier; helpless or drifting ships keep their speed; no fuel; FOW grid update of fog-seeing ships; universe clamp in multiplayer; physUpdateObjPosVelShip: the FOW update (cat_shipAffectsFOW, cat_univShipFOWUpdate from the old to the new position) ported; x87 shape: (F/m)*t for x on the FPU; position x += t*v.x with one rounding; the rotation's w.x += (T/I)*t with one rounding; the angles double into fsin / fcos rounded once; the drift cap in double",
-  "note": "M2-R4 combat: ported; the FOW update is stage 3 | [review: M2-R6 nis-fow-camera] physUpdateObjPosVelShip: the FOW update (cat_shipAffectsFOW, cat_univShipFOWUpdate from the old to the new position) ported | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
-  "sample": "port-R8-oracle-rung-physics"
+  "note": "M2-R4 combat: ported; the FOW update is stage 3 | [review: M2-R6 nis-fow-camera] physUpdateObjPosVelShip: the FOW update (cat_shipAffectsFOW, cat_univShipFOWUpdate from the old to the new position) ported | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component) | [review: M2-R9 oracle-rung-physics] compared again with the exe (the rotation path: alpha, the rotation-speed cap, fsin / fcos at their fstp, the three matrix products): matches; an experiment with the x87 fsin / fcos gave a byte-identical replay",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x004e5720": {
   "class": "MODIFIED",
@@ -9183,8 +9185,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the big gun's damage falloff percent (cat_bigGunDamageFalloff), only with mrHoldRight, the screen x for both axes (as the exe)",
-  "note": "[review: M2-R5 hud] ported (PiePlate.c) | [review: M2-R7 r6-leftovers] the right-button test reads catMrRightMode (0x00a75288; the mrHoldRight stand-in retired)",
-  "sample": "port-R5-hud"
+  "note": "[review: M2-R5 hud] ported (PiePlate.c) | [review: M2-R7 r6-leftovers] the right-button test reads catMrRightMode (0x00a75288; the mrHoldRight stand-in retired) | [review: M2-R9 oracle-rung-physics] hyperspaceCost's double truncated (0x004e6240)",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x004e6b90": {
   "class": "IDENTICAL",
@@ -10090,9 +10092,9 @@
  "0x005040c0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "every name is its own scenario: fileSpec / bitmapfileSpec the whole name (no '%d' pattern, no merge of sizes), minplayers 2, maxplayers the name's number; spScenarioFind inlined",
-  "note": "[review: M2-R6 frontend] ported (the GoK directory scans as well)",
-  "sample": "port-R6-frontend"
+  "change": "every name is its own scenario: fileSpec / bitmapfileSpec the whole name (no '%d' pattern, no merge of sizes), minplayers 2, maxplayers the name's number; spScenarioFind inlined; sorts with the exe's qsort",
+  "note": "[review: M2-R6 frontend] ported (the GoK directory scans as well) | [review: M2-R9 oracle-rung-physics] the exe's CRT qsort 0x00671060 (CatSort.c; 0x00504462)",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x005044d0": {
   "class": "IDENTICAL",
@@ -10319,11 +10321,11 @@
   "sample": "reread-R2"
  },
  "0x00508fb0": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "qsort twice; pointer difference in TargetPtr units (0x17c-byte objects)",
-  "sample": "reread-R2"
+  "change": "sorts with the exe's qsort",
+  "note": "qsort twice; pointer difference in TargetPtr units (0x17c-byte objects) | [review: M2-R9 oracle-rung-physics] the exe's CRT qsort 0x00671060 (CatSort.c; 0x00508fcd / 0x00508fde)",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x00509030": {
   "class": "IDENTICAL",
@@ -13093,10 +13095,11 @@
   "note": "M2-R4 univupdate: ported (the 7-argument ApplyDamageToTarget is M2-R4 #3)"
  },
  "0x005456d0": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "M2-R4 univupdate: compared: ObjectsHaveCollidedLately and ShouldDoGlancingCollision inlined (kamikaze specialFlags test, GLANCE_COLLISION_VEL_RATIO, dot < 0), same exchange/glancing/repulsion forces, ATTRIBUTES_KillerCollDamage (0x10) and immobile tests; the kamikaze bit itself is renumbered by M2-R4 #2"
+  "change": "x87 shape of the collision response",
+  "note": "M2-R4 univupdate: compared: ObjectsHaveCollidedLately and ShouldDoGlancingCollision inlined (kamikaze specialFlags test, GLANCE_COLLISION_VEL_RATIO, dot < 0), same exchange/glancing/repulsion forces, ATTRIBUTES_KillerCollDamage (0x10) and immobile tests; the kamikaze bit itself is renumbered by M2-R4 #2 | [review: M2-R9 oracle-rung-physics] compared again with the exe: x87 shape ported (the repulsion one double, obj1's speed squared a double against obj2's float, the slower one's kept as it is, the x momenta doubles with one rounding after * 1/t, the ratio and the dot product doubles with the exe's unordered-compare outcomes, the tangential magnitude and the left / right test doubles)",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x00545a80": {
   "class": "IDENTICAL",
@@ -15797,9 +15800,9 @@
  "0x00587a50": {
   "class": "MODIFIED",
   "confidence": "medium",
-  "change": "size-sort qsort + trCramRAMScaleCompute/trCramIntoRAM replaced by one call to trCramRAMComputeAndScale(); trMeshSortList nulled after free",
-  "note": "trSharedFilenameCreate/LiF-measure paths inlined, same order",
-  "sample": "reread-R2"
+  "change": "size-sort qsort + trCramRAMScaleCompute/trCramIntoRAM replaced by one call to trCramRAMComputeAndScale(); trMeshSortList nulled after free; sorts with the exe's qsort",
+  "note": "trSharedFilenameCreate/LiF-measure paths inlined, same order | [review: M2-R9 oracle-rung-physics] the exe's CRT qsort 0x00671060 (CatSort.c; trMeshSortListSort inlined, 0x00588327)",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x005883d0": {
   "class": "IDENTICAL",
@@ -18754,9 +18757,9 @@
  "0x004d4a00": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "ported: the seven Cataclysm ship races (cases 0..6) and the Missile test among them; the file read with GoK's 64-bit loader",
-  "note": "[review: M2-R6 nis-fow-camera] ported: the seven Cataclysm ship races (cases 0..6) and the Missile test among them; the file read with GoK's 64-bit loader",
-  "sample": "port-R6-nis-fow-camera"
+  "change": "ported: the seven Cataclysm ship races (cases 0..6) and the Missile test among them; the file read with GoK's 64-bit loader; sorts with the exe's qsort",
+  "note": "[review: M2-R6 nis-fow-camera] ported: the seven Cataclysm ship races (cases 0..6) and the Missile test among them; the file read with GoK's 64-bit loader | [review: M2-R9 oracle-rung-physics] the exe's CRT qsort 0x00671060 for the object paths and the events (CatSort.c; 0x004d4ab1, 0x004d4f62)",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x004d4fe0": {
   "class": "MODIFIED",
@@ -19630,15 +19633,15 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "x87 shape: des. square stored float, cur. square double, 1/|cur| stored float, 1/|des| double, the dot product with the unrounded des.y, the pitch a double, fptan extended stored once and multiplied unrounded, + 1 into fsqrt, double reciprocal",
-  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
-  "sample": "port-R8-oracle-rung-physics"
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component) | [review: M2-R9 oracle-rung-physics] compared again with the exe in full (the squares, the reciprocals, the pitch, fptan, the normalisation): matches the R8 port",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x00419460": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "x87 shape: the error vector and its square double; each thrust (difference * mass/t) a double compared with the strength and rounded once",
-  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
-  "sample": "port-R8-oracle-rung-physics"
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component) | [review: M2-R9 oracle-rung-physics] compared again with the exe: matches the R8 port",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x004196c0": {
   "class": "IDENTICAL",
@@ -19679,8 +19682,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "a zero desired heading counts as reached (returns TRUE before the pitch test); x87 shape: the heading dot product a double; each desired rotation speed a double; the torque ((desired - w) * I) * (1/t) a double compared with the strength and rounded once",
-  "note": "[review: M2-R7 oracle-rung-aiship] found modified: a zero desired heading returns TRUE at once (0x00418e34, the double 0.0 at 0x0072a4e8); ported (AITrack.c) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
-  "sample": "port-R8-oracle-rung-physics"
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: a zero desired heading returns TRUE at once (0x00418e34, the double 0.0 at 0x0072a4e8); ported (AITrack.c) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component) | [review: M2-R9 oracle-rung-physics] compared again with the exe (yaw, pitch, roll, the torque compares, the heading dot product): matches the R8 port",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x00419a00": {
   "class": "IDENTICAL",
@@ -20413,9 +20416,9 @@
  "0x00407dd0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "in multiplayer the destination is clamped to +-smUniverseSize X / Y / Z",
-  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL)",
-  "sample": "port-R7-ai-orders-moves"
+  "change": "in multiplayer the destination is clamped to +-smUniverseSize X / Y / Z; the hyperspace cost's x87 shape",
+  "note": "[review: M2-R7 ai-orders-moves] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL) | [review: M2-R9 oracle-rung-physics] compared with the exe at 0x00407e84 .. 0x00407eae: aiuFindDistanceSquared's double into fsqrt, the stored distance, hyperspaceCost's double truncated; ported locally",
+  "sample": "port-R9-oracle-rung-physics"
  },
  "0x004083f0": {
   "class": "MODIFIED",
@@ -23132,5 +23135,47 @@
   "change": "",
   "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
   "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00426050": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ships by collision position; x87 distance; the exe's qsort 0x00671060; the attacking flag needs the attack started",
+  "note": "[review: M2-R9 oracle-rung-physics] compared with the exe: a ship's collision position (+0xE0) in place of its position, the double differences and (dz*dz + dy*dy) + dx*dx into fsqrt; the exe's CRT qsort (CatSort.c); BTF_Attacking only when shipisattacking and catAttackStarted (+0x358, +0x616; 0x004260a4); ported",
+  "sample": "port-R9-oracle-rung-physics"
+ },
+ "0x00426160": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ships by collision position; x87 distance; the exe's qsort 0x00671060",
+  "note": "[review: M2-R9 oracle-rung-physics] compared with the exe (the distance loop and the sort; the specific-list part not re-read): a ship's collision position, the x87 distance; the exe's CRT qsort; ported",
+  "sample": "port-R9-oracle-rung-physics"
+ },
+ "0x00427e90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ships by collision position; x87 distance",
+  "note": "[review: M2-R9 oracle-rung-physics] compared with the exe: a ship's collision position and the x87 distance; ported",
+  "sample": "port-R9-oracle-rung-physics"
+ },
+ "0x00425cb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ships by collision position; the double square against the stored float minimum",
+  "note": "[review: M2-R9 oracle-rung-physics] compared with the exe: a ship's collision position; the double square compared with the stored float minimum (fst, fcomp st(1)); ported",
+  "sample": "port-R9-oracle-rung-physics"
+ },
+ "0x00427f10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 oracle-rung-physics] compared with the exe: identical (fsqrt of the float distsqr bobFindNearestBlobToObject returns)",
+  "sample": "port-R9-oracle-rung-physics"
+ },
+ "0x00427aa0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 oracle-rung-physics] compared with the exe: identical (binary search on collOptimizeDist, before / after insert)",
+  "sample": "port-R9-oracle-rung-physics"
  }
 }

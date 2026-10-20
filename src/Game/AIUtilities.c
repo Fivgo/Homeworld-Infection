@@ -229,6 +229,7 @@ vector aiuGenerateFlankCoordinates(vector center, vector origin, vector referenc
 ----------------------------------------------------------------------------*/
 real32 aiuFindDistanceSquared(vector point1, vector point2)
 {
+    // CAT-TODO(M2-R10 physics): the exe (aiuFindDistanceSquared 0x0041a2c0) returns the unrounded double (dz*dz + dy*dy) + dx*dx of the double differences on the FPU; its ~70 callers store it (fstp dword), compare it or hand it to fsqrt as a double; this real32 return rounds the float sums (aimProcessHyperspace's use is ported locally; found by M2-R9 oracle-rung-physics, no rung divergence points at it yet)
     vecSubFrom(point1, point2);
 
     return vecMagnitudeSquared(point1);

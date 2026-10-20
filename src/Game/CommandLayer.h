@@ -418,7 +418,7 @@ void RemoveShipsFromCommand(CommandToDo *command);
 void RemoveShipFromCommand(Ship *ship);
 
 //returns cost of selSelected to hyperspace to distance
-real32 hyperspaceCost(real32 distance,SelectCommand *selection);
+double hyperspaceCost(real32 distance,SelectCommand *selection);     // CAT (M2-R9): the exe returns the double on the FPU
 
 void FillInCarrierMothershipInfo(struct Player *player,Ship **mothership,Ship *carrierX[]);
 

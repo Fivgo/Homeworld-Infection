@@ -25,7 +25,7 @@
 #include "AISelfTest.h"     // HWI-TEST: /catAiTest (M2-R7 ai-orders-moves)
 #include "Debug.h"
 #include "Demo.h"
-#include "FastMath.h"     // HWI-EXPERIMENT: /oracleTableFsqrt (M2-R7 oracle-rung-aiship)
+#include "FastMath.h"     // HWI-EXPERIMENT: /oracleLibmSqrt (M2-R9 oracle-rung-physics; was /oracleTableFsqrt, M2-R7)
 #include "FEReg.h"
 #include "File.h"
 #include "FontReg.h"
@@ -1229,7 +1229,7 @@ commandoption commandOptions[] =
     entryFnParam("/oracleSelfTestPerturb", OracleSelfTestPerturbSet, " <tick> - oracle self-test or mission run: draw one extra gamerand() at <tick>."),
     entryFnParam("/oracleShipDump", OracleShipDumpSet, " <ships>[@<from>-<to>] - write shipdump.txt next to the /oracleDump file: per tick each listed ship (numbers, comma-separated, or all) with position, velocity, rotation, coordsys, order and health as bits, and every sync-packet command."),
     entryFnParam("/oracleMission",  OracleMissionSet, " <ticks> - headless oracle run: start single player at once, no animatic, one universe tick per frame, exit after <ticks> ticks."),
-    entryVr("/oracleTableFsqrt",    catFsqrtTable, TRUE, " - HWI-EXPERIMENT: fsqrt and fmathSqrt use the exe's table square root (fsqrt 0x00472860) instead of sqrtf (the default, decision 23)."),
+    entryVr("/oracleLibmSqrt",      catFsqrtTable, FALSE, " - HWI-EXPERIMENT: fsqrt, fmathSqrt and catFsqrtD use libm's sqrtf instead of the exe's table square root (fsqrt 0x00472860, the default since decision 70)."),
     entryFnParam("/oracleReplay",   OracleReplaySet, " <name> - oracle mode A: replay SavedGames/RecordedGames/<name> (+ .pkts) as LoadRecordedGame does, one universe tick per frame, exit at the end of the packets."),
 #endif
 

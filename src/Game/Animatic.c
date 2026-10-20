@@ -24,6 +24,7 @@
 #include "Universe.h"
 
 
+#include "CatSort.h"         // CAT (M2-R9 oracle-rung-physics): the exe's qsort
 sdword animaticJustPlayed = 0;  // actually a decremented counter for delaying purposes
 
 static sdword g_frame;
@@ -599,7 +600,8 @@ nisheader* animLoadNISScript(char* scriptname)
 			if (newHeader->nEvents != 0)
 			{
 				newHeader->events = nisEventList;
-				qsort(newHeader->events, newHeader->nEvents, sizeof(nisevent), nisEventSortCB);
+				// CAT (M2-R9 oracle-rung-physics): the exe's qsort 0x00671060 (CatSort.c; animLoadNISScript 0x00421610 at 0x00421798)
+				catQsort(newHeader->events, newHeader->nEvents, sizeof(nisevent), nisEventSortCB);
 				nisEventList = NULL;
 			}
 			else

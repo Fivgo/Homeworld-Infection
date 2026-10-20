@@ -22,6 +22,7 @@
 #include "Universe.h"
 
 
+#include "CatSort.h"         // CAT (M2-R9 oracle-rung-physics): the exe's qsort
 #if BOB_STATS
 
 BobStats bobStats = { 0,0,0,0,0,0,0,0,0,0,0 };
@@ -115,6 +116,35 @@ void bobInitProperties(void)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : catBlobObjPosition / catBlobDistSqD
+    Description : CAT (M2-R9 oracle-rung-physics): the exe places a SHIP in the collision blobs by its collision
+                  position (collInfo.collPosition, Ship +0xE0) and every other object by its position (+0x58):
+                  bobFindNearestBlobToObject 0x00425cb0, bobUpdateObjsInBlobCollInfo 0x00426050,
+                  bobUpdateExtraCollBobInfo 0x00426160, bobAddObjToSpecificBlob 0x00427e90 all branch on objtype 0
+                  first. The squared distance to the blob centre is the x87's: the three differences stay doubles
+                  (fld / fsub, no store) and the sum is (dz*dz + dy*dy) + dx*dx, a double. A mothership's modules share
+                  its position but not its collision position, so this gives the blob sort (and the avoidance, which
+                  walks the sorted blob) the exe's order
+----------------------------------------------------------------------------*/
+static const vector *catBlobObjPosition(SpaceObj *obj)
+{
+    if (obj->header.objtype == OBJ_ShipType)
+    {
+        return &((SpaceObjRotImp *)obj)->collInfo.collPosition;
+    }
+    return &obj->posinfo.position;
+}
+
+static double catBlobDistSqD(const vector *pos, const vector *centre)
+{
+    double dx = (double)pos->x - centre->x;
+    double dy = (double)pos->y - centre->y;
+    double dz = (double)pos->z - centre->z;
+
+    return (dz * dz + dy * dy) + dx * dx;
+}
+
+/*-----------------------------------------------------------------------------
     Name        : bobFindNearestBlobToObject
     Description : finds the nearest blob to the obj
     Inputs      : list of blobs to search, obj
@@ -123,8 +153,7 @@ void bobInitProperties(void)
 ----------------------------------------------------------------------------*/
 blob *bobFindNearestBlobToObject(LinkedList *list,SpaceObj *obj,real32 *returndistsqr)
 {
-    vector distvec;
-    real32 distsqr;
+    double distsqr;
     Node *blobnode = list->head;
     blob *thisBlob;
     real32 mindistsqr = REALlyBig;
@@ -134,13 +163,14 @@ blob *bobFindNearestBlobToObject(LinkedList *list,SpaceObj *obj,real32 *returndi
     {
         thisBlob = (blob *)listGetStructOfNode(blobnode);
 
-        vecSub(distvec,obj->posinfo.position,thisBlob->centre);
-        distsqr = vecMagnitudeSquared(distvec);
+        // CAT (M2-R9 oracle-rung-physics): a ship's collision position, the double square compared with the stored
+        //      float minimum, which keeps it rounded (bobFindNearestBlobToObject 0x00425cb0: fst, fcomp st(1))
+        distsqr = catBlobDistSqD(catBlobObjPosition(obj), &thisBlob->centre);
 
-        if (distsqr < mindistsqr)
+        if (distsqr < (double)mindistsqr)
         {
             closestBlob = thisBlob;
-            mindistsqr = distsqr;
+            mindistsqr = (real32)distsqr;
         }
 
         blobnode = blobnode->next;
@@ -345,17 +375,22 @@ void bobUpdateObjsInBlobCollInfo(blob *thisBlob)
             {
                 bitSet(thisBlob->flags, BTF_GettingAttacked);
             }
-            if (ship->shipisattacking)
+            // CAT (M2-R9 oracle-rung-physics): a ship counts as attacking once its attack has started too
+            //      (bobUpdateObjsInBlobCollInfo 0x004260a4 .. 0x004260b8: shipisattacking +0x358 and
+            //      catAttackStarted +0x616)
+            if (ship->shipisattacking && ship->catAttackStarted)
             {
                 bitSet(thisBlob->flags, BTF_Attacking);
             }
         }
 
-        vecSub(distvec,spaceobj->posinfo.position,thisBlob->centre);
-        spaceobj->collOptimizeDist = fsqrt(vecMagnitudeSquared(distvec));
+        // CAT (M2-R9 oracle-rung-physics): a ship's collision position, the x87 double square into fsqrt
+        //      (bobUpdateObjsInBlobCollInfo 0x004260c6 .. 0x00426117)
+        spaceobj->collOptimizeDist = (real32)catFsqrtD(catBlobDistSqD(catBlobObjPosition(spaceobj), &thisBlob->centre));
     }
 
-    qsort(&blobObjects->SpaceObjPtr[0],blobObjects->numSpaceObjs,sizeof(SpaceObj *),CompareSpaceObjCollOptimizeDistCB);
+    // CAT (M2-R9 oracle-rung-physics): the exe's qsort 0x00671060 (CatSort.c; bobUpdateObjsInBlobCollInfo 0x00426050 at 0x00426145): ties sort as in the exe
+    catQsort(&blobObjects->SpaceObjPtr[0],blobObjects->numSpaceObjs,sizeof(SpaceObj *),CompareSpaceObjCollOptimizeDistCB);
 
     FillInCollisionBlobSpecificLists(thisBlob);
     blobAnalVerify(thisBlob);
@@ -392,13 +427,15 @@ void bobUpdateExtraCollBobInfo(LinkedList *list)
         {
             spaceobj = blobObjects->SpaceObjPtr[i];
 
-            vecSub(distvec,spaceobj->posinfo.position,thisBlob->centre);
-            spaceobj->collOptimizeDist = fsqrt(vecMagnitudeSquared(distvec));
+            // CAT (M2-R9 oracle-rung-physics): a ship's collision position, the x87 double square into fsqrt
+            //      (bobUpdateExtraCollBobInfo 0x004261b4 .. 0x00426205)
+            spaceobj->collOptimizeDist = (real32)catFsqrtD(catBlobDistSqD(catBlobObjPosition(spaceobj), &thisBlob->centre));
             spaceobj->collMyBlob = thisBlob;
         }
 
         // sort blob spaceobjs based on distance from centre of blob (collOptimizeDist)
-        qsort(&blobObjects->SpaceObjPtr[0],blobObjects->numSpaceObjs,sizeof(SpaceObj *),CompareSpaceObjCollOptimizeDistCB);
+        // CAT (M2-R9 oracle-rung-physics): the exe's qsort 0x00671060 (CatSort.c; bobUpdateExtraCollBobInfo 0x00426160 at 0x00426234): ties sort as in the exe
+        catQsort(&blobObjects->SpaceObjPtr[0],blobObjects->numSpaceObjs,sizeof(SpaceObj *),CompareSpaceObjCollOptimizeDistCB);
 
 
         if (bitTest(thisBlob->flags, BTF_DontUpdate))
@@ -1281,7 +1318,9 @@ void bobBlobItemize(blob *thisBlob, sdword sensorsLevel)
                 {
                     bitSet(thisBlob->flags, BTF_GettingAttacked);
                 }
-                if (((Ship *)object)->shipisattacking)
+                // CAT (M2-R9 oracle-rung-physics): attacking once the attack has started too (bobBlobItemize 0x00427371
+                //      .. 0x00427381: shipisattacking +0x358 and catAttackStarted +0x616)
+                if (((Ship *)object)->shipisattacking && ((Ship *)object)->catAttackStarted)
                 {
                     bitSet(thisBlob->flags, BTF_Attacking);
                 }
@@ -1909,8 +1948,9 @@ void bobAddObjToSpecificBlob(blob *putInBlob,SpaceObj *obj)
 //    dbgAssertOrIgnore(putInBlob->debugFlag == 0);
 #endif
 
-    vecSub(distvec,obj->posinfo.position,putInBlob->centre);
-    obj->collOptimizeDist = fsqrt(vecMagnitudeSquared(distvec));
+    // CAT (M2-R9 oracle-rung-physics): a ship's collision position, the x87 double square into fsqrt
+    //      (bobAddObjToSpecificBlob 0x00427e9d .. 0x00427ef3)
+    obj->collOptimizeDist = (real32)catFsqrtD(catBlobDistSqD(catBlobObjPosition(obj), &putInBlob->centre));
     obj->collMyBlob = putInBlob;
 
     AddObjToObjectListsOfBlob(obj,putInBlob);

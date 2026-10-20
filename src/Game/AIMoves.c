@@ -1146,7 +1146,8 @@ sdword aimProcessHyperspace(AITeam *team)
 {
     AITeamMove *thisMove = team->curMove;
     MaxSelection hyperspacingShips;
-    real32 cost, avg_size;
+    double cost;            // CAT (M2-R9 oracle-rung-physics): hyperspaceCost's double, truncated where it is used
+    real32 avg_size;
     vector current_location;
     sdword i;
 
@@ -1166,7 +1167,17 @@ sdword aimProcessHyperspace(AITeam *team)
         if (hyperspacingShips.numShips)
         {
             current_location = selCentrePointComputeGeneral((MaxSelection *)&hyperspacingShips, &avg_size);
-            cost = hyperspaceCost(fsqrt(aiuFindDistanceSquared(current_location, thisMove->params.move.destination)), (SelectCommand *)&hyperspacingShips);
+            // CAT (M2-R9 oracle-rung-physics): aiuFindDistanceSquared 0x0041a2c0 returns its double (dz*dz + dy*dy) +
+            //      dx*dx on the FPU and aimProcessHyperspace 0x00407e8c hands it to fsqrt unrounded; the distance is stored
+            //      (0x00407e94), hyperspaceCost's double is truncated at 0x00407ea9
+            {
+                vector *dest = &thisMove->params.move.destination;
+                double dx = (double)current_location.x - dest->x;
+                double dy = (double)current_location.y - dest->y;
+                double dz = (double)current_location.z - dest->z;
+
+                cost = hyperspaceCost((real32)catFsqrtD((dz * dz + dy * dy) + dx * dx), (SelectCommand *)&hyperspacingShips);
+            }
 
             aiCurrentAIPlayer->aifHyperSavings -= (sdword)cost;
             // CAT: in a multiplayer game the destination is clamped into the universe box first (aimProcessHyperspace

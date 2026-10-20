@@ -236,20 +236,37 @@ bool32 cat_gunFixedGunAimedAtTarget(Ship *ship, Gun *gun, SpaceObjRotImpTarg *ta
     }
     matMultiplyMatByVec(&worldheading, &ship->rotatable.rotinfo.coordsys, &heading);
 
-    dist = fsqrt(vecMagnitudeSquared(trajectory));
-    cosang = vecDotProduct(worldheading, trajectory) * (1.0f / dist);
-    if (cosang > 0.0f)
+    // CAT (M2-R9 oracle-rung-physics): the exe's x87 shape (0x0048ce50 .. 0x0048cf17): the distance is fsqrt of the
+    //      double (z*z + y*y) + x*x, stored; 1 / dist is a double that normalises x and y of the trajectory (stored)
+    //      and z unrounded; the cosine ((inv*z)*h.z + h.y*y) + h.x*x is a double, capped at 1.0f; the sine is fsqrt of
+    //      the double 1 - cos*cos, and sin * dist is compared, as a double, with the target's collision sphere * 0.75f
     {
-        if (cosang > 1.0f)
+        double inv;
+        double cosd;
+        double sind;
+        real32 tx, ty;
+
+        dist = (real32)catFsqrtD(((double)trajectory.z * trajectory.z + (double)trajectory.y * trajectory.y) +
+                                 (double)trajectory.x * trajectory.x);
+        inv = 1.0 / (double)dist;
+        tx = (real32)(inv * trajectory.x);
+        ty = (real32)(inv * trajectory.y);
+        cosd = ((inv * trajectory.z) * worldheading.z + (double)worldheading.y * ty) + (double)worldheading.x * tx;
+        if (cosd > 0.0)
         {
-            cosang = 1.0f;
+            if (cosd > 1.0)
+            {
+                cosd = 1.0;
+            }
+            sind = catFsqrtD(1.0 - cosd * cosd);
+            // the line of fire passes within 3/4 of the target's collision sphere
+            if (sind * dist < (double)target->staticinfo->common.staticCollInfo.collspheresize * 0.75)
+            {
+                return TRUE;
+            }
         }
-        sinang = fsqrt(1.0f - cosang * cosang);
-        // the line of fire passes within 3/4 of the target's collision sphere
-        if (sinang * dist < target->staticinfo->common.staticCollInfo.collspheresize * 0.75f)
-        {
-            return TRUE;
-        }
+        (void)cosang;
+        (void)sinang;
     }
     return FALSE;
 }

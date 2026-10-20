@@ -1026,6 +1026,9 @@ udword aishipFlyToPointAvoidingObjsFunc(Ship *ship,vector *destination,udword ai
 =============================================================================*/
 startflying:
         case STATE_START_FLYING:
+#if HWI_ORACLE
+            oracleShipDumpFly(ship, destination, aishipflags, limitvel, withVel);   // HWI-ORACLE (M2-R9): /oracleShipDump
+#endif
 
             if (destination)
             {
@@ -1563,11 +1566,12 @@ norowcheck:
                 // CAT (M2-R8 oracle-rung-physics): the x87 shape (0x00415516 .. 0x0041563f): the squared distance
                 //      (z*z + y*y) + x*x and maxdistconsider squared are doubles; the double goes to fsqrt and the
                 //      distance is stored as a float; the normal is repulse * (1.0f / that float), a double reciprocal,
-                //      rounded once per component; the collision distance adds the second size's double to the first
-                //      size stored as a float, distance - that is a double (raised to 20), times the scale factor, and
+                //      rounded once per component; the collision distance adds the ship's size (a double) to the avoided
+                //      object's size stored as a float, distance - that is a double (raised to 20), times the scale factor, and
                 //      its double reciprocal scales the normal, one rounding per component
                 {
                     double repulsemag2d = ((double)repulse.z * repulse.z + (double)repulse.y * repulse.y) + (double)repulse.x * repulse.x;
+                    double repulsedistd;
                     double invd;
                     double dtc;
                     real32 firstsize;
@@ -1576,7 +1580,8 @@ norowcheck:
                     {
                         goto nextnode;
                     }
-                    repulsedist = (real32)catFsqrtD(repulsemag2d);
+                    repulsedistd = catFsqrtD(repulsemag2d);
+                    repulsedist = (real32)repulsedistd;
                     repulsemag2 = (real32)repulsemag2d;
 
 #ifdef HW_BUILD_FOR_DEBUGGING
@@ -1584,7 +1589,9 @@ norowcheck:
 #endif
                     aishipStatsAvoidedConsidered();
 
-                    if (repulsedist < 0.1f)         // special case
+                    // CAT (M2-R9 oracle-rung-physics): the special case compares fsqrt's unrounded double with 0.1f
+                    //      (0x00415554 fst, 0x0041555b fcomp: the stored float is not the one compared)
+                    if (repulsedistd < 0.1f)        // special case
                     {
                         repulse.x = 0.1f;
                         repulsedist = 0.1f;
@@ -1597,8 +1604,15 @@ norowcheck:
                     repulsenorm.z = (real32)(invd * repulse.z);
 
                     // very close, so figure out collidedist based on collision cubes
-                    firstsize = (real32)catGetCollSizeD(&ship->impactable, &repulsenorm);
-                    dtc = (double)repulsedist - (catGetCollSizeD(avoidobj, &repulsenorm) + firstsize);
+                    // CAT (M2-R9 oracle-rung-physics): the exe takes the AVOIDED object's size first and stores it as a
+                    //      float (0x0041558b push esi = avoidobj, 0x004155c5 fstp dword), then adds the ship's size as
+                    //      the unrounded double (0x004155d7 push edi = ship, 0x004155e0 fadd); R8 had the two swapped
+                    firstsize = (real32)catGetCollSizeD(avoidobj, &repulsenorm);
+                    dtc = (double)repulsedist - (catGetCollSizeD(&ship->impactable, &repulsenorm) + firstsize);
+#if HWI_ORACLE
+                    oracleShipDumpAvoid(ship, avoidobj, repulsedist, &repulsenorm, catGetCollSizeD(avoidobj, &repulsenorm),
+                                        catGetCollSizeD(&ship->impactable, &repulsenorm), dtc);  // HWI-ORACLE (M2-R9): /oracleShipDump
+#endif
                     collidedist = (real32)((double)repulsedist - dtc);
 #if VELFACTOR
                     velfactor = -vecDotProduct(ship->obj.posinfo.velocity,repulsenorm);

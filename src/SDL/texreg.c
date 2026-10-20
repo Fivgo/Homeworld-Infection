@@ -28,6 +28,7 @@
 
 #include "Universe.h"
 
+#include "CatSort.h"         // CAT (M2-R9 oracle-rung-physics): the exe's qsort
 #ifdef _MSC_VER
 #define strcasecmp _stricmp
 #endif
@@ -1738,7 +1739,8 @@ int meshSortSortCompare(void const* p0, void const* p1)
 }
 void trMeshSortListSort(trmeshsort* sortList)
 {
-    qsort(sortList->textureList, sortList->nTextures, sizeof(sdword), meshSortSortCompare);
+    // CAT (M2-R9 oracle-rung-physics): the exe's qsort 0x00671060 (CatSort.c; trRegistryRefresh 0x00587a50 at 0x00588327 (trMeshSortListSort inlined)): ties sort as in the exe
+    catQsort(sortList->textureList, sortList->nTextures, sizeof(sdword), meshSortSortCompare);
 }
 
 /*-----------------------------------------------------------------------------

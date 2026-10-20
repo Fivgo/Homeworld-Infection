@@ -36,6 +36,9 @@ void oracleShipDumpCommand(udword frame, udword index, udword type, udword from,
 void oracleShipDumpApply(void *shipobj, const char *kind, udword dir, real32 value);
 void oracleShipDumpPhys(void *shipobj);
 void oracleShipDumpVector(void *shipobj, const char *kind, const vector *v);    // the flight's vectors (AIShip.c)
+void oracleShipDumpFly(void *shipobj, const vector *destination, udword flags, real32 limitvel, const vector *withVel); // the flight's inputs (AIShip.c, M2-R9)
+void oracleShipDumpAvoid(void *shipobj, void *avoidobj, real32 dist, const vector *norm, double avoidsize, double shipsize,
+                         double dtc);  // each object the flight avoids (AIShip.c, M2-R9 oracle-rung-physics)
 
 // self-test: the scripted lockstep start (utyGameSystemsInit), then the caller quits
 bool32 oracleSelfTestRequested(void);

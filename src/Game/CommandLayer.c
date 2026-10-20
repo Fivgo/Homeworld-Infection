@@ -358,22 +358,28 @@ void protectShip(Ship *ship, Ship *protectThisShip, bool32 passiveAttacked)
     }
 
     // CAT: protectShip 0x004411c0 keeps the capital range for both grav-well generators and no cloak generator
+    // CAT (M2-R9 oracle-rung-physics): the exe's x87 shape (0x0044121b .. 0x00441236): (range + the larger size) +
+    //      the ship's size, a double rounded once at its store
     if(isCapitalShip(ship) || ship->shiptype == kGravWellGenerator || ship->shiptype == tGravWellGenerator)
     {
-        desiredrange = PROTECT_GET_THIS_CLOSE_CAP + shipSize + protectThisShipSize;
+        desiredrange = (real32)(((double)PROTECT_GET_THIS_CLOSE_CAP + protectThisShipSize) + shipSize);
     }
     else
     {
-        desiredrange = PROTECT_GET_THIS_CLOSE_STRIKE + shipSize + protectThisShipSize;
+        desiredrange = (real32)(((double)PROTECT_GET_THIS_CLOSE_STRIKE + protectThisShipSize) + shipSize);
     }
 
     // Let's have some ships like the ResourceController follow behind the ship so we don't accidentally block them.
     // CAT: the ships that follow behind are the processors (sProcessor 16, bProcessor 51; protectShip 0x004411c0)
+    // CAT (M2-R9 oracle-rung-physics): followbehind stays a double and each component is point - heading * it, one
+    //      rounding (0x00441245 .. 0x0044128b)
     if ((ship->shiptype == sProcessor) || (ship->shiptype == bProcessor))
     {
-        real32 followbehind = desiredrange * RESCONTROLLER_FOLLOW_BEHIND;      // follow behind 1.5 radii
+        double followbehind = (double)RESCONTROLLER_FOLLOW_BEHIND * desiredrange;      // follow behind 1.5 radii
         matGetVectFromMatrixCol3(heading,protectThisShip->rotatable.rotinfo.coordsys);
-        vecSubFromScalarMultiply(protectPoint,heading,followbehind);
+        protectPoint.x = (real32)(protectPoint.x - heading.x * followbehind);
+        protectPoint.y = (real32)(protectPoint.y - heading.y * followbehind);
+        protectPoint.z = (real32)(protectPoint.z - heading.z * followbehind);
     }
 
     vecSub(diff,ship->obj.posinfo.position,protectPoint);
@@ -464,6 +470,7 @@ void protectShipsAvg(Ship *ship,ProtectCommand *protectShips,bool32 passiveAttac
     vector diff;
     real32 dist;
     real32 desiredrange;
+    double desiredranged;
     real32 shipSize = ship->staticinfo->common.staticCollInfo.collspheresize;
     bool32 dontrotate;
     sdword numShips = protectShips->numShips;
@@ -502,7 +509,16 @@ void protectShipsAvg(Ship *ship,ProtectCommand *protectShips,bool32 passiveAttac
     guardposition.y = (miny + maxy) * 0.5f;
     guardposition.z = (minz + maxz) * 0.5f;
 
-    vecDivideByScalar(protectShipsAvgVel,(real32)numShips,realtemp);
+    // CAT (M2-R9 oracle-rung-physics): 1 / numShips is a double (fild, fdivr 1.0f) and each component is rounded once
+    //      (protectShipsAvg 0x00441587 .. 0x004415a9)
+    {
+        double inv = 1.0 / (double)numShips;
+
+        protectShipsAvgVel.x = (real32)(inv * protectShipsAvgVel.x);
+        protectShipsAvgVel.y = (real32)(inv * protectShipsAvgVel.y);
+        protectShipsAvgVel.z = (real32)(inv * protectShipsAvgVel.z);
+        (void)realtemp;
+    }
 
     // we now have the optimum guardposition and protectShipsAvgVel
 
@@ -510,15 +526,18 @@ void protectShipsAvg(Ship *ship,ProtectCommand *protectShips,bool32 passiveAttac
     dist = getVectDistSloppy(diff);
 
     // CAT: protectShipsAvg 0x004413f0: capital range for both races' grav-well and cloak generators (64, 79, 63, 77)
+    // CAT (M2-R9 oracle-rung-physics): range + size stays a double on the FPU and is compared unrounded with the
+    //      distance (0x00441611 .. 0x00441654)
     if(isCapitalShip(ship) || ship->shiptype == kGravWellGenerator || ship->shiptype == tGravWellGenerator ||
        ship->shiptype == kCloakGenerator || ship->shiptype == tCloakGenerator)
     {
-        desiredrange = PROTECT_GET_THIS_CLOSE_CAP + shipSize;
+        desiredranged = (double)PROTECT_GET_THIS_CLOSE_CAP + shipSize;
     }
     else
     {
-        desiredrange = PROTECT_GET_THIS_CLOSE_STRIKE + shipSize;
+        desiredranged = (double)PROTECT_GET_THIS_CLOSE_STRIKE + shipSize;
     }
+    desiredrange = (real32)desiredranged;
 
 //    ship->shipidle = FALSE;
 
@@ -543,7 +562,7 @@ void protectShipsAvg(Ship *ship,ProtectCommand *protectShips,bool32 passiveAttac
         goto juststeady;
     }
 
-    if (dist < desiredrange)
+    if ((double)dist < desiredranged)
     {
         if ((ship->shipOrDerelict.specialFlags & SPECIAL_CircularGuard) ||   // CAT: specialFlags in the exe
             (getVectDistSloppy(protectShipsAvgVel) < PROTECT_STILL_VELOCITY))
@@ -2707,14 +2726,17 @@ bool32 processMpHyperspaceingToDo(CommandToDo *movetodo)
     return(FALSE);
 }
 
-real32 hyperspaceCost(real32 distance,SelectCommand *selection)
+double hyperspaceCost(real32 distance,SelectCommand *selection)
 {
     sdword i;
     Ship *ship;
     // CAT (M2-R8 oracle-rung-physics): the x87 shape (hyperspaceCost 0x00443c30): the distance, each ship's cost and
     //      the sum stay doubles on the FPU across the ships (HW1's cumulative "distance -= minDistance" included); each
-    //      cost is (distance * slope) + min, compared as a double with the float max; one rounding at the return
-    // CAT-TODO(M2-R9 physics): the exe returns the double sum on the FPU (no rounding) and its callers _ftol it (0x00407ea9, 0x0044750a, 0x00564c1c) or add it as a double (0x00433170); this real32 return rounds it first [audit: M2-R8 oracle-rung-physics]
+    //      cost is (distance * slope) + min, compared as a double with the float max
+    // CAT (M2-R9 oracle-rung-physics): the sum is returned unrounded on the FPU (hyperspaceCost 0x00443c30 ends with
+    //      no store): its callers _ftol it (0x00407ea9 aimProcessHyperspace, 0x0044750a clMpHyperspace, 0x004e6240
+    //      pieDistanceReadoutDraw, 0x00564c1c the main region's move) or add it as a double (0x00433170
+    //      cat_aisTeamAttack), so the function returns the double
     double dist = distance;
     double tempcost;
     double cost = 0.0;
@@ -2736,7 +2758,7 @@ real32 hyperspaceCost(real32 distance,SelectCommand *selection)
         }
         cost += tempcost;
     }
-    return((real32)cost);
+    return(cost);
 }
 
 
@@ -4973,9 +4995,18 @@ void clMpHyperspace(CommandLayer *comlayer,SelectCommand *selectcom,vector from,
         return;
     }
 
-    vecSub(distsqr,from,to);
-    tempdist = vecMagnitudeSquared(distsqr);
-    distance = fsqrt(tempdist);
+    // CAT (M2-R9 oracle-rung-physics): the exe's x87 shape (clMpHyperspace 0x004474bf .. 0x0044750a): the differences
+    //      from - to stay doubles, (dz*dz + dy*dy) + dx*dx goes to fsqrt as a double, the distance is stored, and
+    //      hyperspaceCost's double is truncated (_ftol)
+    {
+        double dx = (double)from.x - to.x;
+        double dy = (double)from.y - to.y;
+        double dz = (double)from.z - to.z;
+
+        distance = (real32)catFsqrtD((dz * dz + dy * dy) + dx * dx);
+        (void)distsqr;
+        (void)tempdist;
+    }
     cost = (sdword)hyperspaceCost(distance,selectcom);
 
     playerindex = selectcom->ShipPtr[0]->playerowner->playerIndex;

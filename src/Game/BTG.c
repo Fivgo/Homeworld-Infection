@@ -28,6 +28,7 @@
 #endif
 #include "SinglePlayer.h"
 #include "Globals.h"
+#include "CatSort.h"         // CAT (M2-R9 oracle-rung-physics): the exe's qsort
 #include <math.h>
 
 #ifdef HW_BUILD_FOR_DEBUGGING
@@ -983,7 +984,8 @@ int btgSortCompare(const void* p0, const void* p1)
 ----------------------------------------------------------------------------*/
 void btgSortByY(udword* listToSort, sdword n)
 {
-    qsort(listToSort, n, sizeof(sdword), btgSortCompare);
+    // CAT (M2-R9 oracle-rung-physics): the exe's qsort 0x00671060 (CatSort.c; btgZip 0x00428a40 calls it at 0x00428ae9 / 0x00428afb): ties sort as in the exe
+    catQsort(listToSort, n, sizeof(sdword), btgSortCompare);
 }
 
 /*-----------------------------------------------------------------------------

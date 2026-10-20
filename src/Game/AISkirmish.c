@@ -1515,7 +1515,8 @@ void cat_aisTeamAttack(AISTeamEntry *team, sdword minSize, sdword groupSize, boo
     Ship *lead, *targetShip;
     CommandToDo *command;
     vector diff, to;
-    real32 dist, cost;
+    real32 dist;
+    double cost;            // CAT (M2-R9 oracle-rung-physics): hyperspaceCost's double (0x00433170 adds it unrounded)
     TypeOfFormation formation;
 
     for (i = 0; i < (sdword)team->numselections; i++)
@@ -1577,7 +1578,7 @@ void cat_aisTeamAttack(AISTeamEntry *team, sdword minSize, sdword groupSize, boo
             {
                 cost = hyperspaceCost(dist, (SelectCommand *)&mine->sel);
                 // 0x00433170: cost + 10000 on the x87 (53 bits) against the RUs
-                if ((double)cost + 10000.0 < (double)aiCurrentAIPlayer->player->resourceUnits)
+                if (cost + 10000.0 < (double)aiCurrentAIPlayer->player->resourceUnits)
                 {
                     to.x = targetShip->obj.posinfo.position.x + 500.0f;
                     to.y = targetShip->obj.posinfo.position.y + 500.0f;

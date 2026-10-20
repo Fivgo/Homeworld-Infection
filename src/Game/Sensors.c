@@ -79,6 +79,7 @@
 #include "utility.h"
 #include "Vector.h"
 
+#include "CatSort.h"         // CAT (M2-R9 oracle-rung-physics): the exe's qsort
 #if defined _MSC_VER
 	#define isnan(x) _isnan(x)
 #endif
@@ -1263,7 +1264,8 @@ void cat_smSensorRangeBlobsDraw(hmatrix *modelView, hmatrix *projection)
     }
     if (list != NULL)
     {
-        qsort(list, count, sizeof(CatSmRangeEntry), catSmRangeCompare);
+        // CAT (M2-R9 oracle-rung-physics): the exe's qsort 0x00671060 (CatSort.c; cat_smSensorRangeBlobsDraw 0x00509be0 at 0x00509e39): ties sort as in the exe
+        catQsort(list, count, sizeof(CatSmRangeEntry), catSmRangeCompare);
     }
     primModeSet2();
     if (glIsEnabled(GL_POLYGON_STIPPLE))

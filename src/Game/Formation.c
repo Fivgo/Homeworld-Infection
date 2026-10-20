@@ -33,6 +33,7 @@
 #include "Universe.h"
 #include "UnivUpdate.h"
 
+#include "CatSort.h"         // CAT (M2-R9 oracle-rung-physics): the exe's qsort
 //real32 DELTA_FORMATION_PADDING = 50.0f;
 //real32 BROAD_FORMATION_PADDING = 50.0f;
 real32 DELTA_FORMATION_PADDING_SCALE = 1.5f;
@@ -307,7 +308,8 @@ void formationBiggestThenClosestOptimum(SelectCommand *selection,TypeOfFormation
         shipdist[i].ShipPtr = selection->ShipPtr[i];
     }
 
-    qsort(shipdist,selection->numShips,sizeof(ShipDistInfo),compareSizeThenDist);
+    // CAT (M2-R9 oracle-rung-physics): the exe's qsort 0x00671060 (CatSort.c; formationArrangeOptimum 0x00481200 at 0x0048138b): ties sort as in the exe
+    catQsort(shipdist,selection->numShips,sizeof(ShipDistInfo),compareSizeThenDist);
 
     for (i=0;i<selection->numShips;i++)
     {

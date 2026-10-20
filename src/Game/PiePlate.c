@@ -472,7 +472,7 @@ void pieDistanceReadoutDraw(vector *movepoint, vector *origin, color c)
     real32 screen_x, screen_y, dummy_r;
     udword distance;
     udword resources;
-    real32 cost;
+    double cost;            // CAT (M2-R9 oracle-rung-physics): hyperspaceCost's double, truncated (0x004e6240 _ftol)
     fonthandle fhSave;
     color ruReadoutColour = colBlack;
     hmatrix modelview, projection;

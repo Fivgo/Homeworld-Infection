@@ -769,6 +769,30 @@ static void oracleShipDumpTick(void)
         oracleShipDumpFloats("health", &ship->targetable.health, 1);
         fputc('\n', oracleShipDumpFile);
     }
+    // with "all" (M2-R9 oracle-rung-physics): one 'B' line per live bullet in BulletList order (the 'bullets' hash's
+    // order: positions only): the firing ship, its target and the bullet's position and velocity
+    if (oracleShipDumpAll)
+    {
+        Bullet *bullet;
+        udword bindex = 0;
+
+        for (node = universe.BulletList.head; node != NULL; node = node->next)
+        {
+            bullet = (Bullet *)listGetStructOfNode(node);
+            if (bullet->header.flags & SOF_Dead)
+            {
+                continue;
+            }
+            fprintf(oracleShipDumpFile, "B %u %u owner=%d target=%d", (unsigned)tick, (unsigned)bindex,
+                    (bullet->owner != NULL) ? (int)bullet->owner->shipID.shipNumber : -1,
+                    ((bullet->target != NULL) && (bullet->target->header.objtype == OBJ_ShipType)) ?
+                        (int)((Ship *)bullet->target)->shipID.shipNumber : -1);
+            oracleShipDumpFloats("pos", &bullet->obj.posinfo.position.x, 3);
+            oracleShipDumpFloats("vel", &bullet->obj.posinfo.velocity.x, 3);
+            fputc('\n', oracleShipDumpFile);
+            bindex++;
+        }
+    }
     // with "all": one 'R' line per live resource in ResourceList order (the 'resources' hash's order: positions only)
     if (oracleShipDumpAll)
     {
@@ -821,6 +845,69 @@ void oracleShipDumpVector(void *shipobj, const char *kind, const vector *v)
     }
     fprintf(oracleShipDumpFile, "V %u %u %s", (unsigned)tick, (unsigned)ship->shipID.shipNumber, kind);
     oracleShipDumpFloats("v", &v->x, 3);
+    fputc('\n', oracleShipDumpFile);
+}
+
+// 'V <tick> <ship> fly' lines (M2-R9 oracle-rung-physics): the inputs of a dumped ship's flight as
+// aishipFlyToPointAvoidingObjsFunc receives them (the destination or none, the AISHIP_ flags, limitvel and the velocity
+// it flies with or none), written when its STATE_START_FLYING computes the target velocity
+void oracleShipDumpFly(void *shipobj, const vector *destination, udword flags, real32 limitvel, const vector *withVel)
+{
+    Ship *ship = (Ship *)shipobj;
+    udword tick = universe.univUpdateCounter;
+    static const real32 none[3] = { 0.0f, 0.0f, 0.0f };
+
+    if (!oracleShipDumpOn || !oracleShipDumpWanted(tick, (udword)ship->shipID.shipNumber) || !oracleShipDumpOpen())
+    {
+        return;
+    }
+    fprintf(oracleShipDumpFile, "V %u %u fly flags=%08x", (unsigned)tick, (unsigned)ship->shipID.shipNumber, (unsigned)flags);
+    oracleShipDumpFloats(destination != NULL ? "dest" : "nodest", destination != NULL ? &destination->x : none, 3);
+    oracleShipDumpFloats("limitvel", &limitvel, 1);
+    oracleShipDumpFloats(withVel != NULL ? "withvel" : "nowithvel", withVel != NULL ? &withVel->x : none, 3);
+    fputc('\n', oracleShipDumpFile);
+}
+
+// 'O' lines (M2-R9 oracle-rung-physics): each object a dumped ship's flight avoids (aishipFlyToPointAvoidingObjsFunc,
+// after the distance test): the object's type (objtype, the ship number or -1, the ship type or -1), its collision
+// position and coordinate system (hash order), the distance as the float the exe stores, the normal, and the three
+// doubles of the collision distance (the avoided object's size, the ship's size, distance - their sum before the 20
+// floor) as raw 64-bit words
+static void oracleShipDumpDouble(const char *name, double d)
+{
+    uint64_t bits;
+
+    memcpy(&bits, &d, sizeof(bits));
+    fprintf(oracleShipDumpFile, " %s=%016llx:%.17g", name, (unsigned long long)bits, d);
+}
+
+void oracleShipDumpAvoid(void *shipobj, void *avoidobj, real32 dist, const vector *norm, double avoidsize, double shipsize,
+                         double dtc)
+{
+    Ship *ship = (Ship *)shipobj;
+    SpaceObjRotImp *obj = (SpaceObjRotImp *)avoidobj;
+    udword tick = universe.univUpdateCounter;
+    const matrix *m = &obj->rotatable.rotinfo.coordsys;
+    real32 cs[9];
+
+    if (!oracleShipDumpOn || !oracleShipDumpWanted(tick, (udword)ship->shipID.shipNumber) || !oracleShipDumpOpen())
+    {
+        return;
+    }
+    cs[0] = m->m11; cs[1] = m->m21; cs[2] = m->m31;
+    cs[3] = m->m12; cs[4] = m->m22; cs[5] = m->m32;
+    cs[6] = m->m13; cs[7] = m->m23; cs[8] = m->m33;
+    fprintf(oracleShipDumpFile, "O %u %u %d %d %d", (unsigned)tick, (unsigned)ship->shipID.shipNumber,
+            (int)((SpaceObj *)obj)->header.objtype,
+            (((SpaceObj *)obj)->header.objtype == OBJ_ShipType) ? (int)((Ship *)obj)->shipID.shipNumber : -1,
+            (((SpaceObj *)obj)->header.objtype == OBJ_ShipType) ? (int)((Ship *)obj)->shiptype : -1);
+    oracleShipDumpFloats("collpos", &obj->collInfo.collPosition.x, 3);
+    oracleShipDumpFloats("coordsys", cs, 9);
+    oracleShipDumpFloats("dist", &dist, 1);
+    oracleShipDumpFloats("norm", &norm->x, 3);
+    oracleShipDumpDouble("avoidsize", avoidsize);
+    oracleShipDumpDouble("shipsize", shipsize);
+    oracleShipDumpDouble("dtc", dtc);
     fputc('\n', oracleShipDumpFile);
 }
 

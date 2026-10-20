@@ -341,6 +341,7 @@ void physUpdateObjPosVelShip(Ship *obj,real32 phystimeelapsed)
         // CAT: the top speed carries the speed multiplier; a drifting ship may go up to 1400, falling back to its own
         //      top speed over the first half of its drift (0x0088d730 1400, 0x0088d734 0.5); outside single player the
         //      velocity is kept inside the universe (cat_physClampVelocityToUniverse 0x004e4850)
+        // CAT-TODO(M2-R10 physics): tacticsGetShipsMaxVelocity 0x00529450 returns its product speedmult * maxvelocity UNROUNDED on the FPU (0x005294b2 fmul, ret) and physUpdateObjPosVelShip 0x004e4a05 multiplies it by the stored speed multiplier with one rounding; the real32 return rounds it first (the words can differ only when neither factor is 1) [audit: M2-R9 oracle-rung-physics]
         speedmult = cat_shipGetSpeedMultiplier(obj) * tacticsGetShipsMaxVelocity(((Ship *)obj));
         maxspeed = speedmult;
         if (obj->catDrifting)
