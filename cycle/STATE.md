@@ -1,6 +1,6 @@
 # Work cycle and resume point
 
-Last checkpoint: 2026-10-20 08:49
+Last checkpoint: 2026-10-20 09:56
 
 **Read this first when resuming.** It is the single source of truth for where the work stands.
 
@@ -519,7 +519,7 @@ IDENTICAL rows found modified, 15 unflagged rows found IDENTICAL), 3,512 reviewe
 **M2-R10 plan (a short round: the play path's leftovers), then M3** (docs/m2-r9-summary.md "Plan for M2-R10"; M3's Linux
 play-test of Mission01 .. 03, the tutorial and a skirmish can start now with `tools/play.sh`, the brief in the summary):
 
-NOT YET LAUNCHED; `cycle/workflows/m2-r10.js` is WRITTEN (74816ff, an Opus draft reviewed by the user's session 38027cce: 3 producers + 3 auditors + integrate, `ROUND_BASE 29f7c0d`, the R9 baseline 553845b65e87f3b5, constants `FOURTH_RECORDING null` and `MODEB_RESULT null`, each set to the user's archive path if the fourth recording / the GOG playback of hwirec01-02 exist before the launch). Launch = Workflow({scriptPath: cycle/workflows/m2-r10.js}) from the user's terminal session on the user's word, never the orchestrator; relaunch after a cut-off with resumeFromRunId from that session.
+**IN FLIGHT since 2026-10-20 09:56 from the user's terminal session 38027cce (Fable), run id `wf_dd85ad7e-70e`**, launched on the user's word ("okay start round 10") with `FOURTH_RECORDING null` and `MODEB_RESULT null` (neither exists: no fixed-DLL recording, no `original/oracle/hwirec*-play-*`). `cycle/workflows/m2-r10.js` (74816ff, an Opus draft reviewed by that session: 3 producers + 3 auditors + integrate, `ROUND_BASE 29f7c0d`, the R9 baseline 553845b65e87f3b5). If cut off: `Workflow({scriptPath: cycle/workflows/m2-r10.js, resumeFromRunId: 'wf_dd85ad7e-70e'})` from that session, never the orchestrator; in a fresh session relaunch the script (finished ports resume from their report docs + their audits' checkpoints).
 
 | # | producer | scope | done when |
 |---|---|---|---|
@@ -954,7 +954,7 @@ stage-5 remainder per decision 9 after M3.
 
 ## M2-R6: COMPLETE 2026-10-18 (run from the user's terminal session 38027cce, not from the orchestrator)
 
-cycle/workflows/m2-r6.js finished in session 38027cce (Fable, Remote Control): the "## M2" subsection "M2-R6: COMPLETE" above has the exit test and the seven ports. **M2-R7 also finished in that session on 2026-10-19** (cycle/workflows/m2-r7.js, run id wf_b238b029-e72; its integrate step was cut off by the weekly limit on 2026-10-18 and resumed on 2026-10-19 after the skirmish-start merge; "M2-R7: COMPLETE" above, docs/m2-r7-summary.md). **M2-R8 also finished in that session on 2026-10-19** (cycle/workflows/m2-r8.js, run id wf_74bcf42e-330; "M2-R8: COMPLETE" above, docs/m2-r8-summary.md). **M2-R9 also finished in that session on 2026-10-20** (cycle/workflows/m2-r9.js, run id wf_c0cd6893-248; "M2-R9: COMPLETE" above, docs/m2-r9-summary.md). The orchestrator must relaunch none of them; the M2-R10 script is not yet written (docs/m2-r9-summary.md "Plan for M2-R10" and "What the user must decide"). Merges to main are handled by the user.
+cycle/workflows/m2-r6.js finished in session 38027cce (Fable, Remote Control): the "## M2" subsection "M2-R6: COMPLETE" above has the exit test and the seven ports. **M2-R7 also finished in that session on 2026-10-19** (cycle/workflows/m2-r7.js, run id wf_b238b029-e72; its integrate step was cut off by the weekly limit on 2026-10-18 and resumed on 2026-10-19 after the skirmish-start merge; "M2-R7: COMPLETE" above, docs/m2-r7-summary.md). **M2-R8 also finished in that session on 2026-10-19** (cycle/workflows/m2-r8.js, run id wf_74bcf42e-330; "M2-R8: COMPLETE" above, docs/m2-r8-summary.md). **M2-R9 also finished in that session on 2026-10-20** (cycle/workflows/m2-r9.js, run id wf_c0cd6893-248; "M2-R9: COMPLETE" above, docs/m2-r9-summary.md). **M2-R10 is IN FLIGHT in that session since 2026-10-20** (cycle/workflows/m2-r10.js, run id wf_dd85ad7e-70e; the "M2-R9: COMPLETE" subsection's plan table). The orchestrator must relaunch none of them. Merges to main are handled by the user.
 
 ## Opus workflows in flight
 
