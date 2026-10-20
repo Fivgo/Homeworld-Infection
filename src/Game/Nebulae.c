@@ -479,6 +479,13 @@ void nebInitTendril(nebTendril* tendril)
     tendril->prev = NULL;
     tendril->next = NULL;
     vecSet(tendril->direction, 0.0f, 0.0f, 0.0f);
+    // CAT-FIX (M2-R10 tests-leftovers): nebInitTendril 0x004c7d50 leaves the bounding sphere unset, and nebRenderNebula
+    //      0x004cadb0's inlined clip test reads tendril->midpoint before nebTendrilBounds 0x004c9cc0 (from the first
+    //      nebRenderTendril) has set it: a read of stale heap (ASLR'd pointers here), so which tendrils build their
+    //      geometry, and so the RANDOM_NEBULAE draws, varied run to run (Mission06's rng_all-only pairs, decision 94).
+    //      Zero, as a fresh pool block would hold; render-only (the stream feeds nothing else after the level load)
+    tendril->radius = 0.0f;
+    vecSet(tendril->midpoint, 0.0f, 0.0f, 0.0f);
 
     for (i = 0; i < NUM_NEBTENDRIL_LODS; i++)
     {

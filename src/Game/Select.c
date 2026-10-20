@@ -2012,9 +2012,9 @@ vector selCentrePointComputeGeneral(MaxSelection *selection, real32 *average_siz
         else if (ship->header.objtype == OBJ_MissileType)
         {
             radius = ((Missile *)ship)->staticinfo->common.staticCollInfo.collspheresize;
-            // CAT-PROVISIONAL: the exe scales by a Cataclysm Missile float at +0x254 when it is nonzero (not
-            //      identified; the Missile layout comes with the missile code, M2-R4 #3); 1 until then
-            scale = 1.0f;
+            // CAT: the missile's own scale (Missile.catMissileScale +0x254, 0x00508d86 .. 0x00508d97) when it is
+            //      nonzero, else 1 (M2-R10 tests-leftovers: the provisional 1 replaced, the Missile layout being pinned)
+            scale = (((Missile *)ship)->catMissileScale != 0.0f) ? ((Missile *)ship)->catMissileScale : 1.0f;
         }
         else
         {
@@ -2027,7 +2027,8 @@ vector selCentrePointComputeGeneral(MaxSelection *selection, real32 *average_siz
         maxVector.x = max(maxVector.x, ship->obj.posinfo.position.x);
         maxVector.y = max(maxVector.y, ship->obj.posinfo.position.y);
         maxVector.z = max(maxVector.z, ship->obj.posinfo.position.z);
-        *average_size += scale * radius;
+        // CAT: scale * radius + the sum on the FPU, stored once (0x00508db5)
+        *average_size = (real32)((double)scale * (double)radius + (double)*average_size);
 //        returnVector.x += ship->obj.posinfo.position.x;
 //        returnVector.y += ship->obj.posinfo.position.y;
 //        returnVector.z += ship->obj.posinfo.position.z;

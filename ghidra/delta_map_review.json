@@ -2713,7 +2713,7 @@
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "packet build as HW1 (0xcccc = PACKETTYPE_COMMAND, SetTargetID/packetSendToCaptain inlined); tail not fully read"
+  "note": "packet build as HW1 (0xcccc = PACKETTYPE_COMMAND, SetTargetID/packetSendToCaptain inlined); tail not fully read | [audit: M2-R10 tests-leftovers] compared again: memAllocFunction(size, 0), no clear; the tree adds the CAT-FIX memset of the block (the struct padding), an HWI deviation; the class stays IDENTICAL"
  },
  "0x00451190": {
   "class": "IDENTICAL",
@@ -24481,5 +24481,271 @@
   "confidence": "high",
   "change": "",
   "note": "[audit: M2-R10 render-animatics-sp] edited by the port only inside #if MEM_VERBOSE_LEVEL >= 1 (the 'failed to find block' note names the block, HWI); that code is compiled out of the retail shape the map classifies (Memory.h: MEM_VERBOSE_LEVEL 0 in retail), so the class stays IDENTICAL; the exe's failure tail (0x004add8d: the size-list reset and the retry) was read and is HW1's"
+ },
+ "0x00527820": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Cataclysm drops Dock.script; the canMpHyperspace clear runs over the 145 types; the first five scriptSet calls are inlined",
+  "note": "[review: M2-R10 tests-leftovers] compared body for body (decompile + the table keys of R9): the exe clears TW_HyperSpaceCostStruct[i].canMpHyperspace (0x00ba1fc0 + 0x10, stride 0x14, 145 entries = TOTAL_NUM_SHIPS), inlines scriptSet for AIShip / AITrack / Camera / CameraCommand / CommandLayer.script (fileOpen flag 1, fileLineRead, parseLine, findEntry, the file name strcpy into globalScriptFileName 0x00c52da0, setVarCB), then calls scriptSet for Formation, Galaxy, Tweak, Flightman, Soundevent (no Dock.script), Trail, Resource, Cloud, SinglePlayer, Nebulae, AIPlayer, NetTweak, AIResourceMan, UnitLimitCaps, Damage, ShipView, AutoLOD, GatherStatsFor, FEColour, then crateInit and paradeSetTweakables: the tree's body is the same (scriptSet's FF_IgnorePrepend is GoK's loose-file root only; the scripts come from the archive)",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x00526120": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a line with \"http:\" in it keeps its \"//\" (the string tables' web addresses)",
+  "note": "[review: M2-R10 tests-leftovers] compared: the exe tests strstr(line, \"http:\") 0x00897e04 before cutting at \"//\" 0x0087bb18; the tree cut every line, so english.script's strTroubleShootPage / strSierraComPage / strContestServerPage loaded as \"http:\" (strSetStringCB 0x00528800's http rule was ported but never saw the URL): PORTED (StatScript.c); the rest (trailing blanks, \";\" comments, name / value split, StripTrailingSpaces) the same",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x00526dc0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Cataclysm's NavLight table (one entry \"NavLight\" -> scriptSetNAVLightCB 0x00526ce0); a count below 1 reads on without filling anything",
+  "note": "[review: M2-R10 tests-leftovers] compared: NUMBER_OF_NAV_LIGHTS by sscanf \"%d\", memAllocFunction(n * 0x48 + 4, NonVolatile) cleared, the count first, shipstatinfo +0x104; the NavLight table 0x00897860 = {\"NavLight\", 0x00526ce0, 0, 0}: the tree's StaticNavLightInfoScriptTable and body are the same (the tree jumps to done on n < 1 where the exe keeps reading in state 0: the same result)",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x004d6e30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Cataclysm's 145-row ship type table; StrToNum inlined with the CRT's case-insensitive compare (lib_crt_00676c90)",
+  "note": "[review: M2-R10 tests-leftovers] compared: the exe's table 0x00889530 and the tree's shiptypeinfo have the same 145 strings in the same order (sRecon ...); strcasecmp as the CRT's compare: the same",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x004d6b90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Cataclysm's race table RACE_SECT .. RACE_DERELICT (0 .. 6); NumToStr inlined",
+  "note": "[review: M2-R10 tests-leftovers] compared: 0x008899c0 = 0 RACE_SECT, 1 RACE_BEAST, 2 RACE_KUSHAN, 3 RACE_TAIDAN, 4 RACE_P1, 5 RACE_TRADERS, 6 RACE_DERELICT = the tree's shipraceinfo; the short compare equals the tree's uword compare",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x004d6df0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Cataclysm's 43-row special effect table (EGT_MINE_WALL_EFFECT ...; EGT_LINKING_EFFECT twice)",
+  "note": "[review: M2-R10 tests-leftovers] compared: 0x0088a048's 43 strings in order = the tree's SpecialEffectinfo",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x004d6ff0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Cataclysm's 20-row gun sound table (GS_LargeEnergyCannon ...)",
+  "note": "[review: M2-R10 tests-leftovers] compared: 0x00889da0's 20 strings in order = the tree's gunsoundtypeinfo; not found returns -1 (~GS_LargeEnergyCannon) as the tree",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x00438c30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ApplyDamageToTarget with 7 arguments (GS_SmallIonCannon, 0x378, 99, 0, 4); cloudKillLightning / cloudNewLightning inlined; the x87 shape of the radius, the distances and the damage",
+  "note": "[review: M2-R10 tests-leftovers] compared (decompile + disassembly): the tree's body had the exe's order of tests and calls, but in float: PORTED the x87 shape (Clouds.c, catCloudDistSqD): healthFactor * radius * CLOUD_RADIAL_DAMAGE_SCALAR and its square on the FPU stored as a float (0x00438c44), each object's (dz*dz + dy*dy) + dx*dx unrounded against it (0x00438c74, 0x00438cf7), the damage fild maxhealth / fidiv hits * CLOUD_ZAP_SCALAR stored (0x00438cb5); the inlined lightning (render) left as the tree's helpers",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x00439130": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the lightning bursts' shape: the threshold rounded to nearest, the radius product order, the x87 distances",
+  "note": "[review: M2-R10 tests-leftovers] compared: the exe rounds charge * 20 to nearest (+ 6755399441055744.0, 0x0072a4d0 / 0x0072a458) where the tree truncates, multiplies healthFactor * radius * 0.9 (0x0072a5b4) where the tree has 0.9 * radius * healthFactor, takes fsqrt of the x87 sums; the burst factors 10.0 / 3.0 and the structure match. Only RANDOM_CLOUDS (rng_all) and the lightning's drawing depend on it: tagged CAT-TODO(M3 oracle physics) in Clouds.c, not ported",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x00508be0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ships and missiles only, a mimic's select radius, the missile scale catMissileScale +0x254 when nonzero, the sum on the FPU",
+  "note": "[review: M2-R10 tests-leftovers] compared: PORTED the missile scale (the CAT-PROVISIONAL closed: Missile.catMissileScale is pinned at +0x254) and scale * radius + sum on the FPU stored once (0x00508db5: fmul, fadd, fstp); the min / max box and the 0.5 centre the same (Select.c); its callers include the AI (AITeam, AIMoves, KAS), so a stream may move by it",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x00586190": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R10 tests-leftovers] compared: HW1's body with trColorInfosPointer inlined (pending / shared, paletted 0x400 * n, else 4 * n), the palette CRC over n * 8 bytes, the same growth (16-slot sub-lists, 10 entries): the tree's body is the same",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x00479c60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the Win32 lookup (findfirst) and no StatusDump.txt branch",
+  "note": "[review: M2-R10 tests-leftovers] compared: the bigfile test (update.big then cataclysm.big, CompareBigfiles) and then the loose file under the prepend / CD path; the tree keeps GoK's portable layer (fileExistsInBigFile, filePathPrepend, fileNameCorrectCase), the same order: a platform difference, nothing to port",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x0046fdd0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the argument array (one pointer) instead of two parameters",
+  "note": "[review: M2-R10 tests-leftovers] compared: fld a, fdiv b, fstp, mov eax: the quotient's float bits, as the tree's Real32ToUdword under GENERIC_ETGCALLFUNCTION",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x00471290": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "takes a pointer to its argument slot",
+  "note": "[review: M2-R10 tests-leftovers] compared: partSetColorA of the four bytes times 0x0072a6ac: the tree's CAT_ETG_UB2R(colRed / Green / Blue / Alpha) the same",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x0046a6f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "frees the effect's +0x84 block, drops the ships' references (cat_univRemoveEffectReferencesFromShips), frees the lens flare attachments and clears each block pointer",
+  "note": "[review: M2-R10 tests-leftovers] compared: the tree's body (cat_univFreeEffectBlock, cat_univRemoveEffectReferencesFromShips, cat_partSystemFreeAttachments, the world-list removal by ESO_WorldRender, listRemoveNode) is the same",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x0046a260": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "loads the race and general ETG scripts from the exe's list (general.script ...)",
+  "note": "[review: M2-R10 tests-leftovers] compared: the ten memClearDword tables and counts (0x1a4, 0x28, 700, 0xe, 7, 0x2b, -10 x 0x54 and 8, the bullet colours 0x8c / 0x14), the mesh and event registries (300 / 0x200 dwords), scriptSet over the list, etgNumberEffectsExpected = -1: the tree's body is the same",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x004e4320": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "takes a pointer to its argument slot",
+  "note": "[review: M2-R10 tests-leftovers] compared: 1 -> additive on, stipple off; 2 -> additive off, stipple on; else both off (0x00a505cc / 0x00a505c4): the tree's partSetAdditiveBlends / partSetStipple the same",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x004e29b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the argument array (system, texture, u0, v0, u1, v1)",
+  "note": "[review: M2-R10 tests-leftovers] compared: a billboard system takes the texture and the uv rectangle, a mesh system the texture, each particle the texture; other types the null debug call: the tree's body is the same",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x004e00e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "partRealDist / partRealDelta / randomAngle inlined (x87 shape)",
+  "note": "[review: M2-R10 tests-leftovers] compared: the same 8 draws of RANDOM_PARTICLE_STREAM in the same order (LOF 2, R 2, theta 2 unused, two angles); the exe's r is (u % 1000000) * 1e-6 on the FPU and its sums are grouped (offset + sign * r * dist) + delta, the tree divides by 1e6 and adds delta first: the particle's offset can differ in its last bits, render only (no stream sees particle positions); not ported",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x0043bed0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "skips a ship clamped to the derelict and a derelict clamped to the ship; the squared distance against colldist squared on the FPU; Cataclysm's two-way kamikaze damage",
+  "note": "[review: M2-R10 tests-leftovers] compared (decompile + disassembly): PORTED the two clamp skips (0x0043bfcc .. 0x0043bff3: SOF_Clamped and clampInfo +0x1BC's host) and the shape: (dz*dz + dy*dy) + dx*dx on the FPU compared unrounded with colldist * colldist, kept as a float, fsqrt of the double only for the collision (0x0043c114 .. 0x0043c197) (HW1: fsqrt first and dist < colldist); the kamikaze test was already the tree's kamikazeCheck (cat_kamikazeCheckShip both ways and the damage); the salvage debug print as the tree's comment (Collision.c)",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x005b0420": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "HW1's defense fighter static init kept (a debug call \"Need to handle Sect and Beast\", the race-2 or other static block)",
+  "note": "[review: M2-R10 tests-leftovers] compared: no Cataclysm ship type is a defense fighter (shiptypeinfo's 145 rows have none; kHeavyDefender / tHeavyDefender are GenericDefender), and the tree has no DefenseFighter.c: nothing to port",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x004c5900": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the LAN start: two human players needed (message), the start-position shuffle (8 bytes at 0x008860f0, 20 swaps on stream 0), the game-in-progress broadcast, task pause and list clears",
+  "note": "[review: M2-R10 tests-leftovers] compared: stage 5 LAN (decision 9, after M3): the start-position table is the LevelLoad.c CAT-TODO(stage 5 LAN) and this is its shuffle; not ported this round",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x0044e370": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "pre-game chat routed by the captain inline (the bounce flag +0x1c, re-sent to the players of the +0x20 mask)",
+  "note": "[review: M2-R10 tests-leftovers] compared: stage 5 LAN chat (decision 9, after M3; sendChatMessage's CAT-TODO(stage 5 LAN) owner); the in-game packet switch the same; not ported this round",
+  "sample": "sample-R10-tests-leftovers"
+ },
+ "0x0044ee90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R10 tests-leftovers] compared: the exe's body allocates the packet with memAllocFunction(size, 0) and writes the header and body fields only, no clear (HW1's body); the tree's only edit is the CAT-FIX memset of the block after memAlloc (the struct padding the exe leaves to the heap, so two record runs' .pkts are byte-identical): an HWI deviation, not a Cataclysm change; the class stays IDENTICAL",
+  "sample": "audit-R10-tests-leftovers"
+ },
+ "0x0044f800": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R10 tests-leftovers] compared: the exe's body allocates the packet with memAllocFunction(size, 0) and writes the header and body fields only, no clear (HW1's body); the tree's only edit is the CAT-FIX memset of the block after memAlloc (the struct padding the exe leaves to the heap, so two record runs' .pkts are byte-identical): an HWI deviation, not a Cataclysm change; the class stays IDENTICAL",
+  "sample": "audit-R10-tests-leftovers"
+ },
+ "0x0044f980": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R10 tests-leftovers] compared: the exe's body allocates the packet with memAllocFunction(size, 0) and writes the header and body fields only, no clear (HW1's body); the tree's only edit is the CAT-FIX memset of the block after memAlloc (the struct padding the exe leaves to the heap, so two record runs' .pkts are byte-identical): an HWI deviation, not a Cataclysm change; the class stays IDENTICAL",
+  "sample": "audit-R10-tests-leftovers"
+ },
+ "0x0044fae0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R10 tests-leftovers] compared: the exe's body allocates the packet with memAllocFunction(size, 0) and writes the header and body fields only, no clear (HW1's body); the tree's only edit is the CAT-FIX memset of the block after memAlloc (the struct padding the exe leaves to the heap, so two record runs' .pkts are byte-identical): an HWI deviation, not a Cataclysm change; the class stays IDENTICAL",
+  "sample": "audit-R10-tests-leftovers"
+ },
+ "0x0044fc40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R10 tests-leftovers] compared: the exe's body allocates the packet with memAllocFunction(size, 0) and writes the header and body fields only, no clear (HW1's body); the tree's only edit is the CAT-FIX memset of the block after memAlloc (the struct padding the exe leaves to the heap, so two record runs' .pkts are byte-identical): an HWI deviation, not a Cataclysm change; the class stays IDENTICAL",
+  "sample": "audit-R10-tests-leftovers"
+ },
+ "0x0044fda0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R10 tests-leftovers] compared: the exe's body allocates the packet with memAllocFunction(size, 0) and writes the header and body fields only, no clear (HW1's body); the tree's only edit is the CAT-FIX memset of the block after memAlloc (the struct padding the exe leaves to the heap, so two record runs' .pkts are byte-identical): an HWI deviation, not a Cataclysm change; the class stays IDENTICAL",
+  "sample": "audit-R10-tests-leftovers"
+ },
+ "0x0044fef0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R10 tests-leftovers] compared: the exe's body allocates the packet with memAllocFunction(size, 0) and writes the header and body fields only, no clear (HW1's body); the tree's only edit is the CAT-FIX memset of the block after memAlloc (the struct padding the exe leaves to the heap, so two record runs' .pkts are byte-identical): an HWI deviation, not a Cataclysm change; the class stays IDENTICAL",
+  "sample": "audit-R10-tests-leftovers"
+ },
+ "0x00450050": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R10 tests-leftovers] compared: the exe's body allocates the packet with memAllocFunction(size, 0) and writes the header and body fields only, no clear (HW1's body); the tree's only edit is the CAT-FIX memset of the block after memAlloc (the struct padding the exe leaves to the heap, so two record runs' .pkts are byte-identical): an HWI deviation, not a Cataclysm change; the class stays IDENTICAL",
+  "sample": "audit-R10-tests-leftovers"
+ },
+ "0x004501b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R10 tests-leftovers] compared: the exe's body allocates the packet with memAllocFunction(size, 0) and writes the header and body fields only, no clear (HW1's body); the tree's only edit is the CAT-FIX memset of the block after memAlloc (the struct padding the exe leaves to the heap, so two record runs' .pkts are byte-identical): an HWI deviation, not a Cataclysm change; the class stays IDENTICAL",
+  "sample": "audit-R10-tests-leftovers"
+ },
+ "0x00450320": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R10 tests-leftovers] compared: the exe's body allocates the packet with memAllocFunction(size, 0) and writes the header and body fields only, no clear (HW1's body); the tree's only edit is the CAT-FIX memset of the block after memAlloc (the struct padding the exe leaves to the heap, so two record runs' .pkts are byte-identical): an HWI deviation, not a Cataclysm change; the class stays IDENTICAL",
+  "sample": "audit-R10-tests-leftovers"
+ },
+ "0x004504a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R10 tests-leftovers] compared: the exe's body allocates the packet with memAllocFunction(size, 0) and writes the header and body fields only, no clear (HW1's body); the tree's only edit is the CAT-FIX memset of the block after memAlloc (the struct padding the exe leaves to the heap, so two record runs' .pkts are byte-identical): an HWI deviation, not a Cataclysm change; the class stays IDENTICAL",
+  "sample": "audit-R10-tests-leftovers"
+ },
+ "0x00450610": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R10 tests-leftovers] compared: the exe's body allocates the packet with memAllocFunction(size, 0) and writes the header and body fields only, no clear (HW1's body); the tree's only edit is the CAT-FIX memset of the block after memAlloc (the struct padding the exe leaves to the heap, so two record runs' .pkts are byte-identical): an HWI deviation, not a Cataclysm change; the class stays IDENTICAL",
+  "sample": "audit-R10-tests-leftovers"
+ },
+ "0x00450780": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R10 tests-leftovers] compared: the exe's body allocates the packet with memAllocFunction(size, 0) and writes the header and body fields only, no clear (HW1's body); the tree's only edit is the CAT-FIX memset of the block after memAlloc (the struct padding the exe leaves to the heap, so two record runs' .pkts are byte-identical): an HWI deviation, not a Cataclysm change; the class stays IDENTICAL",
+  "sample": "audit-R10-tests-leftovers"
+ },
+ "0x004c7d50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R10 tests-leftovers] compared: the exe sets flags, counter, a / b, prev / next, direction, the two LODs, the colour (RANDOM_NEBULAE draws), maxAlpha and fadeFactor, never radius / midpoint (HW1's body); nebRenderNebula 0x004cadb0's inlined clip test reads tendril->midpoint before nebTendrilBounds sets it. The tree's only edit is the CAT-FIX zeroing of radius and midpoint (Mission06's rng_all-only pairs): an HWI deviation; the class stays IDENTICAL",
+  "sample": "audit-R10-tests-leftovers"
+ },
+ "0x00451580": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R10 tests-leftovers] compared: the exe's three branches (memAllocFunction(0x1c) with the count 0 at +0x18; the one command packet's copy with the count 1; the concatenation with the summed count) then type 0x5555, from, frame, netcheckFillInChecksum, packetBroadcastSync: HW1's body; +0x1A .. +0x1B never written (GOG's .pkts: 2,535 of 4,800 packets nonzero there in 10-17, 1,159 of 1,763 in 10-18). The tree's only edit is the CAT-FIX memset of those two bytes: an HWI deviation; the class stays IDENTICAL",
+  "sample": "audit-R10-tests-leftovers"
  }
 }

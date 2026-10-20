@@ -276,6 +276,18 @@
 #                    ...", "loadgametest: status ...", "loadgametest: done ... result=PASS|FAIL", rc 0. No sound, no
 #                    speech
 #   --mission-test-ticks N missiontest mode: the run's tick limit (default 20000)
+#   --fail-jump      missiontest mode with --mission N (M2-R10 tests-leftovers): /catMissionTestFailJump, the deliberate-loss
+#                    test of the failed jump. At the test's first hyperspace command the KAS function DisablePlayerHyperspace
+#                    runs through the developer console's KAS call (cat_kasCallFunctionByName 0x0045b9a0: in cataclysm.exe
+#                    the only route to singlePlayerGameInfo.hyperspaceFails; no mission script calls it), the jump fizzles
+#                    and returns through singlePlayerGameUpdate's case HYPERSPACE_CATFAILEDRETURN (the exe's 10); at the
+#                    return the test judges the state (no hyperspace, hyperspaceFails clear, the same level, the
+#                    mothership outside, none of the player's ships hyperspacing or in the ether, none lost, docked ones
+#                    counted): "missiontest: failed jump armed / begun / return ... ok|FAIL" lines; the run ends 32 ticks
+#                    after the return (the exe's case 10 does not give playerCanHyperspace back, so there is no second
+#                    jump): "missiontest: failed jump judged ... PASS|FAIL", and the done line's result also needs every
+#                    objective reached as in the normal run and no next level. Needs a roll-call jump: not missions 2,
+#                    5, 7, 15 (letterbox jumps ignore hyperspaceFails) nor 17 (no jump); the gate runs use --mission 3
 #   --tutorial       missiontest mode: Tutorial1's first screens instead of Mission01
 #                    (M2-R9 recorder-leftovers: the tutorial run's speech and mixer run on the virtual audio clock,
 #                    /catVirtualAudio set by /catMissionTestTutorial: the speech's subtitles start and end at the same frame in
@@ -319,6 +331,18 @@
 #   --skirmish-ticks N skirmish mode: universe ticks to run before the judgement (default 600)
 #   --skirmish-map NAME skirmish mode: the map, a MultiPlayer directory name (default LiveFireExercise2; Armed8 is an
 #                    8-player map, so its spheres 2..7 must be skipped)
+#   --skirmish-bigotry N skirmish mode (M2-R10 tests-leftovers): /catSkirmishBigotry N (0 .. 2): before StartNewGame the
+#                    test presses the skirmish screen's CPU-attacks radio button N (OP_CPU_Attacks on update.big's
+#                    Skirmish_Basic, buttons pData 0 / 1 / 2) through its callback opCPUAttacks 0x004db440, which sets
+#                    tpGameCreated.aiplayerBigotry ("skirmishtest: bigotry=N" line). Without the flag the front end's
+#                    default stays (0: no alliance; every default skirmish stream is unchanged). The computers ally at the
+#                    skirmish AI's first play (cat_aisSetupAlliances 0x004310a0): 1 pairs them by how many there are (3 or
+#                    more computers; a 2-player test with one computer sends none), 2 sends ALLIANCE_FORM_NEW_ALLIANCE
+#                    for every index pair from the first computer to 7 whether the player exists or not: 21 commands in
+#                    a 2-player test (1..7), the 21 GOG's two skirmish sessions carry at frame 88. With --record the
+#                    recording holds them. The skirmish test keeps sound and speech on (SDL's dummy driver, the wall
+#                    clock): the speech's variation draws (stream 12) split two record runs' rng_all; pass
+#                    "-- /catVirtualAudio" for a record run that pairs in every field (the .pkts pair either way)
 #   --oracle-ticks N oracle mode: universe ticks to run (default 512)
 #   --mission-ticks N mission mode: universe ticks to run (default 3000)
 #   --dock-ticks N   dock mode: universe ticks to run (default 5000; about 30 s under ASan on the virtual clock)
@@ -405,7 +429,7 @@ mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"
 oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=3000; rframes=600; hframes=600; uticks=400
 conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0; mtmission=1; savename="01 - Hiigara"; ldticks=400
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""; skticks=600; skmap=LiveFireExercise2
-warplevel=10; savesrc=""; training=0; recordname=""; recordstop=""
+warplevel=10; savesrc=""; training=0; recordname=""; recordstop=""; skbigotry=""; failjump=0
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -435,6 +459,7 @@ while [[ $# -gt 0 ]]; do
 		--skirmish-ticks) skticks=$2; shift ;;
 		--mission-test-ticks) mtticks=$2; shift ;;
 		--tutorial) mttut=1 ;;
+		--fail-jump) failjump=1 ;;
 		--mission) mtmission=$2; shift ;;
 		--save) savename=$2; shift ;;
 		--warp-level) warplevel=$2; shift ;;
@@ -442,6 +467,7 @@ while [[ $# -gt 0 ]]; do
 		--training) training=1 ;;
 		--load-ticks) ldticks=$2; shift ;;
 		--skirmish-map) skmap=$2; shift ;;
+		--skirmish-bigotry) skbigotry=$2; shift ;;
 		--perturb) perturb=$2; shift ;;
 		--hwo) hwo=1 ;;
 		--) shift; extra=("$@"); break ;;
@@ -495,6 +521,7 @@ elif [[ "$mode" == missiontest ]]; then
 	else
 		args+=(/catMissionTest "$mtticks" /oracleDump "$out/run.hwo")
 		if [[ "$mtmission" -ne 1 ]]; then args+=(/catMissionTestMission "$mtmission"); fi
+		[[ $failjump -eq 1 ]] && args+=(/catMissionTestFailJump)
 	fi
 elif [[ "$mode" == warpstart ]]; then
 	# M2-R9 missions-10-17: the run's own data dir: the harness data dir's entries as symlinks plus the test warp.script
@@ -522,6 +549,7 @@ elif [[ "$mode" == loadgame ]]; then
 	[[ $training -eq 1 ]] && args+=(/catLoadGameTraining)
 elif [[ "$mode" == skirmish ]]; then
 	args+=(/catSkirmishMap "$skmap" /catSkirmishTest "$skticks" /oracleDump "$out/run.hwo")
+	[[ -n "$skbigotry" ]] && args+=(/catSkirmishBigotry "$skbigotry")
 elif [[ "$mode" == motion ]]; then
 	args+=(/catMotionFps "$vfps" /catMotionTest "$motticks" /catMotionDump "$out/motion.dump")
 elif [[ "$mode" == replay ]]; then

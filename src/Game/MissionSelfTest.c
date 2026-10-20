@@ -71,6 +71,9 @@
 #include "Volume.h"
 #include "NomadMoon.h"
 #include "TradeMgr.h"
+// M2-R10 tests-leftovers: the KAS dispatcher by name (KASFuncTable.h; not included: its CatKasFunction meets
+//      SinglePlayer.h's), the developer console's KAS call that the failed-jump test takes
+sdword cat_kasCallFunctionByName(char *name, void **args);     // 0x0045b9a0
 
 extern char SinglePlayerSavedGamesPath[];               // GamePick.c
 extern char CurrentMissionName[];                       // KAS.c
@@ -127,6 +130,13 @@ void catMissionSelfTestMissionSet(char *string)
 sdword catMissionSelfTestWarpLevel(void)
 {
     return ((catMissionTestTicks > 0) && (catMtMission >= 2)) ? catMtMission : 0;
+}
+
+static bool32 catMtFailJump = FALSE;       // M2-R10 tests-leftovers: /catMissionTestFailJump (catMtFailJumpWatch below)
+
+void catMissionSelfTestFailJumpSet(void)
+{
+    catMtFailJump = TRUE;
 }
 
 void catWarpStartSelfTestSet(void)
@@ -453,6 +463,8 @@ static bool32 catMtFailed = FALSE;
 static sdword catMtEndTick = -1;
 static sdword catMtLastDamaged[CAT_MT_MAX_OBJECTIVES][CAT_MT_TEAMS_PER_OBJECTIVE];
 static sdword catMtHyperspaceTick = -1;
+static sdword catMtRollCallTick = -1;                   // the roll call (catMtRollCall below)
+static const char *catMtRollCallButton = "none";
 
 
 static sdword catMtObjectiveIndex(const char *label)
@@ -2665,9 +2677,6 @@ static const CatMtMissionScript catMtMissions[MISSION_17 + 1] =
     enabled button through the front end's callback (feFunctionExecute: Go Now, or Emergency Hyperspace while one of the
     player's ships is under fire; the other is disabled, RSF_RegionDisabled)
 -----------------------------------------------------------------------------*/
-static sdword catMtRollCallTick = -1;
-static const char *catMtRollCallButton = "none";
-
 static void catMtRollCall(void)
 {
     fescreen *screen;
@@ -2815,6 +2824,122 @@ void catMissionSelfTestObjective(const char *what, const char *label, sdword sta
     }
 }
 
+/*-----------------------------------------------------------------------------
+    M2-R10 tests-leftovers: the deliberate-loss test of the failed jump (/catMissionTestFailJump, harness
+    --fail-jump). In cataclysm.exe singlePlayerGameInfo.hyperspaceFails is set by kasfDisablePlayerHyperspace
+    0x004935e0 alone, which no mission script calls: the KAS dispatcher by name cat_kasCallFunctionByName 0x0045b9a0
+    (hash 0x009c2c05) calls it for the developer console's KAS command (cat_consoleKasCommand 0x0045f270). The test
+    takes that route at its first hyperspace command (no input: the call the console makes after parsing the typed
+    line), so the jump runs the fizzle (UpdateHyperspacingShip's hyperspaceFails branch) and falls into
+    singlePlayerGameUpdate's case HYPERSPACE_CATFAILEDRETURN (the exe's 10): no hyperspace, the ether cleaned
+    (catSpEtherCleanup(FALSE, FALSE)), the lock-out lifted, the ships that must launch launched, "Game_HyperspaceFailed",
+    hyperspaceFails cleared. Judged at the return: the state back at NO_HYPERSPACE with hyperspaceFails clear, the same
+    level (no level load), the player's mothership outside and not hyperspacing, none of the player's ships in the
+    ether, none lost (counted outside and docked: the roll call's Go Now docks the small ships). The run ends 32 ticks
+    after the return: PASS = every objective of the table reached as in the normal run (the jump by the command), the
+    level, KAS and arrival, no mission loss, the return judged ok and no next level. There is no second jump: the exe's
+    case 10 does not give playerCanHyperspace back (spHyperspaceButtonPushed cleared it; only the mission script's
+    kasfPlayerHyperspaceEnable-style calls would), so a failed jump leaves the player in the level, as in the exe. Only a
+    roll-call jump can fail (the letterbox jump of catSpMissionNextLevel's missions ignores hyperspaceFails)
+-----------------------------------------------------------------------------*/
+static sdword catMtFailJumpArmTick = -1, catMtFailJumpBegunTick = -1, catMtFailJumpReturnTick = -1;
+static sdword catMtFailJumpEndTick = -1;
+static sdword catMtFailJumpShips = -1;
+static bool32 catMtFailJumpPass = FALSE;
+
+// the player's live ships outside the ether (in the universe or docked inside one of them: the roll call's Go Now
+//      docks the small ships at once), and how many of those outside are hyperspacing (SOF_Hyperspace)
+static sdword catMtFailJumpCount(sdword *hyperspacing, sdword *docked)
+{
+    Node *node;
+    Ship *ship;
+    sdword n = 0;
+
+    *hyperspacing = 0;
+    *docked = 0;
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if ((ship->playerowner != universe.curPlayerPtr) || bitTest(ship->header.flags, SOF_Dead))
+        {
+            continue;
+        }
+        n++;
+        if (bitTest(ship->header.flags, SOF_Hyperspace))
+        {
+            (*hyperspacing)++;
+        }
+        if (ship->shipsInsideMe != NULL)
+        {
+            *docked += (sdword)ship->shipsInsideMe->insideList.num;
+        }
+    }
+    return n + *docked;
+}
+
+static void catMtFailJumpArm(void)
+{
+    void *args[1] = { NULL };
+    sdword ret, hyperspacing, docked;
+
+    catMtFailJumpArmTick = (sdword)universe.univUpdateCounter;
+    catMtFailJumpShips = catMtFailJumpCount(&hyperspacing, &docked);
+    ret = cat_kasCallFunctionByName("DisablePlayerHyperspace", args);
+    dbgMessagef("missiontest: failed jump armed tick=%u (DisablePlayerHyperspace through cat_kasCallFunctionByName, the console's "
+                "KAS call; ret=%d hyperspaceFails=%d playerShips=%d docked=%d)", (unsigned)universe.univUpdateCounter, (int)ret,
+                (int)singlePlayerGameInfo.hyperspaceFails, (int)catMtFailJumpShips, (int)docked);
+}
+
+static void catMtFailJumpWatch(void)
+{
+    sdword ships, hyperspacing, ether, playerEther = 0, docked;
+    Ship *mothership;
+    bool32 mothershipOutside;
+    Node *node;
+
+    if (!catMtFailJump || (catMtFailJumpArmTick < 0) || (catMtFailJumpReturnTick >= 0))
+    {
+        return;
+    }
+    if ((catMtFailJumpBegunTick < 0) && (singlePlayerGameInfo.hyperspaceState != NO_HYPERSPACE))
+    {
+        catMtFailJumpBegunTick = (sdword)universe.univUpdateCounter;
+        dbgMessagef("missiontest: failed jump begun tick=%u (hyperspaceState=%d hyperspaceFails=%d)",
+                    (unsigned)universe.univUpdateCounter, (int)singlePlayerGameInfo.hyperspaceState,
+                    (int)singlePlayerGameInfo.hyperspaceFails);
+        return;
+    }
+    if ((catMtFailJumpBegunTick < 0) || (singlePlayerGameInfo.hyperspaceState != NO_HYPERSPACE))
+    {
+        return;
+    }
+    // the return: the exe's case 10 has run (it leaves NO_HYPERSPACE and clears hyperspaceFails)
+    catMtFailJumpReturnTick = (sdword)universe.univUpdateCounter;
+    ships = catMtFailJumpCount(&hyperspacing, &docked);
+    ether = (sdword)singlePlayerGameInfo.ShipsInHyperspace.num;
+    for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = node->next)
+    {
+        if (((InsideShip *)listGetStructOfNode(node))->ship->playerowner == universe.curPlayerPtr)
+        {
+            playerEther++;                      // (the level's own ships left in the ether may stay: Mission12)
+        }
+    }
+    mothership = universe.curPlayerPtr->PlayerMothership;
+    mothershipOutside = (mothership != NULL) && !bitTest(mothership->header.flags, SOF_Dead) && !bitTest(mothership->header.flags, SOF_Hyperspace);
+    catMtFailJumpPass = !singlePlayerGameInfo.hyperspaceFails && (catMtNextLevelTick < 0) && mothershipOutside &&
+                        (hyperspacing == 0) && (playerEther == 0) && (ships == catMtFailJumpShips) && !catMtFailed;
+    dbgMessagef("missiontest: failed jump return tick=%u (case HYPERSPACE_CATFAILEDRETURN: hyperspaceState=%d hyperspaceFails=%d "
+                "level=%s mothership=%s playerShips=%d (armed %d; docked %d) hyperspacing=%d ether=%d (the player's %d)) %s",
+                (unsigned)universe.univUpdateCounter, (int)singlePlayerGameInfo.hyperspaceState,
+                (int)singlePlayerGameInfo.hyperspaceFails, (catMtNextLevelTick < 0) ? "same" : "changed",
+                mothershipOutside ? "outside" : "not outside", (int)ships, (int)catMtFailJumpShips, (int)docked, (int)hyperspacing,
+                (int)ether, (int)playerEther, catMtFailJumpPass ? "ok" : "FAIL");
+    // the run ends 32 ticks on (no second jump: playerCanHyperspace stays as the exe's case 10 leaves it)
+    catMtFailJumpEndTick = (sdword)universe.univUpdateCounter + 32;
+    dbgMessagef("missiontest: failed jump: playerCanHyperspace=%d after the return; the run ends at tick=%d",
+                (int)singlePlayerGameInfo.playerCanHyperspace, (int)catMtFailJumpEndTick);
+}
+
 static void catMtPlay(void)
 {
     sdword i;
@@ -2864,6 +2989,10 @@ static void catMtPlay(void)
     if ((catMtEndTick >= 0) && ((sdword)universe.univUpdateCounter >= catMtEndTick) && !catMtHyperspaced)
     {
         catMtHyperspaced = TRUE;
+        if (catMtFailJump && (catMtFailJumpArmTick < 0) && (catMtMission >= 2))
+        {
+            catMtFailJumpArm();                 // M2-R10 tests-leftovers: the first command's jump is to fail
+        }
         dbgMessagef("missiontest: event tick=%u Hyperspace: the hyperspace command (playerCanHyperspace=%d)",
                     (unsigned)universe.univUpdateCounter, (int)singlePlayerGameInfo.playerCanHyperspace);
         spHyperspaceButtonPushed();
@@ -2878,6 +3007,7 @@ static void catMtPlay(void)
         dbgMessagef("missiontest: Hyperspace tick=%u jump begun (hyperspaceState=%d)", (unsigned)universe.univUpdateCounter,
                     (int)singlePlayerGameInfo.hyperspaceState);
     }
+    catMtFailJumpWatch();
     if (!catMtArrived && (cat_kasVarFind(0, cat_kasHashString("G_ShipsHaveArrived")) != NULL))
     {
         catMtArrived = TRUE;
@@ -3508,9 +3638,21 @@ static void catMtMissionEnd(void)
         //      hyperspace jump, no next level)
         pass = pass && (catMtCompletedTick >= 0) && (catMtGameEndTick >= 0);
     }
+    else if (catMtFailJump)
+    {
+        // M2-R10 tests-leftovers: the jump begun, failed and returned (judged ok), no next level
+        pass = pass && (catMtHyperspaceTick >= 0) && (catMtNextLevelTick < 0) && (catMtFailJumpReturnTick >= 0) &&
+               catMtFailJumpPass;
+    }
     else
     {
         pass = pass && (catMtHyperspaceTick >= 0) && (catMtNextLevelTick >= 0);
+    }
+    if (catMtFailJump)
+    {
+        dbgMessagef("missiontest: failed jump judged armed=%d begun=%d return=%d %s", (int)catMtFailJumpArmTick,
+                    (int)catMtFailJumpBegunTick, (int)catMtFailJumpReturnTick,
+                    ((catMtFailJumpReturnTick >= 0) && catMtFailJumpPass) ? "PASS" : "FAIL");
     }
     dbgMessagef("missiontest: end mission=%d tick=%u level=%d kas=%d arrived=%d inOrder=%d jump=%d rollcall=%s next=%d failed=%d"
                 " completed=%d gameend=%d",
@@ -3683,7 +3825,9 @@ void catMissionSelfTestTick(void)
          ((sdword)universe.univUpdateCounter >= catMtHyperspaceTick + 32)) ||
         ((catMissionTestTicks > 0) && (catMtMission >= 2) && (catMtNextLevelTick >= 0) &&
          ((sdword)universe.univUpdateCounter >= catMtNextLevelTick + 32)) ||
-        ((catMissionTestTicks > 0) && (catMtMission >= 2) && catMtFailed))       // M2-R9 missions-10-17: a lost mission ends the run
+        ((catMissionTestTicks > 0) && (catMtMission >= 2) && catMtFailed) ||     // M2-R9 missions-10-17: a lost mission ends the run
+        ((catMissionTestTicks > 0) && (catMtMission >= 2) && (catMtFailJumpEndTick >= 0) &&
+         ((sdword)universe.univUpdateCounter >= catMtFailJumpEndTick)))         // M2-R10 tests-leftovers: the failed jump's end
     {
         sdword i, reached = 0;
         bool32 inOrder = TRUE;

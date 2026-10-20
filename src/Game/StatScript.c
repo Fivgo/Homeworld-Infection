@@ -746,7 +746,10 @@ bool32 parseLine(char *line,char **returnName,char **returnValue)
     {                                                   //scan for comments
         *strchr(line, ';') = 0;
     }
-    if (strstr(line, "//") != NULL)
+    // CAT: a line with "http:" in it keeps its "//" (parseLine 0x00526120 tests strstr(line, "http:") 0x00897e04 first):
+    //      the string tables' web addresses (english.script's strTroubleShootPage / strSierraComPage /
+    //      strContestServerPage), which strSetStringCB 0x00528800 then keeps as written (HW1 cut them to "http:")
+    if ((strstr(line, "http:") == NULL) && (strstr(line, "//") != NULL))
     {
         *strstr(line, "//") = 0;
     }

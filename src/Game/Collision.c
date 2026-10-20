@@ -1775,6 +1775,21 @@ void collCheckShipDerelictColl(blob *thisBlob)
                 goto nocollision;
             }
 
+            // CAT (M2-R10 tests-leftovers review): collCheckShipDerelictColl 0x0043bed0 skips a ship clamped to the
+            //      derelict and a derelict clamped to the ship (0x0043bfcc .. 0x0043bff3: SOF_Clamped and clampInfo's host);
+            //      CAT-FIX: the clampInfo != NULL tests are the tree's guard, the exe reads clampInfo->host unguarded
+            //      (0x0043bfd8 / 0x0043bfeb) [audit: M2-R10 tests-leftovers: the guard was unmarked]
+            if (bitTest(obj1->header.flags, SOF_Clamped) && (((SpaceObjRotImpTargGuidance *)obj1)->clampInfo != NULL) &&
+                ((Derelict *)((SpaceObjRotImpTargGuidance *)obj1)->clampInfo->host == obj2))
+            {
+                goto nocollision;
+            }
+            if (bitTest(obj2->header.flags, SOF_Clamped) && (((SpaceObjRotImpTargGuidance *)obj2)->clampInfo != NULL) &&
+                ((Ship *)((SpaceObjRotImpTargGuidance *)obj2)->clampInfo->host == obj1))
+            {
+                goto nocollision;
+            }
+
             colldist = obj1collspheresize + obj2->staticinfo->common.staticCollInfo.collspheresize;
 
             if (absdistcheck > colldist)
@@ -1818,10 +1833,20 @@ void collCheckShipDerelictColl(blob *thisBlob)
                 goto nocollision;
             }
 
-            distsquared = vecMagnitudeSquared(distvector);
-            dist = (real32)fsqrt(distsquared);
+            // CAT (M2-R10 tests-leftovers review): the squared distance (dz*dz + dy*dy) + dx*dx on the FPU, compared
+            //      unrounded with colldist * colldist (0x0043c114 .. 0x0043c145) and kept as a float; the square root
+            //      only for the collision itself (fsqrt of the double, 0x0043c197) (HW1: fsqrt first, dist < colldist)
+            {
+                double distsquaredD = ((double)distvector.z * (double)distvector.z + (double)distvector.y * (double)distvector.y) +
+                                      (double)distvector.x * (double)distvector.x;
 
-            if (dist < colldist)
+                distsquared = (real32)distsquaredD;
+                if (!(distsquaredD < (double)colldist * (double)colldist))
+                {
+                    goto nocollision;
+                }
+            }
+
             {
                 if (collCheckRectBumpCollision(&obj1->impactable,&obj2->impactable))
                 {
@@ -1829,11 +1854,11 @@ void collCheckShipDerelictColl(blob *thisBlob)
                     {
                         distvector.x = 10.0f;   // special case, if objects are too close together
                         distsquared = 100.0f;
-                        dist = 10.0f;
                     }
 
                     if (!bitTest(obj1->header.flags, SOF_NotBumpable) && !bitTest(obj2->header.flags, SOF_NotBumpable))
                     {
+                        dist = (real32)catFsqrtD(distsquared);
                         if(!kamikazeCheck(&obj1->targetable,&obj2->targetable))    //return true if kamikaze collision is true
                         {
                             // deliberately do not apply damage for ship-derelict collisions

@@ -1496,15 +1496,29 @@ lightning* cloudNewLightning(void* system, real32 radius)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT: cloudZapLoop 0x00438c30's x87 distance test (0x00438c74 .. 0x00438c95, 0x00438cf7 .. 0x00438d18): the cloud's
+//      position minus the object's, unrounded, summed as (dz*dz + dy*dy) + dx*dx on the FPU
+static double catCloudDistSqD(const vector *cloud, const vector *object)
+{
+    double dx = (double)cloud->x - (double)object->x;
+    double dy = (double)cloud->y - (double)object->y;
+    double dz = (double)cloud->z - (double)object->z;
+
+    return (dz * dz + dy * dy) + dx * dx;
+}
+
 void cloudZapLoop(cloudSystem* system)
 {
     Node* node;
     SpaceObj* spaceobj;
-    real32 radius, radiusSquared;
+    real32 radiusSquared;
+    double radius;
     udword hits;
 
-    radius = CLOUD_RADIAL_DAMAGE_SCALAR * system->radius * system->healthFactor;
-    radiusSquared = radius * radius;
+    // CAT: the exe's x87 shape (0x00438c44 .. 0x00438c5b): healthFactor * radius * CLOUD_RADIAL_DAMAGE_SCALAR and its
+    //      square on the FPU, stored as a float (HW1: the float product in the other order)
+    radius = (double)system->healthFactor * (double)system->radius * (double)CLOUD_RADIAL_DAMAGE_SCALAR;
+    radiusSquared = (real32)(radius * radius);
     hits = 0;
 
     //gather loop
@@ -1515,10 +1529,7 @@ void cloudZapLoop(cloudSystem* system)
 
         if (spaceobj->header.objtype == OBJ_ShipType)
         {
-            vector diff;
-
-            vecSub(diff, *system->position, spaceobj->posinfo.position);
-            if (vecMagnitudeSquared(diff) <= radiusSquared)
+            if (catCloudDistSqD(system->position, &spaceobj->posinfo.position) <= (double)radiusSquared)
             {
                 hits++;
             }
@@ -1532,7 +1543,8 @@ void cloudZapLoop(cloudSystem* system)
     {
         real32 damage;
 
-        damage = (CLOUD_ZAP_SCALAR * ((real32)system->maxhealth / (real32)hits));
+        // CAT: fild maxhealth / fidiv hits, times CLOUD_ZAP_SCALAR on the FPU, stored as a float (0x00438cb5 .. 0x00438cd2)
+        damage = (real32)((double)system->maxhealth / (double)(sdword)hits * (double)CLOUD_ZAP_SCALAR);
 
         node = universe.SpaceObjList.head;
         while (node != NULL)
@@ -1541,10 +1553,7 @@ void cloudZapLoop(cloudSystem* system)
 
             if (spaceobj->header.objtype == OBJ_ShipType)
             {
-                vector diff;
-
-                vecSub(diff, *system->position, spaceobj->posinfo.position);
-                if (vecMagnitudeSquared(diff) <= radiusSquared)
+                if (catCloudDistSqD(system->position, &spaceobj->posinfo.position) <= (double)radiusSquared)
                 {
                     Ship* ship = (Ship*)spaceobj;
                     udword i;
@@ -1615,6 +1624,7 @@ void cloudNewBurst(cloudSystem* system, udword i)
     Outputs     : possibly alters the cloud state
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT-TODO(M3 oracle physics): cloudUpdateSystem 0x00439130's shape (M2-R10 tests-leftovers review): the burst threshold is charge * 20 rounded to nearest (+ 6755399441055744.0 and the low dword, 0x0072a4d0 / 0x0072a458), not truncated; every radius is healthFactor * radius * 0.9 on the FPU (the tree: 0.9 * radius * healthFactor); the distances are fsqrt of the x87 sum; only RANDOM_CLOUDS (rng_all) and the lightning's drawing depend on it
 void cloudUpdateSystem(cloudSystem* system)
 {
     udword i, thresh;

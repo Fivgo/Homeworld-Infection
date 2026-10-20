@@ -29,6 +29,7 @@ void SetInfoNeededForShipAndRelatedStaticInfo(ShipType type,ShipRace race,bool8 
 // HWI-TEST (skirmish-start), port diagnostic: /catSkirmishTest <ticks>, /catSkirmishMap <name> (harness mode skirmish)
 void catSkirmishSelfTestSet(char *string);
 void catSkirmishSelfTestSetMap(char *string);
+void catSkirmishSelfTestSetBigotry(char *string);  // HWI-TEST (M2-R10 tests-leftovers): /catSkirmishBigotry <0..2>
 bool32 catSkirmishSelfTestRequested(void);
 void catSkirmishSelfTestStart(void);                // end of utyGameSystemsInit: the front end's skirmish start
 void catSkirmishSelfTestTick(void);                 // after each universe tick (OracleDump.c oracleUnivUpdate)

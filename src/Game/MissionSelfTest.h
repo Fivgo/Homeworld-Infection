@@ -31,6 +31,14 @@ void catMissionSelfTestEvent(const char *what);     // a flow event (NIS start /
 // HWI-TEST (M2-R9 missions-10-17): /catMissionTestTrace: every new KAS message (aitMsgSend) logged as a "missiontest:
 //      msg" line (a team's re-queue of a message it did not handle is not repeated); a diagnostic, off in the gate runs
 void catMissionSelfTestTraceSet(void);
+// HWI-TEST (M2-R10 tests-leftovers): /catMissionTestFailJump with /catMissionTest <ticks> /catMissionTestMission N (harness
+//      missiontest --fail-jump): the deliberate-loss test of the failed jump. At the test's first hyperspace command
+//      DisablePlayerHyperspace runs through the developer console's KAS call (cat_kasCallFunctionByName 0x0045b9a0, the
+//      exe's only route to hyperspaceFails); the jump fizzles and returns through singlePlayerGameUpdate's case
+//      HYPERSPACE_CATFAILEDRETURN (10); the return is judged ("missiontest: failed jump ..." lines) and the run ends 32
+//      ticks later (no second jump: case 10 does not give playerCanHyperspace back) [audit: M2-R10 tests-leftovers: was
+//      "then the test jumps again for real and the mission ends as usual", which the code does not do]
+void catMissionSelfTestFailJumpSet(void);
 // HWI-TEST (M2-R9 missions-10-17): /catWarpStartTest with /catMissionTest <ticks> (harness mode warpstart): the warp
 //      start from a test copy of warp.script (WarpEnabled 1, LevelToWarpTo N) in the run's data dir: the level's record
 //      against the fleet in the ether (cat_spWarpStartSelfTestCheck), then the level, its KAS script and the fleet's

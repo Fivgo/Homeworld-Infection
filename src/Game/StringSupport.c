@@ -2097,6 +2097,27 @@ void catStringsRunSelfTest(void)
                 rows, keys, missing);
     dbgMessagef("stringstest: ids without a key (*NO_STRING*, as the exe): %s%s", missingList, listed < missing ? " ..." : "");
     dbgMessagef("stringstest: ship names: %d of %d types named (ShipTypeToNiceStr), %d *NO_STRING*", shipNames, TOTAL_NUM_SHIPS, shipNoString);
+    // HWI-TEST (M2-R10 tests-leftovers): the web addresses load whole (parseLine 0x00526120 keeps the "//" of a line
+    //      holding "http:"; the rows above are read through the same parseLine, so they cannot show it): every loaded
+    //      string holding "http:" also holds "://"
+    {
+        sdword urls = 0, whole = 0;
+
+        for (id = 0; id < NumStrings; id++)
+        {
+            if ((MessageStrings[id] != NULL) && (strstr(MessageStrings[id], "http:") != NULL))
+            {
+                urls++;
+                if (strstr(MessageStrings[id], "://") != NULL)
+                {
+                    whole++;
+                }
+                dbgMessagef("stringstest: url id=%d %s", id, MessageStrings[id]);
+            }
+        }
+        dbgMessagef("stringstest: urls=%d whole=%d", urls, whole);
+        wrongText += urls - whole;
+    }
     dbgMessagef("stringstest: done ids=%d mapback=%d resolved=%d nostring=%d wrongtext=%d wrongnostring=%d result=%s",
                 NumStrings, mapback, resolved, missing, wrongText, wrongMissing,
                 (mapback == NumStrings && resolved == keys && keys + missing == NumStrings && wrongText == 0 &&

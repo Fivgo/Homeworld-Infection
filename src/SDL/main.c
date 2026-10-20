@@ -441,11 +441,17 @@ bool32 CatAiTestSet(char *string)
 //      start through its KAS objectives, headless, no input); /catMissionTestTutorial <ticks> (Tutorial1's first screen).
 //      The mission test runs without sound and speech (as /oracleReplay: the mixer and speech threads run on the wall
 //      clock); the tutorial test keeps speech (its prompt is a narration's subtitle) and is not a stream comparison
+// HWI-TEST (M2-R10 tests-leftovers): every /catMissionTest run (missiontest Mission01 .. 17, the warp start) is on the
+//      virtual audio clock as the tutorial leg is (decision 94's default): the mixer and the stream would be stepped by the
+//      game thread, never by SDL's audio thread or the stream thread. With sound and speech off soundinit never runs, so
+//      the switch changes nothing in these streams today; Mission06's rng_all-only pairs were the nebula tendrils'
+//      uninitialised bounding sphere (Nebulae.c nebInitTendril, CAT-FIX), not the mixer
 bool32 CatMissionTestSet(char *string)
 {
     catMissionSelfTestSet(string);
     enableSFX = FALSE;
     enableSpeech = FALSE;
+    soundVirtualClock = TRUE;
     return TRUE;
 }
 
@@ -462,6 +468,15 @@ bool32 CatMissionTestTraceSet(char *string)
 {
     (void)string;
     catMissionSelfTestTraceSet();
+    return TRUE;
+}
+
+// HWI-TEST (M2-R10 tests-leftovers): /catMissionTestFailJump with /catMissionTest <ticks> /catMissionTestMission N: the
+//      deliberate-loss test of the failed jump (MissionSelfTest.c catMtFailJumpWatch)
+bool32 CatMissionTestFailJumpSet(char *string)
+{
+    (void)string;
+    catMissionSelfTestFailJumpSet();
     return TRUE;
 }
 
@@ -527,6 +542,14 @@ bool32 CatSkirmishTestSet(char *string)
 bool32 CatSkirmishMapSet(char *string)
 {
     catSkirmishSelfTestSetMap(string);
+    return TRUE;
+}
+
+// HWI-TEST (M2-R10 tests-leftovers): /catSkirmishBigotry <0..2>: the skirmish test presses the CPU-attacks radio button
+//      (opCPUAttacks: tpGameCreated.aiplayerBigotry) before StartNewGame
+bool32 CatSkirmishBigotrySet(char *string)
+{
+    catSkirmishSelfTestSetBigotry(string);
     return TRUE;
 }
 
@@ -1265,10 +1288,12 @@ commandoption commandOptions[] =
     entryFnParam("/catMissionTestMission", CatMissionTestMissionSet, " <N> - with /catMissionTest: mission N (2 .. 17) from the exe's warp start (Warp.script's level N record) through its KAS objectives and the jump to the next level."),
     entryFn("/catWarpStartTest",      CatWarpStartTestSet, " - with /catMissionTest: the warp start of the data dir's warp.script (WarpEnabled 1) checked against its record, through the fleet's arrival."),
     entryFn("/catMissionTestTrace",   CatMissionTestTraceSet, " - with /catMissionTest: every new KAS message logged (missiontest: msg lines; a diagnostic)."),
+    entryFn("/catMissionTestFailJump", CatMissionTestFailJumpSet, " - with /catMissionTest and /catMissionTestMission N (a roll-call jump): the first jump fails (DisablePlayerHyperspace through the console's KAS call), its return is judged and the run ends 32 ticks later (no second jump)."),
     entryFn("/catVirtualAudio",       CatVirtualAudioSet, " - with a virtual-clock run: the mixer and the speech stream advanced by the virtual clock on the game thread (the tutorial test sets it)."),
     entryFnParam("/catMissionTestTutorial", CatMissionTestTutorialSet, " <ticks> - headless tutorial start: Tutorial1's KAS script runs until its first prompt shows, logs missiontest lines, exit."),
     entryFnParam("/catSkirmishTest",    CatSkirmishTestSet, " <ticks> - start a 2-player skirmish (Sect against a computer player) through the front end's own callbacks with no input, run <ticks> universe ticks on the virtual clock, judge the universe, log skirmishtest lines, exit."),
     entryFnParam("/catSkirmishMap",     CatSkirmishMapSet, " <name> - the map of /catSkirmishTest (a MultiPlayer directory name; default LiveFireExercise2)."),
+    entryFnParam("/catSkirmishBigotry", CatSkirmishBigotrySet, " <0..2> - with /catSkirmishTest: the skirmish screen's CPU-attacks radio button (tpGameCreated.aiplayerBigotry) pressed before the start; 2 makes the computers ally (cat_aisSetupAlliances)."),
     entryFnParam("/catCommandTest",     CatCommandTestSet, " <ticks> - headless Mission01 run: link, unlink, mimic, research, point orders and force-field formations with no input, exit after <ticks> ticks."),
     entryFnParam("/catHudTest",         CatHudTestSet, " <frames> - headless Mission01 run with the player's ships selected through the selection API: status bars, ship info panel, main overlay and pie plate drawn offscreen, logs the HUD counts, exit after <frames> ticks."),
     // CAT: port diagnostics, not Cataclysm options (FEFlow.c catFeScreensRunSelfTest, StringSupport.c

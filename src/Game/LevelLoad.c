@@ -46,6 +46,7 @@
 #include "GameStats.h"     // CAT (M2-R9 missions-02-09): the Mine / Slipgate readers
 #include "ShipDisable.h"     // CAT (M2-R9 missions-02-09): the Mine / Slipgate readers
 #include "Slipgate.h"     // CAT (M2-R9 missions-02-09): the Mine / Slipgate readers
+#include "Options.h"     // HWI-TEST (M2-R10 tests-leftovers): opCPUAttacks, the skirmish test's bigotry
 
 #ifdef _MSC_VER
     #define strcasecmp _stricmp
@@ -2944,6 +2945,7 @@ static char catSkirmishSelfTestMap[64] = CAT_SKIRMISHTEST_DEFAULT_MAP;
 static bool32 catSkirmishSelfTestStarted = FALSE;
 static bool32 catSkirmishSelfTestDone = FALSE;
 static bool32 catSkirmishSelfTestPass = TRUE;
+static sdword catSkirmishSelfTestBigotry = -1;              // HWI-TEST (M2-R10 tests-leftovers): -1 = the front end's
 
 void catSkirmishSelfTestSet(char *string)
 {
@@ -2959,6 +2961,17 @@ void catSkirmishSelfTestSetMap(char *string)
 {
     strncpy(catSkirmishSelfTestMap, string, sizeof(catSkirmishSelfTestMap) - 1);
     catSkirmishSelfTestMap[sizeof(catSkirmishSelfTestMap) - 1] = '\0';
+}
+
+// HWI-TEST (M2-R10 tests-leftovers): /catSkirmishBigotry <0..2>: the skirmish screen's CPU-attacks radio button
+//      (OP_CPU_Attacks on update.big's Skirmish_Basic: three buttons, pData 0, 1, 2) pressed before StartNewGame
+void catSkirmishSelfTestSetBigotry(char *string)
+{
+    catSkirmishSelfTestBigotry = (sdword)strtol(string, NULL, 10);
+    if ((catSkirmishSelfTestBigotry < 0) || (catSkirmishSelfTestBigotry > 2))
+    {
+        catSkirmishSelfTestBigotry = -1;
+    }
 }
 
 bool32 catSkirmishSelfTestRequested(void)
@@ -2993,6 +3006,19 @@ void catSkirmishSelfTestStart(void)
         return;
     }
     whichRaceSelected = RACE_Sect;                          // Skirmish_Colour's CP_RaceOne
+    if (catSkirmishSelfTestBigotry >= 0)
+    {
+        // HWI-TEST (M2-R10 tests-leftovers): the radio button's click: opCPUAttacks 0x004db440 with the button's atom
+        //      (not its first call) sets tpGameCreated.aiplayerBigotry from the atom's pData; cat_aisSetupAlliances
+        //      0x004310a0 then sends the alliances at the skirmish AI's first play
+        featom bigotryButton;
+
+        memset(&bigotryButton, 0, sizeof(bigotryButton));
+        bigotryButton.pData = (void *)(memsize)catSkirmishSelfTestBigotry;
+        opCPUAttacks("OP_CPU_Attacks", &bigotryButton);
+        dbgMessagef("skirmishtest: bigotry=%u (OP_CPU_Attacks radio button %d)", (unsigned)tpGameCreated.aiplayerBigotry,
+                    (int)catSkirmishSelfTestBigotry);
+    }
     dbgMessagef("skirmishtest: picked index=%d file=%s title='%s' maxplayers=%u selected=%d humans=%u computers=%u race=%d flag=0x%x fleet=%u resources=%u",
                 (int)index, spScenarios[index].fileSpec, spScenarios[index].title, (unsigned)spScenarios[index].maxplayers,
                 (int)spCurrentSelected, (unsigned)tpGameCreated.numPlayers, (unsigned)tpGameCreated.numComputers,

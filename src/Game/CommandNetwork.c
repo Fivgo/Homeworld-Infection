@@ -666,7 +666,12 @@ bool32 packetBroadcastSync(ubyte *packet,udword sizeofPacket)
                   player in the high byte) whose body is written at the exe's offsets. The exe's blocks are not
                   cleared (the checksum words and the header's last two bytes are the allocator's until the captain's
                   sync packet fills the checksums); here the block is zeroed so a recording's bytes do not depend on
-                  the heap
+                  the heap. CAT-FIX (M2-R10 tests-leftovers): the HW1-layout senders below (attack, targets, dock,
+                  launch, misc, god, RU transfer, autolaunch, alliance, research, drop, create, deterministic build,
+                  build, collect, protect: 16 [audit: M2-R10 tests-leftovers: god added, clSendGodSync zeroes too])
+                  zero their blocks the same way: their structs' tail padding (NetMiscCommand's
+                  last two bytes: 10 + 2n as the exe sizes it) was heap bytes in the .pkts, so two record runs of one
+                  game differed there
 ----------------------------------------------------------------------------*/
 static ubyte *clPktCommandAlloc(udword sizeofPacket, udword bodyMax, udword commandType, char *name)
 {
@@ -814,6 +819,7 @@ void clSendAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand 
     sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeofNetAttackCommand(numShipsToAttack,numShips);
 
     packet = memAlloc(sizeofPacket,"attackpacket",0);
+    memset(packet, 0, sizeofPacket);    // CAT-FIX (M2-R10 tests-leftovers): the struct padding zeroed (clPktCommandAlloc's rule)
 
     packet->type = PACKETTYPE_COMMAND;
     packet->from = (uword)sigsPlayerIndex;
@@ -875,6 +881,7 @@ void clSendSpecial(CommandLayer *comlayer,SelectCommand *selectcom,SpecialComman
     sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeofNetSpecialCommand(numShipsToTarget,numShips);
 
     packet = memAlloc(sizeofPacket,"targetspacket",0);
+    memset(packet, 0, sizeofPacket);    // CAT-FIX (M2-R10 tests-leftovers): the struct padding zeroed (clPktCommandAlloc's rule)
 
     packet->type = PACKETTYPE_COMMAND;
     packet->from = (uword)sigsPlayerIndex;
@@ -960,6 +967,7 @@ void clSendDock(CommandLayer *comlayer,SelectCommand *selectcom,DockType dockTyp
     sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeofNetDockCommand(numShips);
 
     packet = memAlloc(sizeofPacket,"dockpacket",0);
+    memset(packet, 0, sizeofPacket);    // CAT-FIX (M2-R10 tests-leftovers): the struct padding zeroed (clPktCommandAlloc's rule)
 
     packet->type = PACKETTYPE_COMMAND;
     packet->from = (uword)sigsPlayerIndex;
@@ -1013,6 +1021,7 @@ void clSendLaunchMultipleShips(CommandLayer *comlayer,SelectCommand *selectcom,S
     sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeofNetLaunchMultipleCommand(numShips);
 
     packet = memAlloc(sizeofPacket,"launchpacket",0);
+    memset(packet, 0, sizeofPacket);    // CAT-FIX (M2-R10 tests-leftovers): the struct padding zeroed (clPktCommandAlloc's rule)
 
     packet->type = PACKETTYPE_COMMAND;
     packet->from = (uword)sigsPlayerIndex;
@@ -1057,6 +1066,7 @@ void clSendMisc(CommandLayer *comlayer,SelectCommand *selectcom,uword miscComman
     sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeofNetMiscCommand(numShips);
 
     packet = memAlloc(sizeofPacket,"miscpacket",0);
+    memset(packet, 0, sizeofPacket);    // CAT-FIX (M2-R10 tests-leftovers): the struct padding zeroed (clPktCommandAlloc's rule)
 
     packet->type = PACKETTYPE_COMMAND;
     packet->from = (uword)sigsPlayerIndex;
@@ -1094,6 +1104,7 @@ void clSendGodSync(GodSyncCheckSums *checksumStruct,sdword playIndex,udword type
     sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader)  + sizeof(GodSyncCommand);
 
     packet = memAlloc(sizeofPacket,"godpacket",0);
+    memset(packet, 0, sizeofPacket);    // CAT-FIX (M2-R10 tests-leftovers): the struct padding zeroed (clPktCommandAlloc's rule)
 
     packet->type = PACKETTYPE_COMMAND;
     packet->from = (uword)sigsPlayerIndex;
@@ -1127,6 +1138,7 @@ void clSendRuTransfer(CommandLayer *comlayer,sdword fromIndex,sdword toIndex, sd
     sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeof(NetRUTransferferCommand);
 
     packet = memAlloc(sizeofPacket,"rtranspacket",0);
+    memset(packet, 0, sizeofPacket);    // CAT-FIX (M2-R10 tests-leftovers): the struct padding zeroed (clPktCommandAlloc's rule)
 
     packet->type = PACKETTYPE_COMMAND;
     packet->from = (uword)sigsPlayerIndex;
@@ -1167,6 +1179,7 @@ void clSendAutoLaunch(udword OnOff,udword playerIndex)
     sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeofNetAutolaunchCommand;
 
     packet = memAlloc(sizeofPacket,"alaunchpacket",0);
+    memset(packet, 0, sizeofPacket);    // CAT-FIX (M2-R10 tests-leftovers): the struct padding zeroed (clPktCommandAlloc's rule)
 
     packet->type = PACKETTYPE_COMMAND;
     packet->from = (uword)sigsPlayerIndex;
@@ -1204,6 +1217,7 @@ void clSendSetAlliance(udword AllianceType, uword playerone, uword playertwo)
     sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeofNetAllianceCommand;
 
     packet = memAlloc(sizeofPacket,"aliancepacket",0);
+    memset(packet, 0, sizeofPacket);    // CAT-FIX (M2-R10 tests-leftovers): the struct padding zeroed (clPktCommandAlloc's rule)
 
     packet->type = PACKETTYPE_COMMAND;
     packet->from = (uword)sigsPlayerIndex;
@@ -1235,6 +1249,7 @@ void clSendResearch(udword type, udword playernum, udword labnum, udword tech)
     sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeofNetResearchCommand;
 
     packet = memAlloc(sizeofPacket,"researchpacket",0);
+    memset(packet, 0, sizeofPacket);    // CAT-FIX (M2-R10 tests-leftovers): the struct padding zeroed (clPktCommandAlloc's rule)
 
     packet->type = PACKETTYPE_COMMAND;
     packet->from = (uword)sigsPlayerIndex;
@@ -1274,6 +1289,7 @@ void clSendPlayerDropped(udword playerDroppedMask)
     sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeofNetPlayerDroppedCommand;
 
     packet = memAlloc(sizeofPacket,"droppacket",0);
+    memset(packet, 0, sizeofPacket);    // CAT-FIX (M2-R10 tests-leftovers): the struct padding zeroed (clPktCommandAlloc's rule)
 
     packet->type = PACKETTYPE_COMMAND;
     packet->from = (uword)sigsPlayerIndex;
@@ -1311,6 +1327,7 @@ void clSendCreateShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace
     sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeofNetCreateShipCommand;
 
     packet = memAlloc(sizeofPacket,"createpacket",0);
+    memset(packet, 0, sizeofPacket);    // CAT-FIX (M2-R10 tests-leftovers): the struct padding zeroed (clPktCommandAlloc's rule)
 
     packet->type = PACKETTYPE_COMMAND;
     packet->from = (uword)sigsPlayerIndex;
@@ -1345,6 +1362,7 @@ void clSendDeterministicBuild(udword command, CommandLayer* comlayer, sdword num
     sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeofNetDeterministicBuildCommand;
 
     packet = memAlloc(sizeofPacket, "dbuildpacket", 0);
+    memset(packet, 0, sizeofPacket);    // CAT-FIX (M2-R10 tests-leftovers): the struct padding zeroed (clPktCommandAlloc's rule)
 
     packet->type = PACKETTYPE_COMMAND;
     packet->from = (uword)sigsPlayerIndex;
@@ -1386,6 +1404,7 @@ void clSendBuildShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,
     sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeofNetCreateShipCommand;
 
     packet = memAlloc(sizeofPacket,"buildpacket",0);
+    memset(packet, 0, sizeofPacket);    // CAT-FIX (M2-R10 tests-leftovers): the struct padding zeroed (clPktCommandAlloc's rule)
 
     packet->type = PACKETTYPE_COMMAND;
     packet->from = (uword)sigsPlayerIndex;
@@ -1429,6 +1448,7 @@ void clSendCollectResource(CommandLayer *comlayer,SelectCommand *selectcom,Resou
     sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeofNetCollectResourceCommand(numShips);
 
     packet = memAlloc(sizeofPacket,"collectpacket",0);
+    memset(packet, 0, sizeofPacket);    // CAT-FIX (M2-R10 tests-leftovers): the struct padding zeroed (clPktCommandAlloc's rule)
 
     packet->type = PACKETTYPE_COMMAND;
     packet->from = (uword)sigsPlayerIndex;
@@ -1483,6 +1503,7 @@ void clSendProtect(CommandLayer *comlayer,SelectCommand *selectcom,ProtectComman
     sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeofNetProtectCommand(numShipsToProtect,numShips);
 
     packet = memAlloc(sizeofPacket,"protectpacket",0);
+    memset(packet, 0, sizeofPacket);    // CAT-FIX (M2-R10 tests-leftovers): the struct padding zeroed (clPktCommandAlloc's rule)
 
     packet->type = PACKETTYPE_COMMAND;
     packet->from = (uword)sigsPlayerIndex;
@@ -2254,6 +2275,14 @@ DEFINE_TASK(captainServerTask)
             packet->type = PACKETTYPE_SYNC;
             packet->from = (uword)sigsPlayerIndex;
             packet->frame = sentPacketNumber++;
+            // CAT-FIX (M2-R10 tests-leftovers): the header's two padding bytes after numberOfCommands (+0x1A .. +0x1B)
+            //      are zeroed. captainServerTask 0x00451580 writes only the uword count at +0x18 in its three branches
+            //      (the empty packet's memAllocFunction(0x1c), the single command packet's copy, the concatenation), so
+            //      the exe sends and records heap bytes there (GOG's .pkts: 2,535 of 4,800 packets nonzero in 10-17,
+            //      1,159 of 1,763 in 10-18 [audit: M2-R10 tests-leftovers: the 10-18 count added, pkts_probe.py]);
+            //      nothing reads them, and zero makes two record runs' .pkts byte-identical
+            memset((ubyte *)packet + offsetof(HWPacketHeader, numberOfCommands) + sizeof(packet->numberOfCommands), 0,
+                   sizeof(HWPacketHeader) - offsetof(HWPacketHeader, numberOfCommands) - sizeof(packet->numberOfCommands));
 #if SYNC_CHECK
             netcheckFillInChecksum(packet);
 #endif
