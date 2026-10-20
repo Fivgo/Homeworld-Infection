@@ -232,8 +232,8 @@
 #                    plays in its staging level, the fleet hyperspaces into Mission01, the KAS FSMs run, and the test
 #                    plays the player's part with scripted events (commands through the command layer, no input);
 #                    "missiontest: <objective> tick=N" per objective of Mission01's map (docs/mission-code-map.md 8),
-#                    "missiontest: fsm ..." per KAS state change, "missiontest: done ticks=N objectives=N/M
-#                    result=PASS|FAIL", then the mission run's quit (rc 0; two runs must give byte-identical run.hwo
+#                    "missiontest: fsm ..." per KAS state change, "missiontest: done mission=1 ticks=N objectives=N/M
+#                    result=PASS|FAIL" [audit: M2-R9 missions-02-09: the line gained mission=1], then the mission run's quit (rc 0; two runs must give byte-identical run.hwo
 #                    streams). With --tutorial: /catMissionTestTutorial (Tutorial1 starts and its first prompt shows;
 #                    M2-R8 singleplayer-tutorial: its Next / previous / quit buttons come up, its first three prompts
 #                    show (each a new subtitle text, the third with the objective list's pointer), then the Next
@@ -251,6 +251,17 @@
 #                    speech
 #   --mission-test-ticks N missiontest mode: the run's tick limit (default 20000)
 #   --tutorial       missiontest mode: Tutorial1's first screens instead of Mission01
+#   --mission N      missiontest mode (M2-R9 missions-02-09): mission N (2 .. 17) instead of Mission01: /catMissionTest
+#                    <ticks> /catMissionTestMission N. The mission starts through the exe's warp start (cat_spWarpToLevel
+#                    0x0051b9c0 with Warp.script's level N record: the fleet, resources and technologies Relic set for
+#                    it; HWI-TEST: WarpEnabled 1 / LevelToWarpTo N as a test copy of Warp.script would say), its KAS
+#                    script runs, the test plays the player's part for each objective of the mission's table
+#                    (MissionSelfTest.c catMtMissions, the order its Objectives FSM creates them), presses the
+#                    hyperspace button, clicks the roll call's enabled button (Go Now / Emergency Hyperspace) if the
+#                    jump has one, and ends 32 ticks after the next level (or its opening NIS's staging level) has
+#                    loaded: "missiontest: next level ...", "missiontest: done mission=N ticks=N objectives=N/M
+#                    result=PASS|FAIL" (two runs must give byte-identical run.hwo streams). Without --mission the
+#                    run is Mission01's, unchanged
 #   --save NAME      loadgame mode: the single-player save to load (default "01 - Hiigara")
 #   --load-ticks N   loadgame mode: universe ticks to run after the load (default 400)
 #   --skirmish-ticks N skirmish mode: universe ticks to run before the judgement (default 600)
@@ -340,7 +351,7 @@ label=${1:?usage: m2_harness.sh <label> [--mode sp|fe] [--timeout N] [--driver D
 shift
 mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"; extra=()
 oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=3000; rframes=600; hframes=600; uticks=400
-conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0; savename="01 - Hiigara"; ldticks=400
+conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0; mtmission=1; savename="01 - Hiigara"; ldticks=400
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""; skticks=600; skmap=LiveFireExercise2
 while [[ $# -gt 0 ]]; do
 	case "$1" in
@@ -369,6 +380,7 @@ while [[ $# -gt 0 ]]; do
 		--skirmish-ticks) skticks=$2; shift ;;
 		--mission-test-ticks) mtticks=$2; shift ;;
 		--tutorial) mttut=1 ;;
+		--mission) mtmission=$2; shift ;;
 		--save) savename=$2; shift ;;
 		--load-ticks) ldticks=$2; shift ;;
 		--skirmish-map) skmap=$2; shift ;;
@@ -424,6 +436,7 @@ elif [[ "$mode" == missiontest ]]; then
 		args+=(/catMissionTestTutorial "$mtticks" /oracleDump "$out/run.hwo")
 	else
 		args+=(/catMissionTest "$mtticks" /oracleDump "$out/run.hwo")
+		if [[ "$mtmission" -ne 1 ]]; then args+=(/catMissionTestMission "$mtmission"); fi
 	fi
 elif [[ "$mode" == loadgame ]]; then
 	# M2-R8 singleplayer-tutorial: the save is copied into the run's own settings dir (where the engine reads and writes

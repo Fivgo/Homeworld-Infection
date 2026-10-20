@@ -3094,7 +3094,7 @@
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match); [skirmish-start] the tree's HWI-FIX writes the fatal string to stderr before the deliberate fault or the exit (SDL has no message box); the body otherwise unchanged",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match); [skirmish-start] the tree's HWI-FIX writes the fatal string to stderr before the deliberate fault or the exit (SDL has no message box); the body otherwise unchanged | [review: M2-R9 missions-02-09] HWI-FIX: an AddressSanitizer build prints the stack trace before the fault (debug aid only)",
   "sample": "audit-R5-layout-dock-sync"
  },
  "0x00462ae0": {
@@ -5481,7 +5481,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "5-byte thunk to singlePlayerMissionFailedCB",
+  "note": "5-byte thunk to singlePlayerMissionFailedCB | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "reread-R2"
  },
  "0x00491eb0": {
@@ -5551,7 +5551,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "KAS hash keys: the timer name arrives as a hash; high bit set = global scope (timTimerX(0, name & 0x7fffffff)), else timTimerX(currentScopeHash or 0, name); kasfScopeName string building is gone and timTim* take (scopeHash, nameHash)",
-  "note": "audit reclassification (kasfTimer* family)",
+  "note": "audit reclassification (kasfTimer* family) | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "reread-R2"
  },
  "0x00492120": {
@@ -5705,7 +5705,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "reread-R2"
  },
  "0x00494610": {
@@ -5775,14 +5775,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R9 missions-02-09] HWI-TEST hook (HWI_ORACLE builds only): reports the creation to the mission self-test; the body unchanged",
   "sample": "reread-R2"
  },
  "0x00494f10": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R9 missions-02-09] HWI-TEST hook (HWI_ORACLE builds only): reports the status to the mission self-test; the body unchanged",
   "sample": "reread-R2"
  },
  "0x00494f30": {
@@ -5803,14 +5803,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R9 missions-02-09] HWI-TEST hook (HWI_ORACLE builds only): reports the destruction to the mission self-test; the body unchanged",
   "sample": "reread-R2"
  },
  "0x00494f70": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "thunk to objectiveDestroyAll",
+  "note": "thunk to objectiveDestroyAll | [review: M2-R9 missions-02-09] HWI-TEST hook (HWI_ORACLE builds only): reports it to the mission self-test; the body unchanged",
   "sample": "reread-R2"
  },
  "0x00494f80": {
@@ -5866,7 +5866,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "ApplyDamageToTarget with 7 arguments (call-site code 0x1e)",
-  "note": "M2-R4 combat: ported"
+  "note": "M2-R4 combat: ported | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported"
  },
  "0x00496110": {
   "class": "IDENTICAL",
@@ -6173,7 +6173,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "__thiscall noise",
+  "note": "__thiscall noise | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "reread-R2"
  },
  "0x004967c0": {
@@ -6313,7 +6313,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "reread-R2"
  },
  "0x00496dd0": {
@@ -6348,7 +6348,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "soundEventMisc macro = soundEventPlay(NULL, event, NULL)",
+  "note": "soundEventMisc macro = soundEventPlay(NULL, event, NULL) | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "reread-R2"
  },
  "0x00497000": {
@@ -6362,7 +6362,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "reread-R2"
  },
  "0x00497140": {
@@ -6439,14 +6439,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "subMessageEnded = FALSE",
+  "note": "subMessageEnded = FALSE | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "IDENTICAL/low"
  },
  "0x00497b90": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "reread-R2"
  },
  "0x00497ca0": {
@@ -6621,7 +6621,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the previous level's fog layer and lens flare textures go after teReset; the need-capital-ship words start at 0; multiplayer captures test 0x00a447b0 for tStandardFrigate only",
-  "note": "[review: M2-R5 render] fog / lens flare part ported (LevelLoad.c); the other deltas are the level-load producers' [review: M2-R8 kas-runtime-mission01] the need words ported as the exe has them [review: M2-R8 singleplayer-tutorial] HW1's warp preload call (singlePlayerPreLoadCheck) removed: the exe has none",
+  "note": "[review: M2-R5 render] fog / lens flare part ported (LevelLoad.c); the other deltas are the level-load producers' [review: M2-R8 kas-runtime-mission01] the need words ported as the exe has them [review: M2-R8 singleplayer-tutorial] HW1's warp preload call (singlePlayerPreLoadCheck) removed: the exe has none | [review: M2-R9 missions-02-09] the pending-slipgate pointer of the \"Slipgate\" mission-sphere lines (0x00c362dc) is reset as the exe does (0x004a3245); the \"Mine\" and \"Slipgate\" readers (0x004a3f20, 0x004a1020) ported into LevelLoad.c",
   "sample": "port-R5-render"
  },
  "0x004a4250": {
@@ -17491,7 +17491,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R6 managers] compared: same",
+  "note": "[review: M2-R6 managers] compared: same | [review: M2-R9 missions-02-09] compared again: same; CAT-FIX: a name that is no technology (-1; Mission09 names TECH_ADVANCED_SYSTEMS) is skipped where the exe writes the word below its table (0x00ba467e)",
   "sample": "port-R6-managers"
  },
  "0x0052eb00": {
@@ -21026,7 +21026,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the attributes of every ship's order or-ed (HW1: the first ship's)",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile): ported",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile): ported | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00492b20": {
@@ -21040,7 +21040,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the percentage rounded to the nearest (1.5 * 2^52, 0x0072a458) where HW1 truncated",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly): ported",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly): ported | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00492c00": {
@@ -21138,7 +21138,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the standoff point clamped to +-half the universe size (smUniverseSize*)",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00493980": {
@@ -21194,7 +21194,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "no visible-leader test and no MoveReachedDestinationVariable distance test: every ship of a matching attack command is added",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x004948a0": {
@@ -21257,7 +21257,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "in the tutorial an objective without full text gets an empty fleet-intelligence text",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported | [review: M2-R9 missions-02-09] HWI-TEST hook (HWI_ORACLE builds only): reports the creation to the mission self-test; the body unchanged",
   "sample": "port-R8-kasf-library"
  },
  "0x00494ca0": {
@@ -21285,7 +21285,7 @@
   "class": "REWRITTEN",
   "confidence": "high",
   "change": "through cat_kasShipsSelectByPredicate (in place: the loop does not advance after a removal)",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00495690": {
@@ -21299,14 +21299,14 @@
   "class": "REWRITTEN",
   "confidence": "high",
   "change": "the static's capital-ship word (+0x2A8) instead of the class test; through cat_kasShipsSelectByPredicate",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00495730": {
   "class": "REWRITTEN",
   "confidence": "high",
   "change": "the negated capital-ship word; through cat_kasShipsSelectByPredicate",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00495790": {
@@ -21320,7 +21320,7 @@
   "class": "REWRITTEN",
   "confidence": "high",
   "change": "health <= percent * maxhealth * 0.01f (x87, the percent zero-extended); through cat_kasShipsSelectByPredicate",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x004958b0": {
@@ -21446,7 +21446,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "a mimicking ship is cleaned up (cat_mimicCleanup); after the wipe the camera (ccRemoveShip), selSelected / selSelecting, the ship totals, the sensors manager and every player's mothership pointer forget the ship",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00497980": {
@@ -21544,14 +21544,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x004927e0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00492810": {
@@ -21572,7 +21572,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00492940": {
@@ -21600,7 +21600,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00492d30": {
@@ -21628,7 +21628,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (x87: the squared distance is compared unrounded; this tree's aiuFindDistanceSquared returns real32 as at its other callers)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (x87: the squared distance is compared unrounded; this tree's aiuFindDistanceSquared returns real32 as at its other callers) | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x004931a0": {
@@ -21684,14 +21684,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x004938b0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x004938f0": {
@@ -21705,7 +21705,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x004939d0": {
@@ -21754,7 +21754,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00493f60": {
@@ -21775,21 +21775,21 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00494280": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x004942b0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x004942e0": {
@@ -21803,14 +21803,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (x87: the squared distance is compared unrounded; this tree's aiuFindDistanceSquared returns real32 as at its other callers)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (x87: the squared distance is compared unrounded; this tree's aiuFindDistanceSquared returns real32 as at its other callers) | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x004943d0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (x87: the squared distance goes to fsqrt 0x00472860 as a double, unrounded; decision 56 keeps sqrtf)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (x87: the squared distance goes to fsqrt 0x00472860 as a double, unrounded; decision 56 keeps sqrtf) | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00494530": {
@@ -21831,14 +21831,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (DockSupportWith inlined)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (DockSupportWith inlined) | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00494630": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (DockSupportWith inlined)",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same (DockSupportWith inlined) | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x004946f0": {
@@ -21915,14 +21915,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00495e20": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00495e50": {
@@ -21943,7 +21943,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00495fd0": {
@@ -21957,7 +21957,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00496170": {
@@ -22027,7 +22027,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
   "sample": "port-R8-kasf-library"
  },
  "0x00496e20": {
@@ -22776,7 +22776,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the warp records cleared and Warp.script read through the exe's table (WarpEnabled, LevelToWarpTo, Level, Resources, Ships, Tech); mission 1 or the warp's (no mission sequence); oldAutoLaunch 0xF",
-  "note": "[review: M2-R8 singleplayer-tutorial] compared: ported",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: ported | [review: M2-R9 missions-02-09] HWI-TEST hook (HWI_ORACLE builds only): /catMissionTestMission N sets the warp level after Warp.script is read; without the switch the body is unchanged",
   "sample": "port-R8-singleplayer-tutorial"
  },
  "0x00518d80": {
@@ -23147,7 +23147,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "ships by collision position; x87 distance; the exe's qsort 0x00671060",
-  "note": "[review: M2-R9 oracle-rung-physics] compared with the exe (the distance loop and the sort; the specific-list part not re-read): a ship's collision position, the x87 distance; the exe's CRT qsort; ported",
+  "note": "[review: M2-R9 oracle-rung-physics] compared with the exe (the distance loop and the sort; the specific-list part not re-read): a ship's collision position, the x87 distance; the exe's CRT qsort; ported | [review: M2-R9 missions-02-09] HWI: GoK's refactor assertion that no missile is in a blob removed (neither the exe nor HW1 assume it; mines join the blobs and the counts have their cases)",
   "sample": "port-R9-oracle-rung-physics"
  },
  "0x00427e90": {

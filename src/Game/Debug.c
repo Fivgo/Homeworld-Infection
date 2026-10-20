@@ -185,6 +185,10 @@ void dbgWarningf(char *file, sdword line, char *format, ...)
     Outputs     :
     Return      : void
 ----------------------------------------------------------------------------*/
+#if defined(__SANITIZE_ADDRESS__)
+void __sanitizer_print_stack_trace(void);         // HWI-FIX: <sanitizer/common_interface_defs.h>
+#endif
+
 void dbgFatal(char *file, sdword line, char *string)
 {
     char *fileName = NULL;
@@ -204,6 +208,11 @@ void dbgFatal(char *file, sdword line, char *string)
     //      fault or the exit, in every build: GoK's SDL utyFatalErrorWaitLoop has no message box to show it
     fflush(stdout);
     fprintf(stderr, "%s\n", dbgFatalErrorString);
+#if defined(__SANITIZE_ADDRESS__)
+    // HWI-FIX (M2-R9 missions-02-09): the debug (ASan) build also prints the fatal error's call stack; the harness
+    //      runs with /nodebugInt, so no deliberate fault follows to show where it came from
+    __sanitizer_print_stack_trace();
+#endif
     fflush(stderr);
 
     if (dbgAllowInterrupts)

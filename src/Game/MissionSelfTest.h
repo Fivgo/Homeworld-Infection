@@ -16,6 +16,13 @@
 
 void catMissionSelfTestSet(char *string);           // /catMissionTest <ticks>
 void catMissionSelfTestTutorialSet(char *string);   // /catMissionTestTutorial <ticks>: Tutorial1's first screen
+// HWI-TEST (M2-R9 missions-02-09): /catMissionTestMission <N>: the mission (default 1); 2 .. 17 start through the warp
+void catMissionSelfTestMissionSet(char *string);
+sdword catMissionSelfTestWarpLevel(void);           // the warp start's level for the test (0: none)
+// HWI-TEST (M2-R9 missions-02-09): the KAS objective calls (KASFunc.c): "destroy" <label>, "set" <label> <status>,
+//      "destroyall"; a mission after the first counts an objective completed when its script destroys it by name or sets
+//      it complete (ObjectivesDestroyAll, the Hyperspace message's clean-up, completes none)
+void catMissionSelfTestObjective(const char *what, const char *label, sdword status);
 bool32 catMissionSelfTestRequested(void);
 bool32 catMissionSelfTestTutorialRequested(void);
 void catMissionSelfTestTick(void);

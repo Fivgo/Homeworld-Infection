@@ -1243,6 +1243,14 @@ void AllowPlayerToResearch(char *techname)
 {
     TechnologyType tech = StrToTechType(techname);
 
+    // CAT-FIX (M2-R9 missions-02-09): a name that is no technology (Mission09's "TECH_ADVANCED_SYSTEMS", which the
+    //      exe's techtypeinfo table does not have) is -1, and the exe (AllowPlayerToResearch 0x0052e9a0) writes the word
+    //      below the table (0x00ba467e, which no code of the exe reads); here the write is skipped
+    if ((tech < 0) || (tech >= TM_NUM_TECHS))
+    {
+        return;
+    }
+
     if ((rmGUIActive) && (tmTechResearchable[tech] == FALSE))
     {
         tmTechResearchable[tech] = TRUE;

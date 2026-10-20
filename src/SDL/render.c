@@ -5209,9 +5209,10 @@ DEFINE_TASK(rndRenderTask)
                 }
 
                 // Engage docking and hyperspace routine to jump to next mission
-                // HWI (M2-R8 singleplayer-tutorial): only into a mission whose kas2c script is generated (M2-R9 part
-                //      B generates missions 02 .. 17); until then the screenshots stay in the mission (Mission01's
-                //      own jump, the letterbox one, is exercised by the missiontest mode)
+                // HWI (M2-R8 singleplayer-tutorial): only into a mission whose kas2c script is generated (M2-R9
+                //      missions-02-09: Mission01 .. Mission09 are, so the screenshot loop runs on through them; the
+                //      later missions' scripts are M2-R9 part B's producer 3's); missions 02 .. 09's own jumps are
+                //      exercised by the missiontest mode's --mission N
                 if ((singlePlayerGameInfo.hyperspaceState == NO_HYPERSPACE) &&
                     cat_spKasScriptGenerated((MissionEnum)(spGetCurrentMission() + 1))) {
                     printf("debugScreenshots singlePlayerNextLevel()\n");

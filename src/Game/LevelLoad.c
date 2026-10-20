@@ -41,6 +41,11 @@
 #include "UnivUpdate.h"
 #include "utility.h"        // HWI-TEST (skirmish-start): the front end's start callbacks
 #include "Vector.h"
+#include "Collision.h"     // CAT (M2-R9 missions-02-09): the Mine / Slipgate readers
+#include "ETG.h"     // CAT (M2-R9 missions-02-09): the Mine / Slipgate readers
+#include "GameStats.h"     // CAT (M2-R9 missions-02-09): the Mine / Slipgate readers
+#include "ShipDisable.h"     // CAT (M2-R9 missions-02-09): the Mine / Slipgate readers
+#include "Slipgate.h"     // CAT (M2-R9 missions-02-09): the Mine / Slipgate readers
 
 #ifdef _MSC_VER
     #define strcasecmp _stricmp
@@ -75,6 +80,10 @@ static void scriptSetAIBoxCB        (char *directory, char *field, void *dataToF
 static void scriptSetAISphereCB     (char *directory, char *field, void *dataToFillIn);
 static void scriptSetMissionSphereCB(char *directory, char *field, void *dataToFillIn);
 static void cat_scriptSetMeteorStormCB(char *directory, char *field, void *dataToFillIn);
+static void cat_scriptSetMineCB     (char *directory, char *field, void *dataToFillIn);
+static void cat_scriptSetSlipgateCB (char *directory, char *field, void *dataToFillIn);
+// CAT (M2-R9 missions-02-09): 0x00c362dc, the slipgate read last that still waits for its partner (name chosen)
+static Ship *catSlipgatePending = NULL;
 static void scriptSetLightingCB     (char *directory, char *field, void *dataToFillIn);
 static void scriptSetBackgroundCB   (char *directory, char *field, void *dataToFillIn);
 static void scriptSetUword2CB       (char *directory, char *field, void *dataToFillIn);
@@ -121,7 +130,10 @@ scriptStructEntry MissionSphereScriptTable[] =
     { "AISphere",  scriptSetAISphereCB,  0, 0 },
     { "Resources", scriptSetResourcesCB, 0, 0 },
     { "MeteorStorm", cat_scriptSetMeteorStormCB, 0, 0 },     // CAT: 0x004a0d10, after "Resources" (table 0x00883aa8)
-    // CAT-TODO(M2-R9 part B): the exe's table 0x00883a48 has "Mine" (0x004a3f20) and "Slipgate" (cat_scriptSetSlipgateCB 0x004a1020) between "MeteorStorm" and "Derelict"; unported, so their lines are skipped (LiveFireExercise2 and other multiplayer maps, Mission03 / 10 / 12 / 14; none in Mission01 or Tutorial1) [audit: M2-R8 kas-runtime-mission01]
+    // CAT (M2-R9 missions-02-09): the exe's table 0x00883a48 has "Mine" and "Slipgate" between "MeteorStorm" and
+    //      "Derelict" (LiveFireExercise2 and other multiplayer maps, Mission03 / 10 / 12 / 14)
+    { "Mine",      cat_scriptSetMineCB,      0, 0 },        // CAT: 0x004a3f20 (table 0x00883ab8)
+    { "Slipgate",  cat_scriptSetSlipgateCB,  0, 0 },        // CAT: 0x004a1020 (table 0x00883ac8)
     { "Derelict",  scriptSetDerelictCB,  0, 0 },
 
     END_SCRIPT_STRUCT_ENTRY
@@ -897,6 +909,162 @@ static void cat_scriptSetMeteorStormCB(char *directory,char *field,void *dataToF
     {
         memFree(volume);
     }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_scriptSetMineCB                               0x004a3f20
+    Description : CAT (M2-R9 missions-02-09): a mission sphere's "Mine" line (x, y, z, rotation in degrees:
+                  "%f %f %f %f", 0x0088456c): a mine of the derelict race (mineStaticInfos[RACE_Derelict], 0x00b3b2e8)
+                  owned by player 1 in a single-player game and by player 7 in a multiplayer one, made in place as
+                  univAddMissile 0x00540c70 makes a missile (the exe inlines it): a mine (MISSILE_Mine) with no owner
+                  ship, target or trail, the mine launcher's sound type, 5000 damage, a lifetime and camera distance
+                  of REALlyBig and the hit effect of its player's race's missile launcher; not in a formation
+                  (mineAIState 0). The exe turns the point by the sphere and its rotation (0x004a3f7c .. 0x004a3fe1)
+                  but places the mine at the point as read (univInitSpaceObjPosRot at 0x004a41e8 takes the scanned
+                  vector) and never uses the rotation: so here
+----------------------------------------------------------------------------*/
+static void cat_scriptSetMineCB(char *directory, char *field, void *dataToFillIn)
+{
+    struct Player *player = singlePlayerGame ? &universe.players[1] : &universe.players[7];
+    vector position;
+    real32 rot;
+    Missile *mine;
+    sdword i;
+
+    RemoveCommasFromString(field);
+    sscanf(field, "%f %f %f %f", &position.x, &position.y, &position.z, &rot);
+    (void)rot;                                              // read and turned to radians, never used (the exe's)
+
+    mine = memAlloc(sizeof(Missile), "Mine", 0);           // 0x258 bytes (memAllocFunction 0x004adee0)
+    memset(mine, 0, sizeof(Missile));
+    mine->header.objtype = OBJ_MissileType;
+    mine->header.flags = SOF_Rotatable + SOF_Impactable + SOF_NotBumpable + SOF_Targetable;
+    mine->enginePosition.x = 0.0f;
+    mine->enginePosition.y = 0.0f;
+    mine->enginePosition.z = 0.0f;
+    mine->trail = NULL;
+    mine->race = RACE_Derelict;
+    mine->staticinfo = &mineStaticInfos[RACE_Derelict];
+    mine->missileType = MISSILE_Mine;
+    mine->catMissileReserved214[0] = RACE_Derelict;         // +0x214: the race again (0x004a4068)
+    mine->mineAIState = 0;
+    mine->FORCE_DROPPED = FALSE;
+    mine->formationinfo = NULL;
+    // the static top speed over one 16 Hz update (0x0072aae8 = 0.0625; univAddMissile multiplies by phystimeelapsed)
+    mine->maxtraveldist = mine->staticinfo->common.maxvelocity * 0.0625f;
+    mine->playerowner = player;
+    mine->haveCheckedForLoss = 0;
+
+    ClearNode(mine->obj.renderlink);
+    mine->obj.currentLOD = 0;
+    mine->obj.cameraDistanceSquared = REALlyBig;            // 0x6258d727
+    mine->obj.attributes = 0;
+    mine->obj.attributesParam = 0;
+    mine->obj.collMyBlob = NULL;
+    mine->targetable.health = mine->staticinfo->health.maxhealth;
+    mine->targetable.flashtimer = 0;
+    mine->targetable.lasttimecollided = 0;
+    vecZeroVector(mine->obj.posinfo.force);
+    vecZeroVector(mine->rotatable.rotinfo.torque);
+    for (i = 0; i < NUM_TRANS_DEGOFFREEDOM; i++)
+    {
+        mine->guidance.nonstatvars.thruststrength[i] = mine->staticinfo->guidance.thruststrengthstat[i];
+    }
+    for (i = 0; i < NUM_ROT_DEGOFFREEDOM; i++)
+    {
+        mine->guidance.nonstatvars.rotstrength[i] = mine->staticinfo->guidance.rotstrengthstat[i];
+    }
+    for (i = 0; i < NUM_TURN_TYPES; i++)
+    {
+        mine->guidance.nonstatvars.turnspeed[i] = mine->staticinfo->guidance.turnspeedstat[i];
+    }
+    mine->guidance.nonstatvars.catMaxVelocity = mine->staticinfo->common.maxvelocity;
+    mine->totallifetime = REALlyBig;
+    mine->soundType = GS_MineLauncher;
+    mine->timelived = 0.0f;
+    mine->owner = NULL;
+    mine->target = NULL;
+    mine->hitEffect = etgGunEventTable[player->race][GS_MissleLauncher][EGT_GunHit];    // 0x00c41238 + race * 0x190
+    mine->damage = 5000.0f;                                 // 0x459c4000
+
+    mine->missileID.missileNumber = universe.missileNumber;
+    if (multiPlayerGame)                                    // 0x00a43c94 only (univAddMissile also tests the recorder)
+    {
+        IDToPtrTableAdd(&MissileIDToPtr, universe.missileNumber, (SpaceObj *)mine);
+    }
+    universe.missileNumber++;
+
+    univInitSpaceObjPosRot((SpaceObj *)mine, &position, FALSE);
+    mine->obj.posinfo.isMoving = 1;                         // 0x004a41f8 / 0x004a41fc: both words set to 1
+    mine->obj.posinfo.haventCalculatedDist = 1;
+    collAddSpaceObjToCollBlobs((SpaceObj *)mine);
+    listAddNode(&universe.SpaceObjList, &(mine->header.objlink), mine);
+    listAddNode(&universe.ImpactableList, &(mine->impactable.impactablelink), mine);
+    listAddNode(&universe.MissileList, &(mine->missilelink), mine);
+    cat_univShipMeshStateCreate((SpaceObj *)mine);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_scriptSetSlipgateCB                           0x004a1020
+    Description : CAT (M2-R9 missions-02-09): a mission sphere's "Slipgate" line ("%f %f %f %d/%d %f %s",
+                  0x0088423c: x, y, z, two numbers the exe reads and never uses, rotation in degrees, ship type): the
+                  gate is made for the sphere's player with the derelict race (univCreateShip 0x00542320 with race 6),
+                  counted in the game statistics and turned by its rotation; gates pair up in the order they are read
+                  (each odd one waits in 0x00c362dc, which levelPreInit clears, for the next: each becomes the other's
+                  partner, cat_slipgateSetPartner 0x005c71b0); a gate is neither targetable nor bumpable, and disabled
+                  (cat_shipSetDisableReason(gate, 1, 6))
+----------------------------------------------------------------------------*/
+static void cat_scriptSetSlipgateCB(char *directory, char *field, void *dataToFillIn)
+{
+    MissionSphereInfo *missionSphereInfo = (MissionSphereInfo *)dataToFillIn;
+    struct Player *player = &universe.players[missionSphereInfo->playerNumber];
+    vector position, rotatedposition;
+    sdword unusedA, unusedB;
+    real32 rot;
+    char shiptypestr[52];
+    ShipType shiptype;
+    matrix rotaboutz;
+    Ship *gate;
+
+    RemoveCommasFromString(field);
+    if (sscanf(field, "%f %f %f %d/%d %f %s", &position.x, &position.y, &position.z, &unusedA, &unusedB, &rot,
+               shiptypestr) != 7)
+    {
+        dbgFatalf(DBG_Loc, "Bad Slipgate point definition: %s", field);   // the exe's text (0x00884218)
+    }
+    rot = DEG_TO_RAD(rot);
+    shiptype = StrToShipType(shiptypestr);
+    if ((udword)shiptype > 0x90)
+    {
+        dbgFatalf(DBG_Loc, "Bad shiptype in %s", field);    // the exe's text (0x00884204)
+    }
+    if (!missionman)
+    {
+        matMakeRotAboutZ(&rotaboutz,(real32)cos(missionSphereInfo->sphererotz),(real32)sin(missionSphereInfo->sphererotz));
+        matMultiplyMatByVec(&rotatedposition,&rotaboutz,&position);
+        vecAddTo(rotatedposition,missionSphereInfo->position);
+        rot += missionSphereInfo->sphererotz;
+    }
+    else
+    {
+        rotatedposition = position;
+    }
+
+    gate = univAddShip(shiptype, RACE_Derelict, &rotatedposition, player, 0);
+    gameStatsAddShip(gate, player->playerIndex);
+    univRotateObjYaw((SpaceObjRot *)gate, rot);
+    if (catSlipgatePending != NULL)
+    {
+        cat_slipgateSetPartner(gate, catSlipgatePending);
+        cat_slipgateSetPartner(catSlipgatePending, gate);
+        catSlipgatePending = NULL;
+    }
+    else
+    {
+        catSlipgatePending = gate;
+    }
+    gate->header.flags = (gate->header.flags & ~SOF_Targetable) | SOF_NotBumpable;
+    cat_shipSetDisableReason(gate, 1, 6);
 }
 
 static void scriptSetDerelictCB(char *directory,char *field,void *dataToFillIn)
@@ -2446,6 +2614,7 @@ void levelPreInit(char *directory,char *pickedMission)
     InsideShip* insideship;
     bool8 teamCol[MAX_MULTIPLAYER_PLAYERS];
 
+    catSlipgatePending = NULL;                              // CAT (M2-R9 missions-02-09): 0x004a3245
     missionman = isLevelMissionManGenerated(directory,pickedMission);
 
     memcpy(playerSchemes, teColorSchemes, sizeof(playerSchemes));

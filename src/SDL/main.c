@@ -449,6 +449,14 @@ bool32 CatMissionTestSet(char *string)
     return TRUE;
 }
 
+// HWI-TEST (M2-R9 missions-02-09): /catMissionTestMission <N> with /catMissionTest: mission N (2 .. 17) from the exe's
+//      warp start (cat_spWarpToLevel 0x0051b9c0, Warp.script's record for level N) instead of Mission01's NIS-first start
+bool32 CatMissionTestMissionSet(char *string)
+{
+    catMissionSelfTestMissionSet(string);
+    return TRUE;
+}
+
 bool32 CatMissionTestTutorialSet(char *string)
 {
     catMissionSelfTestTutorialSet(string);
@@ -1196,6 +1204,7 @@ commandoption commandOptions[] =
     entryFnParam("/catMissionTest",     CatMissionTestSet, " <ticks> - headless single-player game from Mission01's NIS-first start: the opening NIS, the KAS objectives with scripted events in place of input, logs missiontest lines, exit after the mission's end or <ticks> ticks."),
     entryFnParam("/catLoadGameTest",    CatLoadGameTestSet, " <ticks> - headless load of the single-player save /catLoadGameName names (SavedGames/SinglePlayer), as the front end's Load Game, then <ticks> ticks; logs loadgametest lines, exit."),
     entryFnParam("/catLoadGameName",    CatLoadGameNameSet, " <name> - the save /catLoadGameTest loads."),
+    entryFnParam("/catMissionTestMission", CatMissionTestMissionSet, " <N> - with /catMissionTest: mission N (2 .. 17) from the exe's warp start (Warp.script's level N record) through its KAS objectives and the jump to the next level."),
     entryFnParam("/catMissionTestTutorial", CatMissionTestTutorialSet, " <ticks> - headless tutorial start: Tutorial1's KAS script runs until its first prompt shows, logs missiontest lines, exit."),
     entryFnParam("/catSkirmishTest",    CatSkirmishTestSet, " <ticks> - start a 2-player skirmish (Sect against a computer player) through the front end's own callbacks with no input, run <ticks> universe ticks on the virtual clock, judge the universe, log skirmishtest lines, exit."),
     entryFnParam("/catSkirmishMap",     CatSkirmishMapSet, " <name> - the map of /catSkirmishTest (a MultiPlayer directory name; default LiveFireExercise2)."),

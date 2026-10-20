@@ -30,7 +30,8 @@ Outputs (REULA headers, GENERATED): src/Missions/SinglePlayer/<MissionNN>.c, src
 src/Missions/KasShared.c (the shared functions the generated scripts use) and src/Missions/CatMissions.h (prototypes,
 the per-script function lists with each function's exe address, used by the saves: kasConvertFuncPtrToOffset).
 
-  python3 -I tools/m2_kas2c_gen.py [--scripts Mission01,Tutorial1] [--check] [--report] [--exe PATH] [--export DIR]
+  python3 -I tools/m2_kas2c_gen.py [--scripts Mission01,Tutorial1,Mission02,..] [--check] [--report] [--exe PATH] [--export DIR]
+    (the default --scripts is DEFAULT_SCRIPTS below: every generated script)
     --check   compare with the tracked files, exit 1 on a difference (nothing written)
     --report  print the per-function verification table
 """
@@ -48,7 +49,9 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT = T.main_root()
 MISSION_LO, MISSION_HI = 0x005d6fe0, 0x00670a10
 ALL_SCRIPTS = ["Mission%02d" % i for i in range(1, 18)] + ["Tutorial1"]
-DEFAULT_SCRIPTS = ["Mission01", "Tutorial1"]
+# the generated scripts (M2-R8: Mission01, Tutorial1; M2-R9 part B: Mission02 .. Mission09): a plain run / --check
+# covers every generated file
+DEFAULT_SCRIPTS = ["Mission01", "Tutorial1"] + ["Mission%02d" % i for i in range(2, 10)]
 
 # the KAS runtime the generated code calls besides the kasf (docs/mission-code-map.md 3): name -> (address, return
 # type, parameter types); a parameter type is a kas2c type name or a C type
@@ -75,7 +78,7 @@ CT.update({"KASInitFunction": "KASInitFunction", "KASWatchFunction": "KASWatchFu
 # Ghidra local types -> (C type, kind); kind "word" = a hash / string / count register
 LOCAL_TYPES = {
     "sdword": "sdword", "udword": "word", "uint": "word", "int": "word", "undefined4": "word", "char *": "word",
-    "code *": "word", "void *": "word", "bool": "word", "byte": "word",
+    "code *": "word", "void *": "word", "bool": "word", "byte": "word", "ubyte *": "word", "ubyte": "word",
     "GrowSelection *": "GrowSelection *", "AITeam *": "AITeam *", "Volume *": "Volume *", "hvector *": "hvector *",
     "Path *": "Path *", "Ship *": "Ship *", "ShipPtr": "Ship *",
 }
@@ -92,10 +95,77 @@ INLINED_THUNKS = [
 
 # text patches for bodies the rules cannot read: address -> [(old, new, why)]; each is marked in the output
 OVERRIDES = {
+    # Watch_Mission05_FleetIntel_WaitMessage: Ghidra took the message hash 0x0b7f8e9 (cmp / mov at 0x005eb...) for an
+    # address inside the universe global
+    0x005eb0b0: [("msg = universe.players[3].cat_unknown_02EC + 0x516d;", "msg = (ubyte *)0xb7f8e9;",
+                  "the message hash 0xb7f8e9 Ghidra printed as universe.players[3].cat_unknown_02EC + 0x516d")],
+    # Watch_Mission05_Objectives: the same hash in the message switch's compare (cmp eax,0xb7f8e9 at 0x005ebdab)
+    0x005ebd50: [("if ((ubyte *)pcVar1 != universe.players[3].cat_unknown_02EC + 0x516d) goto LAB_005ebf6a;",
+                  "if (pcVar1 != (char *)0xb7f8e9) goto LAB_005ebf6a;",
+                  "the message hash 0xb7f8e9 (cmp at 0x005ebdab) Ghidra printed as universe.players[3]."
+                  "cat_unknown_02EC + 0x516d")],
+    # Watch_Mission08_Frigates_Guard: the script's test is always false ((ShipsOrderAttributes == 0) & 2: neg / sbb /
+    # inc / test al,2 at 0x00604cb4 .. 0x00604cbb), so Ghidra dropped the kasJump it guards (0x00604cbd .. 0x00604ccc)
+    0x00604c90: [("  kasfShipsOrderAttributes((GrowSelection *)(DAT_00a43ee8 + 0x1c));\n",
+                  "  if ((kasfShipsOrderAttributes((GrowSelection *)(DAT_00a43ee8 + 0x1c)) == 0) & 2) {\n"
+                  "    kasJump((char *)0x4c9664,Init_Mission08_Frigates_Guard,Watch_Mission08_Frigates_Guard);\n"
+                  "  }\n",
+                  "the always-false test (== 0) & 2 and the kasJump(Guard) it guards, which Ghidra dropped as dead "
+                  "code (0x00604cb4 .. 0x00604ccc)")],
+    # Watch_Mission09_Resourcers_Nothing: the ICF-folded empty stub 0x0049ae30 called with one argument, the
+    # comparison ShipsCount <= 3 (setle dl; push edx; call 0x0049ae30 at 0x006072bf): kasfAssert (dbgAssert) is the only
+    # one-argument kasf on the stub that takes a truth value (kasfLog, kasfTeamSkillSet, kasfSetPlayerResourceCap)
+    0x006071e0: [("  kasfShipsCount(pGVar1);\n  nullsub();\n", "  kasfAssert(kasfShipsCount(pGVar1) <= 3);\n",
+                  "Ghidra's nullsub() is kasfAssert(ShipsCount <= 3) on the folded stub 0x0049ae30 (0x006072b5 .. "
+                  "0x006072c3)")],
 }
 
 TEAM = "DAT_00a43ee8"
-GARBLE_BASE = "aisTeams[0x21].selection[8].sel.ShipPtr"
+# a message / name hash Ghidra took for a pointer into aisTeams (the skirmish AI's team table, 0x008dfd60: AISTeamEntry
+# 0x9D10 bytes = 10 AISTeamSelection of 0xFB4 (MaxSelection 0xFA8 + a vector) + 8; sel.ShipPtr at +8): the hash is the
+# element's address plus the byte offset Ghidra wrote (export datatypes.h)
+AIS_ELEM = r"aisTeams\[(0x[0-9a-f]+|\d+)\]\.selection\[(0x[0-9a-f]+|\d+)\]\.sel\.ShipPtr"
+AIS_ENTRY, AIS_SELECTION, AIS_SHIPPTR = 0x9D10, 0xFB4, 8
+# MSVC's signed division by a constant d: the multiplier of the imul (Hacker's Delight 10-1); the C "/ d" stands for it
+def div_magic(d):
+    two31 = 1 << 31
+    t = two31 + (0 if d > 0 else 1)
+    anc = t - 1 - t % abs(d)
+    p, q1, r1, q2, r2 = 31, two31 // anc, two31 - (two31 // anc) * anc, two31 // abs(d), two31 - (two31 // abs(d)) * abs(d)
+    while True:
+        p += 1
+        q1, r1 = 2 * q1, 2 * r1
+        if r1 >= anc:
+            q1, r1 = q1 + 1, r1 - anc
+        q2, r2 = 2 * q2, 2 * r2
+        if r2 >= abs(d):
+            q2, r2 = q2 + 1, r2 - abs(d)
+        delta = abs(d) - r2
+        if not (q1 < delta or (q1 == delta and r1 == 0)):
+            break
+    return (q2 + 1) & 0xFFFFFFFF
+
+
+GHIDRA_ESC = {"n": 10, "t": 9, "r": 13, "\\": 92, '"': 34, "'": 39, "0": 0, "a": 7, "b": 8, "f": 12, "v": 11}
+
+
+def ghidra_bytes(lit):
+    """The bytes of a Ghidra string literal's text (without the quotes)."""
+    out, i = bytearray(), 0
+    while i < len(lit):
+        ch = lit[i]
+        if ch == "\\":
+            nx = lit[i + 1]
+            if nx == "x":
+                out.append(int(lit[i + 2:i + 4], 16))
+                i += 4
+                continue
+            out.append(GHIDRA_ESC[nx])
+            i += 2
+            continue
+        out += ch.encode("latin-1")
+        i += 1
+    return bytes(out)
 
 
 def run(cmd):
@@ -253,7 +323,8 @@ class Gen:
                         break
                     if s2.startswith("ret"):
                         break
-        self.garble_base = None
+        self.ais_base = self.syms["aisTeams"]
+        self.switchdata = {v for k, v in self.syms.items() if k.startswith("switchdataD_")}
 
     # ---------------------------------------------------------------- closure
     def refs(self, addr):
@@ -281,6 +352,7 @@ class Gen:
             if m and addr < int(m.group(1), 16) < end:
                 end = int(m.group(1), 16)
         calls, consts = collections.Counter(), set()
+        self._aorder, self._acmp = [], set()
         acc, deltas = {}, set()     # an MSVC compare chain: mov ecx,eax; sub ecx,K1; je; sub ecx,K2; je; dec ecx ...
         for ad, s in ins:
             if ad >= end:
@@ -309,7 +381,12 @@ class Gen:
                 v = int(k, 16)
                 if 0x10000 <= v < 0xFFFF0000 and not s.startswith(("add    esp", "sub    esp")):
                     consts.add(v)
+                    self._aorder.append(v)
+                    if s.startswith("cmp"):
+                        self._acmp.add(v)
         consts -= deltas
+        # the switch tables after the code (jmp [reg*4+T], mov al,[reg+T]) are the function's own data
+        consts = {v for v in consts if not (addr < v < addr + size and v not in self.funcs) and v not in self.switchdata}
         # the argument tuples of the calls whose arguments are all pushed constants in the call's own basic block
         targets = set()
         for ad, s in ins:
@@ -359,7 +436,7 @@ class Gen:
         return lit
 
     def sym_addr(self, e):
-        m = re.match(r"^(?:&?(?:DAT|s_\w+|lpString|PTR_\w+|u_\w+)|&(?:LAB|FUN))_([0-9a-f]{8})$", e)
+        m = re.match(r"^(?:&?(?:DAT|s_\w+|lp\w+|lParam|PTR_\w+|u_\w+)|&(?:LAB|FUN))_([0-9a-f]{8})$", e)
         return int(m.group(1), 16) if m else None
 
     def value(self, e, ptype, consts, words):
@@ -372,7 +449,14 @@ class Gen:
             return "(char *)" + self.lstring(int(m.group(1), 16))
         m = re.match(r"^GARBLE\((-?\d+)\)$", e)
         if m:
-            v = (self.garble_base + int(m.group(1))) & 0xFFFFFFFF
+            v = int(m.group(1)) & 0xFFFFFFFF
+            consts.add(v)
+            return "0x%x" % v
+        m = re.match(r"^RAWSTR_(\d+)$", e)
+        if m:
+            v = self.rawstr(int(m.group(1)))
+            if ptype == "CHARPTR":
+                return self.string(v, consts)
             consts.add(v)
             return "0x%x" % v
         if e == TEAM:
@@ -437,8 +521,31 @@ class Gen:
                 args = args[len(args) - len(ps):]        # Ghidra's invented this / extraout_ECX
             if len(args) != len(ps):
                 raise ValueError("%s: %d arguments for %d parameters: %s" % (name, len(args), len(ps), s[m.start():j + 1]))
-            args = [self.value(x, p, consts, words) for x, p in zip(args, ps)]
+            raw = [re.match(r"^RAWSTR_(\d+)$", strip_casts(x)) for x in args]
+            args = [x if r else self.value(x, p, consts, words) for x, p, r in zip(args, ps, raw)]
             calls[self.sig[name]["addr"]] += 1
+
+            def lits(args):
+                lit = []
+                for x in args:
+                    mm = re.match(r"^(-?)(0x[0-9a-f]+|\d+)$", x)
+                    if mm:
+                        lit.append((-int(mm.group(2), 0) if mm.group(1) else int(mm.group(2), 0)) & 0xFFFFFFFF)
+                    elif x in self.mnames:
+                        lit.append(self.mnames[x])
+                    elif x.startswith('"') and x in self._strs:
+                        lit.append(self._strs[x])
+                    else:
+                        lit.append(None)
+                return lit
+            for k, r in enumerate(raw):
+                if r:
+                    v = self.rawstr(int(r.group(1)), (self.sig[name]["addr"], k, lits(args)))
+                    if ps[k] == "CHARPTR":
+                        args[k] = self.string(v, consts)
+                    else:
+                        consts.add(v)
+                        args[k] = "0x%x" % v
             lit = []
             for x in args:
                 mm = re.match(r"^(-?)(0x[0-9a-f]+|\d+)$", x)
@@ -455,6 +562,38 @@ class Gen:
             i = j + 1
         return "".join(out)
 
+    def cstr(self, v):
+        try:
+            return self.exe.cstring(v)
+        except Exception:
+            return None
+
+    def rawstr(self, i, ctx=None):
+        """A Ghidra string literal with no symbol (a hash whose value happens to point at string-like bytes): the
+        machine code's constant whose bytes are the literal's; several candidates are told apart by the call's
+        all-constant argument tuple (ctx = (callee address, position, the other arguments' values))."""
+        lit = self._raw[i]
+        if i in self._rawpos:
+            return self._rawpos[i]
+        if i in self._rawlt:     # a switch tree's "<" bound: the compared case value + 1 (cmp eax,K; ja)
+            cands = sorted({v + 1 for v in self._acmp if self.cstr(v + 1) == lit})
+        else:     # a value the decompile also shows as a number is another use, unless it is the only one
+            cands = sorted(v for v in self._aconsts - self._explicit if self.cstr(v) == lit) or \
+                sorted(v for v in self._aconsts if self.cstr(v) == lit)
+        if len(cands) > 1 and ctx:
+            callee, pos, known = ctx
+            sel = set()
+            for t in self._atuples:
+                if t[0] == callee and len(t) == len(known) + 1 and \
+                        all(k is None or k == t[1 + j] for j, k in enumerate(known) if j != pos):
+                    sel.add(t[1 + pos])
+            c2 = [v for v in cands if v in sel]
+            if len(c2) == 1:
+                cands = c2
+        if len(cands) != 1:
+            raise ValueError("raw literal %r: %d candidates %s" % (lit, len(cands), [hex(v) for v in cands]))
+        return cands[0]
+
     def transform(self, addr, script):
         f = self.funcs[addr]
         body = f["body"]
@@ -463,6 +602,47 @@ class Gen:
                 raise ValueError("override for 0x%08x does not apply: %r" % (addr, old))
             body = body.replace(old, new)
         body = re.sub(r"/\*.*?\*/", "", body, flags=re.S)
+        # a localised string table Ghidra read as a byte offset (*(char **)(&DAT_x + strCurLanguage * 4)): LSTRING_x
+        body = re.sub(r"\*\(char \*\*\)\(&DAT_([0-9a-f]{8}) \+ strCurLanguage \* 4\)", r"(&PTR_lstr_\1)[strCurLanguage]",
+                      body)
+        self._acalls, self._aconsts = self.asm_facts(addr)
+        self._atuples = self._tuples
+        # Ghidra's literals with no symbol: hashes that point at string-like bytes (resolved by rawstr)
+        self._raw = []
+
+        self._rawlt = set()
+        self._explicit = {int(k, 16) for k in re.findall(r"\b0x([0-9a-f]+)\b", body)} | \
+            {int(k, 16) for k in re.findall(r"_([0-9a-f]{8})\b", body)}
+
+        def rawsub(mm):
+            self._raw.append(ghidra_bytes(mm.group(1)))
+            if re.search(r"<\s*$", body[:mm.start()]):
+                self._rawlt.add(len(self._raw) - 1)
+            return "RAWSTR_%d" % (len(self._raw) - 1)
+        body = re.sub(r'(?<![\w])"((?:[^"\\]|\\.)*)"', rawsub, body)
+        # a literal with several candidates: the k-th occurrence in the decompile is the k-th of those constants in
+        # the machine code's address order (the scripts' straight-line runs of numbered names, e.g. pPatrol1..8);
+        # verified with the rest (the call tuples, the constant sets)
+        self._rawpos = {}
+        bylit = collections.defaultdict(list)
+        for k, lit in enumerate(self._raw):
+            bylit[lit].append(k)
+        for lit, ks in bylit.items():
+            ks = [k for k in ks if k not in self._rawlt]
+            cands = {v for v in self._aconsts - self._explicit if self.cstr(v) == lit} or \
+                {v for v in self._aconsts if self.cstr(v) == lit}
+            if len(cands) > 1:
+                seq = [v for v in self._aorder if v in cands]
+                if len(seq) == len(ks):
+                    self._rawpos.update(zip(ks, seq))
+        # kasfTeamHyperspaceOut 0x00493800 tail-jumped: Ghidra shows its body (and the return address it pushed)
+        body, nho = re.subn(r"if \(DAT_00a43ee8 != 0\) \{\s*\w+(?:\[0\])?\.numShips = 0;\s*aiuFilterDisabledShips\("
+                            r"\*\(SelectCommand \*\*\)\(DAT_00a43ee8 \+ 0x20\),[^;]*\);\s*RemoveShipsFromDoingStuff\([^;]*,0x13\);"
+                            r"\s*spHyperspaceSelectionOut\([^;]*\);\s*_DAT_00a6ad98 = 0;\s*\}", "kasfTeamHyperspaceOut();", body)
+        if nho:
+            body = re.sub(r"\n\s*pSStack_\w+ = \(ShipPtr\)0x[0-9a-f]+;", "", body)
+            body = re.sub(r"\n\s*(?:SelectCommand|MaxSelection) aSStack_\w+ \[\d+\];", "", body)
+            body = re.sub(r"\n\s*ShipPtr pSStack_\w+;", "", body)
         body = re.sub(r"aiuKasWrapFormation\(\*\(SelectCommand \*\*\)\(DAT_00a43ee8 \+ 0x20\),(\d+)\);\s*"
                       r"\*\(undefined4 \*\)\(DAT_00a43ee8 \+ 0x78\) = \1;",
                       lambda mm: "%s();" % self.formation_kasf[int(mm.group(1))], body)
@@ -514,14 +694,18 @@ class Gen:
         for n in phantom:
             words.pop(n, None)
         text = "\n".join(stm)
-        # the garbled hashes: a pointer into aisTeams Ghidra made of a message hash (resolved by calibration)
-        g = re.escape(GARBLE_BASE)
+        # the garbled hashes: a pointer into aisTeams Ghidra made of a message / name hash (AIS_ELEM above)
+        g = AIS_ELEM
+
+        def ais(mm):
+            return self.ais_base + int(mm.group(1), 0) * AIS_ENTRY + int(mm.group(2), 0) * AIS_SELECTION + AIS_SHIPPTR
         text = re.sub(r"\(\s*\(int\)\s*" + g + r"\s*\+\s*(0x[0-9a-f]+|\d+)\s*\)",
-                      lambda mm: "GARBLE(%d)" % int(mm.group(1), 0), text)
+                      lambda mm: "GARBLE(%d)" % (ais(mm) + int(mm.group(3), 0)), text)
         text = re.sub(r"\(int\)\s*" + g + r"\s*\+\s*(0x[0-9a-f]+|\d+)",
-                      lambda mm: "GARBLE(%d)" % int(mm.group(1), 0), text)
-        text = re.sub(g + r"\s*\+\s*(0x[0-9a-f]+|\d+)", lambda mm: "GARBLE(%d)" % (4 * int(mm.group(1), 0)), text)
-        text = re.sub(g, "GARBLE(0)", text)
+                      lambda mm: "GARBLE(%d)" % (ais(mm) + int(mm.group(3), 0)), text)
+        text = re.sub(g + r"\s*\+\s*(0x[0-9a-f]+|\d+)", lambda mm: "GARBLE(%d)" % (ais(mm) + 4 * int(mm.group(3), 0)),
+                      text)
+        text = re.sub(g, lambda mm: "GARBLE(%d)" % ais(mm), text)
         text = re.sub(r"\(ShipPtr \*\)(\w+)", r"\1", text)
         # the scope prologue and the team's KAS fields
         text = text.replace("DAT_00c3749c", "CurrentMissionScope").replace("DAT_00c374a0", "CurrentMissionScopeName")
@@ -529,6 +713,7 @@ class Gen:
         text = re.sub(r"\*\(\w+ \*\*\)\(%s \+ 0x50\)" % TEAM, "CurrentTeamP->msgQueue", text)
         text = re.sub(r"\*\(undefined4 \*\)\(%s \+ 0x58\)" % TEAM, "CurrentTeamP->kasLabel", text)
         text = re.sub(r"\(GrowSelection \*\)\(%s \+ 0x1c\)" % TEAM, "&CurrentTeamP->shipList", text)
+        text = re.sub(r"\((ShipPtr|\w+ \*)\)\(%s \+ 0x1c\)" % TEAM, r"(\1)&CurrentTeamP->shipList", text)
         text = re.sub(r"\*\(SelectCommand \*\*\)\(%s \+ 0x20\)" % TEAM,
                       "(SelectCommand *)CurrentTeamP->shipList.selection", text)
         text = re.sub(r"\(\w+ \*\)0x0\b", "0", text)
@@ -537,6 +722,10 @@ class Gen:
         self._ctuples, self._strs = collections.Counter(), {}
         text = self.rewrite_calls(text, consts, calls, words)
         text = text.replace(TEAM, "CurrentTeamP")
+        if re.search(r"\*\s*\((?:char|int|uint|undefined\d?|sdword|udword) \*+\)", text):
+            raise ValueError("0x%08x %s: unread dereference" % (addr, f["name"]))
+        if re.search(r"\bCurrentTeamP\s*(\+|-(?!>))", text):
+            raise ValueError("0x%08x %s: unread CurrentTeamP arithmetic" % (addr, f["name"]))
         # the remaining operands: casts of hashes, &DAT_x / s_x / GARBLE(n) in comparisons, assignments, cases
 
         def operand(mm):
@@ -545,17 +734,31 @@ class Gen:
         text = re.sub(r"\((?:code|char|ShipPtr) \*\)\s*(?=&?\w)", "", text)
         text = re.sub(r"\(&PTR_\w+?_[0-9a-f]{8}\)\[strCurLanguage\]", operand, text)
         text = re.sub(r"GARBLE\(-?\d+\)", operand, text)
-        text = re.sub(r"(?:&?\b(?:DAT|s_\w+?|lpString|PTR_\w+?|u_\w+?)|&(?:LAB|FUN))_[0-9a-f]{8}\b", operand, text)
+        text = re.sub(r"(?:&?\b(?:DAT|s_\w+?|lp\w+?|lParam|PTR_\w+?|u_\w+?)|&(?:LAB|FUN))_[0-9a-f]{8}\b", operand, text)
+        text = re.sub(r"\bRAWSTR_\d+\b", operand, text)
         text = re.sub(r"\(int\)(\w+)", r"(sdword)\1", text)
         text = re.sub(r"\(uint\)(\w+)", r"(udword)\1", text)
-        for neg, k in re.findall(r"(-?)\b0x([0-9a-f]+)\b", re.sub(r'"(?:[^"\\]|\\.)*"', '""', text)):
+        nostr = re.sub(r'"(?:[^"\\]|\\.)*"', '""', text)
+        for neg, k in re.findall(r"(-?)\b0x([0-9a-f]+)\b", nostr):
             v = (-int(k, 16) if neg else int(k, 16)) & 0xFFFFFFFF
             if 0x10000 <= v < 0xFFFF0000:
                 consts.add(v)
+        for neg, k in re.findall(r"(-?)\b(?<!\.)([1-9]\d*)\b(?!\.)", nostr):
+            v = (-int(k) if neg else int(k)) & 0xFFFFFFFF
+            if 0x10000 <= v < 0xFFFF0000:
+                consts.add(v)
+        self._mul = set()
+        for k in re.findall(r"\* (0x[0-9a-f]+|\d+)\b", nostr):   # a product the compiler strength-reduced (lea / shl)
+            self._mul.add(int(k, 0))
+        for k in re.findall(r"[/%] (\d+)\b", nostr):     # a division by a constant is MSVC's imul by its magic
+            if int(k) > 1 and int(k) & (int(k) - 1):
+                consts.add(div_magic(int(k)))
         # string literals assigned to a word local
         text = re.sub(r"(\b\w+ = )(\"(?:[^\"\\]|\\.)*\");", r"\1(uintptr_t)\2;", text)
-        if re.search(r"\b(DAT_|_DAT_|PTR_|extraout_|in_ECX|unaff_|this\b|aisTeams|GARBLE|CONCAT|SUB\d)", text):
-            bad = re.findall(r"\b(DAT_\w+|_DAT_\w+|PTR_\w+|extraout_\w+|in_ECX|unaff_\w+|this|aisTeams|GARBLE|CONCAT\w*)", text)
+        if re.search(r"\b(DAT_|_DAT_|PTR_|extraout_|in_ECX|unaff_|this\b|aisTeams|universe|GARBLE|RAWSTR|CONCAT|SUB\d)",
+                     text):
+            bad = re.findall(r"\b(DAT_\w+|_DAT_\w+|PTR_\w+|extraout_\w+|in_ECX|unaff_\w+|this|aisTeams|universe|GARBLE|"
+                             r"RAWSTR\w*|CONCAT\w*)", text)
             raise ValueError("0x%08x %s: unread %s" % (addr, f["name"], sorted(set(bad))))
         for name in re.findall(r"\b([A-Za-z_]\w*)\s*\(", re.sub(r'"(?:[^"\\]|\\.)*"', '""', text)):
             if name in ("if", "while", "switch", "for", "return", "sizeof") or name in self.sig:
@@ -572,7 +775,7 @@ class Gen:
             def nm(c):
                 return {("%s" % self.addr_of.get(k, self.funcs.get(k, {}).get("name", hex(k)))): v for k, v in c.items()}
             problems.append("calls C %s asm %s" % (nm(calls - acalls), nm(acalls - calls)))
-        cdiff = {v for v in consts - aconsts if ((v - 1) & 0xFFFFFFFF) not in aconsts and ((v + 1) & 0xFFFFFFFF) not in aconsts}
+        cdiff = {v for v in consts - aconsts - self._mul if ((v - 1) & 0xFFFFFFFF) not in aconsts and ((v + 1) & 0xFFFFFFFF) not in aconsts}
         adiff = {v for v in aconsts - consts if not (v - 1 in consts or v - 2 in consts) or True}
         adiff = {v for v in adiff if v not in self._derived(aconsts, consts) and
                  ((v - 1) & 0xFFFFFFFF) not in consts and ((v + 1) & 0xFFFFFFFF) not in consts}
@@ -591,29 +794,6 @@ class Gen:
         # the values the asm's sub / dec compare chains add (K+1 .. K+8 for a "sub reg,K") are not required in C
         return {v for v in aconsts if any((v - d) in aconsts for d in range(1, 9)) and v not in consts}
 
-    def calibrate(self, todo):
-        """The garbled base: the value B for which every GARBLE(k) of the scripts' bodies is a constant of its function."""
-        cands = None
-        for addr in todo:
-            body = self.funcs[addr]["body"] or ""
-            if GARBLE_BASE not in body:
-                continue
-            _, aconsts = self.asm_facts(addr)
-            offs = []
-            for mm in re.finditer(r"(\(int\))?\s*" + re.escape(GARBLE_BASE) + r"(\s*\+\s*(0x[0-9a-f]+|\d+))?", body):
-                k = int(mm.group(3), 0) if mm.group(3) else 0
-                offs.append(k if mm.group(1) else 4 * k)
-            here = None
-            for k in offs:
-                s = {(v - k) & 0xFFFFFFFF for v in aconsts}
-                here = s if here is None else here & s
-            cands = here if cands is None else cands & here
-        if cands is None:
-            return
-        if len(cands) != 1:
-            raise ValueError("garbled base: %d candidates" % len(cands))
-        self.garble_base = cands.pop()
-
     # ---------------------------------------------------------------- emit
     def emit(self, scripts):
         closures = {s: self.closure(s) for s in ALL_SCRIPTS}
@@ -621,7 +801,6 @@ class Gen:
         todo = []
         for s in scripts:
             todo += [a2 for a2 in closures[s] if a2 not in todo]
-        self.calibrate(todo)
         out = {}
         bodies, report, failed = {}, [], []
         for a2 in todo:
@@ -654,7 +833,23 @@ class Gen:
         out["src/Missions/KasShared.c"] = self.file_text("src/Missions/KasShared.c", None, sorted(shared), bodies,
                                                          None, exe_rel)
         out["src/Missions/CatMissions.h"] = self.header_text(scripts, closures, uses, todo, exe_rel)
+        out["src/Missions/meson.build"] = self.meson_text(scripts)
         return out
+
+    @staticmethod
+    def meson_text(scripts):
+        files = ["KasShared.c"] + ["%s/%s.c" % ("Tutorials" if s.startswith("Tutorial") else "SinglePlayer", s)
+                                   for s in sorted(scripts, key=lambda x: (x.startswith("Tutorial"), x))]
+        L = ["# CAT (M2-R8 kas-runtime-mission01, M2-R9 missions-02-09): Cataclysm's kas2c missions, GENERATED from",
+             "#      cataclysm.exe by tools/m2_kas2c_gen.py (docs/mission-code-map.md 8; this list is written by the generator",
+             "#      too): the generated scripts (%s) and the ICF-shared functions they use." % ", ".join(scripts),
+             "#      HW1's compiled missions (SinglePlayer/*.kas, Tutorials/Tutorial1.kas through tools/kas2c, their",
+             "#      meson.build files) are no longer built: the kasf library has cataclysm.exe's signatures (KAS names as hashes).",
+             "src_missions = files(" + (",\n" + " " * 21).join("'%s'" % f for f in files) + ")",
+             "",
+             "inc_src_missions = include_directories('.')",
+             ""]
+        return "\n".join(L)
 
     def banner(self, path, what, exe_rel):
         name = os.path.basename(path)

@@ -59,6 +59,7 @@ static const char *const LSTRING_008cd930[3] = {"Research Linking Technology.", 
 static const char *const LSTRING_008cd93c[3] = {"Upgrade Acolytes.", "French version goes here", "German version goes here"};
 static const char *const LSTRING_008cd948[3] = {"Link the upgraded Acolytes.", "French version goes here", "German version goes here"};
 static const char *const LSTRING_008cd954[3] = {"LESSON 12 - Other Features of Interest", "French version goes here", "German version goes here"};
+static const char *const LSTRING_008cd960[3] = {"Turn on the Tactical view.", "French version goes here", "German version goes here"};
 static const char *const LSTRING_008cd978[3] = {"Select one Recon and turn on chase camera view.", "French version goes here", "German version goes here"};
 static const char *const LSTRING_008cd984[3] = {"Retire a ship.", "French version goes here", "German version goes here"};
 static const char *const LSTRING_008cd990[3] = {"Scuttle a ship.", "French version goes here", "German version goes here"};
@@ -3809,7 +3810,7 @@ void Init_Tutorial1_Tutorial_Lesson12(void)
     msg = 0xec0bc54;
     team = kasAITeamPtr(0x92e1ae3);
     kasfMsgSend(team, (udword)msg);
-    kasfObjectiveCreate("L12Tactical", (char *)(*(char **)(0x8cd960 + strCurLanguage * 4)), LSTRING_008cd9a8[strCurLanguage]);
+    kasfObjectiveCreate("L12Tactical", LSTRING_008cd960[strCurLanguage], LSTRING_008cd9a8[strCurLanguage]);
     kasfObjectiveSet("L12Tactical", 0);
     kasfObjectiveCreate("L12Chase", LSTRING_008cd978[strCurLanguage], LSTRING_008cd9a8[strCurLanguage]);
     kasfObjectiveSet("L12Chase", 0);

@@ -463,7 +463,10 @@ void bobUpdateExtraCollBobInfo(LinkedList *list)
             // TODO(refactor, 2026-04-28): Apparently it is safe to make the following assumptions at this point.
             // Maybe get rid of unnecessary ifs below?
             dbgAssertOrIgnore(spaceobj->staticinfo);
-            dbgAssertOrIgnore(spaceobj->header.objtype != OBJ_MissileType);
+            // HWI (M2-R9 missions-02-09): GoK's refactor asserted that no missile is in a blob, which neither HW1 nor
+            //      the exe assume (univAddMissile 0x00540c70 and the mines of the minelayers and of the "Mine" lines
+            //      join the collision blobs; the counts below have their missile and mine cases): removed, it stopped
+            //      every debug run in which a missile or mine exists (Mission03's minelayer)
             real32 originalCollSphereSize = spaceobj->staticinfo->staticCollInfo.originalCollSphereSize;
 
             if (spaceobj->header.flags & SOF_Targetable)

@@ -30,12 +30,274 @@ void Init_Mission01_FleetIntel_Fail(void)
     return;
 }
 
+// cataclysm.exe 0x005e0290 (74 bytes)
+void Watch_Mission02_Decoy(void)
+{
+    sdword sVar1;
+
+    CurrentMissionScope = 1;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    sVar1 = kasfVarValueGet(0x5137b);
+    if (sVar1 == 0) {
+        sVar1 = kasfTeamCount();
+        if (sVar1 == 0) {
+            kasJump(0x53a0c, Init_Mission17_tCarriers_Build, Watch_Mission17_HeavyCruisers_Null);
+        }
+    }
+    return;
+}
+
+// cataclysm.exe 0x005e3410 (29 bytes)
+void Init_Mission03_PatrolPirates_Stop(void)
+{
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfStop();
+    return;
+}
+
+// cataclysm.exe 0x005eea30 (163 bytes)
+void Init_Mission05_Harvest_Create(void)
+{
+    sdword sVar1;
+    sdword sVar2;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfTimerDestroy(0xe09cb85);
+    sVar1 = kasfVarValueGet(0x813db354);
+    if (sVar1 == 0) {
+        sVar1 = kasfGetBuildTime("bWorker");
+        sVar2 = kasfVarValueGet(0x9379e54);
+        kasfTimerCreateSetStart(0xe09cb85, (sdword)(sVar1 * sVar2));
+    }
+    else {
+        if (sVar1 == 1) {
+            sVar1 = kasfGetBuildTime("bWorker");
+            sVar2 = kasfVarValueGet(0x9379e54);
+            kasfTimerCreateSetStart(0xe09cb85, (sdword)((sVar2 * sVar1) / 2));
+            return;
+        }
+        if (sVar1 == 2) {
+            kasfTimerCreateSetStart(0xe09cb85, 1);
+            return;
+        }
+    }
+    return;
+}
+
+// cataclysm.exe 0x005ef2c0 (163 bytes)
+void Init_Mission05_Workers_Create(void)
+{
+    sdword sVar1;
+    sdword sVar2;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfTimerDestroy(0xe09cb85);
+    sVar1 = kasfVarValueGet(0x813db354);
+    if (sVar1 == 0) {
+        sVar1 = kasfGetBuildTime("bWorker");
+        sVar2 = kasfVarValueGet(0x9379e54);
+        kasfTimerCreateSetStart(0xe09cb85, (sdword)(sVar1 * sVar2));
+    }
+    else {
+        if (sVar1 == 1) {
+            sVar1 = kasfGetBuildTime("bWorker");
+            sVar2 = kasfVarValueGet(0x9379e54);
+            kasfTimerCreateSetStart(0xe09cb85, (sdword)((sVar2 * sVar1) / 2));
+            return;
+        }
+        if (sVar1 == 2) {
+            kasfTimerCreateSetStart(0xe09cb85, 0);
+            return;
+        }
+    }
+    return;
+}
+
+// cataclysm.exe 0x005eff10 (163 bytes)
+void Init_Mission05_IonArrayFrigates_Create(void)
+{
+    sdword sVar1;
+    sdword sVar2;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfTimerDestroy(0xe09cb85);
+    sVar1 = kasfVarValueGet(0x813db354);
+    if (sVar1 == 0) {
+        sVar1 = kasfGetBuildTime("bIonArrayFrigate");
+        sVar2 = kasfVarValueGet(0x9379e54);
+        kasfTimerCreateSetStart(0xe09cb85, (sdword)(sVar1 * sVar2));
+    }
+    else {
+        if (sVar1 == 1) {
+            sVar1 = kasfGetBuildTime("bIonArrayFrigate");
+            sVar2 = kasfVarValueGet(0x9379e54);
+            kasfTimerCreateSetStart(0xe09cb85, (sdword)((sVar2 * sVar1) / 2));
+            return;
+        }
+        if (sVar1 == 2) {
+            kasfTimerCreateSetStart(0xe09cb85, 0);
+            return;
+        }
+    }
+    return;
+}
+
+// cataclysm.exe 0x005f0df0 (163 bytes)
+void Init_Mission05_Corvettes_Create(void)
+{
+    sdword sVar1;
+    sdword sVar2;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfTimerDestroy(0xe09cb85);
+    sVar1 = kasfVarValueGet(0x813db354);
+    if (sVar1 == 0) {
+        sVar1 = kasfGetBuildTime("bMissileCorvette");
+        sVar2 = kasfVarValueGet(0x9379e54);
+        kasfTimerCreateSetStart(0xe09cb85, (sdword)(sVar1 * sVar2));
+    }
+    else {
+        if (sVar1 == 1) {
+            sVar1 = kasfGetBuildTime("bMissileCorvette");
+            sVar2 = kasfVarValueGet(0x9379e54);
+            kasfTimerCreateSetStart(0xe09cb85, (sdword)((sVar2 * sVar1) / 2));
+            return;
+        }
+        if (sVar1 == 2) {
+            kasfTimerCreateSetStart(0xe09cb85, 0);
+            return;
+        }
+    }
+    return;
+}
+
+// cataclysm.exe 0x005f2300 (163 bytes)
+void Init_Mission05_Fighters_Create(void)
+{
+    sdword sVar1;
+    sdword sVar2;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfTimerDestroy(0xe09cb85);
+    sVar1 = kasfVarValueGet(0x813db354);
+    if (sVar1 == 0) {
+        sVar1 = kasfGetBuildTime("bAcolyte");
+        sVar2 = kasfVarValueGet(0x9379e54);
+        kasfTimerCreateSetStart(0xe09cb85, (sdword)(sVar1 * sVar2));
+    }
+    else {
+        if (sVar1 == 1) {
+            sVar1 = kasfGetBuildTime("bAcolyte");
+            sVar2 = kasfVarValueGet(0x9379e54);
+            kasfTimerCreateSetStart(0xe09cb85, (sdword)((sVar2 * sVar1) / 2));
+            return;
+        }
+        if (sVar1 == 2) {
+            kasfTimerCreateSetStart(0xe09cb85, 0);
+            return;
+        }
+    }
+    return;
+}
+
+// cataclysm.exe 0x005f3470 (163 bytes)
+void Init_Mission05_RammingFrigates_Create(void)
+{
+    sdword sVar1;
+    sdword sVar2;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfTimerDestroy(0xe09cb85);
+    sVar1 = kasfVarValueGet(0x813db354);
+    if (sVar1 == 0) {
+        sVar1 = kasfGetBuildTime("bRammingFrigate");
+        sVar2 = kasfVarValueGet(0x9379e54);
+        kasfTimerCreateSetStart(0xe09cb85, (sdword)(sVar1 * sVar2));
+    }
+    else {
+        if (sVar1 == 1) {
+            sVar1 = kasfGetBuildTime("bRammingFrigate");
+            sVar2 = kasfVarValueGet(0x9379e54);
+            kasfTimerCreateSetStart(0xe09cb85, (sdword)((sVar2 * sVar1) / 2));
+            return;
+        }
+        if (sVar1 == 2) {
+            kasfTimerCreateSetStart(0xe09cb85, 0);
+            return;
+        }
+    }
+    return;
+}
+
+// cataclysm.exe 0x005f38f0 (40 bytes)
+void Init_Mission05_Beast_Wait(void)
+{
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfTimerCreateSetStart(0x5b5e4, 5);
+    return;
+}
+
 // cataclysm.exe 0x005f4730 (29 bytes)
 void Init_Mission06_FleetIntel_WaitIntel(void)
 {
     CurrentMissionScope = 2;
     CurrentMissionScopeName = CurrentTeamP->kasLabel;
     kasfIntelEventNotEnded();
+    return;
+}
+
+// cataclysm.exe 0x005fd250 (29 bytes)
+void Init_Mission07_Convoy_S_x4498602(void)
+{
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfStopInstant();
+    return;
+}
+
+// cataclysm.exe 0x006063f0 (81 bytes)
+void Watch_Mission09_FleetIntel_Failed(void)
+{
+    sdword sVar1;
+    AITeam *team;
+    uintptr_t msg;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    sVar1 = kasfIntelEventEnded();
+    if (sVar1 != 0) {
+        msg = 0x34dbee4;
+        team = kasAITeamPtr(0x98ddc43);
+        kasfMsgSend(team, (udword)msg);
+        kasJump(0x53a0c, Watch_Mission17_HeavyCruisers_Null, Watch_Mission17_HeavyCruisers_Null);
+    }
+    return;
+}
+
+// cataclysm.exe 0x00608010 (29 bytes)
+void Init_Mission09_FighterPatrol_Launch(void)
+{
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfLaunch();
+    return;
+}
+
+// cataclysm.exe 0x0060c010 (45 bytes)
+void Init_Mission09_AttackSupport_Null(void)
+{
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfStop();
+    kasfVarValueSet(0x5137b, 1);
     return;
 }
 
@@ -48,12 +310,86 @@ void Init_Mission10_Salvage_Hidden(void)
     return;
 }
 
+// cataclysm.exe 0x00613880 (71 bytes)
+void Init_Mission11_FleetIntel_WaitTimer(void)
+{
+    sdword duration;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    duration = kasfVarValueGet(0x79d69c2);
+    kasfTimerSet(0x89a6a54, duration);
+    kasfTimerStart(0x89a6a54);
+    kasfVarValueSet(0x79d69c2, 0);
+    return;
+}
+
 // cataclysm.exe 0x00613940 (40 bytes)
 void Init_Mission11_FleetIntel_WaitMessage(void)
 {
     CurrentMissionScope = 2;
     CurrentMissionScopeName = CurrentTeamP->kasLabel;
     kasfVarValueSet(0x858db5e4, 0);
+    return;
+}
+
+// cataclysm.exe 0x006151c0 (42 bytes)
+void Init_Mission11_BEASTCarrier_InHS(void)
+{
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfTeamAttributesBitSet(0x80);
+    kasfTeamHyperspaceOut();
+    return;
+}
+
+// cataclysm.exe 0x00615ad0 (49 bytes)
+void Init_Mission11_Infected_Attack(void)
+{
+    GrowSelection *targets;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfTacticsAggressive();
+    targets = kasGrowSelectionPtr(0x4a2a29);
+    kasfAttack(targets);
+    return;
+}
+
+// cataclysm.exe 0x00617a10 (29 bytes)
+void Init_Mission11_Harvest_Harvest(void)
+{
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfHarvest();
+    return;
+}
+
+// cataclysm.exe 0x0061eb40 (40 bytes)
+void Init_Mission11_DFGs_Building(void)
+{
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfVarValueSet(0x9379e54, 0);
+    return;
+}
+
+// cataclysm.exe 0x00624aa0 (81 bytes)
+void Watch_Mission13_FleetIntel_Failed(void)
+{
+    sdword sVar1;
+    AITeam *team;
+    uintptr_t msg;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    sVar1 = kasfIntelEventEnded();
+    if (sVar1 != 0) {
+        msg = 0xd2247a4;
+        team = kasAITeamPtr(0x98ddc43);
+        kasfMsgSend(team, (udword)msg);
+        kasJump(0x53a0c, Watch_Mission17_HeavyCruisers_Null, Watch_Mission17_HeavyCruisers_Null);
+    }
     return;
 }
 
@@ -65,10 +401,83 @@ void Watch_Mission14_BeastMothership(void)
     return;
 }
 
+// cataclysm.exe 0x00631dd0 (195 bytes)
+void Init_Mission14_IonArrayFrigates_Move(void)
+{
+    GrowSelection *pGVar1;
+    GrowSelection *pGVar2;
+    hvector *phVar3;
+    sdword sVar4;
+    uintptr_t label;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    pGVar1 = kasGrowSelectionPtr(0x4a2a29);
+    pGVar2 = kasGrowSelectionPtr(0x764e81c);
+    kasfShipsSelectCapital(pGVar2, pGVar1);
+    phVar3 = kasThisTeamsVectorPtr();
+    pGVar1 = kasGrowSelectionPtr(0x764e81c);
+    kasfShipsSort(pGVar1, phVar3);
+    kasfFormationWall();
+    sVar4 = 0;
+    pGVar1 = kasGrowSelectionPtr(0x764e81c);
+    pGVar2 = kasGrowSelectionPtr(0x5425);
+    sVar4 = kasfShipsSelectIndex(pGVar2, pGVar1, sVar4);
+    if (sVar4 == 0) {
+        label = 0xcff5860;
+    }
+    else {
+        label = 0x5425;
+    }
+    phVar3 = kasShipsVectorPtr((udword)label);
+    kasfMoveTo(phVar3);
+    kasfTimerDestroy(0x524a5);
+    sVar4 = kasfRandom(10, 0x14);
+    kasfTimerCreateSetStart(0x524a5, sVar4);
+    return;
+}
+
+// cataclysm.exe 0x0063cc00 (91 bytes)
+void Watch_Mission16_Infected(void)
+{
+    GrowSelection *pGVar1;
+    GrowSelection *newShips;
+    sdword sVar2;
+
+    CurrentMissionScope = 1;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    pGVar1 = kasGrowSelectionPtr(0x6da2da9);
+    newShips = kasGrowSelectionPtr(0x889c4f4);
+    sVar2 = kasfShipsSelectBeastified(newShips, pGVar1);
+    if (sVar2 != 0) {
+        pGVar1 = kasGrowSelectionPtr(0x889c4f4);
+        kasfReinforceTeamWithShips(CurrentTeamP, pGVar1);
+    }
+    return;
+}
+
 // cataclysm.exe 0x00652ef0 (25 bytes)
 void Watch_Mission17_HeavyCruisers_Null(void)
 {
     CurrentMissionScope = 2;
     CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    return;
+}
+
+// cataclysm.exe 0x0065b260 (40 bytes)
+void Init_Mission17_kHeavyCruisers_Hyperspace(void)
+{
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfVarCreateSet(0xc9b3857, 0);
+    return;
+}
+
+// cataclysm.exe 0x0065f6f0 (40 bytes)
+void Init_Mission17_tCarriers_Build(void)
+{
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfVarValueSet(0x5137b, 1);
     return;
 }

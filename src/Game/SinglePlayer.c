@@ -2018,6 +2018,16 @@ void singlePlayerInit(void)
     catSpWarpEnabled = FALSE;
     catSpWarpLevelTo = 0;
     scriptSet(NULL, "Warp.script", catSpWarpScriptTable);
+#if HWI_ORACLE
+    // HWI-TEST (M2-R9 missions-02-09): /catMissionTest with /catMissionTestMission N (2 .. 17) starts mission N through
+    //      the exe's warp start, as a copy of Warp.script saying "WarpEnabled 1" and "LevelToWarpTo N" would (the
+    //      install's per-level records: the fleet, resources and technologies Relic set for each mission)
+    if (singlePlayerGame && (catMissionSelfTestWarpLevel() > 0))
+    {
+        catSpWarpEnabled = TRUE;
+        catSpWarpLevelTo = catMissionSelfTestWarpLevel();
+    }
+#endif
     if (catSpWarpEnabled)
     {
         singlePlayerGameInfo.currentMission = catSpWarpLevelTo;
@@ -3593,18 +3603,19 @@ typedef struct
 
 #define CAT_KAS_SCRIPTS         CAT_SP_KAS_SCRIPTS
 #define CAT_KAS_SCRIPT_TUTORIAL 17
-// CAT-TODO(M2-R9 part B): the generated code of Mission02 .. Mission17 (docs/mission-code-map.md 8; tools/m2_kas2c_gen.py --scripts): until then those missions start no KAS script
+// CAT (M2-R9 missions-02-09): Mission02 .. Mission09 generated (tools/m2_kas2c_gen.py DEFAULT_SCRIPTS)
+// CAT-TODO(M2-R9 part B): the generated code of Mission10 .. Mission17 (docs/mission-code-map.md 8; tools/m2_kas2c_gen.py --scripts; producer 3): until then those missions start no KAS script
 static const CatKasScript catKasScripts[CAT_KAS_SCRIPTS] =
 {
     { "mission01", Init_Mission01, Watch_Mission01, Mission01_Functions, &Mission01_FunctionCount, CAT_MISSION01_WATCH_EXE },
-    { "mission02", NULL, NULL, NULL, NULL, 0x005e0bb0 },
-    { "mission03", NULL, NULL, NULL, NULL, 0x005e50d0 },
-    { "mission04", NULL, NULL, NULL, NULL, 0x005ea950 },
-    { "mission05", NULL, NULL, NULL, NULL, 0x005f4420 },
-    { "mission06", NULL, NULL, NULL, NULL, 0x005fb6d0 },
-    { "mission07", NULL, NULL, NULL, NULL, 0x00602280 },
-    { "mission08", NULL, NULL, NULL, NULL, 0x006056a0 },
-    { "mission09", NULL, NULL, NULL, NULL, 0x0060db20 },
+    { "mission02", Init_Mission02, Watch_Mission02, Mission02_Functions, &Mission02_FunctionCount, CAT_MISSION02_WATCH_EXE },
+    { "mission03", Init_Mission03, Watch_Mission03, Mission03_Functions, &Mission03_FunctionCount, CAT_MISSION03_WATCH_EXE },
+    { "mission04", Init_Mission04, Watch_Mission04, Mission04_Functions, &Mission04_FunctionCount, CAT_MISSION04_WATCH_EXE },
+    { "mission05", Init_Mission05, Watch_Mission05, Mission05_Functions, &Mission05_FunctionCount, CAT_MISSION05_WATCH_EXE },
+    { "mission06", Init_Mission06, Watch_Mission06, Mission06_Functions, &Mission06_FunctionCount, CAT_MISSION06_WATCH_EXE },
+    { "mission07", Init_Mission07, Watch_Mission07, Mission07_Functions, &Mission07_FunctionCount, CAT_MISSION07_WATCH_EXE },
+    { "mission08", Init_Mission08, Watch_Mission08, Mission08_Functions, &Mission08_FunctionCount, CAT_MISSION08_WATCH_EXE },
+    { "mission09", Init_Mission09, Watch_Mission09, Mission09_Functions, &Mission09_FunctionCount, CAT_MISSION09_WATCH_EXE },
     { "mission10", NULL, NULL, NULL, NULL, 0x00613360 },
     { "mission11", NULL, NULL, NULL, NULL, 0x00620240 },
     { "mission12", NULL, NULL, NULL, NULL, 0x00623e90 },

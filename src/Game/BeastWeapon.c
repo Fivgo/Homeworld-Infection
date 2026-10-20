@@ -164,11 +164,29 @@ void cat_beastInfectShip(Ship *target, Ship *infector)                      // 0
 //      infected (beastAttacksRequired < 0)
 CatBeastAttackStatic *cat_beastGetAttackStaticInfo(Ship *ship)
 {
+#if defined(__i386__) || defined(_M_IX86)
     if (ship->staticinfo->beastAttacksRequired >= 0)
     {
         return (CatBeastAttackStatic *)&ship->staticinfo->beastAttackCascadeCost;
     }
     return NULL;
+#else
+    // HWI-FIX (M2-R9 missions-02-09): on the 64-bit build ShipType is 8 bytes (ShipDefs.h, HW_PTR_64), so the static's
+    //      three fields are not this struct's layout there (beastAttackConvertTo is 8-aligned, 4 bytes further on):
+    //      the struct read through the cast took the padding and the next word for the type (Mission07's infected
+    //      convoy ship stopped the render on GetShipStaticInfo's check). The values are handed out in a copy instead
+    //      (every caller only reads them or tests NULL); the ILP32 build keeps the exe's pointer above
+    static CatBeastAttackStatic copy;
+
+    if (ship->staticinfo->beastAttacksRequired >= 0)
+    {
+        copy.cascadeCost = ship->staticinfo->beastAttackCascadeCost;
+        copy.attacksRequired = ship->staticinfo->beastAttacksRequired;
+        copy.convertTo = ship->staticinfo->beastAttackConvertTo;
+        return &copy;
+    }
+    return NULL;
+#endif
 }
 
 void cat_beastWeaponStaticInit(void)                                        // 0x00429b90

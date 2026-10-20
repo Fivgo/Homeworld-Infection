@@ -27,6 +27,8 @@
 #include "HS.h"
 #include "KAS.h"
 #include "KASFunc.h"
+#include "MissionSelfTest.h"    // HWI-TEST (M2-R9 missions-02-09): the objectives' judge
+#include "OracleDump.h"
 #include "KASVar.h"
 #include "mainrgn.h"
 #include "Memory.h"
@@ -2621,6 +2623,9 @@ void kasfPopupInteger(char *text, sdword integer)  // KAS PopupInteger, cataclys
 //      brief text, as HW1)
 void kasfObjectiveCreate(char *label, char *briefText, char *fullText)
 {
+#if HWI_ORACLE
+    catMissionSelfTestObjective("create", label, 0);    // HWI-TEST (M2-R9 missions-02-09): the mission self-test's judge
+#endif
     if ((fullText != NULL) && (fullText[0] != 0))
     {
         objectiveAndFleetIntelligenceCreate(label, briefText, fullText, 0, TRUE);
@@ -2637,6 +2642,9 @@ void kasfObjectiveCreate(char *label, char *briefText, char *fullText)
 
 void kasfObjectiveCreateSecondary(char* label, char* briefText, char* fullText)  // KAS ObjectiveCreateSecondary, cataclysm.exe 0x00494ed0
 {
+#if HWI_ORACLE
+    catMissionSelfTestObjective("create", label, 0);    // HWI-TEST (M2-R9 missions-02-09): the mission self-test's judge
+#endif
     if ((fullText == NULL) || (fullText[0] == 0))
     {
     objectiveAndFleetIntelligenceCreate(label, briefText, briefText, 0, FALSE);
@@ -2650,6 +2658,9 @@ void kasfObjectiveCreateSecondary(char* label, char* briefText, char* fullText) 
 void kasfObjectiveSet(char *label, sdword status)  // KAS ObjectiveSet, cataclysm.exe 0x00494f10
 {
     objectiveSet(label, status);
+#if HWI_ORACLE
+    catMissionSelfTestObjective("set", label, status);  // HWI-TEST (M2-R9 missions-02-09): the mission self-test's judge
+#endif
 }
 
 //void kasfObjectivePopupAll(void)
@@ -2679,11 +2690,17 @@ sdword kasfObjectiveGetAny(void)
 
 void kasfObjectiveDestroy(char *label)  // KAS ObjectiveDestroy, cataclysm.exe 0x00494f60
 {
+#if HWI_ORACLE
+    catMissionSelfTestObjective("destroy", label, 0);   // HWI-TEST (M2-R9 missions-02-09): the mission self-test's judge
+#endif
     objectiveDestroy(label);
 }
 
 void kasfObjectiveDestroyAll(void)  // KAS ObjectivesDestroyAll, cataclysm.exe 0x00494f70
 {
+#if HWI_ORACLE
+    catMissionSelfTestObjective("destroyall", "", 0);   // HWI-TEST (M2-R9 missions-02-09): the mission self-test's judge
+#endif
     objectiveDestroyAll();
 }
 
@@ -5300,7 +5317,8 @@ void kasfSpawnEffect(GrowSelection *ships, char *effectName, sdword parameter)  
 /*-----------------------------------------------------------------------------
     Name        : kasfSpecialOn                                     0x00497d30
     Description : CAT: KAS "SpecialOn": the current team's special ability against the ships (clWrapSpecial with a
-                  heap copy of the targets); the exe returns nothing defined (0 here)
+                  heap copy of the targets); 1 when the order was given, else 0 (M2-R9 missions-02-09: the exe's
+                  mov eax,1 at 0x00497da4 / xor eax,eax at 0x00497dab; the tree returned 0 in both cases)
 ----------------------------------------------------------------------------*/
 sdword kasfSpecialOn(GrowSelection *ships)
 {
@@ -5319,6 +5337,7 @@ sdword kasfSpecialOn(GrowSelection *ships)
         targets->numTargets = numTargets;
         clWrapSpecial(&universe.mainCommandLayer, CurrentTeamP->shipList.selection, targets);
         memFree(targets);
+        return 1;                                       // CAT: 0x00497da4
     }
     return 0;
 }
@@ -6095,8 +6114,8 @@ static void kasfVectorClampToUniverse(hvector *v)
 
 /*-----------------------------------------------------------------------------
     Name        : kasfVectorAdd / kasfVectorCopy                    0x00498dd0 / 0x00498e30
-    Description : CAT: KAS "PointAdd" / "PointCopy": an existing labelled point is overwritten, and a new labelled
-                  point is added in any case (the exe adds one each call)
+    Description : CAT: KAS "PointAdd" / "PointCopy": an existing labelled point is overwritten; only a label with
+                  no point yet adds a new labelled point (the exe returns after the overwrite, 0x00498dfe / 0x00498e5d)
 ----------------------------------------------------------------------------*/
 void kasfVectorAdd(udword label, sdword x, sdword y, sdword z)
 {
@@ -6108,6 +6127,7 @@ void kasfVectorAdd(udword label, sdword x, sdword y, sdword z)
         point->x = (real32)x;
         point->y = (real32)y;
         point->z = (real32)z;
+        return;  // CAT: an existing point is only overwritten (kasfVectorAdd 0x00498dfe)
     }
     kasLabelledVectorAdd(label, (real32)x, (real32)y, (real32)z, 1.0f);
 }
@@ -6119,6 +6139,7 @@ void kasfVectorCopy(udword label, hvector *vec)
     if (point != NULL)
     {
         *point = *vec;
+        return;  // CAT: an existing point is only overwritten (kasfVectorCopy 0x00498e5d)
     }
     kasLabelledVectorAdd(label, vec->x, vec->y, vec->z, vec->w);
 }
