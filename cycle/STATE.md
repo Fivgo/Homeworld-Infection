@@ -519,6 +519,8 @@ IDENTICAL rows found modified, 15 unflagged rows found IDENTICAL), 3,512 reviewe
 **M2-R10 plan (a short round: the play path's leftovers), then M3** (docs/m2-r9-summary.md "Plan for M2-R10"; M3's Linux
 play-test of Mission01 .. 03, the tutorial and a skirmish can start now with `tools/play.sh`, the brief in the summary):
 
+NOT YET LAUNCHED; `cycle/workflows/m2-r10.js` is WRITTEN (74816ff, an Opus draft reviewed by the user's session 38027cce: 3 producers + 3 auditors + integrate, `ROUND_BASE 29f7c0d`, the R9 baseline 553845b65e87f3b5, constants `FOURTH_RECORDING null` and `MODEB_RESULT null`, each set to the user's archive path if the fourth recording / the GOG playback of hwirec01-02 exist before the launch). Launch = Workflow({scriptPath: cycle/workflows/m2-r10.js}) from the user's terminal session on the user's word, never the orchestrator; relaunch after a cut-off with resumeFromRunId from that session.
+
 | # | producer | scope | done when |
 |---|---|---|---|
 | 1 | the oracle's next rung, physics | 10-17 tick 1922 (ship 41's attack flight: the target lead / the turning ship's coordsys), 10-18 tick 1721 (the first bullets: `GenericInterceptorCanFire`, `cat_gunCanFire`, the attack AI's timing), `aiuFindDistanceSquared`'s and `tacticsGetShipsMaxVelocity`'s unrounded returns, the rest of Blobs.c; the mode-B result and the fourth recording if the user made them | the 10-17 replay IDENTICAL beyond 1922 and the 10-18 beyond 1721, or the next divergences localised and owned; a mode-B divergence localised |
