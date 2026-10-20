@@ -53,11 +53,24 @@
 #include "CommandLayer.h"
 #include "Memory.h"
 #include "mainrgn.h"
+#include "mainswitches.h"
 #include "Select.h"
 #include "Worker.h"
 #include "Mimic.h"
 #include "Alliance.h"
 #include "Salvage.h"
+#include "ShipLink.h"
+#include "CatMissions.h"
+#include "ResearchGUI.h"
+#include "CameraCommand.h"
+#include "Camera.h"
+#include "Sensors.h"
+#include "PopupMenu.h"
+#include "KeyBindings.h"     // M2-R9 missions-10-17: Watch_Tutorial1 (the tutorial save's load)
+#include "Mothership.h"
+#include "Volume.h"
+#include "NomadMoon.h"
+#include "TradeMgr.h"
 
 extern char SinglePlayerSavedGamesPath[];               // GamePick.c
 extern char CurrentMissionName[];                       // KAS.c
@@ -75,6 +88,15 @@ static bool32 catMtNisletEnded = FALSE, catMtArrived = FALSE;
 static sdword catMtMission = 1;
 static sdword catMtNextLevelTick = -1;
 static udword catMtLevelTicks = 0;      // the mission level's last tick (the next level starts its counter at 0)
+// HWI-TEST (M2-R9 missions-10-17): the end of the game (Mission17: kasfMissionCompleted, then univUpdate's quit into
+//      the credits, utyGameQuitToMain 0x005ab6b0)
+static sdword catMtCompletedTick = -1, catMtGameEndTick = -1;
+static void catMtGameEnd(const char *credits);
+// HWI-TEST (M2-R9 missions-10-17): the warp start under a test (/catWarpStartTest): the mission comes from the test
+//      copy of warp.script (singlePlayerInit), the record is checked twice (SinglePlayer.c cat_spWarpStartSelfTestCheck:
+//      the fleet in the ether, then out of it after the arrival); no mission is played
+static bool32 catMtWarpTest = FALSE;
+static sdword catMtWarpScriptLevel = -1, catMtWarpApplied = -1, catMtWarpArrived = -1, catMtWarpArrivedTick = -1;
 
 #define CAT_MT_TEAMS 64
 static udword catMtTeamLabel[CAT_MT_TEAMS];
@@ -105,6 +127,38 @@ void catMissionSelfTestMissionSet(char *string)
 sdword catMissionSelfTestWarpLevel(void)
 {
     return ((catMissionTestTicks > 0) && (catMtMission >= 2)) ? catMtMission : 0;
+}
+
+void catWarpStartSelfTestSet(void)
+{
+    catMtWarpTest = TRUE;
+}
+
+bool32 catWarpStartSelfTestRequested(void)
+{
+    return catMtWarpTest && (catMissionTestTicks > 0);
+}
+
+void catWarpStartSelfTestScript(bool32 enabled, sdword level)
+{
+    if (!catWarpStartSelfTestRequested())
+    {
+        return;
+    }
+    catMtWarpScriptLevel = enabled ? level : 0;
+    dbgMessagef("warpstarttest: warp.script WarpEnabled=%d LevelToWarpTo=%d", (int)enabled, (int)level);
+    if (enabled && (level >= 2) && (level <= MISSION_17))
+    {
+        catMtMission = level;           // the flow lines of mission <level> (its level load, its KAS start)
+    }
+}
+
+void catWarpStartSelfTestApplied(bool32 pass)
+{
+    if (catWarpStartSelfTestRequested())
+    {
+        catMtWarpApplied = pass ? 1 : 0;
+    }
 }
 
 void catMissionSelfTestTutorialSet(char *string)
@@ -148,6 +202,15 @@ void catMissionSelfTestEvent(const char *what)
             {
                 catMtKasStarted = TRUE;
             }
+            // M2-R9 missions-10-17: the mission's own end (MissionCompleted) and the credits after it
+            if ((strcmp(what, "mission completed") == 0) && (catMtCompletedTick < 0))
+            {
+                catMtCompletedTick = (sdword)universe.univUpdateCounter;
+            }
+            if (strncmp(what, "credits ", 8) == 0)
+            {
+                catMtGameEnd(what + 8);
+            }
             snprintf(name, sizeof(name), "Mission%02d", (int)catMtMission + 1);
             if ((strncmp(what, "level loaded", 12) == 0) && (strstr(what, name) != NULL) && (catMtNextLevelTick < 0))
             {
@@ -177,6 +240,40 @@ void catMissionSelfTestEvent(const char *what)
             catMtNisletEnded = TRUE;
         }
     }
+}
+
+// HWI-TEST (M2-R9 missions-10-17): the KAS message trace (/catMissionTestTrace, a diagnostic for developing a mission's
+//      player: which message the scripts wait for); a team's re-queue of a message it did not handle (aitMsgSend of a
+//      message to itself that it just removed) is logged once
+static bool32 catMtTrace = FALSE;
+static udword catMtTraceLast[8][2];
+static sdword catMtTraceNext = 0;
+
+void catMissionSelfTestTraceSet(void)
+{
+    catMtTrace = TRUE;
+}
+
+void catMissionSelfTestMessage(struct AITeam *from, struct AITeam *to, udword msg)
+{
+    sdword k;
+
+    if (!catMtTrace || (to == NULL))
+    {
+        return;
+    }
+    for (k = 0; k < 8; k++)
+    {
+        if ((catMtTraceLast[k][0] == to->kasLabel) && (catMtTraceLast[k][1] == msg))
+        {
+            return;
+        }
+    }
+    catMtTraceLast[catMtTraceNext][0] = to->kasLabel;
+    catMtTraceLast[catMtTraceNext][1] = msg;
+    catMtTraceNext = (catMtTraceNext + 1) % 8;
+    dbgMessagef("missiontest: msg tick=%u %07x -> %07x %07x", (unsigned)universe.univUpdateCounter,
+                (from != NULL) ? (unsigned)from->kasLabel : 0u, (unsigned)to->kasLabel, (unsigned)msg);
 }
 
 // the KAS FSMs' states, each change logged with its team's label hash
@@ -1504,7 +1601,8 @@ static void catMtCapture(const char *why, CatMtCaptureSlot *slot, Ship *target)
     Node *node;
     Ship *ship;
     CommandToDo *command;
-    sdword k;
+    sdword k, needed;
+    bool32 busy0, busy1;
 
     growSelectInit(&one);
     growSelectAddShip(&one, target);
@@ -1517,14 +1615,40 @@ static void catMtCapture(const char *why, CatMtCaptureSlot *slot, Ship *target)
                     (unsigned)target->shipID.shipNumber);
         kasfShipsDamage(&one, (sdword)above);
     }
-    if ((slot->target == target->shipID.shipNumber) && (catMtWorkerBusy(slot->workers[0]) || catMtWorkerBusy(slot->workers[1])))
+    busy0 = (slot->target == target->shipID.shipNumber) && catMtWorkerBusy(slot->workers[0]);
+    busy1 = (slot->target == target->shipID.shipNumber) && catMtWorkerBusy(slot->workers[1]);
+    if (busy0 && busy1)
     {
+        Ship *w0 = catMtFindPlayerShip(slot->workers[0]);
+        Ship *w1 = catMtFindPlayerShip(slot->workers[1]);
+        vector d;
+
+        if (w0 != NULL)
+        {
+            vecSub(d, w0->obj.posinfo.position, target->obj.posinfo.position);
+        }
+        dbgMessagef("missiontest: event tick=%u %s: the pair is on %s#%u (health %d of %d, targeted %d, worker 0 at %d, "
+                    "states %d/%d, player %d, depot %s at %d, speed %d)",
+                    (unsigned)universe.univUpdateCounter, why, ShipTypeToStr(target->shiptype),
+                    (unsigned)target->shipID.shipNumber, (int)target->targetable.health,
+                    (int)target->staticinfo->health.maxhealth,
+                    bitTest(target->shipOrDerelict.specialFlags2, SPECIAL_2_CatSalvageTargeted) ? 1 : 0,
+                    (w0 != NULL) ? (int)fsqrt(vecMagnitudeSquared(d)) : -1,
+                    (w0 != NULL) ? (int)cat_salvageGetSalvagerInfo(w0)->state : -1,
+                    (w1 != NULL) ? (int)cat_salvageGetSalvagerInfo(w1)->state : -1, (int)target->catSalvagePlayer,
+                    ((w0 != NULL) && (cat_salvageGetSalvagerInfo(w0)->dockwith != NULL)) ?
+                        ShipTypeToStr(cat_salvageGetSalvagerInfo(w0)->dockwith->shiptype) : "none",
+                    ((w0 != NULL) && (cat_salvageGetSalvagerInfo(w0)->dockwith != NULL)) ?
+                        (int)cat_vecDistance(&target->obj.posinfo.position, &cat_salvageGetSalvagerInfo(w0)->dockwith->obj.posinfo.position) : -1,
+                    (int)fsqrt(vecMagnitudeSquared(target->obj.posinfo.velocity)));
         growSelectClose(&one);
         return;                                     // the pair is on it
     }
+    // one of the pair lost (Mission14's escort fights): a free worker joins the one still on it
+    needed = (busy0 || busy1) ? 1 : 2;
     workers = memAlloc(sizeofSelectCommand(2), "catMtCapture", 0);
     workers->numShips = 0;
-    for (node = universe.ShipList.head; (node != NULL) && (workers->numShips < 2); node = node->next)
+    for (node = universe.ShipList.head; (node != NULL) && (workers->numShips < needed); node = node->next)
     {
         ship = (Ship *)listGetStructOfNode(node);
         command = getShipAndItsCommand(&universe.mainCommandLayer, ship);
@@ -1534,7 +1658,7 @@ static void catMtCapture(const char *why, CatMtCaptureSlot *slot, Ship *target)
             workers->ShipPtr[workers->numShips++] = ship;
         }
     }
-    if (workers->numShips == 2)
+    if ((workers->numShips == 2) && (needed == 2))
     {
         slot->target = target->shipID.shipNumber;
         for (k = 0; k < 2; k++)
@@ -1542,6 +1666,15 @@ static void catMtCapture(const char *why, CatMtCaptureSlot *slot, Ship *target)
             slot->workers[k] = workers->ShipPtr[k]->shipID.shipNumber;
         }
         catMtSpecial(why, 0, workers, &one);
+    }
+    else if ((workers->numShips == 1) && (needed == 1))
+    {
+        slot->workers[busy0 ? 1 : 0] = workers->ShipPtr[0]->shipID.shipNumber;
+        catMtSpecial(why, 0, workers, &one);
+    }
+    else if ((needed == 1) && ((universe.univUpdateCounter % 1024) == 296))
+    {
+        catMtBuild(why, sWorker);                   // no free worker: one more from the command ship
     }
     memFree(workers);
     growSelectClose(&one);
@@ -1605,19 +1738,27 @@ static void catMtFreeSupport(const char *why, ShipType type)
             deficit -= ship->staticinfo->supportUnits;      // scuttling
         }
     }
-    for (node = universe.ShipList.head; (node != NULL) && (deficit > 0); node = node->next)
+    // the recons first; when they are not enough (Mission14's fleet arrives over its cap), the small craft
+    static const ShipType order[] = { sRecon, sAcolyte, sACV, sSentinel, sLeech, sMimic };
+    sdword k;
+
+    for (k = 0; (k < (sdword)(sizeof(order) / sizeof(order[0]))) && (deficit > 0); k++)
     {
-        ship = (Ship *)listGetStructOfNode(node);
-        if ((ship->playerowner == player) && (ship->shiptype == sRecon) && !bitTest(ship->header.flags, SOF_Dead) &&
-            (ship->deathtime == 0.0f))
+        for (node = universe.ShipList.head; (node != NULL) && (deficit > 0) && (recons->numShips < COMMAND_MAX_SHIPS);
+             node = node->next)
         {
-            recons->ShipPtr[recons->numShips++] = ship;
-            deficit -= ship->staticinfo->supportUnits;
+            ship = (Ship *)listGetStructOfNode(node);
+            if ((ship->playerowner == player) && (ship->shiptype == order[k]) && !bitTest(ship->header.flags, SOF_Dead) &&
+                (ship->deathtime == 0.0f))
+            {
+                recons->ShipPtr[recons->numShips++] = ship;
+                deficit -= ship->staticinfo->supportUnits;
+            }
         }
     }
     if (recons->numShips > 0)
     {
-        dbgMessagef("missiontest: event tick=%u %s: scuttle %d sRecon (used %d of %d, %s needs %d)",
+        dbgMessagef("missiontest: event tick=%u %s: scuttle %d small craft (used %d of %d, %s needs %d)",
                     (unsigned)universe.univUpdateCounter, why, (int)recons->numShips, (int)player->supportUnitsUsed,
                     (int)player->supportUnitsMax, ShipTypeToStr(type), (int)GetShipStaticInfo(type, player->race)->supportUnits);
         clWrapScuttle(&universe.mainCommandLayer, recons);
@@ -1752,6 +1893,742 @@ static void catMtPlayMission08(void)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    M2-R9 missions-10-17: the missions after the ninth. Their tables (the order the Objectives FSMs create the
+    objectives; docs/mission-code-map.md 8) and players follow (the same toolbox as 02 .. 09)
+-----------------------------------------------------------------------------*/
+// the escort's fight in a ring around a ship (the hostile ships between inner and outer from it, but the spared ones):
+//      a ship destroyed close to the escorted one would damage it with its blast (MakeExplosionRockBumpables)
+static void catMtDamageRing(const char *why, vector *centre, real32 inner, real32 outer)
+{
+    GrowSelection hostile;
+    Node *node;
+    Ship *ship;
+    vector diff;
+    real32 d2;
+
+    growSelectInit(&hostile);
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if (bitTest(ship->header.flags, SOF_Dead) || !bitTest(ship->header.flags, SOF_Targetable) ||
+            allianceIsShipAlly(ship, &universe.players[0]) ||
+            ((catMtSpared != NULL) && (catMtSpared->selection != NULL) && ShipInSelection(catMtSpared->selection, ship)))
+        {
+            continue;
+        }
+        vecSub(diff, ship->obj.posinfo.position, *centre);
+        d2 = vecMagnitudeSquared(diff);
+        if ((d2 >= inner * inner) && (d2 < outer * outer))
+        {
+            growSelectAddShip(&hostile, ship);
+        }
+    }
+    catMtDamage(why, &hostile);
+    growSelectClose(&hostile);
+}
+
+// the player's mothership as a selection of one (NULL when it is gone)
+static bool32 catMtMothership(SelectCommand *one)
+{
+    Ship *mothership = universe.players[0].PlayerMothership;
+
+    one->numShips = 0;
+    if ((mothership == NULL) || bitTest(mothership->header.flags, SOF_Dead))
+    {
+        return FALSE;
+    }
+    one->numShips = 1;
+    one->ShipPtr[0] = mothership;
+    return TRUE;
+}
+
+// the defence of the command ship the test does not fly: every hostile ship within the radius is destroyed with
+//      ShipsDamage (the player's fleet would fight them off)
+static void catMtDefendMothership(const char *why, real32 radius)
+{
+    if (universe.players[0].PlayerMothership != NULL)
+    {
+        catMtDamageAround(why, &universe.players[0].PlayerMothership->obj.posinfo.position, radius);
+    }
+}
+
+// the big gun's order (the Fire big gun button's: cat_uiFireSiegeCannon 0x00566340, cat_bigGunFireCommand 0x005bc0c0,
+//      then its point mode's choice, cat_bigGunFirePoint 0x005bbce0): the command layer's point order of the mothership
+//      at the target's position, when the gun may fire, is charged and is not busy with the last order
+static void catMtFireBigGun(const char *why, vector *target)
+{
+    SelectCommand one;
+
+    if (!catMtMothership(&one) || !catSpBigGunAllowed || !cat_mothershipHasBigGunModule(one.ShipPtr[0]) ||
+        !cat_bigGunIsCharged(one.ShipPtr[0]) || cat_mothershipBigGunActive(one.ShipPtr[0]))
+    {
+        return;
+    }
+    dbgMessagef("missiontest: event tick=%u %s: the big gun fires at (%.0f, %.0f, %.0f) (its point order)",
+                (unsigned)universe.univUpdateCounter, why, target->x, target->y, target->z);
+    cat_clWrapPointOrder(&universe.mainCommandLayer, &one, target);
+}
+
+/*-----------------------------------------------------------------------------
+    Mission10: Watch_Mission10_Objectives 0x0060f680 creates the objectives on FleetIntel's messages. The player's
+    part:
+      SALVAGE_BIGGUN   every worker's special action (salvage) on the derelict big gun (team BigGun 0x046dbc9e,
+                       dBigGunUnit) until it is towed in (Watch_Mission10_BigGun: the team empty and
+                       GetShipCountSalvaged("dBigGunUnit")); the pirate salvage teams and their escort within 8000 of
+                       it are destroyed with ShipsDamage (the gun itself spared)
+      RESEARCH_BIGGUN  TECH_BIG_GUN through the research manager (the script allows it)
+      BUILD_BIGGUN     the big gun module (sMothershipBigGun) through the construction manager
+      FIRE_BIG_GUN     the big gun fires at the Beast mothership (team 0x0a2e1ef0; its point order) until a blast
+                       has hit it (Watch_Mission10_BeastMothership_*: the team's attribute CAT_ATTRIBUTES_BlastHit)
+      HYPERSPACE       the hyperspace button
+    Throughout, the hostile ships within 10000 of the command ship are destroyed with ShipsDamage (its defence).
+-----------------------------------------------------------------------------*/
+static const CatMtObjective catMtMission10[] =
+{
+    { "SALVAGE_BIGGUN",  CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "RESEARCH_BIGGUN", CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "BUILD_BIGGUN",    CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "FIRE_BIG_GUN",    CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "HYPERSPACE",      CAT_MT_HYPERSPACE, { 0 }, 0, FALSE },
+};
+
+static void catMtPlayMission10(void)
+{
+    static bool32 gunQueued = FALSE;
+    GrowSelection *team;
+    SelectCommand *workers;
+
+    if ((universe.univUpdateCounter % 16) != 8)
+    {
+        return;
+    }
+    catMtSpared = kasAITeamShipsPtr(0x046dbc9e);            // the big gun is salvaged, not destroyed
+    workers = memAlloc(sizeofSelectCommand(COMMAND_MAX_SHIPS), "catMtWorkers", 0);
+    if (catMtStands("SALVAGE_BIGGUN") && ((universe.univUpdateCounter % 256) == 8) && ((team = catMtTeam(0x046dbc9e)) != NULL) &&
+        (catMtPlayerShipsOnSpecial(sWorker) == 0) && (catMtPlayerShips(sWorker, workers, COMMAND_MAX_SHIPS) > 0))
+    {
+        catMtSpecial("SALVAGE_BIGGUN", 0, workers, team);
+    }
+    memFree(workers);
+    if (catMtStands("SALVAGE_BIGGUN") && ((universe.univUpdateCounter % 64) == 24) && ((team = catMtTeam(0x046dbc9e)) != NULL))
+    {
+        catMtDamageAround("SALVAGE_BIGGUN (the pirates)", &team->selection->ShipPtr[0]->obj.posinfo.position, 8000.0f);
+    }
+    if (catMtStands("RESEARCH_BIGGUN"))
+    {
+        catMtResearch("RESEARCH_BIGGUN", "TECH_BIG_GUN");
+    }
+    if (catMtStands("BUILD_BIGGUN") && !gunQueued && (catMtPlayerShipCount(sMothershipBigGun) == 0))
+    {
+        gunQueued = catMtBuild("BUILD_BIGGUN", sMothershipBigGun);
+    }
+    if (catMtStands("FIRE_BIG_GUN") && ((universe.univUpdateCounter % 64) == 40) && ((team = catMtTeam(0x0a2e1ef0)) != NULL))
+    {
+        catMtFireBigGun("FIRE_BIG_GUN", &team->selection->ShipPtr[0]->obj.posinfo.position);
+    }
+    if ((universe.univUpdateCounter % 64) == 56)
+    {
+        catMtDefendMothership("the command ship's defence", 10000.0f);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Mission11 ("The Factorem Attacks"): Watch_Mission11_Objectives_Attacking 0x00614250, _S_xa2dd597 0x006143c0,
+    _BeastAttacking 0x006144c0. The player's part:
+      DESTROY_ATTACKERS  the attackers (the script's selection 0x0a636424) are destroyed with ShipsDamage
+      REPAIR_FACTORUM    every worker's special action (repair) on the FAALCORUM (team Factorum 0x0589433d) until
+                         its health averages above 64% (Watch_Mission11_Factorum_Friends)
+      DESTROY_BEAST      the enemy ships (selection 0x06da2da9) are destroyed with ShipsDamage; the script then ends
+      PROTECT_FACTORUM   both with ObjectivesDestroyAll (held)
+      Hyperspace         the hyperspace button
+    Throughout, the hostile ships within 10000 of the command ship are destroyed with ShipsDamage (its defence).
+-----------------------------------------------------------------------------*/
+static const CatMtObjective catMtMission11[] =
+{
+    { "DESTROY_ATTACKERS", CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "REPAIR_FACTORUM",   CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "DESTROY_BEAST",     CAT_MT_CUSTOM,     { 0 }, 0, TRUE  },
+    { "PROTECT_FACTORUM",  CAT_MT_CUSTOM,     { 0 }, 0, TRUE  },
+    { "Hyperspace",        CAT_MT_HYPERSPACE, { 0 }, 0, FALSE },
+};
+
+static void catMtPlayMission11(void)
+{
+    GrowSelection *team;
+    SelectCommand *workers;
+
+    if ((universe.univUpdateCounter % 16) != 8)
+    {
+        return;
+    }
+    if (catMtStands("DESTROY_ATTACKERS") && ((universe.univUpdateCounter % 64) == 24))
+    {
+        catMtDamage("DESTROY_ATTACKERS", kasGrowSelectionPtr(0x0a636424));
+    }
+    workers = memAlloc(sizeofSelectCommand(COMMAND_MAX_SHIPS), "catMtWorkers", 0);
+    if (catMtStands("REPAIR_FACTORUM") && ((universe.univUpdateCounter % 256) == 8) && ((team = catMtTeam(0x0589433d)) != NULL) &&
+        (catMtPlayerShipsOnSpecial(sWorker) == 0) && (catMtPlayerShips(sWorker, workers, COMMAND_MAX_SHIPS) > 0))
+    {
+        catMtSpecial("REPAIR_FACTORUM", 1, workers, team);
+    }
+    memFree(workers);
+    if (catMtStands("DESTROY_BEAST") && ((universe.univUpdateCounter % 64) == 40))
+    {
+        catMtDamage("DESTROY_BEAST", kasGrowSelectionPtr(0x06da2da9));
+    }
+    if ((universe.univUpdateCounter % 64) == 56)
+    {
+        catMtDefendMothership("the command ship's defence", 10000.0f);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Mission12 ("Negotiations With Pirates And Help From Contras"): Watch_Mission12_Objectives 0x00621370 creates the
+    objectives on FleetIntel's messages. The player's part:
+      DefendMothership  the hostile ships within 12000 of the command ship are destroyed with ShipsDamage (its
+                        defence; the outpost spared)
+      AttackOutpost     ShipsDamage leaves each ship of the pirate outpost (team 0x0886896e) at 20% of the hull: below
+                        26% (Watch_Mission12_PirateOutpost_UnderAttack: TeamHealthAverage < 0x1a) the outpost gives in,
+                        FleetIntel's scene sends 0x076a7002 and both objectives close; the outpost becomes the player's
+      Hyperspace        the hyperspace button; the roll call
+    WorkerDock / WorkerReturn are not in the table: WorkerDock's message 0x008d9fd3 comes from FleetIntel's 0x04f3cd02,
+    which no script body sends (grep of the generated scripts), and WorkerReturn's 0x0d00b093 from the SecurityTeam FSM
+    (team 0x0be7033d), whose one layout ship (resourcesphere_*.missphere: "Ships SecurityTeam,..,RACE_SECT,sWorker,0,..",
+    a ship of player 0) the level does not create when the fleet arrives: the team stays empty ("missiontest: fsm ..
+    team=be7033d .. ships=0"), as Mission06's Kill.
+-----------------------------------------------------------------------------*/
+static const CatMtObjective catMtMission12[] =
+{
+    { "DefendMothership", CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "AttackOutpost",    CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "Hyperspace",       CAT_MT_HYPERSPACE, { 0 }, 0, FALSE },
+};
+
+static void catMtPlayMission12(void)
+{
+    GrowSelection *team;
+
+    if ((universe.univUpdateCounter % 16) != 8)
+    {
+        return;
+    }
+    if (catMtStands("AttackOutpost") && ((universe.univUpdateCounter % 64) == 24) && ((team = catMtTeam(0x0886896e)) != NULL))
+    {
+        catMtDamageTo("AttackOutpost", team, 0.20f);
+    }
+    if ((universe.univUpdateCounter % 64) == 56)
+    {
+        catMtSpared = kasAITeamShipsPtr(0x0886896e);    // the outpost is captured, not destroyed
+        catMtDefendMothership("DefendMothership (the command ship's defence)", 12000.0f);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Mission13 ("Knocked From Hyperspace"): Watch_Mission13_Objectives 0x00625250.
+-----------------------------------------------------------------------------*/
+static const CatMtObjective catMtMission13[] =
+{
+    { "DESTROY_ENEMY",     CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "PROTECT_FAALCORUM", CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "Hyperspace",        CAT_MT_HYPERSPACE, { 0 }, 0, FALSE },
+};
+
+static void catMtPlayMission13(void)
+{
+    static const udword enemies[4] = { 0x06da2da9, 0x0789fc45, 0x042ccf25, 0x0e69ee65 };
+    sdword i;
+
+    if ((universe.univUpdateCounter % 16) != 8)
+    {
+        return;
+    }
+    // the four enemy selections Watch_Mission13 counts (both objectives close when all are empty): destroyed once
+    //      the second objective stands (the FAALCORUM's escort the text asks for)
+    if (catMtStands("DESTROY_ENEMY") && catMtStands("PROTECT_FAALCORUM") && ((universe.univUpdateCounter % 64) == 24))
+    {
+        for (i = 0; i < 4; i++)
+        {
+            catMtDamage("DESTROY_ENEMY", kasGrowSelectionPtr(enemies[i]));
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Mission14: Watch_Mission14_Objectives 0x0062bf30.
+-----------------------------------------------------------------------------*/
+static const CatMtObjective catMtMission14[] =
+{
+    { "PROTECT_MOTHERSHIP", CAT_MT_CUSTOM,     { 0 }, 0, TRUE  },
+    { "GET_SAMPLE",         CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "CAPTURE_TAIIDAN",    CAT_MT_CUSTOM,     { 0 }, 0, TRUE  },
+    { "Hyperspace",         CAT_MT_HYPERSPACE, { 0 }, 0, FALSE },
+};
+
+static CatMtCaptureSlot catMtCaptureSlot14 = { 0xffffffff, { 0xffffffff, 0xffffffff } };
+
+static void catMtPlayMission14(void)
+{
+    GrowSelection *team;
+    SelectCommand *ships;
+    Ship *target = NULL;
+
+    if ((universe.univUpdateCounter % 16) != 8)
+    {
+        return;
+    }
+    // GET_SAMPLE (Watch_Mission14_Naggarok_PreDock 0x0062c3f0): a mimic of the player, seen as the player's (the
+    //      script's selection 0x004a2a29 of the enemy ships in the volume), comes within 40000 of the NAGGAROK; then,
+    //      out of the enemies' view, it imitates an enemy ship and, disguised, flies to the NAGGAROK, where it is taken
+    //      in (the DockMimic team) and launched with the sample
+    ships = memAlloc(sizeofSelectCommand(COMMAND_MAX_SHIPS), "catMtShips", 0);
+    if (catMtStands("GET_SAMPLE") && ((universe.univUpdateCounter % 64) == 8) && ((team = catMtTeam(0x05bb641b)) != NULL) &&
+        (catMtPlayerShips(sMimic, ships, 1) > 0))
+    {
+        vector diff, close;
+        real32 dist;
+
+        vecSub(diff, ships->ShipPtr[0]->obj.posinfo.position, team->selection->ShipPtr[0]->obj.posinfo.position);
+        dist = fsqrt(vecMagnitudeSquared(diff));
+        // enemies in view of the mimic (the text: none in visible range when the mimic command is given)
+        Node *node;
+        sdword near = 0;
+        vector d;
+
+        for (node = universe.ShipList.head; node != NULL; node = node->next)
+        {
+            Ship *other = (Ship *)listGetStructOfNode(node);
+
+            if (!bitTest(other->header.flags, SOF_Dead) && (other->playerowner != &universe.players[0]) &&
+                !allianceIsShipAlly(other, &universe.players[0]))
+            {
+                vecSub(d, other->obj.posinfo.position, ships->ShipPtr[0]->obj.posinfo.position);
+                if (vecMagnitudeSquared(d) < 12000.0f * 12000.0f)
+                {
+                    near++;
+                }
+            }
+        }
+        dbgMessagef("missiontest: event tick=%u GET_SAMPLE: the mimic #%u is %.0f from the NAGGAROK (mimicking %d, "
+                    "detected %d, enemies within 12000 %d)", (unsigned)universe.univUpdateCounter,
+                    (unsigned)ships->ShipPtr[0]->shipID.shipNumber, dist,
+                    (int)((MimicSpec *)ships->ShipPtr[0]->ShipSpecifics)->started,
+                    (int)((MimicSpec *)ships->ShipPtr[0]->ShipSpecifics)->detected[1], (int)near);
+        if (((MimicSpec *)ships->ShipPtr[0]->ShipSpecifics)->started)
+        {
+            catMtMove("GET_SAMPLE (disguised)", ships, &team->selection->ShipPtr[0]->obj.posinfo.position);
+        }
+        else if (catMtVar(0x05bb641b, 0x095c1df5) == 0)
+        {
+            // first a mimic seen as the player's within 40000 (the PreDock's variable 0x095c1df5, its message
+            //      0x07f232f5 to FleetIntel)
+            vecMultiplyByScalar(diff, 30000.0f / dist);
+            vecAdd(close, team->selection->ShipPtr[0]->obj.posinfo.position, diff);
+            catMtMove("GET_SAMPLE (within 40000)", ships, &close);
+        }
+        else if (near > 0)
+        {
+            // then out of the enemies' view before the disguise: back towards the command ship
+            if (universe.players[0].PlayerMothership != NULL)
+            {
+                catMtMove("GET_SAMPLE (out of the enemies' view)", ships,
+                          &universe.players[0].PlayerMothership->obj.posinfo.position);
+            }
+        }
+        else
+        {
+            catMtMimicEnemy("GET_SAMPLE", ships);
+        }
+    }
+    // the detectors that see through the disguise (ships with catTypeFlags 0x10000 and upgrade 0x800000 whose fog-of-war
+    //      radius reaches the mimic: cat_shipStealthDetectionUpdate 0x0053fd90 sets its detected flag, and a detected
+    //      mimic stays in the script's enemy selection 0x004a2a29, so the NAGGAROK never takes it in) are destroyed with
+    //      ShipsDamage once it is disguised
+    if (catMtStands("GET_SAMPLE") && ((universe.univUpdateCounter % 64) == 40) && (catMtPlayerShips(sMimic, ships, 1) > 0) &&
+        ((MimicSpec *)ships->ShipPtr[0]->ShipSpecifics)->started)
+    {
+        GrowSelection detectors;
+        Node *node;
+        Ship *other;
+        vector d;
+        real32 r;
+
+        growSelectInit(&detectors);
+        for (node = universe.ShipList.head; node != NULL; node = node->next)
+        {
+            other = (Ship *)listGetStructOfNode(node);
+            if (bitTest(other->header.flags, SOF_Dead) || allianceIsShipAlly(other, &universe.players[0]) ||
+                !bitTest(other->staticinfo->catTypeFlags, 0x10000) || !cat_shipHasUpgrade(other, 0x800000))
+            {
+                continue;
+            }
+            r = cat_shipGetFOWRadius(other, 0) + 2000.0f;
+            vecSub(d, other->obj.posinfo.position, ships->ShipPtr[0]->obj.posinfo.position);
+            if (vecMagnitudeSquared(d) < r * r)
+            {
+                growSelectAddShip(&detectors, other);
+            }
+        }
+        catMtDamage("GET_SAMPLE (the detectors near the disguised mimic)", &detectors);
+        growSelectClose(&detectors);
+    }
+    // the mimic's escort on its way, while it is not disguised (the enemy patrols destroy it otherwise; disguised, it
+    //      flies unescorted, as the text asks): the hostile ships 3000 .. 9000 from it (nearer, their blast would hit
+    //      it), but the NAGGAROK and team 0x0d7d6102, which Watch_Mission14_Naggarok_PreDock needs alive
+    if (catMtStands("GET_SAMPLE") && ((universe.univUpdateCounter % 64) == 24) && (catMtPlayerShips(sMimic, ships, 1) > 0) &&
+        !((MimicSpec *)ships->ShipPtr[0]->ShipSpecifics)->started)
+    {
+        GrowSelection spare;
+        sdword k;
+
+        growSelectInit(&spare);
+        if ((team = catMtTeam(0x05bb641b)) != NULL)
+        {
+            growSelectAddShip(&spare, team->selection->ShipPtr[0]);
+        }
+        if ((team = catMtTeam(0x0d7d6102)) != NULL)
+        {
+            for (k = 0; k < team->selection->numShips; k++)
+            {
+                growSelectAddShip(&spare, team->selection->ShipPtr[k]);
+            }
+        }
+        catMtSpared = &spare;
+        catMtDamageRing("GET_SAMPLE (the mimic's escort)", &ships->ShipPtr[0]->obj.posinfo.position, 3000.0f, 9000.0f);
+        catMtSpared = NULL;
+        growSelectClose(&spare);
+    }
+    memFree(ships);
+    if (catMtStands("CAPTURE_TAIIDAN"))
+    {
+        target = catMtCaptureTarget(0x089b3a01, &catMtCaptureSlot14, NULL, 0);
+        if (target == NULL)
+        {
+            target = catMtCaptureTarget(0x089b3a02, &catMtCaptureSlot14, NULL, 0);
+        }
+    }
+    if ((target != NULL) && ((universe.univUpdateCounter % 256) == 104))
+    {
+        catMtFreeSupport("CAPTURE_TAIIDAN (support units)", target->shiptype);
+    }
+    if ((target != NULL) && ((universe.univUpdateCounter % 256) == 40))
+    {
+        catMtCapture("CAPTURE_TAIIDAN", &catMtCaptureSlot14, target);
+    }
+    if ((target != NULL) && ((universe.univUpdateCounter % 64) == 40))
+    {
+        GrowSelection spare;
+
+        growSelectInit(&spare);
+        growSelectAddShip(&spare, target);
+        catMtSpared = &spare;
+        catMtDamageAround("CAPTURE_TAIIDAN (the escort)", &target->obj.posinfo.position, 6000.0f);
+        catMtSpared = NULL;
+        growSelectClose(&spare);
+    }
+    if ((universe.univUpdateCounter % 64) == 56)
+    {
+        // the defence spares the Naggarok (the sample's host) and the two capture teams: the workers tow the
+        //      frigate being captured to the command ship, and all of them destroyed is the mission's loss
+        //      (Watch_Mission14_Objectives' 0x085dd80e count, 0x0062c314)
+        static const udword spareTeams[3] = { 0x05bb641b, 0x089b3a01, 0x089b3a02 };
+        GrowSelection spare;
+        sdword t, k;
+
+        growSelectInit(&spare);
+        for (t = 0; t < 3; t++)
+        {
+            if ((team = catMtTeam(spareTeams[t])) != NULL)
+            {
+                for (k = 0; k < team->selection->numShips; k++)
+                {
+                    growSelectAddShip(&spare, team->selection->ShipPtr[k]);
+                }
+            }
+        }
+        catMtSpared = &spare;
+        catMtDefendMothership("PROTECT_MOTHERSHIP (the command ship's defence)", 12000.0f);
+        catMtSpared = NULL;
+        growSelectClose(&spare);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Mission15 ("Convince Bentusi To Help"): Watch_Mission15_Objectives 0x00638740 creates the objectives on FleetIntel's
+    messages. The player's part:
+      DestroyGateNode  the slipgate's nodes (team GateNode 0x068a3735) are destroyed with ShipsDamage, one every 1024
+                       ticks (the Bentusi stations leave through the gate meanwhile: all of them gone is the mission's
+                       loss, Watch_Mission15's 0x034dbee4)
+      Block            the command ship moves into the Block volume 0x0047137b in front of the slipgate
+      Hyperspace       the hyperspace button (a catSpMissionNextLevel mission: the letterbox jump)
+    Throughout, the hostile ships within 12000 of the command ship are destroyed with ShipsDamage (its defence).
+    DefendMothership is not in the table: Watch_Mission15 creates it (0x068ad1c0) when ShipsUnderAttackElsewhere finds
+    Bentusi dAcolytes attacking the ships of selection 0x004a2a39, which no script body fills (the player's ships are
+    0x004a2a29, one digit off: grep of the generated scripts, the exe's push 0x4a2a39 in Watch_Mission15): unreachable
+    in the exe's script too, as Mission06's Kill.
+-----------------------------------------------------------------------------*/
+static const CatMtObjective catMtMission15[] =
+{
+    { "DestroyGateNode",  CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "Block",            CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "Hyperspace",       CAT_MT_HYPERSPACE, { 0 }, 0, FALSE },
+};
+
+// the centre of a mission volume (a sphere's centre, a box's middle); FALSE when the volume does not exist
+static bool32 catMtVolumeCentre(udword volumeHash, vector *centre)
+{
+    Volume *volume = kasVolumePtr(volumeHash);
+
+    if (volume == NULL)
+    {
+        return FALSE;
+    }
+    if (volume->type == VOLUME_SPHERE)
+    {
+        *centre = volume->attribs.sphere.center;
+    }
+    else
+    {
+        centre->x = (volume->attribs.aaBox.x0 + volume->attribs.aaBox.x1) * 0.5f;
+        centre->y = (volume->attribs.aaBox.y0 + volume->attribs.aaBox.y1) * 0.5f;
+        centre->z = (volume->attribs.aaBox.z0 + volume->attribs.aaBox.z1) * 0.5f;
+    }
+    return TRUE;
+}
+
+static void catMtPlayMission15(void)
+{
+    GrowSelection *team;
+    SelectCommand one;
+    vector centre;
+
+    if ((universe.univUpdateCounter % 16) != 8)
+    {
+        return;
+    }
+    if (catMtStands("Block") && ((universe.univUpdateCounter % 512) == 8) && catMtVolumeCentre(0x0047137b, &centre) &&
+        catMtMothership(&one))
+    {
+        catMtMove("Block", &one, &centre);
+    }
+    // the gate nodes go one at a time (every 1024 ticks): Watch_Mission15_GateNode_Peace counts its team down and tells
+    //      FleetIntel (0x0471a632), whose answer creates Block; the last node collapses the slipgate (0x07137fd4: Block
+    //      closes; FleetIntel's 0x08970534: DestroyGateNode closes)
+    if (catMtStands("DestroyGateNode") && ((universe.univUpdateCounter % 1024) == 24) && ((team = catMtTeam(0x068a3735)) != NULL))
+    {
+        GrowSelection node;
+
+        growSelectInit(&node);
+        growSelectAddShip(&node, team->selection->ShipPtr[0]);
+        catMtDamage("DestroyGateNode (one node)", &node);
+        growSelectClose(&node);
+    }
+    if ((universe.univUpdateCounter % 64) == 56)
+    {
+        catMtSpared = kasAITeamShipsPtr(0x068a3735);    // the gate nodes (their own pace)
+        catMtDefendMothership("the command ship's defence", 12000.0f);
+        catMtSpared = NULL;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Mission16: Watch_Mission16_Objectives_Wave1 0x0063bb00, _Wave2 0x0063bd50.
+-----------------------------------------------------------------------------*/
+static const CatMtObjective catMtMission16[] =
+{
+    { "LOCATE_CS",     CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "CRIPPLE_CS",    CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "DOCKWITH_CS",   CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "HARVEST",       CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "DESTROY_BEAST", CAT_MT_CUSTOM,     { 0 }, 0, FALSE },
+    { "HYPERSPACE",    CAT_MT_HYPERSPACE, { 0 }, 0, FALSE },
+};
+
+static void catMtPlayMission16(void)
+{
+    GrowSelection *team;
+    SelectCommand one, *workers;
+    vector diff, away;
+    real32 dist;
+
+    if ((universe.univUpdateCounter % 16) != 8)
+    {
+        return;
+    }
+    if (catMtStands("LOCATE_CS") && !catMtStands("CRIPPLE_CS") && ((universe.univUpdateCounter % 64) == 8) &&
+        ((team = catMtTeam(0x0809a71e)) != NULL))
+    {
+        catMtScout("LOCATE_CS", &team->selection->ShipPtr[0]->obj.posinfo.position);
+    }
+    // CRIPPLE_CS: the siege cannon's shot at the CLEE-SAN from beyond 35000 (Watch_Mission16_Cleesan_Normal: a blast
+    //      hit with the command ship nearer than 0x88b9 scuttles her); nearer, the command ship first moves away
+    if (catMtStands("CRIPPLE_CS") && ((universe.univUpdateCounter % 64) == 24) && ((team = catMtTeam(0x0809a71e)) != NULL) &&
+        catMtMothership(&one))
+    {
+        vecSub(diff, one.ShipPtr[0]->obj.posinfo.position, team->selection->ShipPtr[0]->obj.posinfo.position);
+        dist = fsqrt(vecMagnitudeSquared(diff));
+        if (dist < 40000.0f)
+        {
+            if (((universe.univUpdateCounter % 512) == 24) && (dist > 1.0f))
+            {
+                vecMultiplyByScalar(diff, 46000.0f / dist);
+                vecAdd(away, team->selection->ShipPtr[0]->obj.posinfo.position, diff);
+                catMtMove("CRIPPLE_CS (out of the blast's reach)", &one, &away);
+            }
+        }
+        else
+        {
+            catMtFireBigGun("CRIPPLE_CS", &team->selection->ShipPtr[0]->obj.posinfo.position);
+        }
+    }
+    workers = memAlloc(sizeofSelectCommand(COMMAND_MAX_SHIPS), "catMtWorkers", 0);
+    if (catMtStands("DOCKWITH_CS") && ((universe.univUpdateCounter % 256) == 40) && ((team = catMtTeam(0x0809a71e)) != NULL) &&
+        (catMtPlayerShips(sWorker, workers, 1) > 0))
+    {
+        vecSub(diff, workers->ShipPtr[0]->obj.posinfo.position, team->selection->ShipPtr[0]->obj.posinfo.position);
+        dbgMessagef("missiontest: event tick=%u DOCKWITH_CS: the worker is %.0f from the CLEE-SAN (%s)",
+                    (unsigned)universe.univUpdateCounter, fsqrt(vecMagnitudeSquared(diff)),
+                    ShipTypeToStr(team->selection->ShipPtr[0]->shiptype));
+        catMtMove("DOCKWITH_CS", workers, &team->selection->ShipPtr[0]->obj.posinfo.position);
+    }
+    if (catMtStands("DOCKWITH_CS") && ((universe.univUpdateCounter % 64) == 8) && (catMtPlayerShips(sWorker, workers, 1) > 0))
+    {
+        catMtSpared = kasAITeamShipsPtr(0x0809a71e);    // the CLEE-SAN
+        catMtDamageAround("DOCKWITH_CS (the worker's escort)", &workers->ShipPtr[0]->obj.posinfo.position, 6000.0f);
+        catMtSpared = NULL;
+    }
+    memFree(workers);
+    if ((catMtStands("HARVEST") || catMtStands("DESTROY_BEAST")) && ((universe.univUpdateCounter % 512) == 264))
+    {
+        catMtHarvest("HARVEST");
+    }
+    if (catMtStands("DESTROY_BEAST") && ((universe.univUpdateCounter % 64) == 40))
+    {
+        catMtDamage("DESTROY_BEAST", kasGrowSelectionPtr(0x0593fe0c));
+    }
+    if ((universe.univUpdateCounter % 64) == 56)
+    {
+        catMtSpared = kasAITeamShipsPtr(0x0809a71e);    // the CLEE-SAN
+        catMtDefendMothership("the command ship's defence", 10000.0f);
+        catMtSpared = NULL;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Mission17: Watch_Mission17_Objectives 0x0064a160; the end of the game.
+-----------------------------------------------------------------------------*/
+static const CatMtObjective catMtMission17[] =
+{
+    { "DestroyNaggarok",  CAT_MT_CUSTOM, { 0 }, 0, FALSE },
+    { "DestroyNomadMoon", CAT_MT_CUSTOM, { 0 }, 0, FALSE },
+    { "DestroyEmitters",  CAT_MT_CUSTOM, { 0 }, 0, FALSE },
+    { "Recon",            CAT_MT_CUSTOM, { 0 }, 0, FALSE },
+};
+
+static void catMtPlayMission17(void)
+{
+    GrowSelection *team, emitters, spare;
+    SelectCommand *ships;
+    vector centre;
+    NomadMoonSpec *moon;
+    sdword k;
+
+    if ((universe.univUpdateCounter % 16) != 8)
+    {
+        return;
+    }
+    // the NOMAD MOON is found first (Watch_Mission17: HasShipBeenDiscovered, 0x0471a633: DestroyNomadMoon, then the
+    //      emitters' objective); a recon flies to it
+    if (!catMtStands("DestroyNomadMoon") && !catMtStands("DestroyEmitters") &&
+        (catMtCreatedTick[catMtObjectiveIndex("DestroyNomadMoon")] < 0) && ((universe.univUpdateCounter % 64) == 8) &&
+        ((team = catMtTeam(0x0159517e)) != NULL))
+    {
+        catMtScout("DestroyNomadMoon (the moon is found)", &team->selection->ShipPtr[0]->obj.posinfo.position);
+    }
+    if (catMtStands("Recon") && ((universe.univUpdateCounter % 64) == 8) && catMtVolumeCentre(0x0479e17c, &centre))
+    {
+        catMtScout("Recon", &centre);
+    }
+    // the moon's two repulse emitters (NomadMoonSpec.emitter, the ships Watch_Mission17_NomadMoon counts)
+    if (catMtStands("DestroyEmitters") && ((universe.univUpdateCounter % 64) == 24) && ((team = catMtTeam(0x0159517e)) != NULL))
+    {
+        moon = (NomadMoonSpec *)team->selection->ShipPtr[0]->ShipSpecifics;
+        growSelectInit(&emitters);
+        for (k = 0; k < 2; k++)
+        {
+            if ((moon->emitter[k] != NULL) && !bitTest(moon->emitter[k]->header.flags, SOF_Dead))
+            {
+                growSelectAddShip(&emitters, moon->emitter[k]);
+            }
+        }
+        catMtDamage("DestroyEmitters", &emitters);
+        growSelectClose(&emitters);
+    }
+    // the moon itself once its emitters are gone (its invincibility ends with them): first to half its hull (below
+    //      60% Watch_Mission17 sends the Taiidan in, 0x0471a634: the Recon objective), then, once the recon has seen
+    //      what came, destroyed
+    if (catMtStands("DestroyNomadMoon") && !catMtStands("DestroyEmitters") &&
+        (catMtCreatedTick[catMtObjectiveIndex("DestroyEmitters")] >= 0) && ((universe.univUpdateCounter % 64) == 40))
+    {
+        if (catMtDoneTick[catMtObjectiveIndex("Recon")] < 0)
+        {
+            catMtDamageTo("DestroyNomadMoon (to half its hull)", catMtTeam(0x0159517e), 0.5f);
+        }
+        else
+        {
+            catMtDamage("DestroyNomadMoon", catMtTeam(0x0159517e));
+        }
+    }
+    // the NAGGAROK, awake once the moon is gone: TECH_INERTIALESS_DRIVE through the research manager (the script allows
+    //      it when the NAGGAROK has been seen), the ACVs' EMP (the special action 4) until its drive fails
+    //      (Watch_Mission17_Naggarok: TimesHitByEMP), then ShipsDamage
+    if ((StrToTechType("TECH_INERTIALESS_DRIVE") >= 0) && tmTechResearchable[StrToTechType("TECH_INERTIALESS_DRIVE")])
+    {
+        catMtResearch("DestroyNaggarok", "TECH_INERTIALESS_DRIVE");
+    }
+    ships = memAlloc(sizeofSelectCommand(COMMAND_MAX_SHIPS), "catMtShips", 0);
+    if (catMtStands("DestroyNaggarok") && !catMtStands("DestroyNomadMoon") &&
+        (catMtCreatedTick[catMtObjectiveIndex("DestroyNomadMoon")] >= 0) && ((universe.univUpdateCounter % 256) == 72) &&
+        ((team = catMtTeam(0x05bb641b)) != NULL) && (catMtPlayerShipsOnSpecial(sACV) == 0) &&
+        (catMtPlayerShips(sACV, ships, COMMAND_MAX_SHIPS) > 0))
+    {
+        dbgMessagef("missiontest: event tick=%u DestroyNaggarok: times hit by EMP %d", (unsigned)universe.univUpdateCounter,
+                    (int)kasfTimesHitByEMP(team));
+        catMtSpecial("DestroyNaggarok (EMP)", 4, ships, team);
+    }
+    memFree(ships);
+    if (catMtStands("DestroyNaggarok") && !catMtStands("DestroyNomadMoon") &&
+        (catMtCreatedTick[catMtObjectiveIndex("DestroyNomadMoon")] >= 0) && ((universe.univUpdateCounter % 64) == 56))
+    {
+        catMtDamage("DestroyNaggarok", catMtTeam(0x05bb641b));
+    }
+    if ((universe.univUpdateCounter % 64) == 56)
+    {
+        // the moon (and its emitters) and the NAGGAROK are left to their objectives
+        growSelectInit(&spare);
+        if ((team = catMtTeam(0x0159517e)) != NULL)
+        {
+            moon = (NomadMoonSpec *)team->selection->ShipPtr[0]->ShipSpecifics;
+            growSelectAddShip(&spare, team->selection->ShipPtr[0]);
+            for (k = 0; k < 2; k++)
+            {
+                if ((moon->emitter[k] != NULL) && !bitTest(moon->emitter[k]->header.flags, SOF_Dead))
+                {
+                    growSelectAddShip(&spare, moon->emitter[k]);
+                }
+            }
+        }
+        if ((team = catMtTeam(0x05bb641b)) != NULL)
+        {
+            growSelectAddShip(&spare, team->selection->ShipPtr[0]);
+        }
+        catMtSpared = &spare;
+        catMtDefendMothership("the command ship's defence", 12000.0f);
+        catMtSpared = NULL;
+        growSelectClose(&spare);
+    }
+}
+
 // each mission's objectives table and scripted player, by mission number (NULL: none yet)
 typedef struct
 {
@@ -1772,6 +2649,14 @@ static const CatMtMissionScript catMtMissions[MISSION_17 + 1] =
     CAT_MT_SCRIPT(catMtMission07, catMtPlayMission07),
     CAT_MT_SCRIPT(catMtMission08, catMtPlayMission08),
     CAT_MT_SCRIPT(catMtMission09, catMtPlayMission09),
+    CAT_MT_SCRIPT(catMtMission10, catMtPlayMission10),
+    CAT_MT_SCRIPT(catMtMission11, catMtPlayMission11),
+    CAT_MT_SCRIPT(catMtMission12, catMtPlayMission12),
+    CAT_MT_SCRIPT(catMtMission13, catMtPlayMission13),
+    CAT_MT_SCRIPT(catMtMission14, catMtPlayMission14),
+    CAT_MT_SCRIPT(catMtMission15, catMtPlayMission15),
+    CAT_MT_SCRIPT(catMtMission16, catMtPlayMission16),
+    CAT_MT_SCRIPT(catMtMission17, catMtPlayMission17),
 };
 
 /*-----------------------------------------------------------------------------
@@ -1832,6 +2717,41 @@ void catMissionSelfTestObjective(const char *what, const char *label, sdword sta
 {
     sdword i;
 
+    // M2-R9 missions-10-17: the tutorial leg logs its lessons' objective calls too (no judgement; a lesson sets an
+    //      objective every frame, so a "set" is logged when its status changes)
+    if ((catMissionTestTutorialTicks > 0) && !catMissionTestDone)
+    {
+        static char setLabel[32][MAX_OBJECTIVE_LABEL_LENGTH + 1];
+        static sdword setStatus[32];
+        static sdword setUsed = 0;
+        sdword k;
+
+        if (strcmp(what, "set") == 0)
+        {
+            for (k = 0; k < setUsed; k++)
+            {
+                if (strcmp(setLabel[k], label) == 0)
+                {
+                    break;
+                }
+            }
+            if ((k < setUsed) && (setStatus[k] == status))
+            {
+                return;
+            }
+            if ((k == setUsed) && (setUsed < 32))
+            {
+                memStrncpy(setLabel[setUsed++], (char *)label, MAX_OBJECTIVE_LABEL_LENGTH);
+            }
+            if (k < 32)
+            {
+                setStatus[k] = status;
+            }
+        }
+        dbgMessagef("missiontest: kas objective %s tick=%u %s %d", what, (unsigned)universe.univUpdateCounter, label, (int)status);
+        return;
+    }
+
     if ((catMissionTestTicks <= 0) || (catMtMission < 2) || !catMissionTestInit || catMissionTestDone)
     {
         return;
@@ -1841,6 +2761,14 @@ void catMissionSelfTestObjective(const char *what, const char *label, sdword sta
     {
         for (i = 0; i < catMtNumObjectives; i++)
         {
+            // M2-R9 missions-10-17: an objective the script creates again after it was completed is open again
+            //      (Mission17 closes and re-creates DestroyNomadMoon and DestroyNaggarok as the story turns): it counts
+            //      as completed once the script closes it again
+            if ((strcmp(catMtObjectives[i].label, label) == 0) && (catMtCreatedTick[i] >= 0) && (catMtDoneTick[i] >= 0))
+            {
+                catMtDoneTick[i] = -1;
+                dbgMessagef("missiontest: %s tick=%u reopened", catMtObjectives[i].label, (unsigned)universe.univUpdateCounter);
+            }
             if ((strcmp(catMtObjectives[i].label, label) == 0) && (catMtCreatedTick[i] < 0))
             {
                 catMtCreatedTick[i] = (sdword)universe.univUpdateCounter;
@@ -1891,7 +2819,7 @@ static void catMtPlay(void)
 {
     sdword i;
 
-    if ((catMtMission >= 2) && (catMtMissions[catMtMission].play != NULL))
+    if ((catMtMission >= 2) && (catMtMissions[catMtMission].play != NULL) && !catMtWarpTest)
     {
         catMtMissions[catMtMission].play();
     }
@@ -2038,11 +2966,503 @@ static void catMtTutorialWatch(void)
         dbgMessagef("missiontest: tutorial objective pointer tick=%u", (unsigned)universe.univUpdateCounter);
     }
     // then the Next button is clicked through its region's own callback
-    if ((catMtTutClickTick < 0) && (catMtTutPrompts >= CAT_MT_TUT_PROMPTS) && catMtTutObjPointer && (tutNextRegion != NULL))
+    if ((catMtTutClickTick < 0) && (catMtTutPrompts >= CAT_MT_TUT_PROMPTS) && catMtTutObjPointer && (tutNextRegion != NULL) &&
+        (objectiveFind("L1ClickHere") != NULL) && objectiveGetAll())     // M2-R9 missions-10-17: Lesson1's objective done
     {
         catMtTutClickTick = (sdword)universe.univUpdateCounter;
         dbgMessagef("missiontest: event tick=%u tutorial: the Next button clicked (its click callback)",
                     (unsigned)universe.univUpdateCounter);
+        tutNextRegion->processFunction((regionhandle)tutNextRegion, 0, CM_ButtonClick, 0);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    M2-R9 missions-10-17: the Tutorial1 leg through Lesson12. The Tutorial FSM (Watch_Tutorial1_Tutorial 0x0066d2f0)
+    goes one lesson on per Next click; each lesson's Init creates its objectives and its Watch sets them complete when
+    the player has done the lesson's thing, which the game's UI reports through tutGameMessage (the key commands, the
+    mouse handlers, the managers) or the script measures itself (the camera, the selection, the ships in the tutorial's
+    volume). The test plays each lesson through the game's own handlers, with no input: the key commands through their
+    dispatcher (cat_kbCommandExecute 0x0054eb10, as a key press runs them), the UI callbacks (mrRetire, mrScuttle, the
+    objective list's click poPopupFleetIntelligence), the command layer, the construction and research managers, the
+    camera setters the scripts use (KAS CameraSetAngleDeg ..), the selection API, and, where a mouse handler is the
+    only sender, the message that handler sends with the order it gives (tutGameMessage, the tutorial's own hook). Once
+    every objective of the lesson is complete, the Next button is clicked through its region's callback (R8's click).
+    Lines: "missiontest: tutorial LessonN tick=T objectives=N" (the lesson begins), "missiontest: tutorial LessonN
+    complete tick=T objectives=a/b", "missiontest: tutorial prompt ..." (every new subtitle text), "missiontest: event
+    ... tutorial LessonN: ..."; the done line counts the lessons reached and completed.
+-----------------------------------------------------------------------------*/
+#define CAT_MT_TUT_LESSONS 12
+static const udword catMtTutLessonState[CAT_MT_TUT_LESSONS + 1] =
+{
+    0, 0x00a883a1, 0x00a883a2, 0x00a883a3, 0x00a883a4, 0x00a883a5, 0x00a883a6, 0x00a883a7, 0x00a883a8, 0x00a883a9,
+    0x0a883a20, 0x0a883a21, 0x0a883a22
+};
+// each lesson's objectives (some appear as the lesson goes on: L5Focus, L11Upgrade, L11Link): the lesson is complete
+//      when that many stand and all are complete
+static const sdword catMtTutLessonObjectives[CAT_MT_TUT_LESSONS + 1] = { 0, 1, 3, 5, 2, 3, 3, 2, 1, 3, 4, 3, 5 };
+static sdword catMtTutReached[CAT_MT_TUT_LESSONS + 1], catMtTutComplete[CAT_MT_TUT_LESSONS + 1];
+static sdword catMtTutObjectives[CAT_MT_TUT_LESSONS + 1], catMtTutPromptsIn[CAT_MT_TUT_LESSONS + 1];
+static sdword catMtTutLesson = 0, catMtTutNextClicks = 0, catMtTutLastNextTick = -1;
+static bool32 catMtTutLegInit = FALSE;
+static sdword catMtTutSalvageTick = -1;
+
+// the player's ships of a type (any type: -1) into the current selection (selSelected), the selection API's way
+static sdword catMtTutSelect(ShipType type, sdword max, bool32 add)
+{
+    Node *node;
+    Ship *ship;
+    sdword n = 0;
+
+    if (!add)
+    {
+        selSelected.numShips = 0;
+    }
+    for (node = universe.ShipList.head; (node != NULL) && (n < max); node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if ((ship->playerowner == &universe.players[0]) && !bitTest(ship->header.flags, SOF_Dead | SOF_Hide | SOF_Hyperspace) &&
+            ((type < 0) || (ship->shiptype == type)) && (ship->shiptype != sMothership))
+        {
+            selSelectionAddSingleShip(&selSelected, ship);
+            n++;
+        }
+    }
+    ioUpdateShipTotals();
+    return n;
+}
+
+static void catMtTutEvent(sdword lesson, const char *what)
+{
+    dbgMessagef("missiontest: event tick=%u tutorial Lesson%d: %s", (unsigned)universe.univUpdateCounter, (int)lesson, what);
+}
+
+static void catMtTutMessage(sdword lesson, char *message)
+{
+    char line[96];
+
+    snprintf(line, sizeof(line), "the UI's message %s", message);
+    catMtTutEvent(lesson, line);
+    tutGameMessage(message);
+}
+
+static void catMtTutKey(sdword lesson, sdword command, udword state, const char *name)
+{
+    char line[96];
+
+    snprintf(line, sizeof(line), "the key command 0x%02x %s (state %u)", (unsigned)command, name, (unsigned)state);
+    catMtTutEvent(lesson, line);
+    cat_kbCommandExecute(state, command);
+}
+
+// a lesson's part, step by step (one step every 48 ticks once its objectives exist)
+static void catMtTutPlayLesson(sdword lesson, sdword step)
+{
+    GrowSelection *team;
+    SelectCommand *ships;
+    vector *point;
+    sdword angle;
+
+    switch (lesson)
+    {
+        case 1:     // L1ClickHere: a click on the objective (the objective list's callback)
+            if ((step >= 1) && (objectiveFind("L1ClickHere") != NULL) && !objectiveGet("L1ClickHere"))
+            {
+                catMtTutEvent(lesson, "a click on the objective L1ClickHere (poPopupFleetIntelligence)");
+                poPopupFleetIntelligence(objectiveFind("L1ClickHere"));
+            }
+            break;
+        case 2:     // the camera: round the fleet (> 180 degrees), from below (declination < -70), far (> 12000)
+            if ((step >= 1) && (step <= 4))
+            {
+                angle = kasfCameraGetAngleDeg();
+                catMtTutEvent(lesson, "the camera turns 60 degrees (CameraSetAngleDeg)");
+                kasfCameraSetAngleDeg(angle + 60);
+            }
+            else if (step == 5)
+            {
+                catMtTutEvent(lesson, "the camera looks up from below (CameraSetDeclinationDeg -80)");
+                kasfCameraSetDeclinationDeg(-80);
+            }
+            else if (step == 6)
+            {
+                catMtTutEvent(lesson, "the camera zooms out (CameraSetDistance 15000)");
+                kasfCameraSetDistance(15000);
+            }
+            break;
+        case 3:     // the selection: a formation's click, one ship's click, a band box, the ship list, an added ship
+            if (step == 1)
+            {
+                catMtTutSelect(sRecon, COMMAND_MAX_SHIPS, FALSE);
+                catMtTutMessage(lesson, "Game_ClickSelectGroup");
+            }
+            else if (step == 2)
+            {
+                catMtTutSelect(sRecon, 1, FALSE);
+                catMtTutMessage(lesson, "Game_ClickSelectGroup");
+            }
+            else if (step == 3)
+            {
+                catMtTutSelect(sRecon, COMMAND_MAX_SHIPS, FALSE);
+                catMtTutSelect(sAcolyte, COMMAND_MAX_SHIPS, TRUE);
+                catMtTutMessage(lesson, "Game_BandBoxSelect");
+            }
+            else if (step == 4)
+            {
+                catMtTutSelect(sAcolyte, COMMAND_MAX_SHIPS, FALSE);
+                catMtTutMessage(lesson, "ShipListClick");
+            }
+            else if (step == 5)
+            {
+                catMtTutSelect(sRecon, 1, TRUE);
+                catMtTutMessage(lesson, "MultipleSelect");
+            }
+            break;
+        case 4:     // the focus: the Focus key, the alt-click focus (ccFocusClose and the handler's messages)
+            if (step == 1)
+            {
+                catMtTutSelect(sRecon, COMMAND_MAX_SHIPS, FALSE);
+                catMtTutKey(lesson, 0x3B, 0, "Focus");
+            }
+            else if (step == 2)
+            {
+                catMtTutSelect(sAcolyte, COMMAND_MAX_SHIPS, FALSE);
+                catMtTutEvent(lesson, "the alt-click focus (ccFocusClose)");
+                ccFocusClose(&universe.mainCameraCommand, (FocusCommand *)&selSelected);
+                catMtTutMessage(lesson, "Game_BandBoxFocus");
+                catMtTutMessage(lesson, "AltFocus");
+            }
+            break;
+        case 5:     // the right-click menu (its key), the sensors manager opened (its key) and closed again
+            if (step == 1)
+            {
+                catMtTutSelect(sAcolyte, COMMAND_MAX_SHIPS, FALSE);
+                catMtTutKey(lesson, 0x56, 0, "Open menu");
+            }
+            else if (step == 2)
+            {
+                if (cat_popupMenuIsOpen())
+                {
+                    catMtTutEvent(lesson, "the menu closes (cat_popupMenuClose)");
+                    cat_popupMenuClose();
+                }
+                catMtTutKey(lesson, 0x4F, 0, "Sensors manager");
+            }
+            else if ((step >= 5) && smSensorsActive && (objectiveFind("L5Focus") != NULL))
+            {
+                catMtTutKey(lesson, 0x4F, 1, "Sensors manager (closed)");
+            }
+            break;
+        case 6:     // the move (to the marker, team 0x004bd484), a waypoint path, a looped one
+            if ((step == 1) && ((point = (vector *)kasTeamsVectorPtr(0x004bd484)) != NULL) &&
+                (catMtTutSelect(sAcolyte, COMMAND_MAX_SHIPS, FALSE) > 0))
+            {
+                catMtTutMessage(lesson, "MoveStart");
+                catMtMove("tutorial Lesson6", (SelectCommand *)&selSelected, point);
+            }
+            else if (((step == 2) || (step == 3)) && ((point = (vector *)kasTeamsVectorPtr(0x004bd484)) != NULL) &&
+                     (catMtTutSelect(sRecon, COMMAND_MAX_SHIPS, FALSE) > 0))
+            {
+                vector waypoints[2];
+
+                waypoints[0] = *point;
+                waypoints[1] = selSelected.ShipPtr[0]->obj.posinfo.position;
+                waypoints[1].x += 3000.0f;
+                catMtTutMessage(lesson, "WaypointStart");
+                catMtTutEvent(lesson, (step == 2) ? "a waypoint path (clWrapMove, once)" : "a looped waypoint path (clWrapMove, loop)");
+                clWrapMove(&universe.mainCommandLayer, (SelectCommand *)&selSelected,
+                           (step == 2) ? CAT_MOVEPATH_ONCE : CAT_MOVEPATH_LOOP, selSelected.ShipPtr[0]->obj.posinfo.position,
+                           2, waypoints);
+                catMtTutMessage(lesson, (step == 2) ? "WaypointNormal" : "WaypointCircular");
+            }
+            break;
+        case 7:     // the attack on the targets (the buoys, team 0x0866bac3): a click attack, a band box attack
+            if (((step == 1) || (step == 2)) && ((team = catMtTeam(0x0866bac3)) != NULL) &&
+                (catMtTutSelect(sAcolyte, COMMAND_MAX_SHIPS, FALSE) > 0))
+            {
+                catMtAttack("tutorial Lesson7", (SelectCommand *)&selSelected, team);
+                if (step == 1)
+                {
+                    catMtTutMessage(lesson, "ClickAttack");
+                }
+                else
+                {
+                    catMtTutMessage(lesson, "Game_BandBoxAttack");
+                    catMtTutMessage(lesson, "BandAttack");
+                }
+            }
+            break;
+        case 8:     // two workers built (the construction manager's jobs)
+            if ((step == 1) || (step == 2))
+            {
+                catMtBuild("tutorial Lesson8", sWorker);
+            }
+            break;
+        case 9:     // repair the damaged frigate (team 0x046a4072), salvage the ion frigate (team 0x0761fcf5), harvest
+            ships = memAlloc(sizeofSelectCommand(COMMAND_MAX_SHIPS), "catMtTutShips", 0);
+            if (((step % 8) == 1) && !objectiveGet("L9Repair") && ((team = catMtTeam(0x046a4072)) != NULL) &&
+                (catMtPlayerShips(sWorker, ships, 2) > 0))
+            {
+                catMtSpecial("tutorial Lesson9 (repair)", 1, ships, team);
+            }
+            // the salvage (a frigate takes two workers): the two workers, once the repair is done (the tutorial's
+            //      fleet has the two built in Lesson8); given again only if the salvage has not ended 2048 ticks later
+            if (objectiveGet("L9Repair") && !objectiveGet("L9Salvage") && ((team = catMtTeam(0x0761fcf5)) != NULL) &&
+                ((catMtTutSalvageTick < 0) || ((sdword)universe.univUpdateCounter > catMtTutSalvageTick + 2048)) &&
+                (catMtPlayerShips(sWorker, ships, 2) == 2))
+            {
+                catMtTutSalvageTick = (sdword)universe.univUpdateCounter;
+                catMtSpecial("tutorial Lesson9 (salvage)", 0, ships, team);
+            }
+            if ((step == 2) && (catMtTutSelect(sWorker, 1, FALSE) > 0))
+            {
+                catMtTutKey(lesson, 0x11, 0, "Harvest");
+            }
+            memFree(ships);
+            break;
+        case 10:    // the delta formation, the aggressive tactics, the band box guard, a hot-key group
+            if ((step == 1) && (catMtTutSelect(sAcolyte, COMMAND_MAX_SHIPS, FALSE) > 0))
+            {
+                catMtTutKey(lesson, 0x31, 0, "Delta formation");
+            }
+            else if ((step == 2) && (catMtTutSelect(sAcolyte, COMMAND_MAX_SHIPS, FALSE) > 0))
+            {
+                catMtTutKey(lesson, 0x2E, 0, "Aggressive tactics");
+            }
+            else if ((step == 3) && (catMtTutSelect(sAcolyte, COMMAND_MAX_SHIPS, FALSE) > 0) &&
+                     (universe.players[0].PlayerMothership != NULL))
+            {
+                GrowSelection guarded;
+
+                growSelectInit(&guarded);
+                growSelectAddShip(&guarded, universe.players[0].PlayerMothership);
+                catMtGuard("tutorial Lesson10", (SelectCommand *)&selSelected, &guarded);
+                growSelectClose(&guarded);
+                catMtTutMessage(lesson, "Game_BandBoxGuard");
+            }
+            else if ((step == 4) && (catMtTutSelect(sRecon, COMMAND_MAX_SHIPS, FALSE) > 0))
+            {
+                catMtTutSelect(sAcolyte, COMMAND_MAX_SHIPS, TRUE);
+                catMtTutKey(lesson, 0x6C, 0, "Create group 1");
+            }
+            break;
+        case 11:    // the research manager opened (its key), TECH_LINK researched through its own button, the acolytes
+                    //      upgraded, two linked. TECH_LINK is a technology of the hangar's laboratory (cat_techLabType
+                    //      24 = 0, the exe's table 0x00890388) and the tutorial's fleet has no research module (its five
+                    //      laboratories closed): the research manager's Research button (rmResearchItem 0x004f4c50)
+                    //      starts a topic in a laboratory not built yet when it is the tutorial, so the test selects the
+                    //      TECH_LINK row of its list and presses that button (its callback)
+            if ((step == 1) && !rmGUIActive)
+            {
+                catMtTutKey(lesson, 0x51, 0, "Research manager");
+            }
+            if ((step >= 2) && ((step % 8) == 2) && rmGUIActive && !objectiveGet("L11Research") && !catMtHasTech("TECH_LINK") &&
+                (Researching(&universe.players[0], StrToTechType("TECH_LINK")) == NULL) && (rmTechListWindowHandle != NULL) &&
+                (PlayerTechList != NULL))
+            {
+                TechPrintList *row;
+
+                for (row = PlayerTechList; row->itemtype != ITEM_ENDLIST; row++)
+                {
+                    if (((row->itemtype == CAT_ITEM_TECH2) || (row->itemtype == CAT_ITEM_TECH3)) &&
+                        (row->itemID == StrToTechType("TECH_LINK")))
+                    {
+                        catMtTutEvent(lesson, "the TECH_LINK row selected, the Research button (rmResearchItem)");
+                        uicListWindowSetCurItem(rmTechListWindowHandle, uicListFindItemByData(rmTechListWindowHandle, (ubyte *)row));
+                        rmResearchItem(NULL, NULL);
+                        break;
+                    }
+                }
+            }
+            if ((step >= 2) && ((step % 8) == 4) && rmGUIActive && objectiveGet("L11Research"))
+            {
+                // the research manager's Close button (rmExitMenu): open, it keeps the orders off (mrDisabled)
+                catMtTutEvent(lesson, "the research manager's Close button (rmExitMenu)");
+                rmExitMenu(NULL, NULL);
+            }
+            if ((step >= 2) && ((step % 8) == 2) && catMtHasTech("TECH_LINK") && !objectiveGet("L11Upgrade"))
+            {
+                catMtUpgrade("tutorial Lesson11", sAcolyte);
+            }
+            if ((step >= 2) && ((step % 8) == 6) && objectiveGet("L11Upgrade") && !objectiveGet("L11Link"))
+            {
+                // two acolytes whose link upgrade is done (cat_uiLink 0x00565570 keeps only those). Their link flight
+                //      (cat_processLinkToDo 0x00467b80) flies with AISHIP_DontFlyToObscuredPoints |
+                //      AISHIP_ReturnImmedIfPointObscured: next to the command ship (the tutorial's fleet waits about
+                //      2400 from it) the meeting point is inside its obscuring radius and the leader never moves, so
+                //      the pair is first moved 6000 out from the command ship, as a player links in open space
+                Ship *mothership = universe.players[0].PlayerMothership;
+                Node *node;
+                sdword upgraded = 0, linking = 0, near = 0;
+                char line[96];
+
+                selSelected.numShips = 0;
+                for (node = universe.ShipList.head; node != NULL; node = node->next)
+                {
+                    Ship *ship = (Ship *)listGetStructOfNode(node);
+                    if ((ship->playerowner == &universe.players[0]) && (ship->shiptype == sAcolyte) &&
+                        !bitTest(ship->header.flags, SOF_Dead | SOF_Hide | SOF_Hyperspace) &&
+                        cat_shipHasUpgrade(ship, CAT_UPGRADE_Link) && (upgraded < 2))
+                    {
+                        CommandToDo *command = getShipAndItsCommand(&universe.mainCommandLayer, ship);
+
+                        if ((command != NULL) && (command->ordertype.order == COMMAND_CAT_LINK))
+                        {
+                            linking++;
+                        }
+                        if ((mothership != NULL) &&
+                            (cat_vecDistance(&ship->obj.posinfo.position, &mothership->obj.posinfo.position) < 5000.0f))
+                        {
+                            near++;
+                        }
+                        selSelectionAddSingleShip(&selSelected, ship);
+                        upgraded++;
+                    }
+                }
+                ioUpdateShipTotals();
+                snprintf(line, sizeof(line), "acolytes with the link upgrade %d, linking %d, near the command ship %d",
+                         (int)upgraded, (int)linking, (int)near);
+                catMtTutEvent(lesson, line);
+                if ((upgraded == 2) && (linking == 0) && (near > 0))
+                {
+                    vector out, destination;
+                    real32 length;
+
+                    vecSub(out, selSelected.ShipPtr[0]->obj.posinfo.position, mothership->obj.posinfo.position);
+                    length = fsqrt(vecMagnitudeSquared(out));
+                    if (length < 1.0f)
+                    {
+                        out.x = 1.0f; out.y = 0.0f; out.z = 0.0f; length = 1.0f;
+                    }
+                    destination.x = mothership->obj.posinfo.position.x + out.x * (6000.0f / length);
+                    destination.y = mothership->obj.posinfo.position.y + out.y * (6000.0f / length);
+                    destination.z = mothership->obj.posinfo.position.z + out.z * (6000.0f / length);
+                    catMtTutEvent(lesson, "the pair moved 6000 out from the command ship (clWrapMove)");
+                    clWrapMove(&universe.mainCommandLayer, (SelectCommand *)&selSelected, 0,
+                               selSelected.ShipPtr[0]->obj.posinfo.position, 1, &destination);
+                }
+                else if ((upgraded == 2) && (linking == 0))
+                {
+                    catMtTutKey(lesson, 0x1A, 0, "Link");
+                }
+            }
+            break;
+        case 12:    // the tactical display (on, off), the chase camera, a retire, a scuttle, the time compression
+            if (step == 1)
+            {
+                catMtTutKey(lesson, 0x53, 0, "Tactical display");
+            }
+            else if (step == 2)
+            {
+                catMtTutKey(lesson, 0x53, 0, "Tactical display");
+            }
+            else if ((step == 3) && (catMtTutSelect(sRecon, 1, FALSE) > 0))
+            {
+                catMtTutKey(lesson, 0x47, 0, "Chase");
+            }
+            else if ((step == 4) && (catMtTutSelect(sAcolyte, 2, FALSE) > 0))
+            {
+                catMtTutEvent(lesson, "the Retire button (mrRetire)");
+                mrRetire(NULL, NULL);
+            }
+            else if ((step == 5) && (catMtTutSelect(sRecon, 1, FALSE) > 0))
+            {
+                // the confirming press comes within TW_ScuttleReconfirmTime (3 s of universe.realtimeelapsed, which the
+                //      virtual clock advances 1/16 s a tick: the next step, 48 ticks on, would be 3.0 s, not under it)
+                catMtTutEvent(lesson, "the Scuttle button (mrScuttle)");
+                mrScuttle(NULL, NULL);
+                catMtTutEvent(lesson, "the Scuttle button again (mrScuttle: confirmed)");
+                mrScuttle(NULL, NULL);
+            }
+            else if (step == 7)
+            {
+                catMtTutKey(lesson, 0x5D, 0, "Accelerate time");
+            }
+            else if (step == 8)
+            {
+                catMtTutKey(lesson, 0x5E, 0, "Decelerate time");
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+// the leg: each lesson's start, its part played, its objectives complete, then the Next button
+static void catMtTutorialLeg(void)
+{
+    AITeam *team = (universe.players[1].aiPlayer != NULL) ? kasAITeamPtr(0x0a9468cc) : NULL;    // team "Tutorial"
+    sdword n, since;
+
+    if (!catMtTutLegInit)
+    {
+        catMtTutLegInit = TRUE;
+        for (n = 0; n <= CAT_MT_TUT_LESSONS; n++)
+        {
+            catMtTutReached[n] = catMtTutComplete[n] = -1;
+            catMtTutObjectives[n] = catMtTutPromptsIn[n] = 0;
+        }
+    }
+    if (team == NULL)
+    {
+        return;
+    }
+    for (n = 1; n <= CAT_MT_TUT_LESSONS; n++)
+    {
+        if ((team->kasStateName == catMtTutLessonState[n]) && (catMtTutReached[n] < 0))
+        {
+            catMtTutReached[n] = (sdword)universe.univUpdateCounter;
+            catMtTutLesson = n;
+            dbgMessagef("missiontest: tutorial Lesson%d tick=%u", (int)n, (unsigned)universe.univUpdateCounter);
+        }
+    }
+    n = catMtTutLesson;
+    if ((n < 1) || (catMtTutReached[n] < 0) || (team->kasStateName != catMtTutLessonState[n]))
+    {
+        return;
+    }
+    // every new prompt (a subtitle card with a new text) of the lesson
+    {
+        static char last[96] = "";
+        sdword r;
+
+        for (r = 0; r < SUB_NumberRegions; r++)
+        {
+            if ((subRegion[r].cardIndex > 0) && (subRegion[r].card != NULL) && (subRegion[r].card[0].text != NULL) &&
+                (strncmp(last, subRegion[r].card[0].text, sizeof(last) - 1) != 0))
+            {
+                strncpy(last, subRegion[r].card[0].text, sizeof(last) - 1);
+                catMtTutPromptsIn[n]++;
+                dbgMessagef("missiontest: tutorial prompt lesson=%d tick=%u region=%d text='%.80s'", (int)n,
+                            (unsigned)universe.univUpdateCounter, (int)r, subRegion[r].card[0].text);
+                break;
+            }
+        }
+    }
+    if (objectivesUsed > catMtTutObjectives[n])
+    {
+        catMtTutObjectives[n] = objectivesUsed;
+    }
+    since = (sdword)universe.univUpdateCounter - catMtTutReached[n];
+    if ((objectivesUsed > 0) && (since > 0) && ((since % 48) == 0) && (catMtTutComplete[n] < 0))
+    {
+        catMtTutPlayLesson(n, since / 48);
+    }
+    if ((catMtTutComplete[n] < 0) && (objectivesUsed >= catMtTutLessonObjectives[n]) && (objectivesUsed > 0) &&
+        objectiveGetAll())
+    {
+        catMtTutComplete[n] = (sdword)universe.univUpdateCounter;
+        dbgMessagef("missiontest: tutorial Lesson%d complete tick=%u objectives=%d/%d", (int)n,
+                    (unsigned)universe.univUpdateCounter, (int)objectivesUsed, (int)catMtTutObjectives[n]);
+    }
+    // the Next button 96 ticks after the lesson's objectives are complete (the lesson's closing prompt meanwhile); a
+    //      lesson not complete 9600 ticks after its start is left (the leg then FAILs); Lesson1's click is R8's
+    if ((n >= 2) && (n < CAT_MT_TUT_LESSONS) && (tutNextRegion != NULL) && (catMtTutLastNextTick < catMtTutReached[n]) &&
+        (((catMtTutComplete[n] >= 0) && ((sdword)universe.univUpdateCounter >= catMtTutComplete[n] + 96)) || (since >= 9600)))
+    {
+        catMtTutLastNextTick = (sdword)universe.univUpdateCounter;
+        catMtTutNextClicks++;
+        dbgMessagef("missiontest: event tick=%u tutorial Lesson%d: the Next button clicked (its click callback)",
+                    (unsigned)universe.univUpdateCounter, (int)n);
         tutNextRegion->processFunction((regionhandle)tutNextRegion, 0, CM_ButtonClick, 0);
     }
 }
@@ -2081,17 +3501,45 @@ static void catMtMissionEnd(void)
         }
     }
     pass = (catMtNumObjectives > 0) && (reached == catMtNumObjectives) && inOrder && !catMtFailed && catMtLevelLoaded &&
-           catMtKasStarted && catMtArrived && (catMtHyperspaceTick >= 0) && (catMtNextLevelTick >= 0);
-    dbgMessagef("missiontest: end mission=%d tick=%u level=%d kas=%d arrived=%d inOrder=%d jump=%d rollcall=%s next=%d failed=%d",
+           catMtKasStarted && catMtArrived;
+    if (catMtMission == MISSION_17)
+    {
+        // M2-R9 missions-10-17: the last mission ends the game: its script's MissionCompleted, then the credits (no
+        //      hyperspace jump, no next level)
+        pass = pass && (catMtCompletedTick >= 0) && (catMtGameEndTick >= 0);
+    }
+    else
+    {
+        pass = pass && (catMtHyperspaceTick >= 0) && (catMtNextLevelTick >= 0);
+    }
+    dbgMessagef("missiontest: end mission=%d tick=%u level=%d kas=%d arrived=%d inOrder=%d jump=%d rollcall=%s next=%d failed=%d"
+                " completed=%d gameend=%d",
                 (int)catMtMission, (unsigned)universe.univUpdateCounter, (int)catMtLevelLoaded, (int)catMtKasStarted,
                 (int)catMtArrived, (int)inOrder, (int)catMtHyperspaceTick, catMtRollCallButton, (int)catMtNextLevelTick,
-                (int)catMtFailed);
-    // ticks: the mission level's ticks and the next level's (the run's ticks)
+                (int)catMtFailed, (int)catMtCompletedTick, (int)catMtGameEndTick);
+    // ticks: the mission level's ticks and the next level's (the run's ticks); at the game's end the mission level's
     dbgMessagef("missiontest: done mission=%d ticks=%u objectives=%d/%d result=%s", (int)catMtMission,
-                (unsigned)((catMtNextLevelTick >= 0) ? catMtLevelTicks + universe.univUpdateCounter : universe.univUpdateCounter),
+                (unsigned)((catMtGameEndTick >= 0) ? catMtLevelTicks :
+                           (catMtNextLevelTick >= 0) ? catMtLevelTicks + universe.univUpdateCounter : universe.univUpdateCounter),
                 (int)reached, (int)catMtNumObjectives,
                 pass ? "PASS" : "FAIL");
     oracleMissionStopAfterThisTick();
+}
+
+// M2-R9 missions-10-17: the game's end (Mission17): the credits have begun (utyGameQuitToMain after the quit that
+//      MissionCompleted's singlePlayerMissionCompleteCB asked for); the game no longer runs, so the run ends here
+static void catMtGameEnd(const char *credits)
+{
+    if ((catMissionTestTicks <= 0) || (catMtMission < 2) || !catMissionTestInit || catMissionTestDone)
+    {
+        return;
+    }
+    catMtGameEndTick = (sdword)catMtLevelTicks;
+    dbgMessagef("missiontest: game end tick=%u credits=%s completed=%d (MissionCompleted, the quit, the credits)",
+                (unsigned)catMtLevelTicks, credits, (int)catMtCompletedTick);
+    catMissionTestDone = TRUE;
+    catMtMissionEnd();
+    oracleMissionStopNow();
 }
 
 void catMissionSelfTestPlay(void)
@@ -2135,19 +3583,95 @@ void catMissionSelfTestTick(void)
     if (catMissionTestTutorialTicks > 0)
     {
         catMtTutorialWatch();
-        if ((catMtTutLesson2Tick >= 0) && (catMtTutObjTick >= 0) && (catMtTutLessonTick >= 0) && (catMtTutButtonsTick >= 0))
+        catMtTutorialLeg();
+        // M2-R9 missions-10-17: the leg ends with Lesson12's objectives complete (the last lesson has no Next)
+        if ((catMtTutLesson2Tick >= 0) && (catMtTutObjTick >= 0) && (catMtTutLessonTick >= 0) && (catMtTutButtonsTick >= 0) &&
+            (catMtTutComplete[CAT_MT_TUT_LESSONS] >= 0) &&
+            ((sdword)universe.univUpdateCounter >= catMtTutComplete[CAT_MT_TUT_LESSONS] + 96))
         {
+            sdword n, reached = 0, complete = 0, inOrder = TRUE;
+
+            for (n = 1; n <= CAT_MT_TUT_LESSONS; n++)
+            {
+                reached += (catMtTutReached[n] >= 0);
+                complete += (catMtTutComplete[n] >= 0);
+                if ((n > 1) && ((catMtTutReached[n] < 0) || (catMtTutReached[n] <= catMtTutReached[n - 1])))
+                {
+                    inOrder = FALSE;
+                }
+            }
             catMissionTestDone = TRUE;
             dbgMessagef("missiontest: done ticks=%u tutorial kas=%d lesson1=%d objectives=%d buttons=%d prompts=%d/%d/%d "
-                        "pointer=%d next=%d lesson2=%d result=PASS", (unsigned)universe.univUpdateCounter,
-                        (int)catMtKasStarted, (int)catMtTutLessonTick, (int)catMtTutObjTick, (int)catMtTutButtonsTick,
-                        (int)catMtTutPromptTick[0], (int)catMtTutPromptTick[1], (int)catMtTutPromptTick[2],
-                        (int)catMtTutObjPointer, (int)catMtTutClickTick, (int)catMtTutLesson2Tick);
+                        "pointer=%d next=%d lesson2=%d lessons=%d/%d complete=%d/%d inOrder=%d nextClicks=%d result=%s",
+                        (unsigned)universe.univUpdateCounter, (int)catMtKasStarted, (int)catMtTutLessonTick, (int)catMtTutObjTick,
+                        (int)catMtTutButtonsTick, (int)catMtTutPromptTick[0], (int)catMtTutPromptTick[1],
+                        (int)catMtTutPromptTick[2], (int)catMtTutObjPointer, (int)catMtTutClickTick, (int)catMtTutLesson2Tick,
+                        (int)reached, CAT_MT_TUT_LESSONS, (int)complete, CAT_MT_TUT_LESSONS, (int)inOrder,
+                        (int)catMtTutNextClicks + 1,
+                        ((reached == CAT_MT_TUT_LESSONS) && (complete == CAT_MT_TUT_LESSONS) && inOrder) ? "PASS" : "FAIL");
             oracleMissionStopAfterThisTick();
             return;
         }
     }
 
+    // M2-R9 missions-10-17: the level's mission-sphere objects the "Mine" / "Slipgate" readers made (LevelLoad.c
+    //      cat_scriptSetMineCB 0x004a3f20, cat_scriptSetSlipgateCB 0x004a1020), counted once the level is up
+    if ((catMissionTestTicks > 0) && (catMtMission >= 2) && catMtLevelLoaded && (catMtNextLevelTick < 0))
+    {
+        static bool32 counted = FALSE;
+
+        if (!counted)
+        {
+            Node *node;
+            sdword mines = 0, gates = 0;
+
+            counted = TRUE;
+            for (node = universe.MissileList.head; node != NULL; node = node->next)
+            {
+                if (((Missile *)listGetStructOfNode(node))->missileType == MISSILE_Mine)
+                {
+                    mines++;
+                }
+            }
+            for (node = universe.ShipList.head; node != NULL; node = node->next)
+            {
+                ShipType type = ((Ship *)listGetStructOfNode(node))->shiptype;
+
+                if ((type == dSlipgateSmall) || (type == dSlipgateMedium) || (type == dSlipgateLarge))
+                {
+                    gates++;
+                }
+            }
+            dbgMessagef("missiontest: level objects tick=%u mines=%d slipgates=%d ships=%u", (unsigned)universe.univUpdateCounter,
+                        (int)mines, (int)gates, (unsigned)universe.ShipList.num);
+        }
+    }
+    // M2-R9 missions-10-17: the warp start's self-test: the record against the fleet once it has arrived, the end 64
+    //      ticks later (or at the limit, or when the player has lost)
+    if (catMtWarpTest && (catMissionTestTicks > 0))
+    {
+        bool32 pass;
+
+        if (catMtArrived && (catMtWarpArrivedTick < 0))
+        {
+            catMtWarpArrivedTick = (sdword)universe.univUpdateCounter;
+            catMtWarpArrived = cat_spWarpStartSelfTestCheck(TRUE) ? 1 : 0;
+        }
+        if (((catMtWarpArrivedTick >= 0) && ((sdword)universe.univUpdateCounter >= catMtWarpArrivedTick + 64)) ||
+            ((sdword)universe.univUpdateCounter >= catMissionTestTicks - 2) || catMtFailed)
+        {
+            pass = (catMtWarpScriptLevel >= 2) && (catMtWarpApplied == 1) && catMtLevelLoaded && catMtKasStarted &&
+                   catMtArrived && (catMtWarpArrived == 1) && !catMtFailed &&
+                   (singlePlayerGameInfo.currentMission == catMtWarpScriptLevel);
+            catMissionTestDone = TRUE;
+            dbgMessagef("warpstarttest: done level=%d ticks=%u applied=%d level=%d kas=%d arrived=%d fleet=%d failed=%d result=%s",
+                        (int)catMtWarpScriptLevel, (unsigned)universe.univUpdateCounter, (int)catMtWarpApplied,
+                        (int)catMtLevelLoaded, (int)catMtKasStarted, (int)catMtWarpArrivedTick, (int)catMtWarpArrived,
+                        (int)catMtFailed, pass ? "PASS" : "FAIL");
+            oracleMissionStopAfterThisTick();
+            return;
+        }
+    }
     if ((universe.univUpdateCounter % 256) == 0)
     {
         dbgMessagef("missiontest: status tick=%u mission=%d hyperspaceState=%d ships=%u nis=%s", (unsigned)universe.univUpdateCounter,
@@ -2158,7 +3682,8 @@ void catMissionSelfTestTick(void)
         ((catMissionTestTicks > 0) && (catMtMission == 1) && (catMtHyperspaceTick >= 0) &&
          ((sdword)universe.univUpdateCounter >= catMtHyperspaceTick + 32)) ||
         ((catMissionTestTicks > 0) && (catMtMission >= 2) && (catMtNextLevelTick >= 0) &&
-         ((sdword)universe.univUpdateCounter >= catMtNextLevelTick + 32)))
+         ((sdword)universe.univUpdateCounter >= catMtNextLevelTick + 32)) ||
+        ((catMissionTestTicks > 0) && (catMtMission >= 2) && catMtFailed))       // M2-R9 missions-10-17: a lost mission ends the run
     {
         sdword i, reached = 0;
         bool32 inOrder = TRUE;
@@ -2230,6 +3755,8 @@ static char catLoadGameName[128] = "";
 static bool32 catLoadGameLoaded = FALSE, catLoadGameDone = FALSE;
 static sdword catLoadGameStartTick = -1;
 static sdword catLoadGameObjectives = 0;
+static bool32 catLoadGameTraining = FALSE;      // M2-R9 missions-10-17: a tutorial lesson's save (SavedGames/Training)
+extern char TutorialSavedGamesPath[];           // GamePick.c
 
 void catLoadGameSelfTestSet(char *string)
 {
@@ -2247,6 +3774,11 @@ void catLoadGameSelfTestNameSet(char *string)
     catLoadGameName[sizeof(catLoadGameName) - 1] = '\0';
 }
 
+void catLoadGameSelfTestTrainingSet(void)
+{
+    catLoadGameTraining = TRUE;
+}
+
 bool32 catLoadGameSelfTestRequested(void)
 {
     return (catLoadGameTicks > 0);
@@ -2259,7 +3791,8 @@ void catLoadGameSelfTestStart(void)
     Node *node;
     sdword ships = 0;
 
-    snprintf(filename, sizeof(filename), "%s%s", SinglePlayerSavedGamesPath, catLoadGameName);
+    snprintf(filename, sizeof(filename), "%s%s", catLoadGameTraining ? TutorialSavedGamesPath : SinglePlayerSavedGamesPath,
+             catLoadGameName);
     verify = fileExists(filename, FF_UserSettingsPath) ? VerifySaveFile(filename) : -1;
     dbgMessagef("loadgametest: load '%s' verify=%d", filename, (int)verify);
     if (verify != VERIFYSAVEFILE_OK)
@@ -2270,7 +3803,7 @@ void catLoadGameSelfTestStart(void)
         return;
     }
     gpLoadSinglePlayerGame = TRUE;
-    gpLoadTutorial = FALSE;
+    gpLoadTutorial = catLoadGameTraining;           // the tutorial's load: tutorial 1 (gpLoadGame's, GamePick.c)
     gpLoadGivenGame(filename);
     for (node = universe.ShipList.head; node != NULL; node = node->next)
     {
@@ -2281,8 +3814,8 @@ void catLoadGameSelfTestStart(void)
     }
     catLoadGameObjectives = objectivesUsed;
     catLoadGameLoaded = singlePlayerGame && (universe.ShipList.num > 0);
-    dbgMessagef("loadgametest: loaded singlePlayer=%d mission=%d tick=%u ships=%u player0ships=%d objectives=%d kas='%s' "
-                "watch=%d level='%s' hyperspaceState=%d difficulty=%u", (int)singlePlayerGame,
+    dbgMessagef("loadgametest: loaded singlePlayer=%d tutorial=%d mission=%d tick=%u ships=%u player0ships=%d objectives=%d kas='%s' "
+                "watch=%d level='%s' hyperspaceState=%d difficulty=%u", (int)singlePlayerGame, (int)tutorial,
                 (int)singlePlayerGameInfo.currentMission, (unsigned)universe.univUpdateCounter,
                 (unsigned)universe.ShipList.num, (int)ships, (int)objectivesUsed, CurrentMissionName,
                 (int)(CurrentMissionWatchFunction != NULL), CurrentLevelName, (int)singlePlayerGameInfo.hyperspaceState,
@@ -2310,12 +3843,13 @@ void catLoadGameSelfTestTick(void)
     {
         bool32 pass = singlePlayerGame && (singlePlayerGameInfo.currentMission == MISSION_1_KHARAK_SYSTEM) &&
                       (universe.players[0].playerState != PLAYER_DEAD) && (universe.players[0].PlayerMothership != NULL) &&
-                      (CurrentMissionWatchFunction != NULL) && (catMtTeamsSeen > 0);
+                      (CurrentMissionWatchFunction != NULL) && (catMtTeamsSeen > 0) &&
+                      (!catLoadGameTraining || ((tutorial == 1) && (CurrentMissionWatchFunction == Watch_Tutorial1)));
 
         catLoadGameDone = TRUE;
-        dbgMessagef("loadgametest: done ticks=%d from=%d to=%u mission=%d ships=%u objectives=%d/%d kasTeams=%d result=%s",
-                    (int)catLoadGameTicks, (int)catLoadGameStartTick, (unsigned)universe.univUpdateCounter,
-                    (int)singlePlayerGameInfo.currentMission, (unsigned)universe.ShipList.num,
+        dbgMessagef("loadgametest: done ticks=%d from=%d to=%u mission=%d tutorial=%d ships=%u objectives=%d/%d kasTeams=%d "
+                    "result=%s", (int)catLoadGameTicks, (int)catLoadGameStartTick, (unsigned)universe.univUpdateCounter,
+                    (int)singlePlayerGameInfo.currentMission, (int)tutorial, (unsigned)universe.ShipList.num,
                     (int)catLoadGameObjectives, (int)objectivesUsed, (int)catMtTeamsSeen, pass ? "PASS" : "FAIL");
         oracleMissionStopAfterThisTick();
     }

@@ -18,6 +18,7 @@
 #include "SaveGame.h"
 #include "Select.h"
 #include "Tactics.h"
+#include "MissionSelfTest.h"   // HWI-TEST (M2-R9 missions-10-17): the KAS message trace
 
 
 /*-----------------------------------------------------------------------------
@@ -1748,6 +1749,10 @@ void aitExecute(void)
 void aitMsgSend(AITeam *fromTeamp, AITeam *teamp, udword msg)
 {
     MsgQueue *msgQP;
+
+#if HWI_ORACLE
+    catMissionSelfTestMessage(fromTeamp, teamp, msg);       // HWI-TEST (M2-R9 missions-10-17): /catMissionTestTrace
+#endif
 
     if (!teamp->msgQueue)
     {

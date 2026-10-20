@@ -151,6 +151,9 @@ void kasfMissionCompleted(void)  // KAS MissionCompleted, cataclysm.exe 0x00491c
     else
     {
         clCommandMessage("MISSION COMPLETED", 0xffffffff);
+#if HWI_ORACLE
+        catMissionSelfTestEvent("mission completed");   // HWI-TEST (M2-R9 missions-10-17): Mission17's end of the game
+#endif
         // play the end of Mission animatic
         // if you want to finish a level without hyperspacing, you put the stuff that happens here
         speechEventCleanup();

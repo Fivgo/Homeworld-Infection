@@ -434,17 +434,22 @@ void cat_bigGunProcessFireCommand(struct CommandToDo *command)             // 0x
     Ship *ship = command->selection->ShipPtr[0];
     vector *point = &command->catPoint.target;
     MothershipSpec *spec = (MothershipSpec *)ship->ShipSpecifics;
+    Effect *effect;
 
     if (cat_bigGunReloaded(cat_mothershipGetBigGun(ship)))
     {
         cat_bigGunScatterTarget(ship, point, &spec->bigGunTarget);
         spec->bigGunState = CAT_BIGGUN_Aiming;
         speechEventQueue(NULL, 0x40008b5, -1, -1, 0, ship->playerowner->playerIndex, -1, 5.0f, -1);
-        if (spec->bigGunChargeEffect != NULL)
+        // CAT (M2-R9 missions-10-17): the charge effect is held in a local, as the exe holds it in edi
+        //      (0x005bbf2f ..): etgEffectDelete's cat_univRemoveEffectReferencesFromShips clears the mothership's field,
+        //      so reading it again after the delete passed NULL to univRemoveObjFromRenderList (Mission10's big gun)
+        effect = spec->bigGunChargeEffect;
+        if (effect != NULL)
         {
-            etgEffectDelete(spec->bigGunChargeEffect);
-            univRemoveObjFromRenderList((SpaceObj *)spec->bigGunChargeEffect);
-            listDeleteNode(&spec->bigGunChargeEffect->header.objlink);
+            etgEffectDelete(effect);
+            univRemoveObjFromRenderList((SpaceObj *)effect);
+            listDeleteNode(&effect->header.objlink);
             spec->bigGunChargeEffect = NULL;
         }
     }

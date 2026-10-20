@@ -5474,8 +5474,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "clCommandMessage colour 0xffffffff",
-  "note": "[review: M2-R5 hud] call site updated",
-  "sample": "port-R5-hud"
+  "note": "[review: M2-R5 hud] call site updated | [review: M2-R9 missions-10-17] compared again with the exe (Mission17 calls it): same as ported; an HWI_ORACLE hook reports the call to the mission self-test (the game's end); the animatic is animAviPlay, the tree's port of the exe's animBinkPlay 0x00421860",
+  "sample": "port-R9-missions-10-17"
  },
  "0x00491cb0": {
   "class": "IDENTICAL",
@@ -5635,8 +5635,8 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
-  "sample": "reread-R2"
+  "note": "same | [review: M2-R9 missions-10-17] compared again with the exe (Mission10..17 call it): same as ported",
+  "sample": "port-R9-missions-10-17"
  },
  "0x004933d0": {
   "class": "IDENTICAL",
@@ -5712,8 +5712,8 @@
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "[review: M2-R5 layout-dock audit] the only edit is the purpose: the exe passes 0 (0x00494610), the tree CAT_DOCK_SUPPORT",
-  "sample": "audit-R5-layout-dock-sync"
+  "note": "[review: M2-R5 layout-dock audit] the only edit is the purpose: the exe passes 0 (0x00494610), the tree CAT_DOCK_SUPPORT | [review: M2-R9 missions-10-17] compared again with the exe (Mission10..17 call it): same as ported",
+  "sample": "port-R9-missions-10-17"
  },
  "0x004946a0": {
   "class": "MODIFIED",
@@ -5886,15 +5886,15 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "thunk",
-  "sample": "reread-R2"
+  "note": "thunk | [review: M2-R9 missions-10-17] compared again with the exe (Mission10..17 call it): same as ported",
+  "sample": "port-R9-missions-10-17"
  },
  "0x00496140": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "thunk",
-  "sample": "reread-R2"
+  "note": "thunk | [review: M2-R9 missions-10-17] compared again with the exe (Mission10..17 call it): same as ported",
+  "sample": "port-R9-missions-10-17"
  },
  "0x00496150": {
   "class": "IDENTICAL",
@@ -6439,8 +6439,8 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "subMessageEnded = FALSE | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported",
-  "sample": "IDENTICAL/low"
+  "note": "subMessageEnded = FALSE | [review: M2-R9 missions-02-09] compared again with the exe (Mission02..09 call it): same as ported | [review: M2-R9 missions-10-17] compared again with the exe (Mission10..17 call it): same as ported",
+  "sample": "port-R9-missions-10-17"
  },
  "0x00497b90": {
   "class": "IDENTICAL",
@@ -10897,9 +10897,9 @@
  "0x00518940": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "clCommandMessage colour (debug-build line)",
-  "note": "[review: M2-R5 hud] call site updated [review: M2-R8 singleplayer-tutorial] cat_spPrepareShipHyperspaceOut 0x00518880 before the times (the clamped objects let go) ported; the rest compared: as the tree",
-  "sample": "port-R5-hud"
+  "change": "clCommandMessage colour (debug-build line); the clamp host tested; midlevelHyperspaceOut cleared in the StartInHS branch",
+  "note": "[review: M2-R5 hud] call site updated [review: M2-R8 singleplayer-tutorial] cat_spPrepareShipHyperspaceOut 0x00518880 before the times (the clamped objects let go) ported; the rest compared: as the tree | [review: M2-R9 missions-10-17] compared with the exe after Mission14's crash: the clamp's host is tested non-NULL before its type (0x00518a05 .. 0x00518a13), and the StartInHS branch (the inlined InstantlyHyperspaceOut) clears midlevelHyperspaceOut when the ship leaves (0x005189d3); both ported. The clamped ships' walk (universe.ShipList, host == ship, not in ShipsToHyperspace) is GetShipsClampedTo's",
+  "sample": "port-R9-missions-10-17"
  },
  "0x00518af0": {
   "class": "IDENTICAL",
@@ -11500,8 +11500,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "digit test fixed: '1'..'9' characters count as TRUE (HW1 tests the values 1..9, a bug)",
-  "note": "TRUE/YES stricmp as HW1; Ghidra shows __thiscall noise",
-  "sample": "reread-R2"
+  "note": "TRUE/YES stricmp as HW1; Ghidra shows __thiscall noise | [review: M2-R9 missions-10-17] ported now: the tree still compared the byte with the values 1..9 (GoK), so \"1\" read FALSE (Warp.script's \"WarpEnabled 1\"); the exe compares with '1' / '9' (cmp al,0x31 / 0x39 at 0x00525c6a)",
+  "sample": "port-R9-missions-10-17"
  },
  "0x00525d90": {
   "class": "IDENTICAL",
@@ -12188,11 +12188,11 @@
   "sample": "reread-R2"
  },
  "0x00533e80": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "medium",
-  "change": "",
-  "note": "GetNextCommaDelimitedToken inlined (static token pointer); compare loop and queue reset as HW1",
-  "sample": "reread-R2"
+  "change": "the message queue is only read (HW1 cleared it after every test); the lessons clear it themselves",
+  "note": "GetNextCommaDelimitedToken inlined (static token pointer); compare loop and queue reset as HW1 | [review: M2-R9 missions-10-17] found modified: the exe only reads the queue count (0x00a6c2c4 read at 0x00533f01 / 0x00533f2c, never written); HW1 / GoK cleared the queue after every test. Ported: no clear (Tutorial1's lessons clear it themselves with TutResetGameMessageQueue)",
+  "sample": "port-R9-missions-10-17"
  },
  "0x00533fb0": {
   "class": "IDENTICAL",
@@ -13140,14 +13140,16 @@
  "0x00545f00": {
   "class": "MODIFIED",
   "confidence": "medium",
-  "change": "calls the 7-argument ApplyDamageToTarget",
-  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #3)"
+  "change": "calls the 7-argument ApplyDamageToTarget; ship parts take no blast damage",
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #3) | [review: M2-R9 missions-10-17] a ship part (SOF_CatShipPart 0x40000000) is rocked but takes no blast damage (test 0x100000 set and 0x40000000 clear at 0x00546157 / 0x005461a4); ported (the tree damaged parts: a dying host's blast reached the host again through its parts, Mission16's stack overflow)",
+  "sample": "port-R9-missions-10-17"
  },
  "0x00546250": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "7 arguments: ship-part damage redirect, NIS/KAS-derelict/invulnerable skips, evasive retreat, kill counts and experience; no slave ships",
-  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #3 with #5); CAT-TODO in the tree | [review: M2-R5 layout-dock] cat_shipUpdateExperienceLevel after the killer's kills-by-class increment"
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #3 with #5); CAT-TODO in the tree | [review: M2-R5 layout-dock] cat_shipUpdateExperienceLevel after the killer's kills-by-class increment | [review: M2-R9 missions-10-17] compared again (Mission16's stack overflow): the alive test and the old health are read before a part's damage goes to its host, as the exe (0x0054625a ..): same as ported",
+  "sample": "port-R9-missions-10-17"
  },
  "0x00546780": {
   "class": "MODIFIED",
@@ -18845,7 +18847,7 @@
  "_notes_r2": [
   "Tool fixes in `tools/delta_map.py` (M2-R2), for the systemic misses the R1 audit found:",
   "",
-  "- **Linker-folded callees.** `ICF_FOLDED` lists HW1 functions whose release code is identical to another's, so the linker kept one copy: `SpaceObjRegistryGetShip`/`GetTarget` → `SpaceObjRegistryGetObj`, `aimInterceptShipDied` → `aimCaptureShipDied`, `aimAdvancedAttackClose` → `aimCloseKamikaze`. A call to the folded name now matches the surviving one (`calls_folded` in the features). The tool also prints candidate folds it finds in the data, but does not apply them: the 4 it lists are inlined or reworked callees, not folds.",
+  "- **Linker-folded callees.** `ICF_FOLDED` lists HW1 functions whose release code is identical to another's, so the linker kept one copy: `SpaceObjRegistryGetShip`/`GetTarget` \u2192 `SpaceObjRegistryGetObj`, `aimInterceptShipDied` \u2192 `aimCaptureShipDied`, `aimAdvancedAttackClose` \u2192 `aimCloseKamikaze`. A call to the folded name now matches the surviving one (`calls_folded` in the features). The tool also prints candidate folds it finds in the data, but does not apply them: the 4 it lists are inlined or reworked callees, not folds.",
   "- **Callee interface changes.** A bound callee whose Cataclysm prototype has real parameter names and another parameter count than its HW1 definition (`timTimer*`, `clCommandMessage`, `spMainScreen`, `hsStaticInit`...), or that the binary map extended with `cat_argN` arguments counted from caller stack cleanup (`clFormation`, `RemoveShipsFromDoingStuff`, `ApplyDamageToTarget`, `tutSetPointerTargetAIVolume`...), makes each caller MODIFIED. Over-declared prototypes are skipped when every call site passes register or stack garbage in the extra slots (`feCurrentScreenDelete(unaff_EDI, unaff_ESI)`), and under-declared ones when the callee reads `in_EAX`/`in_stack_` (`kniTransGrowVertexLists`). `param_N` prototypes are not used, because a double or a by-value struct splits into several slots (`rgluLookAt` 9 -> 12); so `trTextureRegister`'s real 4th argument is still caught only by hand review.",
   "- **One-parameter ETG/particle callables** that take a pointer to their argument slot are MODIFIED (the old rule needed two or more HW1 parameters).",
   "- **KAS hash keys.** A function that calls `kasfScopeName` in HW1 and tests the `0x80000000` hash bit in Cataclysm is MODIFIED.",
@@ -19435,7 +19437,8 @@
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "[review: M2-R6 startup-keys] [audit: was \"compared: identical\"] found modified: the credits sequence plays track 0x29 (HW1 RollCredits 28): ported (utility.c CAT_MUSIC_CREDITS)"
+  "note": "[review: M2-R6 startup-keys] [audit: was \"compared: identical\"] found modified: the credits sequence plays track 0x29 (HW1 RollCredits 28): ported (utility.c CAT_MUSIC_CREDITS) | [review: M2-R9 missions-10-17] compared with the exe (Mission17's end): credits psModeBegin(\"Credits\\\\\", 0xd) and psScreenStart(\"Credits-GameEnd.cred\") as the exe (0x005ab70d ..); an HWI_ORACLE hook reports the credits to the mission self-test; body otherwise unchanged",
+  "sample": "port-R9-missions-10-17"
  },
  "0x005ab780": {
   "class": "IDENTICAL",
@@ -20921,7 +20924,8 @@
   "class": "REWRITTEN",
   "confidence": "high",
   "change": "the queue holds 64 message pointers and a count; a send stores the pointer (no copy, no sender); the message is its kas2c hash word",
-  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported (with cat_aitMsgQueueRemoveAt / cat_aitMsgQueueFlush) [review: M2-R8 kasf-library] the queue holds the message hashes"
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported (with cat_aitMsgQueueRemoveAt / cat_aitMsgQueueFlush) [review: M2-R8 kasf-library] the queue holds the message hashes | [review: M2-R9 missions-10-17] an HWI_ORACLE hook (the mission self-test's /catMissionTestTrace message trace, off by default); body unchanged",
+  "sample": "port-R9-missions-10-17"
  },
  "0x00417e60": {
   "class": "REWRITTEN",
@@ -21131,8 +21135,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "clearing the closed-bays bit 0x400 of a host that had it launches the ships inside whose launch is due (cat_lmShipAutoLaunchOn or ShipHasToLaunch, not SPECIAL_STAY_TILL_EXPLICITLAUNCH) with clLaunchMultipleShips",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
-  "sample": "port-R8-kasf-library"
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported | [review: M2-R9 missions-10-17] compared again with the exe (Mission10..17 call it): same as ported",
+  "sample": "port-R9-missions-10-17"
  },
  "0x00493630": {
   "class": "MODIFIED",
@@ -21488,8 +21492,8 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
-  "sample": "port-R8-kasf-library"
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-10-17] compared again with the exe (Mission10..17 call it): same as ported",
+  "sample": "port-R9-missions-10-17"
  },
  "0x004922d0": {
   "class": "IDENTICAL",
@@ -21649,8 +21653,8 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
-  "sample": "port-R8-kasf-library"
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-10-17] compared again with the exe (Mission10..17 call it): same as ported",
+  "sample": "port-R9-missions-10-17"
  },
  "0x00493510": {
   "class": "IDENTICAL",
@@ -22041,8 +22045,8 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
-  "sample": "port-R8-kasf-library"
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 missions-10-17] compared again with the exe (Mission10..17 call it): same as ported",
+  "sample": "port-R9-missions-10-17"
  },
  "0x00496fc0": {
   "class": "IDENTICAL",
@@ -22629,8 +22633,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "KAS globals G_PlayNis / G_PlayNislet / Traders.PopUpGUI; the black fade; HYPERSPACE_LOADDONE starts the mission's kas2c script (missions 1..17); states 7 (wait) and 9 (the fleet arrives, G_ShipsHaveArrived); the rest of the hyperspace flow",
-  "note": "[review: M2-R8 kas-runtime-mission01] the head, the load-done case and case 9 ported; the roll call, whiteout and case 10 are M2-R8 producer 4's (stage 6 single player) [review: M2-R8 singleplayer-tutorial] the rest of the body ported: the letterbox jump of the catSpMissionNextLevel missions, the roll call ending through spGoNowHyperspaceCB, Fleet Command's 0x2001020, the ships left in the ether wiped, the inlined fleet tests, the white-out's animatic (cur, cur + 1; mission 17 credits), the ether's damage effects (cat_spForgetDamageEffects) and DeleteAfterHSOut ships, the next mission's level or its opening NIS (state 8), the at-once arrival (cat_spLaunchDockedShipsOnArrival), the failed jump as case 10",
-  "sample": "port-R8-kas-runtime-mission01"
+  "note": "[review: M2-R8 kas-runtime-mission01] the head, the load-done case and case 9 ported; the roll call, whiteout and case 10 are M2-R8 producer 4's (stage 6 single player) [review: M2-R8 singleplayer-tutorial] the rest of the body ported: the letterbox jump of the catSpMissionNextLevel missions, the roll call ending through spGoNowHyperspaceCB, Fleet Command's 0x2001020, the ships left in the ether wiped, the inlined fleet tests, the white-out's animatic (cur, cur + 1; mission 17 credits), the ether's damage effects (cat_spForgetDamageEffects) and DeleteAfterHSOut ships, the next mission's level or its opening NIS (state 8), the at-once arrival (cat_spLaunchDockedShipsOnArrival), the failed jump as case 10 | [review: M2-R9 missions-10-17] compared again (the end of the game): mission 17's white-out sets quittime = realtimeelapsed and utyCreditsSequence (0x0051a027 ..): same as ported. Mission17 itself ends through MissionCompleted, not this branch. Found: the two animatic calls of this function and singlePlayerPostInit reach the tree's animBinkPlay, GoK's #if 0 stub, so no animatic plays in the port (left for M2-R10: animAviPlay is the port of 0x00421860 and would play Animatic01 in real time in the sp gate)",
+  "sample": "port-R9-missions-10-17"
  },
  "0x0051b230": {
   "class": "MODIFIED",
@@ -22776,8 +22780,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the warp records cleared and Warp.script read through the exe's table (WarpEnabled, LevelToWarpTo, Level, Resources, Ships, Tech); mission 1 or the warp's (no mission sequence); oldAutoLaunch 0xF",
-  "note": "[review: M2-R8 singleplayer-tutorial] compared: ported | [review: M2-R9 missions-02-09] HWI-TEST hook (HWI_ORACLE builds only): /catMissionTestMission N sets the warp level after Warp.script is read; without the switch the body is unchanged",
-  "sample": "port-R8-singleplayer-tutorial"
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: ported | [review: M2-R9 missions-02-09] HWI-TEST hook (HWI_ORACLE builds only): /catMissionTestMission N sets the warp level after Warp.script is read; without the switch the body is unchanged | [review: M2-R9 missions-10-17] an HWI_ORACLE hook (the warp start's self-test reads WarpEnabled / LevelToWarpTo after Warp.script); body unchanged",
+  "sample": "port-R9-missions-10-17"
  },
  "0x00518d80": {
   "class": "MODIFIED",
@@ -22860,8 +22864,8 @@
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "uses fields HW1 never uses: realtimeelapsed",
-  "note": "[review: M2-R8 singleplayer-tutorial] compared: as the tree",
-  "sample": "port-R8-singleplayer-tutorial"
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: as the tree | [review: M2-R9 missions-10-17] compared with the exe (Mission17's end): same as ported",
+  "sample": "port-R9-missions-10-17"
  },
  "0x0051be70": {
   "class": "MODIFIED",

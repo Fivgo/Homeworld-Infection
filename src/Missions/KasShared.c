@@ -310,6 +310,18 @@ void Init_Mission10_Salvage_Hidden(void)
     return;
 }
 
+// cataclysm.exe 0x006104f0 (44 bytes)
+void Watch_Mission10_DefendBigGun_Attack(void)
+{
+    GrowSelection *targets;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    targets = kasGrowSelectionPtr(0x4a2a29);
+    kasfAttack(targets);
+    return;
+}
+
 // cataclysm.exe 0x00613880 (71 bytes)
 void Init_Mission11_FleetIntel_WaitTimer(void)
 {
@@ -356,12 +368,136 @@ void Init_Mission11_Infected_Attack(void)
     return;
 }
 
+// cataclysm.exe 0x00616130 (187 bytes) HAND-EDIT (tools/m2_kas2c_gen.py OVERRIDES): Ghidra's nullsub() is kasfAssert(kasfVarValueGet((char *)0x9379e54) <= 12) on the folded stub 0x0049ae30 (call at 0x0061615c)
+void Init_Mission11_Sentinels_Create(void)
+{
+    sdword sVar1;
+    sdword sVar2;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfAssert((sdword)(kasfVarValueGet(0x9379e54) <= 12));
+    kasfTimerDestroy(0xe09cb85);
+    sVar1 = kasfVarValueGet(0x813db354);
+    if (sVar1 == 0) {
+        sVar1 = kasfGetBuildTime("bSentinel");
+        sVar2 = kasfVarValueGet(0x9379e54);
+        kasfTimerCreateSetStart(0xe09cb85, (sdword)(sVar1 * sVar2));
+    }
+    else {
+        if (sVar1 == 1) {
+            sVar1 = kasfGetBuildTime("bSentinel");
+            sVar2 = kasfVarValueGet(0x9379e54);
+            kasfTimerCreateSetStart(0xe09cb85, (sdword)((sVar2 * sVar1) / 2));
+            return;
+        }
+        if (sVar1 == 2) {
+            kasfTimerCreateSetStart(0xe09cb85, 0);
+            return;
+        }
+    }
+    return;
+}
+
 // cataclysm.exe 0x00617a10 (29 bytes)
 void Init_Mission11_Harvest_Harvest(void)
 {
     CurrentMissionScope = 2;
     CurrentMissionScopeName = CurrentTeamP->kasLabel;
     kasfHarvest();
+    return;
+}
+
+// cataclysm.exe 0x006199d0 (200 bytes)
+void Init_Mission11_CloakedFighters_Move(void)
+{
+    GrowSelection *pGVar1;
+    GrowSelection *pGVar2;
+    hvector *phVar3;
+    uintptr_t pcVar4;
+    sdword sVar5;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    pcVar4 = (uintptr_t)"sWorker";
+    pGVar1 = kasGrowSelectionPtr(0x4a2a29);
+    pGVar2 = kasGrowSelectionPtr(0x764e81c);
+    kasfShipsSelectType(pGVar2, pGVar1, pcVar4);
+    phVar3 = kasThisTeamsVectorPtr();
+    pGVar1 = kasGrowSelectionPtr(0x764e81c);
+    kasfShipsSort(pGVar1, phVar3);
+    kasfFormationDelta3D();
+    sVar5 = 0;
+    pGVar1 = kasGrowSelectionPtr(0x764e81c);
+    pGVar2 = kasGrowSelectionPtr(0x5425);
+    sVar5 = kasfShipsSelectIndex(pGVar2, pGVar1, sVar5);
+    if (sVar5 == 0) {
+        pcVar4 = 0xcff5860;
+    }
+    else {
+        pcVar4 = 0x5425;
+    }
+    phVar3 = kasShipsVectorPtr((udword)pcVar4);
+    kasfMoveTo(phVar3);
+    kasfTimerDestroy(0x524a5);
+    sVar5 = kasfRandom(10, 0x14);
+    kasfTimerCreateSetStart(0x524a5, sVar5);
+    return;
+}
+
+// cataclysm.exe 0x0061a930 (354 bytes)
+void Init_Mission11_MultibeamFrigates_Attack(void)
+{
+    hvector *phVar1;
+    GrowSelection *pGVar2;
+    GrowSelection *pGVar3;
+    GrowSelection *newships;
+    sdword sVar4;
+    uintptr_t label;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    sVar4 = 20000;
+    phVar1 = kasThisTeamsVectorPtr();
+    pGVar2 = kasGrowSelectionPtr(0x4a2a29);
+    pGVar3 = kasGrowSelectionPtr(0x36980eb);
+    sVar4 = kasfShipsSelectNearby(pGVar3, pGVar2, phVar1, sVar4);
+    if (sVar4 == 0) {
+        pGVar2 = kasGrowSelectionPtr(0x4a2a29);
+        pGVar3 = kasGrowSelectionPtr(0x36980eb);
+        kasfShipsAdd(pGVar3, pGVar2);
+    }
+    pGVar2 = kasGrowSelectionPtr(0x857bce3);
+    sVar4 = kasfUnderAttack(pGVar2);
+    if (sVar4 != 0) {
+        pGVar2 = kasGrowSelectionPtr(0x36980eb);
+        pGVar3 = kasGrowSelectionPtr(0x857bce3);
+        newships = kasGrowSelectionPtr(0x857bce3);
+        sVar4 = kasfShipsSelectShips(newships, pGVar3, pGVar2);
+        if (sVar4 != 0) {
+            pGVar2 = kasGrowSelectionPtr(0x857bce3);
+            pGVar3 = kasGrowSelectionPtr(0x36980eb);
+            kasfShipsAdd(pGVar3, pGVar2);
+        }
+    }
+    phVar1 = kasThisTeamsVectorPtr();
+    pGVar2 = kasGrowSelectionPtr(0x36980eb);
+    kasfShipsSort(pGVar2, phVar1);
+    kasfFormationWall();
+    pGVar2 = kasGrowSelectionPtr(0x36980eb);
+    pGVar3 = kasGrowSelectionPtr(0x764e81c);
+    sVar4 = kasfShipsSelectCapital(pGVar3, pGVar2);
+    if (sVar4 == 0) {
+        label = 0x36980eb;
+    }
+    else {
+        label = 0x764e81c;
+    }
+    pGVar2 = kasGrowSelectionPtr((udword)label);
+    kasfAttack(pGVar2);
+    kasfTimerDestroy(0x469857b);
+    sVar4 = kasfRandom(10, 0x1e);
+    kasfTimerCreateSetStart(0x469857b, sVar4);
     return;
 }
 
@@ -456,11 +592,488 @@ void Watch_Mission16_Infected(void)
     return;
 }
 
+// cataclysm.exe 0x0063d2b0 (163 bytes)
+void Init_Mission16_ACVs_Create(void)
+{
+    sdword sVar1;
+    sdword sVar2;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfTimerDestroy(0xe09cb85);
+    sVar1 = kasfVarValueGet(0x813db354);
+    if (sVar1 == 0) {
+        sVar1 = kasfGetBuildTime("bACV");
+        sVar2 = kasfVarValueGet(0x9379e54);
+        kasfTimerCreateSetStart(0xe09cb85, (sdword)(sVar1 * sVar2));
+    }
+    else {
+        if (sVar1 == 1) {
+            sVar1 = kasfGetBuildTime("bACV");
+            sVar2 = kasfVarValueGet(0x9379e54);
+            kasfTimerCreateSetStart(0xe09cb85, (sdword)((sVar2 * sVar1) / 2));
+            return;
+        }
+        if (sVar1 == 2) {
+            kasfTimerCreateSetStart(0xe09cb85, 0);
+            return;
+        }
+    }
+    return;
+}
+
+// cataclysm.exe 0x0063ece0 (261 bytes)
+void Init_Mission16_Sentinels_Wait(void)
+{
+    GrowSelection *pGVar1;
+    GrowSelection *pGVar2;
+    sdword sVar3;
+    hvector *phVar4;
+    uintptr_t label;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    pGVar1 = kasGrowSelectionPtr(0x469684);
+    pGVar2 = kasGrowSelectionPtr(0x764e81c);
+    sVar3 = kasfShipsSelectCapital(pGVar2, pGVar1);
+    if (sVar3 != 0) {
+        pGVar1 = kasGrowSelectionPtr(0x764e81c);
+        pGVar2 = kasGrowSelectionPtr(0x3e97dfc);
+        sVar3 = kasfShipsSelectNotIdle(pGVar2, pGVar1);
+        if (sVar3 == 0) {
+            phVar4 = kasThisTeamsVectorPtr();
+            pGVar1 = kasGrowSelectionPtr(0x764e81c);
+            kasfShipsSort(pGVar1, phVar4);
+            label = 0x764e81c;
+        }
+        else {
+            phVar4 = kasThisTeamsVectorPtr();
+            pGVar1 = kasGrowSelectionPtr(0x3e97dfc);
+            kasfShipsSort(pGVar1, phVar4);
+            label = 0x3e97dfc;
+        }
+        sVar3 = 0;
+        pGVar1 = kasGrowSelectionPtr((udword)label);
+        pGVar2 = kasGrowSelectionPtr(0x5425);
+        kasfShipsSelectIndex(pGVar2, pGVar1, sVar3);
+        phVar4 = kasShipsVectorPtr(0x5425);
+        kasfMoveTo(phVar4);
+    }
+    kasfFormationWall();
+    kasfTacticsAggressive();
+    sVar3 = kasfRandom(10, 0x14);
+    kasfTimerCreateSetStart(0x5b5e4, sVar3);
+    return;
+}
+
+// cataclysm.exe 0x00645bb0 (410 bytes)
+void Init_Mission16_RammingFrigates_Attack(void)
+{
+    GrowSelection *pGVar1;
+    GrowSelection *pGVar2;
+    hvector *phVar3;
+    uintptr_t pcVar4;
+    sdword sVar5;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    pGVar1 = kasGrowSelectionPtr(0x4a2a29);
+    pGVar2 = kasGrowSelectionPtr(0x595d9c7);
+    kasfShipsAdd(pGVar2, pGVar1);
+    pcVar4 = (uintptr_t)"kCarrier";
+    pGVar1 = kasGrowSelectionPtr(0x595d9c7);
+    pGVar2 = kasGrowSelectionPtr(0x58a20);
+    kasfShipsSelectType(pGVar2, pGVar1, pcVar4);
+    pGVar1 = kasGrowSelectionPtr(0x58a20);
+    pGVar2 = kasGrowSelectionPtr(0x595d9c7);
+    kasfShipsRemove(pGVar2, pGVar1);
+    sVar5 = 20000;
+    phVar3 = kasThisTeamsVectorPtr();
+    pGVar1 = kasGrowSelectionPtr(0x595d9c7);
+    pGVar2 = kasGrowSelectionPtr(0x36980eb);
+    sVar5 = kasfShipsSelectNearby(pGVar2, pGVar1, phVar3, sVar5);
+    if (sVar5 == 0) {
+        pGVar1 = kasGrowSelectionPtr(0x595d9c7);
+        pGVar2 = kasGrowSelectionPtr(0x36980eb);
+        kasfShipsAdd(pGVar2, pGVar1);
+    }
+    pGVar1 = kasGrowSelectionPtr(0x857bce3);
+    sVar5 = kasfUnderAttack(pGVar1);
+    if (sVar5 != 0) {
+        pGVar1 = kasGrowSelectionPtr(0x857bce3);
+        pGVar2 = kasGrowSelectionPtr(0x36980eb);
+        kasfShipsAdd(pGVar2, pGVar1);
+    }
+    phVar3 = kasThisTeamsVectorPtr();
+    pGVar1 = kasGrowSelectionPtr(0x36980eb);
+    kasfShipsSort(pGVar1, phVar3);
+    kasfFormationWall();
+    pGVar1 = kasGrowSelectionPtr(0x36980eb);
+    pGVar2 = kasGrowSelectionPtr(0x764e81c);
+    sVar5 = kasfShipsSelectCapital(pGVar2, pGVar1);
+    if (sVar5 == 0) {
+        pcVar4 = 0x36980eb;
+    }
+    else {
+        pcVar4 = 0x764e81c;
+    }
+    pGVar1 = kasGrowSelectionPtr((udword)pcVar4);
+    kasfAttack(pGVar1);
+    kasfTimerDestroy(0x469857b);
+    sVar5 = kasfRandom(10, 0x1e);
+    kasfTimerCreateSetStart(0x469857b, sVar5);
+    return;
+}
+
+// cataclysm.exe 0x0064d110 (63 bytes)
+void Init_Mission17_ACVs_Wait(void)
+{
+    sdword duration;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfStop();
+    kasfFormationDelta3D();
+    kasfTacticsAggressive();
+    duration = kasfRandom(10, 0x14);
+    kasfTimerCreateSetStart(0x5b5e4, duration);
+    return;
+}
+
+// cataclysm.exe 0x0064e740 (163 bytes)
+void Init_Mission17_HiveFrigates_Create(void)
+{
+    sdword sVar1;
+    sdword sVar2;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfTimerDestroy(0xe09cb85);
+    sVar1 = kasfVarValueGet(0x813db354);
+    if (sVar1 == 0) {
+        sVar1 = kasfGetBuildTime("bHiveFrigate");
+        sVar2 = kasfVarValueGet(0x9379e54);
+        kasfTimerCreateSetStart(0xe09cb85, (sdword)(sVar1 * sVar2));
+    }
+    else {
+        if (sVar1 == 1) {
+            sVar1 = kasfGetBuildTime("bHiveFrigate");
+            sVar2 = kasfVarValueGet(0x9379e54);
+            kasfTimerCreateSetStart(0xe09cb85, (sdword)((sVar2 * sVar1) / 2));
+            return;
+        }
+        if (sVar1 == 2) {
+            kasfTimerCreateSetStart(0xe09cb85, 0);
+            return;
+        }
+    }
+    return;
+}
+
+// cataclysm.exe 0x0064e980 (352 bytes)
+void Init_Mission17_HiveFrigates_Attack(void)
+{
+    hvector *phVar1;
+    GrowSelection *pGVar2;
+    GrowSelection *pGVar3;
+    sdword sVar4;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    sVar4 = 20000;
+    phVar1 = kasThisTeamsVectorPtr();
+    pGVar2 = kasGrowSelectionPtr(0x4a2a29);
+    pGVar3 = kasGrowSelectionPtr(0x36980eb);
+    sVar4 = kasfShipsSelectNearby(pGVar3, pGVar2, phVar1, sVar4);
+    if (sVar4 == 0) {
+        kasfVarCreateSet(0x58b66d, 0);
+        pGVar2 = kasGrowSelectionPtr(0x4a2a29);
+        pGVar3 = kasGrowSelectionPtr(0x36980eb);
+        kasfShipsAdd(pGVar3, pGVar2);
+    }
+    else {
+        kasfVarCreateSet(0x58b66d, 1);
+    }
+    pGVar2 = kasGrowSelectionPtr(0x857bce3);
+    sVar4 = kasfUnderAttack(pGVar2);
+    if (sVar4 != 0) {
+        pGVar2 = kasGrowSelectionPtr(0x857bce3);
+        pGVar3 = kasGrowSelectionPtr(0x36980eb);
+        kasfShipsAdd(pGVar3, pGVar2);
+    }
+    phVar1 = kasThisTeamsVectorPtr();
+    pGVar2 = kasGrowSelectionPtr(0x36980eb);
+    kasfShipsSort(pGVar2, phVar1);
+    sVar4 = kasfShipsOrder((GrowSelection *)(&CurrentTeamP->shipList));
+    if (sVar4 != 7) {
+        sVar4 = kasfVarValueGet(0x58b66d);
+        if ((sVar4 == 0) ||
+              (sVar4 = kasfIsSwarmReady((GrowSelection *)(&CurrentTeamP->shipList)), sVar4 == 0)) {
+            pGVar2 = kasGrowSelectionPtr(0x36980eb);
+            kasfAttack(pGVar2);
+        }
+        else {
+            pGVar2 = kasGrowSelectionPtr(0x36980eb);
+            kasfSpecialOn(pGVar2);
+        }
+    }
+    kasfTimerDestroy(0x469857b);
+    sVar4 = kasfRandom(0x1e, 0x3c);
+    kasfTimerCreateSetStart(0x469857b, sVar4);
+    return;
+}
+
+// cataclysm.exe 0x00651d10 (163 bytes)
+void Init_Mission17_CloakedFighters_Create(void)
+{
+    sdword sVar1;
+    sdword sVar2;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfTimerDestroy(0xe09cb85);
+    sVar1 = kasfVarValueGet(0x813db354);
+    if (sVar1 == 0) {
+        sVar1 = kasfGetBuildTime("bCloakedFighter");
+        sVar2 = kasfVarValueGet(0x9379e54);
+        kasfTimerCreateSetStart(0xe09cb85, (sdword)(sVar1 * sVar2));
+    }
+    else {
+        if (sVar1 == 1) {
+            sVar1 = kasfGetBuildTime("bCloakedFighter");
+            sVar2 = kasfVarValueGet(0x9379e54);
+            kasfTimerCreateSetStart(0xe09cb85, (sdword)((sVar2 * sVar1) / 2));
+            return;
+        }
+        if (sVar1 == 2) {
+            kasfTimerCreateSetStart(0xe09cb85, 0);
+            return;
+        }
+    }
+    return;
+}
+
+// cataclysm.exe 0x00652c50 (163 bytes)
+void Init_Mission17_MultibeamFrigates_Create(void)
+{
+    sdword sVar1;
+    sdword sVar2;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfTimerDestroy(0xe09cb85);
+    sVar1 = kasfVarValueGet(0x813db354);
+    if (sVar1 == 0) {
+        sVar1 = kasfGetBuildTime("bMultiBeamFrigate");
+        sVar2 = kasfVarValueGet(0x9379e54);
+        kasfTimerCreateSetStart(0xe09cb85, (sdword)(sVar1 * sVar2));
+    }
+    else {
+        if (sVar1 == 1) {
+            sVar1 = kasfGetBuildTime("bMultiBeamFrigate");
+            sVar2 = kasfVarValueGet(0x9379e54);
+            kasfTimerCreateSetStart(0xe09cb85, (sdword)((sVar2 * sVar1) / 2));
+            return;
+        }
+        if (sVar1 == 2) {
+            kasfTimerCreateSetStart(0xe09cb85, 0);
+            return;
+        }
+    }
+    return;
+}
+
 // cataclysm.exe 0x00652ef0 (25 bytes)
 void Watch_Mission17_HeavyCruisers_Null(void)
 {
     CurrentMissionScope = 2;
     CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    return;
+}
+
+// cataclysm.exe 0x006539a0 (163 bytes)
+void Init_Mission17_HeavyCruisers_Create(void)
+{
+    sdword sVar1;
+    sdword sVar2;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfTimerDestroy(0xe09cb85);
+    sVar1 = kasfVarValueGet(0x813db354);
+    if (sVar1 == 0) {
+        sVar1 = kasfGetBuildTime("bHeavyCruiser");
+        sVar2 = kasfVarValueGet(0x9379e54);
+        kasfTimerCreateSetStart(0xe09cb85, (sdword)(sVar1 * sVar2));
+    }
+    else {
+        if (sVar1 == 1) {
+            sVar1 = kasfGetBuildTime("bHeavyCruiser");
+            sVar2 = kasfVarValueGet(0x9379e54);
+            kasfTimerCreateSetStart(0xe09cb85, (sdword)((sVar2 * sVar1) / 2));
+            return;
+        }
+        if (sVar1 == 2) {
+            kasfTimerCreateSetStart(0xe09cb85, 0);
+            return;
+        }
+    }
+    return;
+}
+
+// cataclysm.exe 0x00658650 (163 bytes)
+void Init_Mission17_Recons_Create(void)
+{
+    sdword sVar1;
+    sdword sVar2;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfTimerDestroy(0xe09cb85);
+    sVar1 = kasfVarValueGet(0x813db354);
+    if (sVar1 == 0) {
+        sVar1 = kasfGetBuildTime("bRecon");
+        sVar2 = kasfVarValueGet(0x9379e54);
+        kasfTimerCreateSetStart(0xe09cb85, (sdword)(sVar1 * sVar2));
+    }
+    else {
+        if (sVar1 == 1) {
+            sVar1 = kasfGetBuildTime("bRecon");
+            sVar2 = kasfVarValueGet(0x9379e54);
+            kasfTimerCreateSetStart(0xe09cb85, (sdword)((sVar2 * sVar1) / 2));
+            return;
+        }
+        if (sVar1 == 2) {
+            kasfTimerCreateSetStart(0xe09cb85, 0);
+            return;
+        }
+    }
+    return;
+}
+
+// cataclysm.exe 0x00658c90 (179 bytes)
+void Init_Mission17_Recons_Dock(void)
+{
+    hvector *origin;
+    GrowSelection *pGVar1;
+    GrowSelection *newShips;
+    sdword sVar2;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfVarValueSet(0x5137b, 1);
+    kasfVarValueSet(0x9379e54, 0);
+    kasfTimerDestroy(0x7f7d534);
+    origin = kasThisTeamsVectorPtr();
+    pGVar1 = kasGrowSelectionPtr(0xe05243);
+    kasfShipsSort(pGVar1, origin);
+    sVar2 = 0;
+    pGVar1 = kasGrowSelectionPtr(0xe05243);
+    newShips = kasGrowSelectionPtr(0x5425);
+    kasfShipsSelectIndex(newShips, pGVar1, sVar2);
+    sVar2 = kasfTeamCount();
+    if (sVar2 < 9) {
+        kasfFormationDelta();
+    }
+    else {
+        kasfFormationDelta3D();
+    }
+    pGVar1 = kasGrowSelectionPtr(0x5425);
+    kasfShipsDockStay((GrowSelection *)(&CurrentTeamP->shipList), pGVar1);
+    return;
+}
+
+// cataclysm.exe 0x00659f50 (163 bytes)
+void Init_Mission17_DFGs_Create(void)
+{
+    sdword sVar1;
+    sdword sVar2;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    kasfTimerDestroy(0xe09cb85);
+    sVar1 = kasfVarValueGet(0x813db354);
+    if (sVar1 == 0) {
+        sVar1 = kasfGetBuildTime("bDFGFrigate");
+        sVar2 = kasfVarValueGet(0x9379e54);
+        kasfTimerCreateSetStart(0xe09cb85, (sdword)(sVar1 * sVar2));
+    }
+    else {
+        if (sVar1 == 1) {
+            sVar1 = kasfGetBuildTime("bDFGFrigate");
+            sVar2 = kasfVarValueGet(0x9379e54);
+            kasfTimerCreateSetStart(0xe09cb85, (sdword)((sVar2 * sVar1) / 2));
+            return;
+        }
+        if (sVar1 == 2) {
+            kasfTimerCreateSetStart(0xe09cb85, 0);
+            return;
+        }
+    }
+    return;
+}
+
+// cataclysm.exe 0x0065a190 (493 bytes)
+void Init_Mission17_DFGs_Guard(void)
+{
+    GrowSelection *pGVar1;
+    GrowSelection *pGVar2;
+    sdword sVar3;
+    uintptr_t pcVar4;
+
+    CurrentMissionScope = 2;
+    CurrentMissionScopeName = CurrentTeamP->kasLabel;
+    pGVar1 = kasGrowSelectionPtr(0x469684);
+    pGVar2 = kasGrowSelectionPtr(0x764e81c);
+    kasfShipsSelectCapital(pGVar2, pGVar1);
+    pcVar4 = (uintptr_t)"bDFG";
+    pGVar1 = kasGrowSelectionPtr(0x469684);
+    pGVar2 = kasGrowSelectionPtr(0x468a7);
+    kasfShipsSelectType(pGVar2, pGVar1, pcVar4);
+    pGVar1 = kasGrowSelectionPtr(0x9668ae7);
+    pGVar2 = kasGrowSelectionPtr(0x468a7);
+    sVar3 = kasfIsGuarding(pGVar2, pGVar1);
+    if (sVar3 != 0) {
+        pGVar1 = kasGrowSelectionPtr(0x9668ae7);
+        pGVar2 = kasGrowSelectionPtr(0x764e81c);
+        kasfShipsRemove(pGVar2, pGVar1);
+    }
+    pGVar1 = kasGrowSelectionPtr(0x468a7);
+    pGVar2 = kasGrowSelectionPtr(0x764e81c);
+    kasfShipsRemove(pGVar2, pGVar1);
+    pcVar4 = (uintptr_t)"bIonArrayFrigate";
+    pGVar1 = kasGrowSelectionPtr(0x764e81c);
+    pGVar2 = kasGrowSelectionPtr(0xa9e133);
+    sVar3 = kasfShipsSelectType(pGVar2, pGVar1, pcVar4);
+    if (sVar3 != 0) {
+        pGVar1 = kasGrowSelectionPtr(0xa9e133);
+        pGVar2 = kasGrowSelectionPtr(0x764e81c);
+        kasfShipsRemove(pGVar2, pGVar1);
+    }
+    pGVar1 = kasGrowSelectionPtr(0x764e81c);
+    sVar3 = kasfShipsCount(pGVar1);
+    if (sVar3 != 0) {
+        pcVar4 = (uintptr_t)"bCarrier";
+        pGVar1 = kasGrowSelectionPtr(0x764e81c);
+        pGVar2 = kasGrowSelectionPtr(0x93c9634);
+        sVar3 = kasfShipsSelectType(pGVar2, pGVar1, pcVar4);
+        if (sVar3 == 0) {
+            pcVar4 = (uintptr_t)"bHeavyCruiser";
+            pGVar1 = kasGrowSelectionPtr(0x764e81c);
+            pGVar2 = kasGrowSelectionPtr(0x93c9634);
+            sVar3 = kasfShipsSelectType(pGVar2, pGVar1, pcVar4);
+            if (sVar3 == 0) {
+                pGVar1 = kasGrowSelectionPtr(0x764e81c);
+                sVar3 = kasfShipsCount(pGVar1);
+                sVar3 = kasfRandom(0, (sdword)(sVar3 + -1));
+                pGVar1 = kasGrowSelectionPtr(0x764e81c);
+                pGVar2 = kasGrowSelectionPtr(0x93c9634);
+                kasfShipsSelectIndex(pGVar2, pGVar1, sVar3);
+            }
+        }
+        pGVar1 = kasGrowSelectionPtr(0x93c9634);
+        kasfGuardShips(pGVar1);
+    }
     return;
 }
 

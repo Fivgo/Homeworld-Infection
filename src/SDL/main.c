@@ -457,6 +457,23 @@ bool32 CatMissionTestMissionSet(char *string)
     return TRUE;
 }
 
+// HWI-TEST (M2-R9 missions-10-17): /catMissionTestTrace: the KAS message trace of the mission self-test (a diagnostic)
+bool32 CatMissionTestTraceSet(char *string)
+{
+    (void)string;
+    catMissionSelfTestTraceSet();
+    return TRUE;
+}
+
+// HWI-TEST (M2-R9 missions-10-17): /catWarpStartTest with /catMissionTest <ticks>: the warp start from the test copy of
+//      warp.script the harness puts in the run's data dir (MissionSelfTest.c, SinglePlayer.c cat_spWarpStartSelfTestCheck)
+bool32 CatWarpStartTestSet(char *string)
+{
+    (void)string;
+    catWarpStartSelfTestSet();
+    return TRUE;
+}
+
 bool32 CatMissionTestTutorialSet(char *string)
 {
     catMissionSelfTestTutorialSet(string);
@@ -471,6 +488,15 @@ bool32 CatLoadGameTestSet(char *string)
     catLoadGameSelfTestSet(string);
     enableSFX = FALSE;
     enableSpeech = FALSE;
+    return TRUE;
+}
+
+// HWI-TEST (M2-R9 missions-10-17): /catLoadGameTraining with /catLoadGameTest: the save is a tutorial lesson's
+//      (SavedGames/Training), loaded as the front end's tutorial load does (gpLoadTutorial: tutorial 1)
+bool32 CatLoadGameTrainingSet(char *string)
+{
+    (void)string;
+    catLoadGameSelfTestTrainingSet();
     return TRUE;
 }
 
@@ -1204,7 +1230,10 @@ commandoption commandOptions[] =
     entryFnParam("/catMissionTest",     CatMissionTestSet, " <ticks> - headless single-player game from Mission01's NIS-first start: the opening NIS, the KAS objectives with scripted events in place of input, logs missiontest lines, exit after the mission's end or <ticks> ticks."),
     entryFnParam("/catLoadGameTest",    CatLoadGameTestSet, " <ticks> - headless load of the single-player save /catLoadGameName names (SavedGames/SinglePlayer), as the front end's Load Game, then <ticks> ticks; logs loadgametest lines, exit."),
     entryFnParam("/catLoadGameName",    CatLoadGameNameSet, " <name> - the save /catLoadGameTest loads."),
+    entryFn("/catLoadGameTraining",     CatLoadGameTrainingSet, " - with /catLoadGameTest: the save is a tutorial lesson's (SavedGames/Training)."),
     entryFnParam("/catMissionTestMission", CatMissionTestMissionSet, " <N> - with /catMissionTest: mission N (2 .. 17) from the exe's warp start (Warp.script's level N record) through its KAS objectives and the jump to the next level."),
+    entryFn("/catWarpStartTest",      CatWarpStartTestSet, " - with /catMissionTest: the warp start of the data dir's warp.script (WarpEnabled 1) checked against its record, through the fleet's arrival."),
+    entryFn("/catMissionTestTrace",   CatMissionTestTraceSet, " - with /catMissionTest: every new KAS message logged (missiontest: msg lines; a diagnostic)."),
     entryFnParam("/catMissionTestTutorial", CatMissionTestTutorialSet, " <ticks> - headless tutorial start: Tutorial1's KAS script runs until its first prompt shows, logs missiontest lines, exit."),
     entryFnParam("/catSkirmishTest",    CatSkirmishTestSet, " <ticks> - start a 2-player skirmish (Sect against a computer player) through the front end's own callbacks with no input, run <ticks> universe ticks on the virtual clock, judge the universe, log skirmishtest lines, exit."),
     entryFnParam("/catSkirmishMap",     CatSkirmishMapSet, " <name> - the map of /catSkirmishTest (a MultiPlayer directory name; default LiveFireExercise2)."),

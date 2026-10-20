@@ -49,9 +49,9 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT = T.main_root()
 MISSION_LO, MISSION_HI = 0x005d6fe0, 0x00670a10
 ALL_SCRIPTS = ["Mission%02d" % i for i in range(1, 18)] + ["Tutorial1"]
-# the generated scripts (M2-R8: Mission01, Tutorial1; M2-R9 part B: Mission02 .. Mission09): a plain run / --check
-# covers every generated file
-DEFAULT_SCRIPTS = ["Mission01", "Tutorial1"] + ["Mission%02d" % i for i in range(2, 10)]
+# the generated scripts (M2-R8: Mission01, Tutorial1; M2-R9 part B: Mission02 .. Mission09 (producer 2), Mission10 ..
+# Mission17 (producer 3)): every kas2c script of the exe; a plain run / --check covers every generated file
+DEFAULT_SCRIPTS = ["Mission01", "Tutorial1"] + ["Mission%02d" % i for i in range(2, 18)]
 
 # the KAS runtime the generated code calls besides the kasf (docs/mission-code-map.md 3): name -> (address, return
 # type, parameter types); a parameter type is a kas2c type name or a C type
@@ -119,6 +119,40 @@ OVERRIDES = {
                   "Ghidra's nullsub() is kasfAssert(ShipsCount <= 3) on the folded stub 0x0049ae30 (0x006072b5 .. "
                   "0x006072c3)")],
 }
+
+
+def _assert_stub(indent, expr, cmp, at):
+    """An OVERRIDES entry for Ghidra's nullsub() that is kasfAssert(expr cmp) on the folded stub 0x0049ae30 (as
+    0x006071e0 above): the asm computes the truth value (cmp eax,K / setle, or sub eax,K / neg / sbb / inc for == K),
+    pushes it and calls the stub at `at`."""
+    return ("%s%s;\n%snullsub();" % (indent, expr, indent), "%skasfAssert(%s %s);" % (indent, expr, cmp),
+            "Ghidra's nullsub() is kasfAssert(%s %s) on the folded stub 0x0049ae30 (call at 0x%08x)" % (expr, cmp, at))
+
+
+# M2-R9 part B (producer 3): Mission10 .. Mission17. The Sentinels FSMs (Mission11 / 14 / 16 / 17, the same script
+# compiled four times) assert their team / build counts against 12 (cmp eax,0xc; setle); Mission13's SupportWave2
+# asserts TeamCount == 3 (sub eax,3; neg; sbb; inc)
+for _a, _sites in {
+        0x006167b0: [("      ", "kasfVarValueGet((char *)0x6a6c3c4)", 0x0061686d), ("      ", "kasfTeamCount()", 0x00616ac8)],
+        0x00616130: [("  ", "kasfVarValueGet((char *)0x9379e54)", 0x0061615c)],
+        0x006161f0: [("    ", "kasfTeamCount()", 0x0061631c)],
+        0x006309e0: [("      ", "kasfVarValueGet((char *)0x6a6c3c4)", 0x00630a9d), ("      ", "kasfTeamCount()", 0x00630cf8)],
+        0x00630420: [("    ", "kasfTeamCount()", 0x0063054c)],
+        0x0063e920: [("      ", "kasfVarValueGet((char *)0x6a6c3c4)", 0x0063e9dd), ("      ", "kasfTeamCount()", 0x0063ec38)],
+        0x0063e360: [("    ", "kasfTeamCount()", 0x0063e48c)],
+        0x0064dd60: [("      ", "kasfVarValueGet((char *)0x6a6c3c4)", 0x0064de7e), ("      ", "kasfTeamCount()", 0x0064e0d9)],
+        0x0064d710: [("    ", "kasfTeamCount()", 0x0064d83c)]}.items():
+    OVERRIDES[_a] = [_assert_stub(i, e, "<= 12", at) for i, e, at in _sites]
+OVERRIDES[0x006295b0] = [_assert_stub("  ", "kasfTeamCount()", "== 3", 0x006295d6)]
+# Init_Mission14_Wave1_WaitCreate: Ghidra typed the scope prologue's kasLabel load as void * and passed the
+# CurrentMissionScopeName register (ECX at 0x0062dff7) as a this-argument of kasfGetBuildTime, which takes one CHARPTR
+# (push 0x88b464 / call 0x00499b80 at 0x0062dff2 .. 0x0062dffd)
+OVERRIDES[0x0062dfe0] = [
+    ("DAT_00c374a0 = *(void **)(DAT_00a43ee8 + 0x58);", "DAT_00c374a0 = *(undefined4 *)(DAT_00a43ee8 + 0x58);",
+     "the scope prologue's kasLabel load Ghidra typed void *"),
+    ("kasfGetBuildTime(DAT_00c374a0,s_tMultiGunCorvette_0088b464)", "kasfGetBuildTime(s_tMultiGunCorvette_0088b464)",
+     "the ECX register (CurrentMissionScopeName) Ghidra passed as a this-argument of the one-parameter "
+     "kasfGetBuildTime (0x0062dff2 .. 0x0062dffd)")]
 
 TEAM = "DAT_00a43ee8"
 # a message / name hash Ghidra took for a pointer into aisTeams (the skirmish AI's team table, 0x008dfd60: AISTeamEntry
@@ -436,7 +470,7 @@ class Gen:
         return lit
 
     def sym_addr(self, e):
-        m = re.match(r"^(?:&?(?:DAT|s_\w+|lp\w+|lParam|PTR_\w+|u_\w+)|&(?:LAB|FUN))_([0-9a-f]{8})$", e)
+        m = re.match(r"^(?:&?(?:DAT|BYTE|s_\w+|lp\w+|lParam|PTR_\w+|u_\w+)|&(?:LAB|FUN))_([0-9a-f]{8})$", e)
         return int(m.group(1), 16) if m else None
 
     def value(self, e, ptype, consts, words):
@@ -602,6 +636,9 @@ class Gen:
                 raise ValueError("override for 0x%08x does not apply: %r" % (addr, old))
             body = body.replace(old, new)
         body = re.sub(r"/\*.*?\*/", "", body, flags=re.S)
+        # a localised table's index Ghidra wrapped onto the next line ((&PTR_x)\n   [strCurLanguage], Mission10's
+        # location card 0x008cb5f4): one expression
+        body = re.sub(r"(\(&PTR_\w+?_[0-9a-f]{8}\))\s*\n\s*(\[strCurLanguage\])", r"\1\2", body)
         # a localised string table Ghidra read as a byte offset (*(char **)(&DAT_x + strCurLanguage * 4)): LSTRING_x
         body = re.sub(r"\*\(char \*\*\)\(&DAT_([0-9a-f]{8}) \+ strCurLanguage \* 4\)", r"(&PTR_lstr_\1)[strCurLanguage]",
                       body)
@@ -706,6 +743,11 @@ class Gen:
         text = re.sub(g + r"\s*\+\s*(0x[0-9a-f]+|\d+)", lambda mm: "GARBLE(%d)" % (ais(mm) + 4 * int(mm.group(3), 0)),
                       text)
         text = re.sub(g, lambda mm: "GARBLE(%d)" % ais(mm), text)
+        # a name / message hash Ghidra took for a string's address plus an offset (s_Hyperspace_008c7f90 + 1 is the hash
+        # 0x8c7f91 pushed at 0x0066616f; s_ES_WRONG_TMESSAGE_008d9fc0 + 0x13 the hash 0x8d9fd3 compared at 0x006213c2):
+        # every such form in the mission bodies is a hash (M2-R9 part B, Mission12 / Mission17)
+        text = re.sub(r"(?:\(\s*\w+\s*\*\)\s*)?\bs_\w+?_([0-9a-f]{8}) \+ (0x[0-9a-f]+|\d+)\b",
+                      lambda mm: "GARBLE(%d)" % (int(mm.group(1), 16) + int(mm.group(2), 0)), text)
         text = re.sub(r"\(ShipPtr \*\)(\w+)", r"\1", text)
         # the scope prologue and the team's KAS fields
         text = text.replace("DAT_00c3749c", "CurrentMissionScope").replace("DAT_00c374a0", "CurrentMissionScopeName")
@@ -734,7 +776,8 @@ class Gen:
         text = re.sub(r"\((?:code|char|ShipPtr) \*\)\s*(?=&?\w)", "", text)
         text = re.sub(r"\(&PTR_\w+?_[0-9a-f]{8}\)\[strCurLanguage\]", operand, text)
         text = re.sub(r"GARBLE\(-?\d+\)", operand, text)
-        text = re.sub(r"(?:&?\b(?:DAT|s_\w+?|lp\w+?|lParam|PTR_\w+?|u_\w+?)|&(?:LAB|FUN))_[0-9a-f]{8}\b", operand, text)
+        text = re.sub(r"(?:&?\b(?:DAT|BYTE|s_\w+?|lp\w+?|lParam|PTR_\w+?|u_\w+?)|&(?:LAB|FUN))_[0-9a-f]{8}\b", operand,
+                      text)
         text = re.sub(r"\bRAWSTR_\d+\b", operand, text)
         text = re.sub(r"\(int\)(\w+)", r"(sdword)\1", text)
         text = re.sub(r"\(uint\)(\w+)", r"(udword)\1", text)
@@ -750,9 +793,9 @@ class Gen:
         self._mul = set()
         for k in re.findall(r"\* (0x[0-9a-f]+|\d+)\b", nostr):   # a product the compiler strength-reduced (lea / shl)
             self._mul.add(int(k, 0))
-        for k in re.findall(r"[/%] (\d+)\b", nostr):     # a division by a constant is MSVC's imul by its magic
-            if int(k) > 1 and int(k) & (int(k) - 1):
-                consts.add(div_magic(int(k)))
+        for k in re.findall(r"[/%] (0x[0-9a-f]+|\d+)\b", nostr):     # a division by a constant is MSVC's imul by its magic
+            if int(k, 0) > 1 and int(k, 0) & (int(k, 0) - 1):
+                consts.add(div_magic(int(k, 0)))
         # string literals assigned to a word local
         text = re.sub(r"(\b\w+ = )(\"(?:[^\"\\]|\\.)*\");", r"\1(uintptr_t)\2;", text)
         if re.search(r"\b(DAT_|_DAT_|PTR_|extraout_|in_ECX|unaff_|this\b|aisTeams|universe|GARBLE|RAWSTR|CONCAT|SUB\d)",

@@ -214,6 +214,28 @@ void oracleMissionStopAfterThisTick(void)
     }
 }
 
+// HWI-TEST (M2-R9 missions-10-17): a self-test whose game has ended ends the mission run at once: Mission17's end
+//      (kasfMissionCompleted, then univUpdate's quit into the credits, utyGameQuitToMain) ends the game, so no further
+//      universe tick comes to stop the run after; the quit event is written with the universe's last tick
+void oracleMissionStopNow(void)
+{
+    char text[HWO_EVENT_TEXT_MAX];
+
+    if ((oracleMissionTicks <= 0) || oracleMissionDone)
+    {
+        return;
+    }
+    oracleMissionDone = TRUE;
+    snprintf(text, sizeof(text), "ticks=%u records=%u ships=%u", (unsigned)universe.univUpdateCounter,
+             (unsigned)oracleRecords, (unsigned)universe.ShipList.num);
+    oracleEmitEvent(HWO_EV_QUIT, text);
+    fprintf(stdout, "oracle: mission run done %s file=%s\n", text, oracleFileName);
+    fflush(stdout);
+    oracleClose();
+    oracleFailed = TRUE;                            // the stream is complete: nothing may reopen (and truncate) it
+    utyGameQuit(NULL, NULL);
+}
+
 // HWI-ORACLE (M2-R8 kas-runtime-mission01): the mission run starts Mission01 at once, without its opening NIS and
 //      KAS script (the stream's start since M2-R4); the mission self-tests take the exe's NIS-first start
 bool32 oracleMissionDirectStart(void)

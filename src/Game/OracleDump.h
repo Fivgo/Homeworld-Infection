@@ -51,6 +51,7 @@ void oracleSetMission(char *string);            // /oracleMission <ticks>
 bool32 oracleMissionRequested(void);
 bool32 oracleMissionDirectStart(void);          // M2-R8 kas-runtime-mission01: /oracleMission without a mission self-test
 void oracleMissionStopAfterThisTick(void);      // M2-R8 kas-runtime-mission01: a self-test ends the run
+void oracleMissionStopNow(void);                // M2-R9 missions-10-17: the run ends now (the game has ended: no more ticks)
 // the replay of a recorded game (M2-R6 oracle-mode-a): /oracleReplay <name>
 void oracleSetReplay(char *string);             // /oracleReplay <name>
 bool32 oracleReplayRequested(void);

@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle|replay|ai|skirmish|missiontest|loadgame
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle|replay|ai|skirmish|missiontest|loadgame|warpstart
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -262,8 +262,31 @@
 #                    loaded: "missiontest: next level ...", "missiontest: done mission=N ticks=N objectives=N/M
 #                    result=PASS|FAIL" (two runs must give byte-identical run.hwo streams). Without --mission the
 #                    run is Mission01's, unchanged
+#                    M2-R9 missions-10-17: missions 10 .. 17 too (Mission17's run ends with the game: its script's
+#                    MissionCompleted, the quit and the credits, "missiontest: game end ..."; no next level); a lost
+#                    mission ends the run at once (result=FAIL). Pass "-- /catMissionTestTrace" for a diagnostic
+#                    "missiontest: msg" line per new KAS message (not for gate runs)
+#                    warpstart: /catMissionTest <ticks> /catWarpStartTest /oracleDump <run>/run.hwo (M2-R9 missions-10-17):
+#                    the exe's warp start (cat_spWarpToLevel 0x0051b9c0) from a TEST COPY of the install's warp.script
+#                    supplied to this run only, as loadgame supplies its save: the run gets its own data dir
+#                    (<run>/data: a symlink to every entry of the harness data dir, nothing else changed) plus a loose
+#                    warp.script read from the install's archive (tools/bigfile.py cat cataclysm.big warp.script) with
+#                    "WarpEnabled 1" and "LevelToWarpTo <--warp-level>"; the engine takes the loose file over the
+#                    archive's as the exe does (bigFilesystemCompare: a newer local file). Nothing is written in
+#                    original/game or the harness data dir. The test checks the level's record (Resources, Ships, Tech)
+#                    against player 0's fleet in the ether after the warp and out of it after the arrival, the level's
+#                    load, its KAS start and the arrival: "warpstarttest: ..." lines, "warpstarttest: done level=N ...
+#                    result=PASS|FAIL", rc 0, run.hwo (two runs must give byte-identical streams). No mission is played
+#   --warp-level N   warpstart mode: the LevelToWarpTo of the test warp.script (default 10)
 #   --save NAME      loadgame mode: the single-player save to load (default "01 - Hiigara")
 #   --load-ticks N   loadgame mode: universe ticks to run after the load (default 400)
+#   --save-src DIR   loadgame mode (M2-R9 missions-10-17): the directory the save is copied from instead of the install's
+#                    SavedGames/SinglePlayer (read only), e.g. an earlier run's settings/SavedGames/Training, where the
+#                    engine's own Tutorial1 run wrote its lesson saves
+#   --training       loadgame mode (M2-R9 missions-10-17): the save is a tutorial lesson's: it is copied into the run's
+#                    settings dir's SavedGames/Training and loaded as the front end's tutorial load does
+#                    (/catLoadGameTraining: TutorialSavedGamesPath, gpLoadTutorial, tutorial 1); the judgement adds the
+#                    tutorial's KAS script (Watch_Tutorial1) running
 #   --skirmish-ticks N skirmish mode: universe ticks to run before the judgement (default 600)
 #   --skirmish-map NAME skirmish mode: the map, a MultiPlayer directory name (default LiveFireExercise2; Armed8 is an
 #                    8-player map, so its spheres 2..7 must be skipped)
@@ -353,6 +376,7 @@ mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"
 oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=3000; rframes=600; hframes=600; uticks=400
 conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0; mtmission=1; savename="01 - Hiigara"; ldticks=400
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""; skticks=600; skmap=LiveFireExercise2
+warplevel=10; savesrc=""; training=0
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -382,6 +406,9 @@ while [[ $# -gt 0 ]]; do
 		--tutorial) mttut=1 ;;
 		--mission) mtmission=$2; shift ;;
 		--save) savename=$2; shift ;;
+		--warp-level) warplevel=$2; shift ;;
+		--save-src) savesrc=$(realpath -- "$2"); shift ;;
+		--training) training=1 ;;
 		--load-ticks) ldticks=$2; shift ;;
 		--skirmish-map) skmap=$2; shift ;;
 		--perturb) perturb=$2; shift ;;
@@ -438,14 +465,30 @@ elif [[ "$mode" == missiontest ]]; then
 		args+=(/catMissionTest "$mtticks" /oracleDump "$out/run.hwo")
 		if [[ "$mtmission" -ne 1 ]]; then args+=(/catMissionTestMission "$mtmission"); fi
 	fi
+elif [[ "$mode" == warpstart ]]; then
+	# M2-R9 missions-10-17: the run's own data dir: the harness data dir's entries as symlinks plus the test warp.script
+	# (the install's, from its archive, with the two switches set); HW_Data points there for this run only
+	wdata="$out/data"; mkdir -p "$wdata"
+	for e in "$DATA"/*; do ln -s -- "$e" "$wdata/$(basename -- "$e")"; done
+	python3 -I "$root/tools/bigfile.py" cat "$DATA/cataclysm.big" warp.script > "$out/warp.script.install" || \
+		{ echo "m2_harness: warp.script not readable from $DATA/cataclysm.big" >&2; exit 1; }
+	sed -E "s/^(WarpEnabled[[:space:]]+)[0-9]+/\11/; s/^(LevelToWarpTo[[:space:]]+)[0-9]+/\1$warplevel/" \
+		"$out/warp.script.install" > "$wdata/warp.script"
+	grep -q "^WarpEnabled[[:space:]]*1" "$wdata/warp.script" && grep -q "^LevelToWarpTo[[:space:]]*$warplevel\b" "$wdata/warp.script" || \
+		{ echo "m2_harness: the test warp.script did not take WarpEnabled 1 / LevelToWarpTo $warplevel" >&2; exit 1; }
+	data="$wdata"
+	args+=(/catMissionTest "$mtticks" /catWarpStartTest /oracleDump "$out/run.hwo")
 elif [[ "$mode" == loadgame ]]; then
 	# M2-R8 singleplayer-tutorial: the save is copied into the run's own settings dir (where the engine reads and writes
 	# saved games: /settingspath), never into the data dir: the engine writes a KAS level save of the same name over an
 	# existing file wherever it finds it, and the data dir's SavedGames must stay empty (only what a real install has)
-	[[ -f "$GAME/SavedGames/SinglePlayer/$savename" ]] || { echo "m2_harness: no save $GAME/SavedGames/SinglePlayer/$savename" >&2; exit 1; }
-	mkdir -p "$out/settings/SavedGames/SinglePlayer"
-	cp -f -- "$GAME/SavedGames/SinglePlayer/$savename" "$out/settings/SavedGames/SinglePlayer/$savename"
+	ssrc="${savesrc:-$GAME/SavedGames/SinglePlayer}"
+	sdir=SinglePlayer; [[ $training -eq 1 ]] && sdir=Training
+	[[ -f "$ssrc/$savename" ]] || { echo "m2_harness: no save $ssrc/$savename" >&2; exit 1; }
+	mkdir -p "$out/settings/SavedGames/$sdir"
+	cp -f -- "$ssrc/$savename" "$out/settings/SavedGames/$sdir/$savename"
 	args+=(/catLoadGameTest "$ldticks" /catLoadGameName "$savename" /oracleDump "$out/run.hwo")
+	[[ $training -eq 1 ]] && args+=(/catLoadGameTraining)
 elif [[ "$mode" == skirmish ]]; then
 	args+=(/catSkirmishMap "$skmap" /catSkirmishTest "$skticks" /oracleDump "$out/run.hwo")
 elif [[ "$mode" == motion ]]; then
@@ -593,6 +636,8 @@ grep -q "skirmishtest: done" "$L" && milestone="skirmish self-test done"
 grep -q "missiontest: done" "$L" && milestone="mission self-test done"
 grep -q "loadgametest: loaded" "$L" && milestone="save loaded"
 grep -q "loadgametest: done" "$L" && milestone="save-load self-test done"
+grep -q "missiontest: game end" "$L" && milestone="mission self-test: the game's end (credits)"
+grep -q "warpstarttest: done" "$L" && milestone="warp-start self-test done"
 
 # first stop: the first fatal error / failed assertion / ASan report. UBSan runtime errors do not stop the engine; the
 # first one is reported separately (the misaligned-access reports on the packed front-end structs, GoK 64-bit artefacts
@@ -614,7 +659,11 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 {
 	echo "label=$label mode=$mode driver=$drv timeout=$tmo rc=$rc wall=${wall}s"
 	echo "binary=$bin"
-	echo "data=$data$([[ "$data" != "$DATA" ]] && echo '  (ISOLATION RUN: not the harness data dir)')"
+	if [[ "$mode" == warpstart ]]; then
+		echo "data=$data  (warpstart: the harness data dir's entries + the test warp.script: $(grep -h '^WarpEnabled\|^LevelToWarpTo' "$data/warp.script" | tr -s '\t ' ' ' | paste -sd';'))"
+	else
+		echo "data=$data$([[ "$data" != "$DATA" ]] && echo '  (ISOLATION RUN: not the harness data dir)')"
+	fi
 	echo "args=${args[*]}"
 	echo "milestone: $milestone"
 	echo "first stop: $stop"
@@ -642,6 +691,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == motion || "$mode" == nis ]] && echo "motiontest: $(grep -h 'motiontest: ' "$L" | sed 's/^.*motiontest: //' | paste -sd';'); dump $(ls "$out"/*.dump 2>/dev/null | head -n 1 | xargs -r -I{} sh -c 'echo "$(basename {}) $(grep -c "^F " {}) frames, sha256 $(sha256sum {} | cut -c1-16)"')"
 	[[ "$mode" == loadgame ]] && echo "loadgame: $(grep -h 'savecat32: loaded\|loadgametest: load\|loadgametest: done' "$L" | sed 's/^.*\(savecat32\|loadgametest\): //' | paste -sd';')"
 	[[ "$mode" == missiontest ]] && echo "missiontest: $(grep -h 'missiontest: ' "$L" | grep -v 'missiontest: status\|missiontest: fsm\|missiontest: FAIL' | sed 's/^.*missiontest: //' | paste -sd';'); FAIL lines: $(grep -c 'missiontest: FAIL' "$L")"
+	[[ "$mode" == warpstart ]] && echo "warpstarttest: $(grep -h 'warpstarttest: ' "$L" | sed 's/^.*warpstarttest: //' | paste -sd';')"
 	[[ "$mode" == skirmish ]] && echo "skirmishtest: $(grep -h 'skirmishtest: ' "$L" | grep -v 'skirmishtest: FAIL' | sed 's/^.*skirmishtest: //' | paste -sd';'); FAIL lines: $(grep -c 'skirmishtest: FAIL' "$L")"
 	[[ "$mode" == toggle ]] && echo "toggletest: $(grep -h 'toggletest: ' "$L" | grep -v 'toggletest: FAIL' | sed 's/^.*toggletest: //' | paste -sd';'); FAIL lines: $(grep -c 'toggletest: FAIL' "$L")"
 	[[ "$mode" == keys ]] && echo "keystest: $(grep -h 'keystest: ' "$L" | grep -v 'keystest: FAIL' | sed 's/^.*keystest: //' | paste -sd';'); FAIL lines: $(grep -c 'keystest: FAIL' "$L")"

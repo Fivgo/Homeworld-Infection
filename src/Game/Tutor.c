@@ -2456,11 +2456,11 @@ void tutGameMessage(char *eventName)
 
 bool32 tutGameSentMessage(char *eventNames)
 {
-    bool32 in_queue = tutGameMessageInQueue(eventNames);
-
-    tutResetGameMessageQueue();
-    
-    return in_queue;
+    // CAT (M2-R9 missions-10-17): the queue is only read (tutGameSentMessage 0x00533e80 reads the count 0x00a6c2c4 and
+    //      never writes it): Tutorial1's lessons test several messages in one watch and clear the queue themselves
+    //      (TutResetGameMessageQueue at the end, Watch_Tutorial1_Tutorial_Lesson3 0x0066dca0 ..); HW1 / GoK cleared it
+    //      after every test, so only a lesson's first test could see a message
+    return tutGameMessageInQueue(eventNames);
 }
 
 bool32 tutGameMessageInQueue(char *eventNames)

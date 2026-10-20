@@ -28,11 +28,25 @@ bool32 catMissionSelfTestTutorialRequested(void);
 void catMissionSelfTestTick(void);
 void catMissionSelfTestPlay(void);                  // the scripted player, inside univUpdate (after the AI players)
 void catMissionSelfTestEvent(const char *what);     // a flow event (NIS start / stop, level load, KAS start)
+// HWI-TEST (M2-R9 missions-10-17): /catMissionTestTrace: every new KAS message (aitMsgSend) logged as a "missiontest:
+//      msg" line (a team's re-queue of a message it did not handle is not repeated); a diagnostic, off in the gate runs
+void catMissionSelfTestTraceSet(void);
+// HWI-TEST (M2-R9 missions-10-17): /catWarpStartTest with /catMissionTest <ticks> (harness mode warpstart): the warp
+//      start from a test copy of warp.script (WarpEnabled 1, LevelToWarpTo N) in the run's data dir: the level's record
+//      against the fleet in the ether (cat_spWarpStartSelfTestCheck), then the level, its KAS script and the fleet's
+//      arrival; "warpstarttest: ..." lines, "warpstarttest: done ... result=PASS|FAIL"
+void catWarpStartSelfTestSet(void);
+bool32 catWarpStartSelfTestRequested(void);
+void catWarpStartSelfTestScript(bool32 enabled, sdword level);  // singlePlayerInit, after Warp.script is read
+void catWarpStartSelfTestApplied(bool32 pass);                  // cat_spWarpToLevel, before the level loads
+struct AITeam;
+void catMissionSelfTestMessage(struct AITeam *from, struct AITeam *to, udword msg);
 // HWI-TEST (M2-R8 singleplayer-tutorial): /catLoadGameTest <ticks> /catLoadGameName <name> (harness mode loadgame): a
 //      single-player save of the install (SavedGames/SinglePlayer/<name>) loaded as the front end's Load Game does, then
 //      run <ticks> universe ticks on the mission run's virtual clock
 void catLoadGameSelfTestSet(char *string);
 void catLoadGameSelfTestNameSet(char *string);
+void catLoadGameSelfTestTrainingSet(void);           // M2-R9 missions-10-17: a tutorial lesson save (SavedGames/Training)
 bool32 catLoadGameSelfTestRequested(void);
 void catLoadGameSelfTestStart(void);
 void catLoadGameSelfTestTick(void);

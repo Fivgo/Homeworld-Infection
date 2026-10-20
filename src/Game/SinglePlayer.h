@@ -181,6 +181,9 @@ extern bool32 spCollectResourcesAtEndOfMission;
 
 void spHyperspaceButtonPushed(void);
 // CAT (M2-R6 mainrgn-popup)
+#if HWI_ORACLE
+bool32 cat_spWarpStartSelfTestCheck(bool32 arrived);  // HWI-TEST (M2-R9 missions-10-17): the warp start's self-test
+#endif
 extern bool32 catSpBigGunAllowed;                       // 0x00894108
 sdword cat_spPlayerCanHyperspace(void);                 // 0x005193b0
 char *cat_spMissionFlagValue(void);                     // 0x0051c120

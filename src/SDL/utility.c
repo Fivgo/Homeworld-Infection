@@ -3437,6 +3437,9 @@ void utyGameQuitToMain(char *name, featom *atom)
         psModeBegin("Credits\\", PMF_Credits | PMF_LanguageSpecific | PMF_MusicTrack);
         psScreenStart("Credits-GameEnd.cred");
         utyCreditsSequence = FALSE;
+#if HWI_ORACLE
+        catMissionSelfTestEvent("credits Credits-GameEnd.cred");    // HWI-TEST (M2-R9 missions-10-17): the game's end
+#endif
     }
     else
     {

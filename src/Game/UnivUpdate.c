@@ -3861,7 +3861,11 @@ void MakeExplosionRockBumpables(Ship *ship,bool32 scuttle)
         ApplyExplosionRockToTarget(obj,blaststrength);
         physApplyForceVectorToObj(obj,distvector);
 
-        if (obj->header.flags & SOF_Targetable)
+        // CAT (M2-R9 missions-10-17): a ship part (SOF_CatShipPart: a module clamped to its mothership) is rocked but
+        //      takes no blast damage (MakeExplosionRockBumpables 0x00545f00: test 0x100000 set and 0x40000000 clear);
+        //      ApplyDamageToTarget passes a part's damage to its host, so a dying host's blast reached the host again
+        //      through its own parts, again and again (Mission16's Beast command ship: a stack overflow)
+        if ((obj->header.flags & SOF_Targetable) && !(obj->header.flags & SOF_CatShipPart))
         {
             // calculate damage based on ship blowing up
             real32 health = (shipstatic->blastRadiusDamage != 0.0f) ? shipstatic->blastRadiusDamage : shipstatic->health.maxhealth;

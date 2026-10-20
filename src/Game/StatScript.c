@@ -405,7 +405,10 @@ bool32 scriptStringToBool(char *boolString)
     {                                                       //strip the leading fluff characters
         boolString++;
     }
-    if (boolString[0] >= 1 && boolString[0] <= 9)
+    // CAT (M2-R9 missions-10-17): the digit CHARACTERS '1'..'9' count as TRUE (scriptStringToBool 0x00525c40: cmp with
+    //      0x31 / 0x39); HW1 / GoK compared the byte with the values 1..9, so "1" read FALSE (Warp.script's
+    //      "WarpEnabled 1" among others: the delta map's MODIFIED row, not ported until now)
+    if (boolString[0] >= '1' && boolString[0] <= '9')
     {
         return(TRUE);
     }

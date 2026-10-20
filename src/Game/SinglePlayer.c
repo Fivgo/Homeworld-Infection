@@ -1913,7 +1913,15 @@ void spHyperspaceSelectionOut(SelectCommand *selection)
         {
             if (ship->obj.attributes & ATTRIBUTES_StartInHS)
             {
+                // CAT (M2-R9 missions-10-17): the exe inlines InstantlyHyperspaceOut and clears the ship's
+                //      midlevelHyperspaceOut when it leaves (0x0051899e .. 0x005189d3)
+                bool32 leaves = ((ship->header.flags & SOF_Hyperspace) == 0);
+
                 InstantlyHyperspaceOut(ship,defactoMothership);
+                if (leaves)
+                {
+                    ship->shipSinglePlayerGameInfo->midlevelHyperspaceOut = FALSE;
+                }
                 bitClear(ship->obj.attributes, ATTRIBUTES_StartInHS);
             }
             else
@@ -1921,7 +1929,10 @@ void spHyperspaceSelectionOut(SelectCommand *selection)
                 cat_spPrepareShipHyperspaceOut(ship);      // CAT: what is clamped to it lets go (0x005189e4)
                 CalculateHyperspaceTimeForShip(ship,defactoMothership);
                 ship->shipSinglePlayerGameInfo->timeToHyperspace += spHyperspaceDelay;
-                if(ship->guidance.clampInfo != NULL)
+                // CAT (M2-R9 missions-10-17): the clamp's host is tested too (0x00518a05 .. 0x00518a13: the clamp info,
+                //      then its host, non-NULL): a ship whose clamp lost its host (Mission14's Beast mothership,
+                //      kasfTeamHyperspaceOut) read a NULL host here
+                if ((ship->guidance.clampInfo != NULL) && (ship->guidance.clampInfo->host != NULL))
                 {
                     //ship is clamped to another ship...
                     if (ship->guidance.clampInfo->host->header.objtype == OBJ_ShipType) {
@@ -2027,6 +2038,10 @@ void singlePlayerInit(void)
         catSpWarpEnabled = TRUE;
         catSpWarpLevelTo = catMissionSelfTestWarpLevel();
     }
+#endif
+#if HWI_ORACLE
+    // HWI-TEST (M2-R9 missions-10-17): the warp start's self-test (/catWarpStartTest) reads what Warp.script said
+    catWarpStartSelfTestScript(catSpWarpEnabled, catSpWarpLevelTo);
 #endif
     if (catSpWarpEnabled)
     {
@@ -3604,7 +3619,7 @@ typedef struct
 #define CAT_KAS_SCRIPTS         CAT_SP_KAS_SCRIPTS
 #define CAT_KAS_SCRIPT_TUTORIAL 17
 // CAT (M2-R9 missions-02-09): Mission02 .. Mission09 generated (tools/m2_kas2c_gen.py DEFAULT_SCRIPTS)
-// CAT-TODO(M2-R9 part B): the generated code of Mission10 .. Mission17 (docs/mission-code-map.md 8; tools/m2_kas2c_gen.py --scripts; producer 3): until then those missions start no KAS script
+// CAT (M2-R9 missions-10-17): Mission10 .. Mission17 generated: every script of the exe's table has its code
 static const CatKasScript catKasScripts[CAT_KAS_SCRIPTS] =
 {
     { "mission01", Init_Mission01, Watch_Mission01, Mission01_Functions, &Mission01_FunctionCount, CAT_MISSION01_WATCH_EXE },
@@ -3616,14 +3631,14 @@ static const CatKasScript catKasScripts[CAT_KAS_SCRIPTS] =
     { "mission07", Init_Mission07, Watch_Mission07, Mission07_Functions, &Mission07_FunctionCount, CAT_MISSION07_WATCH_EXE },
     { "mission08", Init_Mission08, Watch_Mission08, Mission08_Functions, &Mission08_FunctionCount, CAT_MISSION08_WATCH_EXE },
     { "mission09", Init_Mission09, Watch_Mission09, Mission09_Functions, &Mission09_FunctionCount, CAT_MISSION09_WATCH_EXE },
-    { "mission10", NULL, NULL, NULL, NULL, 0x00613360 },
-    { "mission11", NULL, NULL, NULL, NULL, 0x00620240 },
-    { "mission12", NULL, NULL, NULL, NULL, 0x00623e90 },
-    { "mission13", NULL, NULL, NULL, NULL, 0x0062a720 },
-    { "mission14", NULL, NULL, NULL, NULL, 0x006378e0 },
-    { "mission15", NULL, NULL, NULL, NULL, 0x0063a1a0 },
-    { "mission16", NULL, NULL, NULL, NULL, 0x00648530 },
-    { "mission17", NULL, NULL, NULL, NULL, 0x00668f20 },
+    { "mission10", Init_Mission10, Watch_Mission10, Mission10_Functions, &Mission10_FunctionCount, CAT_MISSION10_WATCH_EXE },
+    { "mission11", Init_Mission11, Watch_Mission11, Mission11_Functions, &Mission11_FunctionCount, CAT_MISSION11_WATCH_EXE },
+    { "mission12", Init_Mission12, Watch_Mission12, Mission12_Functions, &Mission12_FunctionCount, CAT_MISSION12_WATCH_EXE },
+    { "mission13", Init_Mission13, Watch_Mission13, Mission13_Functions, &Mission13_FunctionCount, CAT_MISSION13_WATCH_EXE },
+    { "mission14", Init_Mission14, Watch_Mission14, Mission14_Functions, &Mission14_FunctionCount, CAT_MISSION14_WATCH_EXE },
+    { "mission15", Init_Mission15, Watch_Mission15, Mission15_Functions, &Mission15_FunctionCount, CAT_MISSION15_WATCH_EXE },
+    { "mission16", Init_Mission16, Watch_Mission16, Mission16_Functions, &Mission16_FunctionCount, CAT_MISSION16_WATCH_EXE },
+    { "mission17", Init_Mission17, Watch_Mission17, Mission17_Functions, &Mission17_FunctionCount, CAT_MISSION17_WATCH_EXE },
     { "tutorial1", Init_Tutorial1, Watch_Tutorial1, Tutorial1_Functions, &Tutorial1_FunctionCount, CAT_TUTORIAL1_WATCH_EXE },
 };
 
@@ -3640,7 +3655,9 @@ void singlePlayerKasMissionStart(MissionEnum mission)
     script = &catKasScripts[mission - 1];
     if (script->init == NULL)
     {
-        return;                                 // not generated yet (CAT-TODO above)
+        // [audit: M2-R9 missions-10-17: the comment said "not generated yet (CAT-TODO above)"; that CAT-TODO is closed
+        //      and every row of catKasScripts has its generated code, so this return is never taken]
+        return;
     }
     kasMissionStart(script->name, script->init, script->watch);
 }
@@ -4136,9 +4153,138 @@ static void cat_spWarpToLevel(void)
         node = leaves ? universe.ShipList.head : nextnode;
     }
     catSpLevelFromNisStop = FALSE;                          // 0x00a6ac74
+#if HWI_ORACLE
+    // HWI-TEST (M2-R9 missions-10-17): the warp start's self-test checks the record against the fleet in the ether
+    if (catWarpStartSelfTestRequested())
+    {
+        catWarpStartSelfTestApplied(cat_spWarpStartSelfTestCheck(FALSE));
+    }
+#endif
     singlePlayerGameInfo.hyperspaceState = HYPERSPACE_LOADDONE;
     singlePlayerLoadNewLevel(0, 1);
 }
+
+#if HWI_ORACLE
+/*-----------------------------------------------------------------------------
+    HWI-TEST (M2-R9 missions-10-17): the warp start's self-test (/catWarpStartTest with /catMissionTest, harness mode
+    warpstart: a test copy of the install's warp.script with WarpEnabled 1 and LevelToWarpTo N in the run's own data
+    dir). cat_spWarpStartSelfTestCheck compares the record of level N with player 0: the count of every ship type the
+    record lists (plus the sMothership cat_spWarpToLevel adds; a type made by its host, the hive frigates' swarmers or
+    the mothership's own modules, is reported, not judged) and, after the warp (arrived FALSE), every ship in the ether
+    (singlePlayerGameInfo.ShipsInHyperspace), the resource units equal to the record's, the record's technologies held;
+    after the fleet's arrival (arrived TRUE) every ship out of the ether (the universe's ship list and the ships
+    inside them). "warpstarttest: ..." lines; TRUE when everything matches.
+----------------------------------------------------------------------------*/
+static void cat_spWarpStartCount(Ship *ship, sdword *counts, sdword *all)
+{
+    Node *node;
+
+    if (bitTest(ship->header.flags, SOF_Dead) || (ship->shiptype < 0) || (ship->shiptype >= TOTAL_NUM_SHIPS))
+    {
+        return;
+    }
+    counts[ship->shiptype]++;
+    (*all)++;
+    if (ship->shipsInsideMe != NULL)
+    {
+        for (node = ship->shipsInsideMe->insideList.head; node != NULL; node = node->next)
+        {
+            cat_spWarpStartCount(((InsideShip *)listGetStructOfNode(node))->ship, counts, all);
+        }
+    }
+}
+
+bool32 cat_spWarpStartSelfTestCheck(bool32 arrived)
+{
+    CatSpWarpLevel *record;
+    sdword counts[TOTAL_NUM_SHIPS];
+    sdword expected, types = 0, typesOk = 0, ships = 0, shipsExpected = 0, techs = 0, techsOk = 0, ether = 0, outside = 0;
+    sdword all = 0;
+    TechnologyType tech;
+    ShipType type;
+    Node *node;
+    Ship *ship;
+    bool32 resourcesOk, pass;
+
+    if (!catSpWarpEnabled || (catSpWarpLevelTo < 1) || (catSpWarpLevelTo > CAT_SP_WARP_LEVELS))
+    {
+        dbgMessagef("warpstarttest: %s no warp start (WarpEnabled=%d LevelToWarpTo=%d)", arrived ? "arrived" : "applied",
+                    (int)catSpWarpEnabled, (int)catSpWarpLevelTo);
+        return FALSE;
+    }
+    record = &catSpWarpLevels[catSpWarpLevelTo - 1];
+    memset(counts, 0, sizeof(counts));
+    for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = node->next)
+    {
+        ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+        if (ship->playerowner == &universe.players[0])
+        {
+            ether++;
+            if (!arrived)
+            {
+                cat_spWarpStartCount(ship, counts, &all);
+            }
+        }
+    }
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if (ship->playerowner == &universe.players[0])
+        {
+            outside++;
+            if (arrived)
+            {
+                cat_spWarpStartCount(ship, counts, &all);
+            }
+        }
+    }
+    for (type = 0; type < TOTAL_NUM_SHIPS; type++)
+    {
+        expected = record->ships[type] + ((type == sMothership) ? 1 : 0);
+        if (expected != 0)
+        {
+            types++;
+            shipsExpected += expected;
+            ships += counts[type];
+            if (counts[type] == expected)
+            {
+                typesOk++;
+            }
+            else
+            {
+                dbgMessagef("warpstarttest: %s level=%d %s n=%d record=%d", arrived ? "arrived" : "applied",
+                            (int)catSpWarpLevelTo, ShipTypeToStr(type), (int)counts[type], (int)expected);
+            }
+        }
+        else if (counts[type] != 0)
+        {
+            // a type the record does not list: made by its host (the hive frigates' swarmers, the mothership's own
+            //      modules: univAddShip's), reported, not judged
+            dbgMessagef("warpstarttest: %s level=%d %s n=%d (made by its host)", arrived ? "arrived" : "applied",
+                        (int)catSpWarpLevelTo, ShipTypeToStr(type), (int)counts[type]);
+        }
+    }
+    for (tech = 0; tech < CAT_TECHSET_FLAG; tech++)
+    {
+        if (record->tech[tech] != 0)
+        {
+            techs++;
+            if (cat_rmTechSetHas(universe.players[0].researchinfo.HasTechnology, tech))
+            {
+                techsOk++;
+            }
+        }
+    }
+    resourcesOk = arrived || (universe.players[0].resourceUnits == record->resources);
+    pass = (typesOk == types) && (ships == shipsExpected) && (techsOk == techs) && resourcesOk &&
+           (arrived ? (ether == 0) : (outside == 0));
+    dbgMessagef("warpstarttest: %s level=%d resources=%d/%d types=%d/%d ships=%d/%d (all %d) ether=%d outside=%d tech=%d/%d "
+                "result=%s", arrived ? "arrived" : "applied", (int)catSpWarpLevelTo, (int)universe.players[0].resourceUnits,
+                (int)record->resources, (int)typesOk, (int)types, (int)ships, (int)shipsExpected, (int)all, (int)ether,
+                (int)outside, (int)techsOk, (int)techs, pass ? "PASS" : "FAIL");
+    return pass;
+}
+#endif
 
 /*-----------------------------------------------------------------------------
     Name        : singleHackResearchWarp

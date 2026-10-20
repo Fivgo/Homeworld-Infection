@@ -1289,7 +1289,8 @@ static void catKbNextFormation(udword state)    { (void)state; cat_mrFormationCy
 static void catKbPrevFormation(udword state)    { (void)state; cat_mrFormationCycle(TRUE); }         // 0x0054ef50
 static void catKbFocus(udword state)                                                                 // cat_kbFocus 0x0054f2c0
 {
-    FocusCommand focus;
+    MaxSelection focus;     // CAT (M2-R9 missions-10-17): the whole selection (the exe copies 0x3EA dwords into a 0xFA8-byte
+                            //      local, 0x0054f2f9): a one-ship FocusCommand overflowed for a selection of more ships
 
     if (state == 0)
     {
@@ -1298,7 +1299,7 @@ static void catKbFocus(udword state)                                            
             tutGameMessage("KB_Focus");
             soundEventPlay(NULL, 0x137, NULL);
             memcpy(&focus, &selSelected, sizeof(focus));
-            ccFocus(&universe.mainCameraCommand, &focus);
+            ccFocus(&universe.mainCameraCommand, (FocusCommand *)&focus);
         }
     }
     else if (state == 1)
@@ -1325,7 +1326,7 @@ static void catKbForwardFocus(udword state)                                     
 static void catKbFleetView(udword state)        { (void)state; ccFocusOnFleetSmooth(&universe.mainCameraCommand); } // 0x0054f3b0
 static void catKbChaseMode(udword state)                                                             // 0x0054f1c0
 {
-    FocusCommand focus;
+    MaxSelection focus;     // CAT (M2-R9 missions-10-17): the whole selection, as cat_kbFocus (the exe's local is 0xFA8 bytes)
 
     if (selSelected.numShips == 0)
     {
@@ -1337,7 +1338,7 @@ static void catKbChaseMode(udword state)                                        
         tutGameMessage("KB_Focus");
         soundEventPlay(NULL, 0x137, NULL);
         memcpy(&focus, &selSelected, sizeof(focus));
-        ccFocus(&universe.mainCameraCommand, &focus);
+        ccFocus(&universe.mainCameraCommand, (FocusCommand *)&focus);
     }
     else if (state == 1)
     {
