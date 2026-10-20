@@ -30,6 +30,8 @@
 #include "InfoOverlay.h"
 #include "KASFunc.h"
 #include "KASVar.h"
+#include "OracleDump.h"         // HWI-ORACLE: oracleMissionDirectStart (singlePlayerStartGame)
+#include "MissionSelfTest.h"    // HWI-TEST (M2-R8 kas-runtime-mission01): the mission self-test's flow lines
 #include "LaunchMgr.h"
 #include "LevelLoad.h"
 #include "LinkedList.h"
@@ -62,30 +64,11 @@
 #include "UnivUpdate.h"
 #include "utility.h"
 
-// CAT (M2-R8 kasf library): HW1's compiled mission scripts are out of the build (src/meson.build): they call the kasf
-//      with HW1's string names and HW1-only kasf (kasfForceTaskbar, kasfTargetDrop), where the kasf library now has
-//      cataclysm.exe's signatures (KAS names as cat_kasHashString hashes, cat_kasFunctionTable 0x00755048); they ran on
-//      no Cataclysm level (CAT_HW1_MISSION_SCRIPTS 0). The Cataclysm kas2c missions replace them (the switch's retirement).
-#if CAT_HW1_MISSION_SCRIPTS
-#include "Mission01.h"
-#include "Mission02.h"
-#include "Mission03.h"
-#include "Mission04.h"
-#include "Mission05.h"
-#include "Mission05_OEM.h"
-#include "Mission06.h"
-#include "Mission07.h"
-#include "Mission08.h"
-#include "Mission09.h"
-#include "Mission10.h"
-#include "Mission11.h"
-#include "Mission12.h"
-#include "Mission13.h"
-#include "Mission14.h"
-#include "Mission15.h"
-#include "Mission16.h"
-#include "Tutorial1.h"
-#endif
+// CAT (M2-R8 kas-runtime-mission01): Cataclysm's kas2c missions, generated from cataclysm.exe (src/Missions,
+//      tools/m2_kas2c_gen.py): HW1's compiled scripts (src/Missions/*.kas) are not built
+#include "CatMissions.h"
+#include "KASVar.h"
+#include "texreg.h"           // CAT: cat_trPrecacheShipTextures (the Mission01 nislet)
 #include "Mimic.h"
 
 #ifdef _MSC_VER
@@ -121,6 +104,7 @@ MissionEnum missionSequence[] = {
     MISSION_14_BRIDGE_OF_SIGHS,
     MISSION_15_CHAPEL_PERILOUS,
     MISSION_16_HIIGARA,
+    MISSION_17,                             // CAT: Cataclysm has 17 missions (singlePlayerGameUpdate 0x005197d0's mission switch)
 #elif defined(HW_GAME_RAIDER_RETREAT)
     MISSION_1_KHARAK_SYSTEM,
     MISSION_2_OUTSKIRTS_OF_KHARAK_SYSTEM,
@@ -137,7 +121,7 @@ MissionEnum missionSequence[] = {
 
 // you'd think you could change that 19 to <= 16 but the NIS stuff overloads this
 // in an array declaration that includes end markers and so is larger than 16
-#define NUMBER_SINGLEPLAYER_MISSIONS  19
+#define NUMBER_SINGLEPLAYER_MISSIONS  20     // CAT: MISSION_17 added (SinglePlayer.h)
 
 #define NUMBER_SINGLEPLAYER_NIS       12
 
@@ -170,7 +154,7 @@ real32 spFleetModifier = 0.0f;
 real32 spDifficultyHealthModifier = 1.0f;
 // CAT (M2-R6 oracle-mode-a): the factor FixShip 0x00500950 multiplies a loaded single-player Somtaaw ship's health by
 //      (0x008941a4, 1.0 in the exe image; kasLoad 0x00491450 sets it to the difficulty factor over the saved one).
-//      CAT-TODO(stage 6 single player): kasLoad's assignment comes with the KAS save port
+//      CAT-TODO(stage 6 single player): kasLoad's assignment needs cat_spGetDifficultyModifiers 0x00516f90 (KAS.c kasLoad reads the saved difficulty since M2-R8 kas-runtime-mission01)
 real32 spDifficultyHealthLoadFactor = 1.0f;
 real32 spFleetStr      = 0.0f;
 
@@ -247,8 +231,76 @@ static udword convertMissionToSequenceIndex(MissionEnum mission);
 static MissionEnum spGetAdjacentMission(sbyte direction);
 
 static void singlePlayerKasMissionStart(MissionEnum missionnum);
-static void singlePlayerNISNamesGet(char **nisname, char **scriptname, bool32 *centreMothership, sdword nisNumber);
-static void singlePlayerStartNis(char *nis, char *script, bool32 centre, hvector *positionAndAngle);
+
+/*-----------------------------------------------------------------------------
+    CAT (M2-R8 kas-runtime-mission01): the mission flow's tables (cataclysm.exe .data), by the mission number 1 .. 17
+-----------------------------------------------------------------------------*/
+#ifdef _WIN32
+    #define NIS_PATH "nis\\"
+#else
+    #define NIS_PATH "nis/"
+#endif
+// 0x008944bc: the mission is entered from its opening NIS, played in its staging level SinglePlayer\MissionNN_NISmm
+//      (the 11 MissionNN_NISmm directories of the data; Mission05_NIS03 is not entered this way)
+static const bool32 catSpMissionStartsInNis[19] = { 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0 };
+// 0x00894508: the NIS of the mission (the staging level's mm, and the NIS played once the fleet has arrived in a
+//      mission not entered from it), -1 none
+static const sdword catSpMissionNis[19] = { 0, 1, -1, -1, 2, -1, 4, 5, -1, -1, 6, -1, 7, -1, 8, 9, 10, 11, 0 };
+// 0x00894470: the fleet is put at the start point at once when the level has loaded (no arrival flight)
+static const bool32 catSpMissionArrivesAtOnce[19] = { 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0 };
+// 0x00894550: the NIS files by NIS number (1 .. 11)
+static char *const catSpNisNames[12][2] =
+{
+    { NULL,                NULL                   },
+    { NIS_PATH"n01.nis",   NIS_PATH"n01.script"   },
+    { NIS_PATH"n02.nis",   NIS_PATH"n02.script"   },
+    { NIS_PATH"n03.nis",   NIS_PATH"n03.script"   },
+    { NIS_PATH"n04.nis",   NIS_PATH"n04.script"   },
+    { NIS_PATH"n05.nis",   NIS_PATH"n05.script"   },
+    { NIS_PATH"n06.nis",   NIS_PATH"n06.script"   },
+    { NIS_PATH"n07.nis",   NIS_PATH"n07.script"   },
+    { NIS_PATH"n08.nis",   NIS_PATH"n08.script"   },
+    { NIS_PATH"n09.nis",   NIS_PATH"n09.script"   },
+    { NIS_PATH"n10.nis",   NIS_PATH"n10.script"   },
+    { NIS_PATH"n11.nis",   NIS_PATH"n11.script"   },
+};
+// 0x008945a0 + 4 * (nislet + mission * 3): the nislets a KAS script plays (G_PlayNislet); the exe's table overlaps the
+//      end of the NIS table (its indices below 4 are never used)
+#define CAT_SP_NISLETS_PER_MISSION  3
+static char *catSpNisletName(sdword mission, sdword nislet)
+{
+    switch (nislet + mission * CAT_SP_NISLETS_PER_MISSION)
+    {
+        case 4:  return NIS_PATH"nislet01";        // 0x008945b0: Mission01, nislet 1
+        case 28: return NIS_PATH"nislet03";        // 0x00894610: Mission09, nislet 1
+        case 31: return NIS_PATH"nislet02";        // 0x0089461c: Mission10, nislet 1
+        default: return NULL;
+    }
+}
+
+// CAT: 0x00a6ac70 / 0x00a6ac6c / 0x00a6adc0: the black fade over the main view after a level has loaded (1.0 down to
+//      0.0 at 0.5 a second of game time), its restart flag and its last time; 0x00a75280: the white flash of
+//      Mission01's nislet. Names chosen
+// CAT-TODO(stage 6 single player): mrRegionDraw 0x00569260 draws catSpLevelFade (black, unless 0x00a4cabc) and catSpWhiteFlash (white) over the main view; mainrgn.c does not yet
+real32 catSpLevelFade = 0.0f;
+static bool32 catSpLevelFadeRestart = FALSE;
+static real32 catSpLevelFadeLastTime = 0.0f;
+real32 catSpWhiteFlash = 0.0f;
+// CAT: 0x00a6ac74: the level being loaded was asked for by the end of its opening NIS (the mission number stays);
+//      0x00a6ad78: a level's fleet is arriving (hsStaticGateRender draws no static gate meanwhile); 0x00a6adbc /
+//      0x00a6adb8: the fleet is to be put at the start point at once, and when. Names chosen
+static bool32 catSpLevelFromNisStop = FALSE;
+bool32 catSpFleetArriving = FALSE;
+static bool32 catSpArriveAtOnce = FALSE;
+static real32 catSpArriveAtOnceTime = 0.0f;
+// CAT: 0x00a6adac: the level being loaded is a NIS staging level (GetMissionsDirAndFile, singlePlayerLoadNewLevel; the
+//      loading picture, HorseRace.c hrChooseSinglePlayerBitmap)
+bool32 catHrMissionNisVariant = FALSE;
+// CAT: 0x00a6ac68: gameStart's loading screen is up while it starts the single-player game (gameStart 0x005a9290 sets
+//      it around singlePlayerStartGame), so the level load of the opening NIS puts up no other. Name chosen
+bool32 catSpStartInLoadingScreen = FALSE;
+extern char *singlePlayerNISName;                       // 0x00a6ada4 (below)
+extern bool8 etgHasBeenStarted;                         // utility.c (0x00ab7668)
 
 static void spAbortHyperspaceCB(char *string, featom *atom);
 static void spGoNowHyperspaceCB(char *string, featom *atom);
@@ -426,20 +478,14 @@ MissionEnum spGetAdjacentMission(sbyte direction)
 
 
 
-void GetMissionsDirAndFile(MissionEnum mission)
+/*-----------------------------------------------------------------------------
+    Name        : GetMissionsDirAndFile                             0x00517200
+    Description : CAT: the mission's level, or with nisLevel its NIS staging level SinglePlayer\MissionNN_NISmm\
+                  MissionNN_NISmm.mission (mm = catSpMissionNis[mission]); records which one (catHrMissionNisVariant)
+----------------------------------------------------------------------------*/
+void GetMissionsDirAndFile(MissionEnum mission, bool32 nisLevel)
 {
-#ifdef HW_GAME_RAIDER_RETREAT
-    if (mission == MISSION_5B_TURANIC_RAIDER_PLANETOID)
-    {
-#ifdef _WIN32
-        sprintf(spMissionsDir, "SinglePlayer\\Mission05_OEM\\");
-#else
-        sprintf(spMissionsDir, "SinglePlayer/Mission05_OEM/");
-#endif
-        sprintf(spMissionsFile, "Mission05_OEM.mission");
-    }
-    else
-#endif
+    if (!nisLevel)
     {
 #ifdef _WIN32
         sprintf(spMissionsDir, "SinglePlayer\\Mission%02d\\", mission);
@@ -448,6 +494,16 @@ void GetMissionsDirAndFile(MissionEnum mission)
 #endif
         sprintf(spMissionsFile,"Mission%02d.mission", mission);
     }
+    else
+    {
+#ifdef _WIN32
+        sprintf(spMissionsDir, "SinglePlayer\\Mission%02d_NIS%02d\\", mission, catSpMissionNis[mission]);
+#else
+        sprintf(spMissionsDir, "SinglePlayer/Mission%02d_NIS%02d/", mission, catSpMissionNis[mission]);
+#endif
+        sprintf(spMissionsFile,"Mission%02d_NIS%02d.mission", mission, catSpMissionNis[mission]);
+    }
+    catHrMissionNisVariant = nisLevel;
 }
 
 bool32 GetPointOfName(hvector *point,char *name)
@@ -2464,45 +2520,102 @@ void UpdateMidLevelHyperspacingShips(void)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    CAT (M2-R8 kas-runtime-mission01): the player's start point, the KAS labelled vector "StartPointPlayer" (the zero
+        vector without one; singlePlayerGameUpdate 0x005197d0 / singlePlayerStartNis 0x0051b670 read it inline)
+-----------------------------------------------------------------------------*/
+static void catSpStartPoint(hvector *point)
+{
+    hvector *vector = kasVectorPtr(cat_kasHashString("StartPointPlayer"));
+
+    if (vector != NULL)
+    {
+        *point = *vector;
+    }
+    else
+    {
+        point->x = point->y = point->z = point->w = 0.0f;
+    }
+}
+
 void singlePlayerGameUpdate(void)
 {
-    AIVar *tgui;
-    AIVar *nisVariable = aivarFindAnyFSM("PlayNis");
-    AIVar *nisletVariable = aivarFindAnyFSM("PlayNislet");
+    // CAT: a KAS script asks for an NIS or a nislet through the globals G_PlayNis / G_PlayNislet (the hashed variable
+    //      store; HW1 read the AIVars "PlayNis" / "PlayNislet") (singlePlayerGameUpdate 0x005197d0)
+    CatKasVar *nisVariable = cat_kasVarFind(0, cat_kasHashString("G_PlayNis"));
+    CatKasVar *nisletVariable = cat_kasVarFind(0, cat_kasHashString("G_PlayNislet"));
+    CatKasVar *tgui;
     sdword value;
     static real32 hyperspaceStartTime;
+    // CAT: the nislet's file names (0x00a67028 / 0x00a670c8)
+    static char nisletFile[160];
+    static char nisletScript[160];
+
+    // CAT: the black fade after a level load runs down at 0.5 a second of game time (0x00a6ac70; 0x0072bcb0 = 0.5)
+    if (catSpLevelFade > 0.0f)
+    {
+        real32 last = catSpLevelFadeLastTime;
+
+        if (catSpLevelFadeRestart)
+        {
+            catSpLevelFadeRestart = FALSE;
+            last = universe.totaltimeelapsed;
+        }
+        catSpLevelFadeLastTime = universe.totaltimeelapsed;
+        catSpLevelFade -= (universe.totaltimeelapsed - last) * 0.5f;
+    }
 
     //play an nis when the time is right
     if (nisVariable)
     {
-        value = aivarValueGet(nisVariable);
+        value = nisVariable->value;
         if (value != 0)
         {
             hvector startpoint;
-            char *nis, *script;
-            bool32 centre;
 
-            GetStartPointPlayer(&startpoint);
-            singlePlayerNISNamesGet(&nis, &script, &centre, value);
-            singlePlayerStartNis(nis, script, centre, &startpoint);
+            catSpStartPoint(&startpoint);
+            singlePlayerNisNumber = value;
+            singlePlayerNISName = catSpNisNames[value][0];
+            // CAT: the staging level loads first when the mission is one entered from its NIS (0x008944bc)
+            singlePlayerStartNis(catSpNisNames[value][0], catSpNisNames[value][1], &startpoint,
+                                 catSpMissionStartsInNis[singlePlayerGameInfo.currentMission], FALSE);
         }
-        aivarDestroy(nisVariable);
+        cat_kasVarDestroyEntry(nisVariable);
     }
 
     //play an nislet when the time is right
     if (nisletVariable)
     {
-        value = aivarValueGet(nisletVariable);
+        value = nisletVariable->value;
         if (value != 0)
         {
             hvector startpoint;
-            char *nis, *script;
+            char *name;
 
-            GetStartPointPlayer(&startpoint);
-            singlePlayerNISletNamesGet(&nis, &script, value);
-            singlePlayerStartNis(nis, script, FALSE, &startpoint);
+            catSpStartPoint(&startpoint);
+            singlePlayerNisletNumber = value;
+            name = catSpNisletName(singlePlayerGameInfo.currentMission, value);
+            // CAT-FIX: the exe copies whatever its table holds (NULL for a nislet the mission has none of)
+            if (name == NULL)
+            {
+                dbgFatalf(DBG_Loc, "Mission %d has no nislet %d", singlePlayerGameInfo.currentMission, value);
+            }
+            strcpy(nisletFile, name);
+            strcpy(nisletScript, nisletFile);
+            strcat(nisletFile, ".nis");
+            strcat(nisletScript, ".script");
+            if (!fileExists(nisletFile, 0) || !fileExists(nisletScript, 0))
+            {
+                dbgFatalf(DBG_Loc, "'%s' and/or '%s' do not exist.", nisletFile, nisletScript);
+            }
+            singlePlayerNISName = nisletFile;
+            singlePlayerStartNis(nisletFile, nisletScript, &startpoint, FALSE, FALSE);
+            if (singlePlayerGameInfo.currentMission == 1)
+            {                                           // CAT: Mission01's nislet precaches the ship textures
+                cat_trPrecacheShipTextures();
+            }
         }
-        aivarDestroy(nisletVariable);
+        cat_kasVarDestroyEntry(nisletVariable);
     }
 
     //pause or unpause the NIS task.  This has to be called from within a task,
@@ -2522,7 +2635,8 @@ void singlePlayerGameUpdate(void)
     }
 
 
-    tgui = aivarFind("Traders.PopUpGUI");
+    // CAT: the traders' screen opens when the "Traders" FSM sets its PopUpGUI variable (scope hash "Traders")
+    tgui = cat_kasVarFind(cat_kasHashString("Traders"), cat_kasHashString("PopUpGUI"));
     if (tgui)
     {
         if (tgui->value)
@@ -2669,6 +2783,7 @@ void singlePlayerGameUpdate(void)
                     CleanupDamageEffects();
 
                     // rebuild level now
+                    catSpLevelFromNisStop = FALSE;      // CAT: the next mission (0x00a6ac74 cleared, 0x00519...)
                     singlePlayerGameLoadNewLevelFlag = TRUE;
                     singlePlayerHyperspacingInto = TRUE;
 //                    singlePlayerGameInfo.hyperspaceState = HYPERSPACE_SHIPSARRIVING;
@@ -2678,54 +2793,138 @@ void singlePlayerGameUpdate(void)
             break;
 
         case HYPERSPACE_LOADDONE:
-            soundEvent(universe.curPlayerPtr->PlayerMothership, Ship_SinglePlayerHyperspace);
-//            speechEventFleet(STAT_F_HyperspaceInterrupted, 0, universe.curPlayerIndex);
+            // CAT: the level the fleet arrives in starts its KAS script here, before the fleet arrives (the mission
+            //      flow's entry, singlePlayerGameUpdate 0x005197d0: kasMissionStart("missionNN") for missions 1 .. 17;
+            //      HW1 started it once every ship had arrived); the screens close and the player is locked out
             singlePlayerGameInfo.hyperspaceState = HYPERSPACE_SHIPSARRIVING;
+            singlePlayerKasMissionStart(spGetCurrentMission());
+            nisFullyScissored = TRUE;                               // 0x00a4cb58
+            spMainScreenAndLockout(SPLOCKOUT_MR);
+            mouseCursorHide();
+            if (singlePlayerGameInfo.currentMission == 1)
+            {                                                       // Mission01 keeps the letterbox for its nislet
+                catSmHideViewport = TRUE;                           // 0x00a5b228
+                catNisKeepScissored = TRUE;                         // 0x00a4cacc
+            }
+            if (catSpMissionArrivesAtOnce[singlePlayerGameInfo.currentMission])
+            {
+                catSpArriveAtOnce = TRUE;
+                catSpArriveAtOnceTime = universe.realtimeelapsed + 5.0f;   // 0x0072bcb8
+                return;
+            }
             break;
 
         case HYPERSPACE_SHIPSARRIVING:
-            if (UpdateArrivingShips())
+            // CAT: the level waits for its KAS script's StartLevelByHyperspacingShips (no case in the exe)
+            break;
+
+        case HYPERSPACE_CATSHIPSHYPERSPACINGIN:
             {
-                // all ships have arrived and are in starting position
-                singlePlayerHyperspacingInto = FALSE;
-                singlePlayerGameInfo.hyperspaceState = NO_HYPERSPACE;
-                CleanupHyperspacingShips(FALSE,FALSE);
+                // CAT: the fleet arrives at the start point (singlePlayerGameUpdate 0x005197d0, its case 9)
+                bool32 allArrived;
+                hvector startpoint;
+                Node *node, *nextnode;
+                Ship *ship;
 
-                //ccClearModeFlag(&universe.mainCameraCommand,CCMODE_LOCK_OUT_USER_INPUT);
-
-//                ccFocusOnFleetSmooth(&universe.mainCameraCommand);
-                spUnlockout();
-
-                //launch all necessary ships first
-                LaunchAllInternalShipsOfPlayerThatMustBeLaunched(universe.curPlayerPtr);
-
-                clAutoLaunch(singlePlayerGameInfo.oldAutoLaunch,universe.curPlayerIndex);
-                /*
-                if (!singlePlayerGameInfo.oldAutoLaunch)
+                if (!catSpMissionArrivesAtOnce[singlePlayerGameInfo.currentMission])
                 {
-                    // auto launch not set to true, therefore manually launch all ships that must be:
+                    // the white flash of Mission01's nislet runs down after 3 s of real time (0x00a75280; 0x0072a5f0
+                    //      0.0001, 0x0072bcc0 3.0 (a double), 0x0072bcb0 0.5)
+                    if (catSpWhiteFlash > 0.0f)
+                    {
+                        static real32 flashLast, flashStart;
+
+                        if (catSpWhiteFlash == 1.0f)
+                        {
+                            catSpWhiteFlash -= 0.0001f;
+                            flashLast = universe.realtimeelapsed;
+                            flashStart = universe.realtimeelapsed + 3.0f;
+                        }
+                        if (flashStart < universe.realtimeelapsed)
+                        {
+                            catSpWhiteFlash -= (universe.realtimeelapsed - flashLast) * 0.5f;
+                        }
+                        flashLast = universe.realtimeelapsed;
+                    }
+                    allArrived = TRUE;
+                    catSpStartPoint(&startpoint);
+                    for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = node->next)
+                    {
+                        ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+                        if (allianceIsShipAlly(ship, universe.curPlayerPtr))
+                        {
+                            allArrived &= UpdateArrivingShip(ship, &startpoint, FALSE);
+                        }
+                    }
+                }
+                else
+                {
+                    // CAT-TODO(stage 6 single player): the missions of 0x00894470 put the fleet at the start point at once when catSpArriveAtOnce is set (0x00519f90 ..: PutShipOutsideAt with the ship's formation offset, the parade, cat_spLaunchDockedShipsOnArrival, the focus) and then wait for the black fade; this tree flies them in (UpdateArrivingShip)
+                    catSpArriveAtOnce = FALSE;
+                    allArrived = TRUE;
+                    catSpStartPoint(&startpoint);
+                    for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = node->next)
+                    {
+                        ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+                        if (allianceIsShipAlly(ship, universe.curPlayerPtr))
+                        {
+                            allArrived &= UpdateArrivingShip(ship, &startpoint, FALSE);
+                        }
+                    }
+                }
+
+                if (allArrived)
+                {
+                    // the scripts learn it through G_ShipsHaveArrived; the fleet leaves the ether's list
+                    cat_kasVarFindOrCreate(0, cat_kasHashString("G_ShipsHaveArrived"))->value = 1;
+                    catSpFleetArriving = FALSE;
+                    singlePlayerGameInfo.hyperspaceState = NO_HYPERSPACE;
+                    for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = nextnode)
+                    {
+                        nextnode = node->next;
+                        ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+                        if (allianceIsShipAlly(ship, universe.curPlayerPtr))
+                        {
+                            listDeleteNode(node);
+                            ship->shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_NONE;
+                            bitClear(ship->shipOrDerelict.specialFlags, SPECIAL_SinglePlayerWithinHyperSpaceRange);
+                        }
+                    }
+                    if (singlePlayerGameInfo.hyperspaceFails)
+                    {
+                        for (node = universe.ShipList.head; node != NULL; node = node->next)
+                        {
+                            ship = (Ship *)listGetStructOfNode(node);
+                            if (cat_spShipCanHyperspace(ship) &&
+                                (ship->staticinfo->shipIsCapital || (ship->staticinfo->shipclass == CLASS_Component)) &&
+                                bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_SinglePlayerWithinHyperSpaceRange))
+                            {
+                                ship->shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_NONE;
+                                bitClear(ship->shipOrDerelict.specialFlags, SPECIAL_SinglePlayerWithinHyperSpaceRange);
+                            }
+                        }
+                    }
+                    cat_soundEventLetterboxVolume(TRUE);
+                    for (node = universe.ShipList.head; node != NULL; node = node->next)
+                    {
+                        ship = (Ship *)listGetStructOfNode(node);
+                        cat_rmResearchModuleActivated(ship->playerowner, ship->shiptype, FALSE);
+                    }
+                    clAutoLaunch(singlePlayerGameInfo.oldAutoLaunch,universe.curPlayerIndex);
                     LaunchAllInternalShipsOfPlayerThatMustBeLaunched(universe.curPlayerPtr);
-                }
-                */
+                    aiplayerGameStart(universe.players[1].aiPlayer);
 
-                if (singlePlayerGameInfo.onLoadPlayNIS <= 0)
-                {
-                    soundEventPlayMusic(SongNumber);
-                }
-
-                singlePlayerKasMissionStart(spGetCurrentMission());
-
-                aiplayerGameStart(universe.players[1].aiPlayer);
-
-                if (singlePlayerGameInfo.onLoadPlayNIS > 0)
-                {
-                    hvector startpoint;
-                    char *nis, *script;
-                    bool32 centre;
-
-                    GetStartPointPlayer(&startpoint);
-                    singlePlayerNISNamesGet(&nis, &script, &centre, singlePlayerGameInfo.onLoadPlayNIS);
-                    singlePlayerStartNis(nis, script, centre, &startpoint);
+                    // a mission not entered from its NIS plays it now, where the fleet arrived
+                    if ((catSpMissionNis[singlePlayerGameInfo.currentMission] != -1) &&
+                        !catSpMissionStartsInNis[singlePlayerGameInfo.currentMission])
+                    {
+                        catSpStartPoint(&startpoint);
+                        singlePlayerNisNumber = catSpMissionNis[singlePlayerGameInfo.currentMission];
+                        singlePlayerNISName = catSpNisNames[singlePlayerNisNumber][0];
+                        singlePlayerStartNis(catSpNisNames[singlePlayerNisNumber][0],
+                                             catSpNisNames[singlePlayerNisNumber][1], &startpoint, FALSE, FALSE);
+                        return;
+                    }
                 }
             }
             break;
@@ -2812,14 +3011,143 @@ void DeleteAnyMidLevelHyperspacingShips(void)
     }
 }
 
-void singlePlayerLoadNewLevel(void)
+/*-----------------------------------------------------------------------------
+    Name        : cat_spDeleteLeftBehindShips                       0x0051abb0
+    Description : CAT (M2-R8 kas-runtime-mission01): the mothership modules in the ether that the next level's
+                  mothership does not have stay behind (deleted): a component that is not one of the fixed modules
+                  (Special, Engineering, Armour, Micro, Weapons, Support, BigGun, DockingBay, CarrierSupport) and not one
+                  of the level's module types (cat_univMothershipModuleTypesGet); in Mission 4 the docking bay too
+----------------------------------------------------------------------------*/
+void cat_spDeleteLeftBehindShips(void)
+{
+    Node *node = singlePlayerGameInfo.ShipsInHyperspace.head;
+    CatModuleTypeList modules;
+    Ship *ship;
+    bool32 deleteIt;
+    sdword i;
+
+    while (node != NULL)
+    {
+        ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+        node = node->next;
+        if ((ship->staticinfo->shipclass != CLASS_Component) || (ship->shiptype == sMothershipSpecial) ||
+            (ship->shiptype == sMothershipEngineering) || (ship->shiptype == sMothershipArmour) ||
+            (ship->shiptype == sMothershipMicro) || (ship->shiptype == sMothershipWeapons) ||
+            (ship->shiptype == sMothershipSupport) || (ship->shiptype == sMothershipBigGun) ||
+            (ship->shiptype == sMothershipDockingBay) || (ship->shiptype == sCarrierSupport))
+        {
+            deleteIt = (singlePlayerGameInfo.currentMission == 4) && (ship->shiptype == sMothershipDockingBay);
+        }
+        else
+        {
+            cat_univMothershipModuleTypesGet(&modules);
+            deleteIt = TRUE;
+            for (i = 0; i < modules.num; i++)
+            {
+                if (modules.types[i] == ship->shiptype)
+                {
+                    deleteIt = FALSE;
+                }
+            }
+        }
+        if (deleteIt)
+        {
+            ship->howDidIDie = DEATH_Left_Behind_At_Hyperspace;
+            univDeleteWipeInsideShipOutOfExistence(ship);
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : singlePlayerLoadNewLevel                          0x0051ac80
+    Description : CAT (M2-R8 kas-runtime-mission01): Cataclysm's level change: the mission's level, or with nisLevel
+                  its NIS staging level (GetMissionsDirAndFile); the mission number advances unless keepMission or
+                  the level was asked for by the end of its opening NIS (catSpLevelFromNisStop). Entering Mission01
+                  from its opening NIS, the NIS's fleet docks in the mothership and the capital ships and modules go
+                  into the hyperspace ether, to arrive in the new level; every other ship is deleted. HW1 kept a
+                  mission sequence index and computed the fleet strength by HW1's mothership type.
+    Inputs      : nisLevel, keepMission
+----------------------------------------------------------------------------*/
+void singlePlayerLoadNewLevel(sdword nisLevel, sdword keepMission)
 {
     real32 savephystime = universe.phystimeelapsed;
-    real32 savetottime= universe.totaltimeelapsed;
+    real32 savetottime = universe.totaltimeelapsed;
+    real32 saverealtime = universe.realtimeelapsed;     // CAT: the real time survives too
     Ship *mothership = universe.players[0].PlayerMothership;
+    real32 base, advanced;
+    Node *node, *insidenode;
+    Ship *ship;
 
+    if (!nisLevel)
+    {                                                   // the black fade comes up over the new level
+        catSpLevelFade = 1.0f;
+        catSpLevelFadeRestart = TRUE;
+    }
+    else
+    {
+        catSpLevelFade = 0.0f;
+    }
+    catSpBigGunAllowed = TRUE;                          // 0x00894108
+    universeSwitchToPlayer(0);
+    singlePlayerGameLoadNewLevelFlag = TRUE;            // 0x00c0a5ac, cleared at the end
+    if (!keepMission && !catSpLevelFromNisStop)
+    {
+        spSetCurrentMission((MissionEnum)(singlePlayerGameInfo.currentMission + 1));
+    }
+
+    if ((singlePlayerGameInfo.currentMission == 1) && !nisLevel && catSpMissionStartsInNis[1])
+    {                                                   // the opening NIS's fleet into the ether
+        SelectCommand *selection = selectAllCurrentPlayersNonHyperspacingShips();
+        sdword i;
+
+        for (i = 0; i < selection->numShips; i++)
+        {
+            univRemoveShipFromOutside(selection->ShipPtr[i], TRUE);     // CAT: 1 (0x0051ad42)
+            dockPutShipInside(selection->ShipPtr[i], universe.curPlayerPtr->PlayerMothership);
+        }
+        memFree(selection);
+        clAutoLaunch(15, 0);
+        node = universe.ShipList.head;
+        while (node != NULL)
+        {
+            ship = (Ship *)listGetStructOfNode(node);
+            if ((ship->playerowner == universe.curPlayerPtr) && cat_spShipCanHyperspace(ship) &&
+                (ship->staticinfo->shipIsCapital || (ship->staticinfo->shipclass == CLASS_Component)))
+            {
+                CalculateHyperspaceTimeForShip(ship, universe.curPlayerPtr->PlayerMothership);
+                ship->shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_GONE;
+                if (!bitTest(ship->header.flags, SOF_Hyperspace))
+                {
+                    univRemoveShipFromOutside(ship, FALSE);                 // CAT: 0 (0x0051ade1)
+                    AddShipToHyperspace(ship);
+                    ship->shipSinglePlayerGameInfo->midlevelHyperspaceOut = FALSE;
+                    node = universe.ShipList.head;      // the list changed: start over
+                }
+                else
+                {
+                    node = node->next;                  // CAT-FIX: the exe starts over here too and never ends
+                }
+            }
+            else
+            {
+                node = node->next;
+            }
+        }
+    }
+
+    // the ships of a mid-level hyperspace jump stay behind; every ship left in the universe goes
+    node = singlePlayerGameInfo.ShipsInHyperspace.head;
+    while (node != NULL)
+    {
+        ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+        node = node->next;
+        if (ship->shipSinglePlayerGameInfo->midlevelHyperspaceOut)
+        {
+            ship->howDidIDie = DEATH_Left_Behind_At_Hyperspace;
+            univDeleteWipeInsideShipOutOfExistence(ship);
+        }
+    }
     DeleteAllRemainingShips();
-    DeleteAnyMidLevelHyperspacingShips();
 
     rmResetStaticInfo();
     universeReset();
@@ -2827,38 +3155,26 @@ void singlePlayerLoadNewLevel(void)
 
     universe.phystimeelapsed = savephystime;
     universe.totaltimeelapsed = savetottime;
+    universe.realtimeelapsed = saverealtime;
     universe.players[0].PlayerMothership = mothership;
 
     // restart computer AI player
-    dbgAssertOrIgnore(universe.players[1].aiPlayer == NULL);
     universe.players[1].aiPlayer = aiCurrentAIPlayer = aiplayerInit(&universe.players[1],AI_ADVANCED);
     aiCurrentAIPlayer->primaryEnemyPlayer = &universe.players[0];
 
     // remove sensor weirdness if it's on
     kasfSensorsWeirdness(FALSE);
-
-#ifdef HW_BUILD_FOR_DEBUGGING
-    if (SINGLEPLAYER_DEBUGLEVEL)
-    {
-        singlePlayerGameInfo.currentMission = SINGLEPLAYER_DEBUGLEVEL;
-        SINGLEPLAYER_DEBUGLEVEL = 0;
-    }
-    else
-#endif
-    // go to next level (NB: we're doing two things here; bumping the mission index
-    // and changing the mission enum in the singlePlayerGameInfo struct)
-    singlePlayerGameInfo.currentMission
-        = missionSequence[++singlePlayerCurrentMissionIndex];
+    cat_spDeleteLeftBehindShips();
 
     singlePlayerGameInfo.giveComputerFleetControl = FALSE;      // reset any computer control
     singlePlayerGameInfo.asteroid0sCanMove = FALSE;
 
-    GetMissionsDirAndFile(spGetCurrentMission()); //what mission file to load?
-//... start of crazy starting code from utility.c
-    //reset the enemy player's race to the 'opposite' (R1/R2 race)
-    universe.players[1].race = (universe.players[0].race == R1) ? R2 : R1;
-    //!!! should we reset the other things like RU's and OnMissionLoad stuff?
-    horseRaceInit();
+    GetMissionsDirAndFile(spGetCurrentMission(), nisLevel); //what mission file to load?
+    universe.players[1].race = RACE_Beast;                  // CAT: the enemy is always race 1 (the Beast)
+    if (!catSpStartInLoadingScreen)                         // 0x00a6ac68: gameStart's loading screen is up
+    {
+        horseRaceInit();
+    }
     levelPreInit(spMissionsDir,spMissionsFile);                 //see what ships need to be loaded and what ships we can toss
 
     // pause sound engine
@@ -2874,46 +3190,124 @@ void singlePlayerLoadNewLevel(void)
     trailsRecolorize();
     mistrailsRecolorize();
 
-    SetFleetModifier(spGetCurrentMission(), GetFleetStrengthHyperspace);
+    // CAT: the fleet modifier from the strength of player 0's fleet in the ether (the ships and the ships inside them,
+    //      a mothership counting nothing, by ship class) and its RUs
+    base = BaseFleetStrengthForLevel[singlePlayerGameInfo.currentMission];
+    advanced = AdvancedFleetStrengthForLevel[singlePlayerGameInfo.currentMission];
+    spFleetModifier = 0.0f;
+    if ((base != 0.0f) && (base < advanced))
+    {
+        spFleetStr = 0.0f;
+        for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = node->next)
+        {
+            ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+            if (ship->playerowner == &universe.players[0])
+            {
+                spFleetStr += (ship->staticinfo->shipclass != CLASS_Mothership) ? (real32)ship->staticinfo->buildCost : 0.0f;
+                if (ship->shipsInsideMe != NULL)
+                {
+                    for (insidenode = ship->shipsInsideMe->insideList.head; insidenode != NULL; insidenode = insidenode->next)
+                    {
+                        Ship *inside = ((InsideShip *)listGetStructOfNode(insidenode))->ship;
+                        spFleetStr += (inside->staticinfo->shipclass != CLASS_Mothership) ? (real32)inside->staticinfo->buildCost : 0.0f;
+                    }
+                }
+            }
+        }
+        spFleetStr = (real32)universe.players[0].resourceUnits + spFleetStr;
+        if (spFleetStr > base)
+        {
+            if (spFleetStr < advanced)
+            {
+                spFleetModifier = (spFleetStr - base) / (advanced - base);
+                if (spFleetModifier > 1.0f)
+                {
+                    spFleetModifier = 1.0f;
+                }
+                else if (spFleetModifier < 0.0f)
+                {
+                    spFleetModifier = 0.0f;
+                }
+            }
+            else
+            {
+                spFleetModifier = 1.0f;
+            }
+        }
+    }
+
     levelStartNext(spMissionsDir,spMissionsFile);
+#if HWI_ORACLE
+    {                                                   // HWI-TEST: the mission self-test's flow line
+        char line[100];
+        snprintf(line, sizeof(line), "level loaded %s%s", spMissionsDir, spMissionsFile);
+        catMissionSelfTestEvent(line);
+    }
+#endif
     clPresetShipsToPosition(&universe.mainCommandLayer);
-    singlePlayerLevelLoaded();
-
-    etgReloadReset();
-
+    // CAT: the effects module starts on the first level (later levels reset it), then the pings, subtitles and
+    //      textures (0x0051b0d0 ..)
+    if (!etgHasBeenStarted)                                 // 0x00ab7668 (utility.c)
+    {
+        etgStartup();
+        utySet(SSA_Effect);                                 // 0x00ab7631
+        etgHasBeenStarted = TRUE;
+    }
+    else
+    {
+        etgReloadReset();
+    }
+    pingReset();
+    subReset();
+    subTexturesReset();
     trRegistryRefresh();                                    //refresh registry - load in all textures
-    //if (hrAbortLoadingGame) goto abortload;
+    etgFixupUV();
+    utySet(SSA_RegistryRefreshed);                          // 0x00ab7639
 
 abortload:
     //start the sound engine playing again
     soundEventPause(FALSE);
 
-    horseRaceShutdown();
-    //... end of crazy starting code from utility.c
+    if (!catSpStartInLoadingScreen)
+    {
+        horseRaceShutdown();
+    }
 
     if (!hrAbortLoadingGame)
     {
-        //ccSetModeFlag(&universe.mainCameraCommand,CCMODE_LOCK_OUT_USER_INPUT);
-
         univUpdateRenderList();
+        if (!nisLevel)
+        {                                                   // the arrival times of the ships in the ether
+            for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = node->next)
+            {
+                ShipSinglePlayerGameInfo *info;
 
-        CalculateArrivingTimesForShips();
+                ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+                info = ship->shipSinglePlayerGameInfo;
+                if ((ship->staticinfo->shipclass == CLASS_Mothership) && HYPERSPACE_MOTHERSHIP_ALWAYS_ARRIVES_FIRST)
+                {
+                    info->timeToDelayHyperspace = HYPERSPACE_BASE_MOTHERSHIPARRIVETIME + universe.totaltimeelapsed;
+                }
+                else
+                {
+                    info->timeToDelayHyperspace = HYPERSPACE_BASE_ARRIVETIME + info->timeToDelayHyperspace + universe.totaltimeelapsed;
+                }
+            }
+        }
     }
 
-    bobInitProperties();
+    bobResetProperties();
     // CAT (M2-R6 nis-fow-camera): the local player's fog-of-war grid is made again for the new level
     //      (singlePlayerLoadNewLevel 0x0051ac80 at 0x0051b1f4, after bobResetProperties)
     cat_fowCreatePlayerGrids();
-    // CAT (M2-R4 combat): the blast lists start empty on a new level (singlePlayerLoadNewLevel 0x0051a.., after
-    //      bobResetProperties and cat_fowCreatePlayerGrids; the rest of Cataclysm's next-level flow is stage 6's)
+    // CAT (M2-R4 combat): the blast lists start empty on a new level
     cat_blastInit();
     // CAT (M2-R6 mainrgn-popup): the mimic lists start over with the level (singlePlayerLoadNewLevel 0x0051b1fe)
     cat_mimicInitDisguiseTables();
-    // CAT (M2-R5 hud): the overlay's mission timer restarts with the level (cat_missionTimerReset 0x004acb80, after
-    //      cat_mimicInitDisguiseTables in singlePlayerLoadNewLevel)
-    cat_missionTimerReset();
-
     singlePlayerGameLoadNewLevelFlag = FALSE;
+    // CAT (M2-R5 hud): the overlay's mission timer restarts with the level (cat_missionTimerReset 0x004acb80)
+    cat_missionTimerReset();
+    cat_playerUpdateUpgradesFromResearch(&universe.players[0]);
 }
 
 Ship *FindPlayersMothership(Player *player)
@@ -2986,461 +3380,229 @@ udword spOldMissionNumber(MissionEnum missionEnum)
     return oldMissionValue;
 }
 
-void singlePlayerKasMissionStart(MissionEnum mission)
-{
-#if !CAT_HW1_MISSION_SCRIPTS
-    // CAT-PROVISIONAL (stage 6, the kas2c mission code): no mission script runs until stage 6 ports Cataclysm's
-    //      own (Init_Mission01_Objectives 0x005d6fe0 onwards; 85 functions / 16,378 B for Mission01, 2,085 in all).
-    //      The scripts below are HW1's compiled Kharak..Hiigara missions; they name HW1 teams that Cataclysm's
-    //      .mission files never define (Mission01: KAS.c kasAITeamPtr "unresolved reference to team
-    //      TDFormationTrial"), so they are wrong code for every Cataclysm mission. kasExecute does nothing while no
-    //      mission watch function is set.
-    (void)mission;
-    return;
-#else
-    switch (mission)
-    {
-        case MISSION_1_KHARAK_SYSTEM:              kasMissionStart("mission01",     Init_Mission01,     Watch_Mission01);      break;
-        case MISSION_2_OUTSKIRTS_OF_KHARAK_SYSTEM: kasMissionStart("mission02",     Init_Mission02,     Watch_Mission02);      break;
-        case MISSION_3_RETURN_TO_KHARAK:           kasMissionStart("mission03",     Init_Mission03,     Watch_Mission03);      break;
-        case MISSION_4_GREAT_WASTELANDS_TRADERS:   kasMissionStart("mission04",     Init_Mission04,     Watch_Mission04);      break;
-        case MISSION_5B_TURANIC_RAIDER_PLANETOID:  kasMissionStart("mission05_OEM", Init_Mission05_OEM, Watch_Mission05_OEM);  break;
-        case MISSION_5_GREAT_WASTELANDS_REVENGE:   kasMissionStart("mission05",     Init_Mission05,     Watch_Mission05);      break;
-        case MISSION_6_DIAMOND_SHOALS:             kasMissionStart("mission06",     Init_Mission06,     Watch_Mission06);      break;
-        case MISSION_7_THE_GARDENS_OF_KADESH:      kasMissionStart("mission07",     Init_Mission07,     Watch_Mission07);      break;
-        case MISSION_8_THE_CATHEDRAL_OF_KADESH:    kasMissionStart("mission08",     Init_Mission08,     Watch_Mission08);      break;
-        case MISSION_9_SEA_OF_LOST_SOULS:          kasMissionStart("mission09",     Init_Mission09,     Watch_Mission09);      break;
-        case MISSION_10_SUPER_NOVA_STATION:        kasMissionStart("mission10",     Init_Mission10,     Watch_Mission10);      break;
-        case MISSION_11_TENHAUSER_GATE:            kasMissionStart("mission11",     Init_Mission11,     Watch_Mission11);      break;
-        case MISSION_12_GALACTIC_CORE:             kasMissionStart("mission12",     Init_Mission12,     Watch_Mission12);      break;
-        case MISSION_13_THE_KAROS_GRAVEYARD:       kasMissionStart("mission13",     Init_Mission13,     Watch_Mission13);      break;
-        case MISSION_14_BRIDGE_OF_SIGHS:           kasMissionStart("mission14",     Init_Mission14,     Watch_Mission14);      break;
-        case MISSION_15_CHAPEL_PERILOUS:           kasMissionStart("mission15",     Init_Mission15,     Watch_Mission15);      break;
-        case MISSION_16_HIIGARA:                   kasMissionStart("mission16",     Init_Mission16,     Watch_Mission16);      break;
-
-        default:
-            dbgFatalf(DBG_Loc, "Unsupported MissionEnum enum: %d", mission);
-            break;
-    }
-#endif
-}
-
-void *WatchFunctionAddress(MissionEnum mission)
-{
-#if CAT_HW1_MISSION_SCRIPTS
-    switch (mission)
-    {
-        case MISSION_1_KHARAK_SYSTEM:              return &Watch_Mission01;
-        case MISSION_2_OUTSKIRTS_OF_KHARAK_SYSTEM: return &Watch_Mission02;
-        case MISSION_3_RETURN_TO_KHARAK:           return &Watch_Mission03;
-        case MISSION_4_GREAT_WASTELANDS_TRADERS:   return &Watch_Mission04;
-        case MISSION_5B_TURANIC_RAIDER_PLANETOID:  return &Watch_Mission05_OEM;
-        case MISSION_5_GREAT_WASTELANDS_REVENGE:   return &Watch_Mission05;
-        case MISSION_6_DIAMOND_SHOALS:             return &Watch_Mission06;
-        case MISSION_7_THE_GARDENS_OF_KADESH:      return &Watch_Mission07;
-        case MISSION_8_THE_CATHEDRAL_OF_KADESH:    return &Watch_Mission08;
-        case MISSION_9_SEA_OF_LOST_SOULS:          return &Watch_Mission09;
-        case MISSION_10_SUPER_NOVA_STATION:        return &Watch_Mission10;
-        case MISSION_11_TENHAUSER_GATE:            return &Watch_Mission11;
-        case MISSION_12_GALACTIC_CORE:             return &Watch_Mission12;
-        case MISSION_13_THE_KAROS_GRAVEYARD:       return &Watch_Mission13;
-        case MISSION_14_BRIDGE_OF_SIGHS:           return &Watch_Mission14;
-        case MISSION_15_CHAPEL_PERILOUS:           return &Watch_Mission15;
-        case MISSION_16_HIIGARA:                   return &Watch_Mission16;
-        case MISSION_TUTORIAL:                     return &Watch_Tutorial1;
-        
-        default:
-            break;
-    }
-
-#else
-    (void)mission;   // CAT (M2-R8 kasf library): no HW1 script is built (above)
-#endif
-    return NULL;
-}
-
-/* Get the proper FSM function list for the given mission index. */
-void const** FunctionListAddress(MissionEnum mission) {
-#if CAT_HW1_MISSION_SCRIPTS
-    switch (mission)
-    {
-        case MISSION_1_KHARAK_SYSTEM:              return Mission01_FunctionPointers;
-        case MISSION_2_OUTSKIRTS_OF_KHARAK_SYSTEM: return Mission02_FunctionPointers;
-        case MISSION_3_RETURN_TO_KHARAK:           return Mission03_FunctionPointers;
-        case MISSION_4_GREAT_WASTELANDS_TRADERS:   return Mission04_FunctionPointers;
-        case MISSION_5B_TURANIC_RAIDER_PLANETOID:  return Mission05_OEM_FunctionPointers;
-        case MISSION_5_GREAT_WASTELANDS_REVENGE:   return Mission05_FunctionPointers;
-        case MISSION_6_DIAMOND_SHOALS:             return Mission06_FunctionPointers;
-        case MISSION_7_THE_GARDENS_OF_KADESH:      return Mission07_FunctionPointers;
-        case MISSION_8_THE_CATHEDRAL_OF_KADESH:    return Mission08_FunctionPointers;
-        case MISSION_9_SEA_OF_LOST_SOULS:          return Mission09_FunctionPointers;
-        case MISSION_10_SUPER_NOVA_STATION:        return Mission10_FunctionPointers;
-        case MISSION_11_TENHAUSER_GATE:            return Mission11_FunctionPointers;
-        case MISSION_12_GALACTIC_CORE:             return Mission12_FunctionPointers;
-        case MISSION_13_THE_KAROS_GRAVEYARD:       return Mission13_FunctionPointers;
-        case MISSION_14_BRIDGE_OF_SIGHS:           return Mission14_FunctionPointers;
-        case MISSION_15_CHAPEL_PERILOUS:           return Mission15_FunctionPointers;
-        case MISSION_16_HIIGARA:                   return Mission16_FunctionPointers;
-        case MISSION_TUTORIAL:                     return Tutorial1_FunctionPointers;
-        
-        default:
-            break;
-    }
-
-#else
-    (void)mission;   // CAT (M2-R8 kasf library): no HW1 script is built (above)
-#endif
-    return NULL;
-}
-
-/* Get the size of an FSM function list for the given mission index. */
-udword FunctionListSize(MissionEnum mission)
-{
-#if CAT_HW1_MISSION_SCRIPTS
-    switch (mission)
-    {
-        case MISSION_1_KHARAK_SYSTEM:              return Mission01_FunctionPointerCount;
-        case MISSION_2_OUTSKIRTS_OF_KHARAK_SYSTEM: return Mission02_FunctionPointerCount;
-        case MISSION_3_RETURN_TO_KHARAK:           return Mission03_FunctionPointerCount;
-        case MISSION_4_GREAT_WASTELANDS_TRADERS:   return Mission04_FunctionPointerCount;
-        case MISSION_5B_TURANIC_RAIDER_PLANETOID:  return Mission05_OEM_FunctionPointerCount;
-        case MISSION_5_GREAT_WASTELANDS_REVENGE:   return Mission05_FunctionPointerCount;
-        case MISSION_6_DIAMOND_SHOALS:             return Mission06_FunctionPointerCount;
-        case MISSION_7_THE_GARDENS_OF_KADESH:      return Mission07_FunctionPointerCount;
-        case MISSION_8_THE_CATHEDRAL_OF_KADESH:    return Mission08_FunctionPointerCount;
-        case MISSION_9_SEA_OF_LOST_SOULS:          return Mission09_FunctionPointerCount;
-        case MISSION_10_SUPER_NOVA_STATION:        return Mission10_FunctionPointerCount;
-        case MISSION_11_TENHAUSER_GATE:            return Mission11_FunctionPointerCount;
-        case MISSION_12_GALACTIC_CORE:             return Mission12_FunctionPointerCount;
-        case MISSION_13_THE_KAROS_GRAVEYARD:       return Mission13_FunctionPointerCount;
-        case MISSION_14_BRIDGE_OF_SIGHS:           return Mission14_FunctionPointerCount;
-        case MISSION_15_CHAPEL_PERILOUS:           return Mission15_FunctionPointerCount;
-        case MISSION_16_HIIGARA:                   return Mission16_FunctionPointerCount;
-        case MISSION_TUTORIAL:                     return Tutorial1_FunctionPointerCount;
-        
-        default:
-            break;
-    }
-
-#else
-    (void)mission;   // CAT (M2-R8 kasf library): no HW1 script is built (above)
-#endif
-    return 0;
-}
-
-MissionEnum WatchFunctionToMissionEnum(KASWatchFunction watchFunction)
-{
-    MissionEnum mission = MISSION_ENUM_NOT_INITIALISED;
-
-    for (mission = MISSION_ENUM_NOT_INITIALISED; mission < NUMBER_SINGLEPLAYER_MISSIONS; ++mission)
-    {
-        if (watchFunction == WatchFunctionAddress(mission))
-        {
-            return mission;
-        }
-    }
-    return MISSION_ENUM_NOT_INITIALISED;
-}
-
-KASWatchFunction MissionEnumToWatchFunction(MissionEnum mission)
-{
-    dbgAssertOrIgnore(mission >= MISSION_ENUM_NOT_INITIALISED);
-    dbgAssertOrIgnore(mission <  NUMBER_SINGLEPLAYER_MISSIONS);
-    
-    return WatchFunctionAddress(mission);
-}
-
-void const** MissionEnumToFunctionList(MissionEnum mission) {
-    dbgAssertOrIgnore(mission >= MISSION_ENUM_NOT_INITIALISED);
-    dbgAssertOrIgnore(mission <  NUMBER_SINGLEPLAYER_MISSIONS);
-    
-    return FunctionListAddress(mission);
-}
-
-//Note: single player order has been changed.  The Previous mission 3
-//      where the player meets the traders and fights the Turanic raiders
-//      has been moved to mission 4.  Previous mission 4 (capture the
-//      enemy ship, see the destruction of your homeworld) now happens
-//      in mission 3 with a new background (you fly back to your homeworld).
-//      This explains the weird ordering of the NISs
-//Note2:In addition, the previous mission 15 (mining base) has been moved
-//      to Mission 14, with the Headshot asteroid level (old mission 14)
-//      is now Mission 15.  The only change this effects is the nislet names
-
-#ifdef _WIN32
-    #define NIS_PATH "nis\\"
-#else
-    #define NIS_PATH "nis/"
-#endif
-
-char *singlePlayerNISName = NULL;
-
-sdword singlePlayerNisNumber    = -1;
-sdword singlePlayerNisletNumber = -1;
-
-char *nisR1Names[NUMBER_SINGLEPLAYER_NIS][2] =
-{
-    { NIS_PATH"n01r1.nis",  NIS_PATH"n01r1.script"    },
-#if defined (HW_GAME_DEMO)
-    { NIS_PATH"n02.nis",    NIS_PATH"n02-demo.script" },
-#else
-    { NIS_PATH"n02.nis",    NIS_PATH"n02.script"      },
-#endif
-    { NIS_PATH"n04.nis",    NIS_PATH"n04.script"      },
-    { NIS_PATH"n03r1.nis",  NIS_PATH"n03r1.script"    },
-    { NIS_PATH"n05r1.nis",  NIS_PATH"n05r1.script"    },
-    { NIS_PATH"n06.nis",    NIS_PATH"n06.script"      },
-    { NIS_PATH"n07.nis",    NIS_PATH"n07.script"      },
-    { NIS_PATH"n08r1a.nis", NIS_PATH"n08r1a.script"   },
-    { NIS_PATH"n09.nis",    NIS_PATH"n09.script"      },
-    { NIS_PATH"n10r1.nis",  NIS_PATH"n10r1.script"    },
-    { NIS_PATH"n11r1.nis",  NIS_PATH"n11r1.script"    },
-    { NIS_PATH"n12r1.nis",  NIS_PATH"n12r1.script"    },
-};
-
-//See note above regarding the weird NIS ordering
-char *nisR2Names[NUMBER_SINGLEPLAYER_NIS][2] =
-{
-    { NIS_PATH"n01r2.nis",  NIS_PATH"n01r2.script"  },
-    { NIS_PATH"n02.nis",    NIS_PATH"n02.script"    },
-    { NIS_PATH"n04.nis",    NIS_PATH"n04.script"    },
-    { NIS_PATH"n03r2.nis",  NIS_PATH"n03r2.script"  },
-    { NIS_PATH"n05r2.nis",  NIS_PATH"n05r2.script"  },
-    { NIS_PATH"n06.nis",    NIS_PATH"n06.script"    },
-    { NIS_PATH"n07.nis",    NIS_PATH"n07.script"    },
-    { NIS_PATH"n08r2a.nis", NIS_PATH"n08r2a.script" },
-    { NIS_PATH"n09.nis",    NIS_PATH"n09.script"    },
-    { NIS_PATH"n10r2.nis",  NIS_PATH"n10r2.script"  },
-    { NIS_PATH"n11r2.nis",  NIS_PATH"n11r2.script"  },
-    { NIS_PATH"n12r2.nis",  NIS_PATH"n12r2.script"  },
-};
-
-#define NISLETS_PER_LEVEL       3
-
+/*-----------------------------------------------------------------------------
+    CAT (M2-R8 kas-runtime-mission01): Cataclysm's KAS scripts by the exe's index (0 .. 16 = Mission01 .. Mission17,
+        17 = Tutorial1; MissionEnumToWatchFunction 0x0051b340): the kasMissionStart name, the generated Init / Watch
+        and function list (src/Missions, tools/m2_kas2c_gen.py) and the exe address of the script's Watch function (the
+        saves' function offsets are taken from it, kasConvertFuncPtrToOffset 0x00491800)
+-----------------------------------------------------------------------------*/
 typedef struct
 {
-    char *name[NISLETS_PER_LEVEL];
-    bool8 raceSpecific[NISLETS_PER_LEVEL];
+    char *name;
+    KASInitFunction init;
+    KASWatchFunction watch;
+    const CatKasFunction *functions;
+    const udword *count;
+    udword watchExe;
+} CatKasScript;
+
+#define CAT_KAS_SCRIPTS         CAT_SP_KAS_SCRIPTS
+#define CAT_KAS_SCRIPT_TUTORIAL 17
+// CAT-TODO(M2-R9 part B): the generated code of Mission02 .. Mission17 (docs/mission-code-map.md 8; tools/m2_kas2c_gen.py --scripts): until then those missions start no KAS script
+static const CatKasScript catKasScripts[CAT_KAS_SCRIPTS] =
+{
+    { "mission01", Init_Mission01, Watch_Mission01, Mission01_Functions, &Mission01_FunctionCount, CAT_MISSION01_WATCH_EXE },
+    { "mission02", NULL, NULL, NULL, NULL, 0x005e0bb0 },
+    { "mission03", NULL, NULL, NULL, NULL, 0x005e50d0 },
+    { "mission04", NULL, NULL, NULL, NULL, 0x005ea950 },
+    { "mission05", NULL, NULL, NULL, NULL, 0x005f4420 },
+    { "mission06", NULL, NULL, NULL, NULL, 0x005fb6d0 },
+    { "mission07", NULL, NULL, NULL, NULL, 0x00602280 },
+    { "mission08", NULL, NULL, NULL, NULL, 0x006056a0 },
+    { "mission09", NULL, NULL, NULL, NULL, 0x0060db20 },
+    { "mission10", NULL, NULL, NULL, NULL, 0x00613360 },
+    { "mission11", NULL, NULL, NULL, NULL, 0x00620240 },
+    { "mission12", NULL, NULL, NULL, NULL, 0x00623e90 },
+    { "mission13", NULL, NULL, NULL, NULL, 0x0062a720 },
+    { "mission14", NULL, NULL, NULL, NULL, 0x006378e0 },
+    { "mission15", NULL, NULL, NULL, NULL, 0x0063a1a0 },
+    { "mission16", NULL, NULL, NULL, NULL, 0x00648530 },
+    { "mission17", NULL, NULL, NULL, NULL, 0x00668f20 },
+    { "tutorial1", Init_Tutorial1, Watch_Tutorial1, Tutorial1_Functions, &Tutorial1_FunctionCount, CAT_TUTORIAL1_WATCH_EXE },
+};
+
+// CAT: the mission's KAS script starts (singlePlayerGameUpdate 0x005197d0: kasMissionStart("missionNN") for the missions
+//      1 .. 17; any other number is fatal)
+void singlePlayerKasMissionStart(MissionEnum mission)
+{
+    const CatKasScript *script;
+
+    if ((mission < MISSION_1_KHARAK_SYSTEM) || (mission > MISSION_17))
+    {
+        dbgFatalf(DBG_Loc, "Unsupported mission: %d", mission);
+    }
+    script = &catKasScripts[mission - 1];
+    if (script->init == NULL)
+    {
+        return;                                 // not generated yet (CAT-TODO above)
+    }
+    kasMissionStart(script->name, script->init, script->watch);
 }
-nisletnames;
 
-//see note above nisR1Names regarding nis\m03 being in mission 4
-//in addition, Missions 14 and 15 were swapped
-nisletnames nisletNames[NUMBER_SINGLEPLAYER_MISSIONS] =
+// CAT: 0x0051b230: the index of the script whose Watch function this is, -1 for none
+sdword WatchFunctionToMissionEnum(KASWatchFunction watchFunction)
 {
-    { { NULL,           NULL,           NULL           }, { FALSE, FALSE, FALSE } },
-    { { NIS_PATH"m02a", NULL,           NULL           }, { FALSE, FALSE, FALSE } },
-    { { NULL,           NULL,           NULL           }, { FALSE, FALSE, FALSE } },
-    { { NIS_PATH"m03",  NULL,           NULL           }, { FALSE, FALSE, FALSE } },
-    { { NULL,           NULL,           NULL           }, { FALSE, FALSE, FALSE } },
-    { { NIS_PATH"m06a", NULL,           NULL           }, { FALSE, FALSE, FALSE } },
-    { { NIS_PATH"m07a", NULL,           NULL           }, { FALSE, FALSE, FALSE } },
-    { { NIS_PATH"m08a", NULL,           NULL           }, { FALSE, FALSE, FALSE } },
-    { { NIS_PATH"m09a", NIS_PATH"m09b", NIS_PATH"m06a" }, { FALSE, FALSE, FALSE } },
-    { { NIS_PATH"m10a", NULL,           NULL           }, { FALSE, FALSE, FALSE } },
-    { { NIS_PATH"m11a", NULL,           NULL           }, { FALSE, FALSE, FALSE } },
-    { { NIS_PATH"m12a", NIS_PATH"m12b", NULL           }, { FALSE, TRUE,  FALSE } },
-    { { NIS_PATH"m13a", NULL,           NIS_PATH"m13c" }, { FALSE, FALSE, TRUE  } },
-    { { NIS_PATH"m15a", NIS_PATH"m15b", NULL           }, { FALSE, FALSE, FALSE } },
-    { { NIS_PATH"m14a", NULL,           NULL           }, { TRUE,  FALSE, FALSE } },
-    { { NIS_PATH"m16a", NIS_PATH"m16a", NIS_PATH"m16a" }, { FALSE, FALSE, TRUE  } },
-    
-    { { NULL,           NULL,           NULL           }, { FALSE, FALSE, FALSE } },
-};
+    sdword index;
 
-bool8 nisPlayRelativeToMothership[NUMBER_SINGLEPLAYER_NIS] =
+    for (index = 0; index < CAT_KAS_SCRIPTS; index++)
+    {
+        if ((catKasScripts[index].watch != NULL) && (watchFunction == catKasScripts[index].watch))
+        {
+            return index;
+        }
+    }
+    return -1;
+}
+
+// CAT: 0x0051b340: the script's Watch function, NULL for -1 or an unknown index
+KASWatchFunction MissionEnumToWatchFunction(sdword missionIndex)
 {
-    FALSE,
-    TRUE,
-    TRUE,
-    
-    TRUE,
-    TRUE,
-    TRUE,
-    
-    TRUE,
-    TRUE,
-    TRUE,
-    
-    TRUE,
-    TRUE,
-    TRUE
-};
+    if ((missionIndex < 0) || (missionIndex >= CAT_KAS_SCRIPTS))
+    {
+        return NULL;
+    }
+    return catKasScripts[missionIndex].watch;
+}
 
+// CAT (M2-R8 kas-runtime-mission01): the script's function list and its Watch function's exe address (the saves' base)
+const CatKasFunction *cat_spKasScriptFunctions(sdword missionIndex, udword *count, udword *watchExe)
+{
+    if ((missionIndex < 0) || (missionIndex >= CAT_KAS_SCRIPTS))
+    {
+        *count = 0;
+        *watchExe = 0;
+        return NULL;
+    }
+    *watchExe = catKasScripts[missionIndex].watchExe;   // [audit: M2-R8 kas-runtime-mission01] also for a script not generated yet
+    if (catKasScripts[missionIndex].functions == NULL)
+    {
+        *count = 0;
+        return NULL;
+    }
+    *count = *catKasScripts[missionIndex].count;
+    *watchExe = catKasScripts[missionIndex].watchExe;
+    return catKasScripts[missionIndex].functions;
+}
+
+// CAT (M2-R8 kas-runtime-mission01): HW1's race-suffixed NIS tables (nisR1Names / nisR2Names, nisletNames,
+//      nisPlayRelativeToMothership) and their lookups are gone: Cataclysm's are the tables catSpNisNames /
+//      catSpNisletName at the top of this file (0x00894550, 0x008945a0), read by the callers themselves
+char *singlePlayerNISName = NULL;                       // 0x00a6ada4
+
+sdword singlePlayerNisNumber    = -1;                   // 0x00894694
+sdword singlePlayerNisletNumber = -1;                   // 0x00894698
+
+/*-----------------------------------------------------------------------------
+    Name        : singlePlayerNisStoppedCB                          0x0051b430
+    Description : CAT: the end of a single-player NIS or nislet: after the opening NIS the player's mothership (its
+                  ship of class Mothership) is known and its recons take the custom formation; the scripts learn it
+                  through G_Nis<n>Complete / G_Nislet<n>Complete; the lockout ends (or stays, catNisKeepScissored);
+                  an NIS that opens its mission then loads the mission's level (the fleet goes into the ether and
+                  arrives there: singlePlayerGameUpdate's HYPERSPACE_LOADDONE starts the mission's KAS script)
+----------------------------------------------------------------------------*/
 void singlePlayerNisStoppedCB(void)
 {
-    bool32 savefirstlevel = FALSE;
-    AIVar *var;
-    char bufferstr[30];
+    char bufferstr[32];
+    Node *node;
+    Ship *ship;
 
-    switch (singlePlayerNisNumber)
+#if HWI_ORACLE
+    {                                                   // HWI-TEST: the mission self-test's flow line
+        char line[64];
+        snprintf(line, sizeof(line), "nis stopped nis=%d nislet=%d", (int)singlePlayerNisNumber, (int)singlePlayerNisletNumber);
+        catMissionSelfTestEvent(line);
+    }
+#endif
+
+    if (singlePlayerNisNumber == 1)
     {
-        case 1:
+        GrowSelection growselect;
+
+        universe.curPlayerPtr->PlayerMothership = NULL;
+        for (node = universe.ShipList.head; node != NULL; node = node->next)
         {
-            GrowSelection growselect;
-
-            universe.curPlayerPtr->PlayerMothership = FindPlayersMothership(universe.curPlayerPtr);
-            dbgAssertOrIgnore(universe.curPlayerPtr->PlayerMothership != NULL);
-
-            growSelectInit(&growselect);
-            // CAT: the player's Recon ships (sRecon for a Sect player, bRecon for a Beast one) go into the custom
-            //      formation, not HW1's LightInterceptors (singlePlayerNisStoppedCB 0x0051b430, 0x0051b4a0 .. 0x0051b4f0)
-            if (universe.curPlayerPtr->race == RACE_Sect)
+            ship = (Ship *)listGetStructOfNode(node);
+            if ((ship->playerowner == universe.curPlayerPtr) && (ship->staticinfo->shipclass == CLASS_Mothership))
             {
-                FindShipsOfShipTypeOfPlayer(&growselect,sRecon,universe.curPlayerPtr);
+                universe.curPlayerPtr->PlayerMothership = ship;
+                break;
             }
-            else if (universe.curPlayerPtr->race == RACE_Beast)
-            {
-                FindShipsOfShipTypeOfPlayer(&growselect,bRecon,universe.curPlayerPtr);
-            }
-            if (growselect.selection->numShips > 0)
-            {
-                clFormation(&universe.mainCommandLayer,growselect.selection,CUSTOM_FORMATION,0);   // CAT: level 0 (singlePlayerNisStoppedCB 0x0051b51d)
-            }
-            growSelectClose(&growselect);
-
-            savefirstlevel = TRUE;
         }
-        break;
+
+        growSelectInit(&growselect);
+        // CAT: the player's Recon ships (sRecon for a Sect player, bRecon for a Beast one) go into the custom
+        //      formation, not HW1's LightInterceptors (singlePlayerNisStoppedCB 0x0051b430, 0x0051b4a0 .. 0x0051b4f0)
+        if (universe.curPlayerPtr->race == RACE_Sect)
+        {
+            FindShipsOfShipTypeOfPlayer(&growselect,sRecon,universe.curPlayerPtr);
+        }
+        else if (universe.curPlayerPtr->race == RACE_Beast)
+        {
+            FindShipsOfShipTypeOfPlayer(&growselect,bRecon,universe.curPlayerPtr);
+        }
+        if (growselect.selection->numShips > 0)
+        {
+            clFormation(&universe.mainCommandLayer,growselect.selection,CUSTOM_FORMATION,0);   // CAT: level 0 (singlePlayerNisStoppedCB 0x0051b51d)
+        }
+        growSelectClose(&growselect);
     }
 
-    soundEventPlayMusic(SongNumber);
-
-    //set the KAS global variable when an NIS has stopped
-    if (singlePlayerNisletNumber != -1)
-    {                                                       //if it's an nislet
-        sprintf(bufferstr,"Nislet%dComplete",singlePlayerNisletNumber);
-        var = aivarCreate(bufferstr);
-        aivarValueSet(var, TRUE);
+    // CAT: no music and no level-1 save here (HW1's); the KAS globals G_Nis%dComplete / G_Nislet%dComplete
+    if (singlePlayerNisletNumber == -1)
+    {
+        sprintf(bufferstr,"G_Nis%dComplete",singlePlayerNisNumber);
+        cat_kasVarFindOrCreate(0, cat_kasHashString(bufferstr))->value = 1;
     }
     else
     {
-        dbgAssertOrIgnore(toupper(singlePlayerNISName[0]) == 'N');
-        sprintf(bufferstr,"Nis%dComplete",singlePlayerNisNumber);
-        var = aivarCreate(bufferstr);
-        aivarValueSet(var, TRUE);
+        sprintf(bufferstr,"G_Nislet%dComplete",singlePlayerNisletNumber);
+        cat_kasVarFindOrCreate(0, cat_kasHashString(bufferstr))->value = 1;
+        if (singlePlayerGameInfo.currentMission == 1)
+        {
+            catSpWhiteFlash = 1.0f;                     // Mission01's nislet ends in a white flash
+        }
     }
 
     spUnlockout();
+    if (catNisKeepScissored)
+    {                                                   // the letterbox stays: so does the lockout
+        spLockout(SPLOCKOUT_MR);
+        mouseCursorHide();
+    }
 
-    if (hyperspaceAtEndOfSinglePlayerNIS)
+    if (hyperspaceAtEndOfSinglePlayerNIS)               // 0x00a6adcc
     {
         hyperspaceAtEndOfSinglePlayerNIS = FALSE;
         spHyperspaceButtonPushed();
     }
 
-    if (savefirstlevel)         // this should be at end of function
+    if (singlePlayerNisNumber != -1)
     {
-        kasfSaveLevel(1, strGetString(strSaveSinglePlayerLevel1));
+        if (catSpMissionStartsInNis[singlePlayerGameInfo.currentMission])
+        {                                               // the opening NIS: now the mission's own level
+            catSpLevelFromNisStop = TRUE;
+            singlePlayerGameLoadNewLevelFlag = TRUE;
+            catSpFleetArriving = TRUE;
+            singlePlayerGameInfo.hyperspaceState = HYPERSPACE_LOADDONE;
+            singlePlayerLoadNewLevel(FALSE, FALSE);
+        }
+        catSpLevelFade = 1.0f;
     }
-    singlePlayerNISName = NULL;
     singlePlayerNisletNumber = -1;
     singlePlayerNisNumber = -1;
+    singlePlayerNISName = NULL;
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : singlePlayerNISNamesGet
-    Description : Figure out the name of the nis and script file for a given
-                    nis number.
-    Inputs      : nisNumber - number of NIS to run
-    Outputs     : nisname - name of nis file
-                  scriptname - name of nis script file
-                  centreMothership - TRUE if the NIS is to be centred about player's mothership
-    Return      : void
+    Name        : singlePlayerStartNis                              0x0051b670
+    Description : CAT: plays a single-player NIS or nislet: with loadLevel the mission's NIS staging level is loaded
+                  first (singlePlayerLoadNewLevel(TRUE, keepMission)); the NIS plays at positionAndAngle (NULL: the
+                  KAS point "StartPointPlayer"; w = the heading in degrees), or about the KAS selection
+                  "NisCentreShip"'s first ship, or about the derelict of type G_NisCentreDerelict (instance
+                  G_NisCentreInstance) where the NIS has that ship. Cataclysm plays no NIS about the mothership.
+    Inputs      : nisname, scriptname, positionAndAngle, loadLevel, keepMission
 ----------------------------------------------------------------------------*/
-void singlePlayerNISNamesGet(char **nisname, char **scriptname, bool32 *centreMothership, sdword nisNumber)
-{
-    singlePlayerNisNumber = nisNumber;
-    nisNumber--;
-    dbgAssertOrIgnore(nisNumber >= 0);
-    dbgAssertOrIgnore(nisNumber < NUMBER_SINGLEPLAYER_NIS);
-
-    if (universe.players[0].race == R1)
-    {
-        *nisname = nisR1Names[nisNumber][0];
-        *scriptname = nisR1Names[nisNumber][1];
-    }
-    else
-    {
-        *nisname = nisR2Names[nisNumber][0];
-        *scriptname = nisR2Names[nisNumber][1];
-    }
-    singlePlayerNISName = *nisname;
-    *centreMothership = (bool32)nisPlayRelativeToMothership[nisNumber];
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : singlePlayerNISletNamesGet
-    Description : Figure out the name of the nis and script file for a given
-                    nis number.
-    Inputs      : nisletNumber - number of NISlet to run
-    Outputs     : nisname - name of nis file
-                  scriptname - name of nis script file
-    Return      : TRUE if the NIS can be played properly
-----------------------------------------------------------------------------*/
-bool32 singlePlayerNISletNamesGet(char **nisname, char **scriptname, sdword nisletNumber)
-{
-    sdword missionNumber, insertNumber;
-    static char nisFileName[16];
-    static char nisScriptName[16];
-
-    singlePlayerNisletNumber = nisletNumber;
-
-    missionNumber = nisletNumber / 10;
-    insertNumber = nisletNumber % 10;
-    missionNumber--;
-    dbgAssertOrIgnore(missionNumber >= 0);
-    dbgAssertOrIgnore(missionNumber < NUMBER_SINGLEPLAYER_MISSIONS);
-    dbgAssertOrIgnore(insertNumber >= 0);
-    dbgAssertOrIgnore(insertNumber < NISLETS_PER_LEVEL);
-#if NIS_PRINT_INFO
-    if (nisletNames[missionNumber].name[insertNumber] == NULL)
-    {
-        dbgMessagef("Mission %d insert (%c) is not defined", missionNumber + 1, insertNumber + 'A');
-        return(FALSE);
-    }
-#endif
-    strcpy(nisFileName, nisletNames[missionNumber].name[insertNumber]);
-
-    if (nisletNames[missionNumber].raceSpecific[insertNumber])
-    {
-        if (universe.curPlayerPtr->race == R1)
-        {
-            strcat(nisFileName, "r1");
-        }
-        else
-        {
-            strcat(nisFileName, "r2");
-        }
-    }
-    strcpy(nisScriptName, nisFileName);
-    strcat(nisFileName, ".nis");
-    strcat(nisScriptName, ".script");
-#if NIS_PRINT_INFO
-    if (!fileExists(nisFileName, 0) || !fileExists(nisScriptName, 0))
-    {
-        dbgMessagef("'%s' and/or '%s' do not exist.", nisFileName, nisScriptName);
-        return(0);
-    }
-#endif
-    *nisname = nisFileName;
-    *scriptname = nisScriptName;
-    singlePlayerNISName = *nisname;
-    return(TRUE);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : singlePlayerStartNis
-    Description : Start a single player NIS or NISlet
-    Inputs      : nisname - name of NIS file
-                  scriptname - name of NIS script file
-                  centreMothership - TRUE if this NIS plays relative to the
-                    player's mothership (does not apply to NISlets).
-                  positionAndHeading - ?
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
-void singlePlayerStartNis(char *nisname, char *scriptname, bool32 centreMothership, hvector *positionAndAngle)
+void singlePlayerStartNis(char *nisname, char *scriptname, hvector *positionAndAngle, bool32 loadLevel, bool32 keepMission)
 {
     matrix thisIdentityMatrix;
     vector position;
@@ -3450,23 +3612,43 @@ void singlePlayerStartNis(char *nisname, char *scriptname, bool32 centreMothersh
     vector motherVector;
     matrix motherMatrix;
     vector tempvec;
+    hvector start;
     Ship *nisCentreShip = NULL;
     bool32 centreShipFound = FALSE;
     GrowSelection *nisSelection;
-    ShipRace raceOfCentreShip = R1;
-    ShipType typeOfCentreShip = ShipType_Uninitialized;
+    ShipRace raceOfCentreShip = (ShipRace)-1;
+    ShipType typeOfCentreShip;
     sdword instanceOfCentreShip = -1;
-    AIVar *nisVar;
+    CatKasVar *nisVar;
     Node *node;
     Derelict *derelict;
 
+    if (loadLevel)
+    {
+        catSpLevelFromNisStop = FALSE;
+        singlePlayerLoadNewLevel(TRUE, keepMission);
+    }
+    if (positionAndAngle == NULL)
+    {
+        catSpStartPoint(&start);
+        positionAndAngle = &start;
+    }
     vecGrabVecFromHVec(position,*positionAndAngle);
     angle = DEG_TO_RAD(positionAndAngle->w);
+    typeOfCentreShip = ShipType_Uninitialized;
 
     spMainScreenAndLockout(SPLOCKOUT_EVERYTHING);
+    mouseCursorHide();
 
     thisNisDoneCB = singlePlayerNisStoppedCB;
     thisNisHeader = nisLoad(nisname, scriptname);
+#if HWI_ORACLE
+    {                                                   // HWI-TEST: the mission self-test's flow line
+        char line[200];
+        snprintf(line, sizeof(line), "nis start %s", nisname);
+        catMissionSelfTestEvent(line);
+    }
+#endif
 
     //see if we should centre NIS around a ship
     nisSelection = kasGetGrowSelectionPtrIfExists(cat_kasHashString("NisCentreShip"));    // CAT: by hash (singlePlayerStartNis 0x0051b670)
@@ -3478,17 +3660,17 @@ void singlePlayerStartNis(char *nisname, char *scriptname, bool32 centreMothersh
     }
 
     //see if we should centre NIS around a derelict
-    nisVar = aivarFind("NisCentreDerelict");
+    nisVar = cat_kasVarFind(0, cat_kasHashString("G_NisCentreDerelict"));     // CAT: a KAS global (was the AIVar)
     if (nisVar != NULL)
     {
         raceOfCentreShip = NSR_Derelict;
-        typeOfCentreShip = aivarValueGet(nisVar);
+        typeOfCentreShip = (ShipType)nisVar->value;
         nisCentreShip = NULL;
         //find a derelict of the specified type
         for (node = universe.DerelictList.head; node != NULL; node = node->next)
         {
             derelict = (Derelict *)listGetStructOfNode(node);
-            if (derelict->derelicttype == typeOfCentreShip)
+            if (derelict->derelicttype == (DerelictType)typeOfCentreShip)
             {                                               //if this is the derelict we're looking for
                 nisCentreShip = (Ship *)derelict;
                 break;
@@ -3496,10 +3678,10 @@ void singlePlayerStartNis(char *nisname, char *scriptname, bool32 centreMothersh
         }
     }
     //see if a ship instance was specified
-    nisVar = aivarFind("NisCentreInstance");
+    nisVar = cat_kasVarFind(0, cat_kasHashString("G_NisCentreInstance"));
     if (nisVar != NULL)
     {
-        instanceOfCentreShip = aivarValueGet(nisVar);
+        instanceOfCentreShip = nisVar->value;
     }
 
     if (nisCentreShip)
@@ -3524,24 +3706,11 @@ void singlePlayerStartNis(char *nisname, char *scriptname, bool32 centreMothersh
         {
             angle = (real32)acos((double)cross);
         }
-
-    }
-    else
-    {
-        if (centreMothership)
-        {
-            centreShipFound = nisShipStartPosition(&motherVector, &motherMatrix, thisNisHeader, (ShipRace)-1, Mothership, -1);
-            dbgAssertOrIgnore(universe.curPlayerPtr->PlayerMothership != NULL);
-            nisCentreShip = universe.curPlayerPtr->PlayerMothership;
-        }
     }
 
     if (centreShipFound)
     {
-        // we found the mothership or other centre ship, so let's play the NIS relative to it:
-
-//        matMultiplyMatByMat(&thisIdentityMatrix,&motherMatrix,&IdentityMatrix);
-//        matTranspose(&thisIdentityMatrix);
+        // we found the centre ship, so let's play the NIS relative to it:
         matCopyAndTranspose(&motherMatrix, &thisIdentityMatrix);
         matMultiplyMatByMat(&nisMatrix,&nisCentreShip->rotatable.rotinfo.coordsys,&thisIdentityMatrix);
 
@@ -3549,7 +3718,7 @@ void singlePlayerStartNis(char *nisname, char *scriptname, bool32 centreMothersh
         vecSubFrom(position,tempvec);
     }
     else
-    {                                                       //play about 0,0,0
+    {                                                       //play about the point
         thisIdentityMatrix = IdentityMatrix;
         matMakeRotAboutZ(&rotz,(real32)cos(angle),(real32)sin(angle));
         matMultiplyMatByMat(&nisMatrix,&thisIdentityMatrix,&rotz);
@@ -3558,7 +3727,6 @@ void singlePlayerStartNis(char *nisname, char *scriptname, bool32 centreMothersh
     thisNisPlaying = nisStart(thisNisHeader, &position, &nisMatrix);
     nisTaskResume();
 }
-
 
 void RotatePlayersFleetAbout(Player *player,vector about,real32 deg)
 {
@@ -3898,21 +4066,29 @@ void singleHackResearchWarp(void)
 }
 
 
+/*-----------------------------------------------------------------------------
+    Name        : singlePlayerStartGame                             0x0051bdb0
+    Description : CAT (M2-R8 kas-runtime-mission01): a new single-player game starts in Mission01's opening NIS
+                  (nis\n01.nis, nis\n01.script) at the origin, played in the staging level Mission01_NIS01 that
+                  singlePlayerStartNis loads first (the mission number stays 1); the universe is shown when the NIS
+                  ends (singlePlayerNisStoppedCB loads Mission01 and the fleet hyperspaces in)
+----------------------------------------------------------------------------*/
 void singlePlayerStartGame(void)
 {
     hvector startPoint;
-    char *nis, *script;
-    bool32 centre;
 
     universe.players[1].resourceUnits = 0;
 
     if (warpLevel)
     {
+        char *nis, *script;
+
+        // CAT-TODO(stage 6 single player): cat_spWarpToLevel 0x0051b9c0 (the exe's warp start, after tmTechInit / universeSwitchToPlayer); this tree keeps HW1's warp start
         dbgAssertOrIgnore(spGetCurrentMission() == warpLevel);
 
         universeSwitchToPlayer(0);
 
-        GetMissionsDirAndFile(spGetCurrentMission());
+        GetMissionsDirAndFile(spGetCurrentMission(), FALSE);
 
         SetFleetModifier(spGetCurrentMission(), GetFleetStrengthWarpScript);
         levelStartNext(spMissionsDir,spMissionsFile);
@@ -3935,41 +4111,46 @@ void singlePlayerStartGame(void)
             hvector startpoint;
 
             GetStartPointPlayer(&startpoint);
-            singlePlayerNISNamesGet(&nis, &script, &centre, singlePlayerGameInfo.onLoadPlayNIS);
-            singlePlayerStartNis(nis, script, centre, &startpoint);
+            nis = catSpNisNames[singlePlayerGameInfo.onLoadPlayNIS][0];
+            script = catSpNisNames[singlePlayerGameInfo.onLoadPlayNIS][1];
+            singlePlayerNisNumber = singlePlayerGameInfo.onLoadPlayNIS;
+            singlePlayerNISName = nis;
+            singlePlayerStartNis(nis, script, &startpoint, FALSE, FALSE);
         }
 
         return;
     }
 
     tmTechInit();
-    spFleetModifier = 0.0f;
-    GetMissionsDirAndFile(spGetCurrentMission());
-    levelInit(spMissionsDir,spMissionsFile);
-    singlePlayerLevelLoaded();
-    singlePlayerKasMissionStart(spGetCurrentMission());
-    GetStartPointPlayer(&startPoint);
+    spFleetModifier = 0.0f;                                 // 0x00a6ad84
 
-#if CAT_HW1_MISSION_SCRIPTS
-    singlePlayerNISNamesGet(&nis, &script, &centre, spOldMissionNumber(spGetCurrentMission()));
-    singlePlayerStartNis(nis, script, centre, &startPoint);
-#else
-    // CAT-PROVISIONAL (stage 6, SinglePlayer.c): no mission-start NIS yet. Cataclysm starts a new game by playing
-    //      nis\n01.nis with nis\n01.script and loads the level from inside singlePlayerStartNis
-    //      (singlePlayerStartGame 0x0051bdb0, singlePlayerStartNis 0x0051b670 -> singlePlayerLoadNewLevel); HW1's
-    //      race-suffixed nis\n01r1.nis does not exist in Cataclysm's data (File.c fileSizeGet fatal). Until stage 6
-    //      ports that flow the level is loaded HW1's way above and the game starts without the NIS.
-    (void)nis; (void)script; (void)centre;
+#if HWI_ORACLE
+    // HWI-ORACLE: the headless mission run (/oracleMission and the self-tests riding on it) loads Mission01 at once,
+    //      without the opening NIS and with no KAS script: the mission stream's start since M2-R4
+    //      (docs/m2-r4-rest-oracle.md); /catMissionTest takes the exe's start below
+    if (oracleMissionDirectStart())
+    {
+        GetMissionsDirAndFile(spGetCurrentMission(), FALSE);
+        levelInit(spMissionsDir,spMissionsFile);
+        singlePlayerLevelLoaded();
+        GetStartPointPlayer(&startPoint);
+        return;
+    }
 #endif
+
+    universeSwitchToPlayer(0);
+    singlePlayerNisNumber = 1;
+    singlePlayerNISName = catSpNisNames[1][0];
+    startPoint.x = startPoint.y = startPoint.z = 0.0f;
+    startPoint.w = 0.0f;
+    singlePlayerStartNis(catSpNisNames[1][0], catSpNisNames[1][1], &startPoint, catSpMissionStartsInNis[1], TRUE);
 }
 
 void singlePlayerNextLevel(void)
 {
     hvector startnisAt = { 0.0f, 0.0f, 0.0f, 0.0f };
-    char *nis, *script;
-    bool32 centre;
 
-    if (spGetCurrentMission() == MISSION_16_HIIGARA)
+    if (spGetCurrentMission() == MISSION_17)            // CAT: Cataclysm's last mission
     {
         singlePlayerMissionCompleteCB();
         return;
@@ -3977,8 +4158,11 @@ void singlePlayerNextLevel(void)
 
     if (singlePlayerGameInfo.onCompletePlayNIS > 0)
     {
-        singlePlayerNISNamesGet(&nis, &script, &centre, singlePlayerGameInfo.onCompletePlayNIS);
-        singlePlayerStartNis(nis, script, centre, &startnisAt);
+        // CAT (M2-R8 kas-runtime-mission01): Cataclysm's NIS table (HW1's race-suffixed names are gone)
+        singlePlayerNisNumber = singlePlayerGameInfo.onCompletePlayNIS;
+        singlePlayerNISName = catSpNisNames[singlePlayerNisNumber][0];
+        singlePlayerStartNis(catSpNisNames[singlePlayerNisNumber][0], catSpNisNames[singlePlayerNisNumber][1],
+                             &startnisAt, FALSE, FALSE);
         if (singlePlayerGameInfo.onCompleteHyperspace)
         {
             hyperspaceAtEndOfSinglePlayerNIS = TRUE;
@@ -4101,22 +4285,21 @@ void singlePlayerCheckDebugKeys(sdword ID)
 void spNISletTestAttempt(sdword index)
 {
     hvector startpoint;
-    char *nis, *script;
+    static char nis[160], script[160];
+    char *name;
 
-    if (index < 0 || index >= NUMBER_SINGLEPLAYER_MISSIONS)
+    // CAT (M2-R8 kas-runtime-mission01): Cataclysm's nislet table (catSpNisletName), nislets 1 .. 3
+    name = catSpNisletName(singlePlayerGameInfo.currentMission, index + 1);
+    if (name == NULL)
     {
-        dbgMessage("index < 0 || index >= NUMBER_SINGLEPLAYER_MISSIONS");
-        return;
-    }
-    if (nisletNames[singlePlayerCurrentMissionIndex].name[index] == NULL)
-    {
-        dbgMessagef("nisletNames[%d].name[%d] == NULL", singlePlayerCurrentMissionIndex, index);
+        dbgMessagef("Mission %d has no nislet %d", singlePlayerGameInfo.currentMission, index + 1);
         return;
     }
     GetStartPointPlayer(&startpoint);
-
-    singlePlayerNISletNamesGet(&nis, &script,
-        (spOldMissionNumber(spGetCurrentMission()) * 10) + index);
+    strcpy(nis, name);
+    strcat(nis, ".nis");
+    strcpy(script, name);
+    strcat(script, ".script");
 
     if (!fileExists(nis, 0))
     {
@@ -4128,7 +4311,9 @@ void spNISletTestAttempt(sdword index)
         dbgMessagef("'%s' not found.", script);
         return;
     }
-    singlePlayerStartNis(nis, script, FALSE, &startpoint);
+    singlePlayerNisletNumber = index + 1;
+    singlePlayerNISName = nis;
+    singlePlayerStartNis(nis, script, &startpoint, FALSE, FALSE);
 }
 #endif
 

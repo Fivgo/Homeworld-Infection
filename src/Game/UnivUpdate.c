@@ -32,6 +32,9 @@
 #include "glinc.h"
 #include "HS.h"
 #include "InfoOverlay.h"
+#include "KAS.h"              // CAT: cat_kasShipRemovedFromSelections (M2-R8 KAS runtime)
+#include "OracleDump.h"       // HWI_ORACLE
+#include "MissionSelfTest.h"  // HWI-TEST (M2-R8 kas-runtime-mission01): the mission self-test's scripted player
 #include "FOW.h"              // CAT: the fog of war (M2-R6 nis-fow-camera)
 #include "LaunchMgr.h"
 #include "FEFlow.h"           // CAT: featom for ResearchGUI.h [integrate: M2-R6]
@@ -2813,8 +2816,8 @@ void univUpdateAllPosVelResources()
             {
                 catResourceWrap(&resource->obj.posinfo.position, &((Asteroid *)resource)->catWrapExtent);
             }
-            // CAT-TODO(stage 6 level load / KAS): the box's writer for a new game: neither univAddAsteroid 0x00540a30 nor
-            //      scriptSetResourcesCB 0x004a07b0 stores Asteroid +0x1A8 .. +0x1B0 (a saved or recorded game carries it)
+            // CAT (M2-R8 kas-runtime-mission01): the box's writer for a new game is AddResourceToVolumeAtPosition
+            //      0x0049fcf0 for a meteor storm's asteroid (cat_scriptSetMeteorStormCB 0x004a0d10, LevelLoad.c)
         }
 
         if (resource->resourceNotAccessible > 0)
@@ -5911,8 +5914,10 @@ void DeleteDeadResource(Resource *resource)
     IDToPtrTableObjDied(&ResourceIDToPtr,resource->resourceID.resourceNumber);
 
     // CAT (M2-R4 ships-b): ramming frigates drop the resource as a target (cat_univRemoveTargetFromRammingFrigates
-    //      0x00549230); CAT-TODO(stage 6): KAS selections drop it (cat_kasShipRemovedFromSelections)
+    //      0x00549230); CAT (M2-R8 KAS runtime): then the KAS selections (cat_kasShipRemovedFromSelections 0x004911e0,
+    //      called at 0x005491c3 / 0x005493ac / 0x0054cc49 where this body is inlined)
     cat_univRemoveTargetFromRammingFrigates(resource);
+    cat_kasShipRemovedFromSelections(resource);
     univFreeResourceContents(resource);
 }
 
@@ -5983,7 +5988,7 @@ void cat_univDeleteMimicResource(Resource *resource)
     aiplayerResourceDied(resource);
     IDToPtrTableObjDied(&ResourceIDToPtr,resource->resourceID.resourceNumber);
     cat_univRemoveTargetFromRammingFrigates(resource);
-    // CAT-TODO(stage 6): KAS selections drop it (cat_kasShipRemovedFromSelections)
+    cat_kasShipRemovedFromSelections(resource);             // CAT: the KAS selections drop it (0x00549083)
     univFreeResourceContents(resource);
     listRemoveNode(&resource->resourcelink);
     cat_univRemoveTargetFromRammingFrigates(resource);
@@ -6280,7 +6285,7 @@ void DeleteDeadMissile(Missile *missile, sdword deathBy)
 
     IDToPtrTableObjDied(&MissileIDToPtr,missile->missileID.missileNumber);
 
-    // CAT-TODO(stage 6): KAS selections drop the missile (cat_kasShipRemovedFromSelections)
+    cat_kasShipRemovedFromSelections(missile);              // CAT: the KAS selections drop the missile (0x00549a2a)
     cat_univMeshStateFree(&missile->obj);                   // CAT: DeleteDeadMissile 0x00549880
     cat_univFreeEffectBlock(&missile->obj);
     univFreeMissileContents(missile);
@@ -9940,6 +9945,14 @@ bool32 univUpdate(real32 phystimeelapsed)
     cratesUpdate();
 
     aiplayerUpdateAll();
+#if HWI_ORACLE
+    // HWI-TEST (M2-R8 kas-runtime-mission01, not in the exe): the mission self-test's scripted player acts where the KAS
+    //      scripts act (after the AI players, before the dead ships are deleted), so its events take the game's paths
+    if (catMissionSelfTestRequested())
+    {
+        catMissionSelfTestPlay();
+    }
+#endif
     PTEND(4);
 
     PTSLAB(5,"cmdlayer");
@@ -10007,7 +10020,7 @@ bool32 univUpdate(real32 phystimeelapsed)
 
     if (singlePlayerGameLoadNewLevelFlag)
     {
-        singlePlayerLoadNewLevel();
+        singlePlayerLoadNewLevel(FALSE, FALSE);             // CAT: the next mission's level (univUpdate 0x0054cd9c)
         if (hrAbortLoadingGame)
         {
             utyGameQuitToMain(NULL,NULL);

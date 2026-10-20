@@ -2400,7 +2400,8 @@ typedef struct Asteroid
     struct Ship *catMimicShip;      // +0x1A4
     // CAT (M2-R8 oracle-rung-physics): the half extents of the box a CAT_ATTRIBUTES_KillerCollision asteroid wraps
     //      around in (univUpdateAllPosVelResources 0x005432d0 reads +0x1A8 .. +0x1B0; a saved or recorded game
-    //      carries them, LoadSpaceObj copies the dwords). Name chosen here; the writer for a new game is unknown
+    //      carries them, LoadSpaceObj copies the dwords). Name chosen here; M2-R8 kas-runtime-mission01: written for a
+    //      new game by AddResourceToVolumeAtPosition 0x0049fcf0 (a meteor storm's asteroid, LevelLoad.c)
     vector catWrapExtent;           // +0x1A8 .. +0x1B0
 } Asteroid;
 

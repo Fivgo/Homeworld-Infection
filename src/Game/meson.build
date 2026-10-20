@@ -88,6 +88,7 @@ src_game = files('AIAttackMan.c',
                  'MeshAnim.c',
                  'Mesh.c',
                  'MEX.c',
+                 'MissionSelfTest.c',     # HWI-TEST (M2-R8 kas-runtime-mission01): /catMissionTest
                  'MotionInterp.c',        # HWI-FEATURE(motion-interp): render-time motion interpolation
                  'MotionTest.c',          # HWI-FEATURE(motion-interp): the motion / nis measurement modes
                  'MultiplayerGame.c',

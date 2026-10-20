@@ -30,6 +30,13 @@
 #include "Select.h"
 #include "SinglePlayer.h"
 #include "Timer.h"
+#include "Globals.h"          // CAT: singlePlayerGame (kasSave / kasLoad)
+#include "ResearchAPI.h"      // CAT: rmCanBuildShip / rmEnableShip (kasSave / kasLoad)
+#include "Universe.h"
+#include "utility.h"          // CAT: catSpDifficultySetting (kasSave)
+#include "CatMissions.h"      // CAT: the generated scripts' function lists (kasConvertFuncPtrToOffset)
+#include "OracleDump.h"       // HWI_ORACLE
+#include "MissionSelfTest.h"  // HWI-TEST (M2-R8 kas-runtime-mission01): the mission self-test's flow lines
 
 #ifdef _WIN32
     #define strcasecmp  _stricmp
@@ -235,6 +242,13 @@ void kasExecute(void)
 void kasMissionStart(char *name, KASInitFunction initFunction, KASWatchFunction watchFunction)
 {
     aiplayerLog((0,"\nKAS: Starting %s", name));
+#if HWI_ORACLE
+    {                                                   // HWI-TEST: the mission self-test's flow line
+        char line[64];
+        snprintf(line, sizeof(line), "kas start %s", name);
+        catMissionSelfTestEvent(line);
+    }
+#endif
     memStrncpy(CurrentMissionName, name, KAS_MISSION_NAME_MAX_LENGTH);
     CurrentMissionWatchFunction = watchFunction;
 
@@ -664,6 +678,7 @@ void kasLabelledEntitiesDestroy(void)
 
     // vars
     aivarDestroyAll();
+    cat_kasVarDestroyAll();     // CAT: and the hashed KAS variable store (kasLabelledEntitiesDestroy 0x00490f90 calls 0x00491ae0)
 
     // timers
     timTimerDestroyAll();
@@ -727,6 +742,24 @@ void kasShipDied(Ship *ship)
     while (i < SelectionsUsed)
     {
         clRemoveShipFromSelection(Selections[i]->shipList.selection, ship);
+        ++i;
+    }
+}
+
+//
+//  CAT: cat_kasShipRemovedFromSelections 0x004911e0: a byte-identical, unfolded twin of kasShipDied with other callers:
+//      the deleted resources (univDeleteDeadResources 0x00549270, univReallyDeleteThisResourceRightNow 0x005490d0 and
+//      univUpdate 0x0054c3f0, HW1's DeleteDeadResource inlined three times), the mimic's fake asteroid
+//      (cat_univDeleteMimicResource 0x00548f40) and the dead missiles (DeleteDeadMissile 0x00549880) leave every KAS
+//      selection too. Name chosen (docs/mission-code-map.md 3).
+//
+void cat_kasShipRemovedFromSelections(void *obj)
+{
+    sdword i = 0;
+
+    while (i < SelectionsUsed)
+    {
+        clRemoveShipFromSelection(Selections[i]->shipList.selection, (Ship *)obj);
         ++i;
     }
 }
@@ -1185,6 +1218,13 @@ LabelledVolume *LoadLabelledVolume(void)
     return labelledvolume;
 }
 
+// CAT: the ship types whose buildability a single-player save keeps (kasSave 0x00491220 / kasLoad 0x00491450, in order)
+#define CAT_KAS_SAVED_BUILDABLE_COUNT 6
+static const ShipType catKasSavedBuildable[CAT_KAS_SAVED_BUILDABLE_COUNT] =
+{
+    sMothershipArmour, sMothershipDockingBay, sMothershipMicro, sMothershipSpecial, sMothershipWeapons, dAcolyte
+};
+
 void kasSave(void)
 {
     sdword i;
@@ -1205,7 +1245,8 @@ void kasSave(void)
     //Current
     SaveInfoNumber(AITeamToTeamIndex(CurrentTeamP));
 
-    SaveInfoNumber(CurrentMissionSkillLevel);
+    // CAT: the single-player difficulty, where HW1 saved the skill level (kasSave 0x00491220 writes 0x008941a0)
+    SaveInfoNumber(catSpDifficultySetting);
 
     // Save Selections
 
@@ -1250,6 +1291,16 @@ void kasSave(void)
     // Save KAS Timers
 
     timTimerSave();
+
+    // CAT: a single-player save ends with whether the player can build the five mothership modules and the dAcolyte
+    //      (kasSave 0x00491220: rmCanBuildShip(player 0, type, FALSE) for 0x15, 0x18, 0x16, 0x13, 0x17, 0x85)
+    if (singlePlayerGame)
+    {
+        for (i = 0; i < CAT_KAS_SAVED_BUILDABLE_COUNT; i++)
+        {
+            SaveInfoNumber(rmCanBuildShip(&universe.players[0], catKasSavedBuildable[i], FALSE));
+        }
+    }
 }
 
 void kasLoad(void)
@@ -1261,23 +1312,23 @@ void kasLoad(void)
 
     // Load Global Variables
 
-    // throw this value away; we don't need it as it's tracking the mission
-    // number (effectively) and singlePlayerGameInfo.currentMission is
-    // already doing that perfectly well
-    i = LoadInfoNumber();                         // was: CurrentMissionScope
-    CurrentMissionScope = spGetCurrentMission();  // keep sync'd for consistency
+    // CAT: the scope, its hash, the name and the watch function's mission index are read back as saved (kasLoad
+    //      0x00491450; GoK threw the scope away and took the watch function from the current mission)
+    CurrentMissionScope = LoadInfoNumber();
 
     CurrentMissionScopeName = (udword)LoadInfoNumber();         // CAT: the hash (kasLoad 0x00491450)
     LoadStructureOfSizeToAddress(CurrentMissionName,      sizeof(CurrentMissionName)     );
 
-    i = LoadInfoNumber();    // another CurrentMissionScope duplicate
-    CurrentMissionWatchFunction = MissionEnumToWatchFunction(CurrentMissionScope);
+    CurrentMissionWatchFunction = MissionEnumToWatchFunction((MissionEnum)LoadInfoNumber());
 
 
     dbgAssertOrIgnore(universe.players[1].aiPlayer);
     CurrentTeamP = AITeamIndexToTeam(universe.players[1].aiPlayer,LoadInfoNumber());
 
-    CurrentMissionSkillLevel = LoadInfoNumber();
+    // CAT: the saved difficulty (kasLoad 0x00491450 scales the build-time divisor 0x008941a4 by the current difficulty's
+    //      modifier over the saved one's through cat_spGetDifficultyModifiers 0x00516f90)
+    // CAT-TODO(stage 6 single player): the divisor 0x008941a4 = modifier(catSpDifficultySetting) / modifier(saved) with cat_spGetDifficultyModifiers 0x00516f90 (kasLoad 0x0049150a)
+    (void)LoadInfoNumber();
 
     // Load Selections
 
@@ -1358,61 +1409,78 @@ void kasLoad(void)
     // Load KAS Timers
 
     timTimerLoad();
+
+    // CAT: the scripts learn that the game was loaded: G_RecentlyLoaded = 1 (kasLoad 0x00491450 hashes the literal
+    //      0x008820a8 inline and finds or appends the global variable)
+    cat_kasVarFindOrCreate(0, cat_kasHashString("G_RecentlyLoaded"))->value = 1;
+
+    // CAT: and the player's buildable modules (kasSave above; rmEnableShip(race 0, type, saved))
+    if (singlePlayerGame)
+    {
+        for (i = 0; i < CAT_KAS_SAVED_BUILDABLE_COUNT; i++)
+        {
+            rmEnableShip((ShipRace)0, catKasSavedBuildable[i], LoadInfoNumber());
+        }
+    }
 }
 
+/*-----------------------------------------------------------------------------
+    CAT (M2-R8 kas-runtime-mission01): kasConvertFuncPtrToOffset 0x00491800 / kasConvertOffsetToFuncPtr 0x00491830: a
+        saved KAS function is its cataclysm.exe address minus the current mission's Watch function's
+        (MissionEnumToWatchFunction(currentMission - 1)), -1 for none (docs/mission-code-map.md 4.10). The generated
+        scripts carry each function's exe address (src/Missions, CatMissions.h), so this tree writes the exe's numbers
+        and reads the original game's saves' KAS functions (an ICF-shared body resolves to any of its contexts)
+-----------------------------------------------------------------------------*/
 sdword kasConvertFuncPtrToOffset(void *func)
 {
+    const CatKasFunction *list;
+    udword count, base, watchExe, i;
+    sdword script;
+
     if (func == NULL)
     {
         return -1;
     }
-    else
+    // [audit: M2-R8 kas-runtime-mission01] the base is the current mission's Watch (the exe's), the function is looked
+    //      up in every generated script's list: the exe subtracts any function pointer, so a Tutorial1 function saved
+    //      during the tutorial (currentMission 1, singlePlayerInit 0x00518cb1; Tutorial1's own kasfSaveLevel at
+    //      0x0066a16d) is an offset from Watch_Mission01; looking only in Mission01's list wrote -1 for every one
+    (void)cat_spKasScriptFunctions((sdword)singlePlayerGameInfo.currentMission - 1, &count, &base);
+    for (script = 0; script < CAT_SP_KAS_SCRIPTS; script++)
     {
-        udword i;
-        const void** func_list;
-        udword func_list_size;
-
-        func_list
-            = MissionEnumToFunctionList(spGetCurrentMission());
-            
-        func_list_size
-            = func_list
-            ? FunctionListSize(spGetCurrentMission())
-            : 0;
-
-        for (i = 0; i < func_list_size; i++)
+        list = cat_spKasScriptFunctions(script, &count, &watchExe);
+        for (i = 0; i < count; i++)
         {
-            if (func_list[i] == (void*)func)
-                return (sdword)i;
+            if (list[i].function == func)
+            {
+                return (sdword)(list[i].exeAddress - base);
+            }
         }
-
-        return -1;
     }
+    return -1;      // CAT-FIX: the exe subtracts any pointer; a function of no generated script has no offset
 }
 
 void *kasConvertOffsetToFuncPtr(sdword offset)
 {
+    const CatKasFunction *list;
+    udword count, base, watchExe, i;
+    sdword script;
+
     if (offset == -1)
     {
         return NULL;
     }
-    else
+    (void)cat_spKasScriptFunctions((sdword)singlePlayerGameInfo.currentMission - 1, &count, &base);
+    for (script = 0; script < CAT_SP_KAS_SCRIPTS; script++)
     {
-        const void** func_list;
-        udword func_list_size;
-
-        func_list =
-            MissionEnumToFunctionList(spGetCurrentMission());
-        func_list_size = (func_list
-            ? FunctionListSize(spGetCurrentMission())
-            : 0);
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
-        return ((udword)offset < func_list_size
-            ? func_list[offset]
-            : NULL);
-#pragma GCC diagnostic pop
+        list = cat_spKasScriptFunctions(script, &count, &watchExe);
+        for (i = 0; i < count; i++)
+        {
+            if (list[i].exeAddress == base + (udword)offset)
+            {
+                return list[i].function;
+            }
+        }
     }
+    return NULL;
 }
-

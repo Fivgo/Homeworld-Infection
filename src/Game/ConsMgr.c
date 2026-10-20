@@ -4956,7 +4956,7 @@ sdword cat_cmQueuedSupportUnits(struct Player *player)
     HWI-TEST (M2-R6 managers), port diagnostic, not in the exe: /catBuildTest <ticks> (harness mode build;
     docs/m2-r6-managers.md). It runs the headless Mission01 start of /oracleMission (virtual clock, no animatic, the
     oracle stream written, quits after <ticks>) and builds ships through the construction manager with no input:
-      tick 16    the local player gets an sMothership (the mission's kas2c script, off under CAT_HW1_MISSION_SCRIPTS 0,
+      tick 16    the local player gets an sMothership (the opening NIS, which the direct start of /oracleMission skips,
                  would give it the Kuun-Lan) at the grid point farthest from the level's ships, made its mothership,
                  and 30,000 RUs; the factory list must hold it (univCreateShip's factory block). Then three jobs are
                  queued at its factory exactly as the construction screen's build button does (cmBuildJobsAdd): the

@@ -59,6 +59,7 @@
 #include "Universe.h"
 #include "UnivUpdate.h"
 #include "utility.h"
+#include "MissionSelfTest.h"   // HWI-TEST (M2-R8 kas-runtime-mission01)
 
 /*=============================================================================
     Data:
@@ -202,6 +203,22 @@ void oracleSetMission(char *string)
 bool32 oracleMissionRequested(void)
 {
     return (oracleMissionTicks > 0);
+}
+
+// HWI-TEST (M2-R8 kas-runtime-mission01): a self-test that has its result ends the mission run after the next tick
+void oracleMissionStopAfterThisTick(void)
+{
+    if (oracleMissionTicks > 0)
+    {
+        oracleMissionTicks = (sdword)universe.univUpdateCounter + 1;
+    }
+}
+
+// HWI-ORACLE (M2-R8 kas-runtime-mission01): the mission run starts Mission01 at once, without its opening NIS and
+//      KAS script (the stream's start since M2-R4); the mission self-tests take the exe's NIS-first start
+bool32 oracleMissionDirectStart(void)
+{
+    return (oracleMissionTicks > 0) && !catMissionSelfTestRequested() && !catMissionSelfTestTutorialRequested();
 }
 
 /*-----------------------------------------------------------------------------
@@ -923,6 +940,11 @@ bool32 oracleUnivUpdate(real32 phystimeelapsed)
     if (catAiSelfTestRequested() && (universe.univUpdateCounter != before))
     {
         catAiSelfTestTick();
+    }
+    // HWI-TEST (M2-R8 kas-runtime-mission01): the mission self-test the same way (MissionSelfTest.c)
+    if ((catMissionSelfTestRequested() || catMissionSelfTestTutorialRequested()) && (universe.univUpdateCounter != before))
+    {
+        catMissionSelfTestTick();
     }
     // HWI-TEST (skirmish-start): the skirmish self-test's judgement the same way (LevelLoad.c catSkirmishSelfTestTick)
     if (catSkirmishSelfTestRequested() && (universe.univUpdateCounter != before))

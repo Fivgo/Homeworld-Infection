@@ -411,9 +411,8 @@ void hrDrawChatBox(featom *atom, regionhandle region)
                   152 x 3, in the colour of missionNN\loading.script ("r g b", else colRGB(255, 63, 63))
     Inputs      : pFilenameBuffer - receives the picture's name, or "" when there is none
 ----------------------------------------------------------------------------*/
-// CAT-TODO(stage 6 single player): 0x00a6adac, set by GetMissionsDirAndFile / singlePlayerLoadNewLevel when the
-//      level is entered from its NIS; until the Cataclysm flow sets it, the plain picture is used
-static bool32 catHrMissionNisVariant = FALSE;
+// CAT (M2-R8 kas-runtime-mission01): 0x00a6adac, set by GetMissionsDirAndFile 0x00517200 / singlePlayerLoadNewLevel
+//      0x0051ac80 when the level being loaded is the mission's NIS staging level (SinglePlayer.c catHrMissionNisVariant)
 // the NIS number of each mission's NIS picture (the exe's local table at 0x0048d52d)
 static const sdword catHrMissionNis[18] = { 0, 1, 0, 0, 2, 3, 4, 5, 0, 0, 6, 0, 7, 0, 8, 9, 10, 11 };
 #define CAT_HR_SP_BAR_X             243

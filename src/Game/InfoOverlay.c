@@ -3051,7 +3051,7 @@ void catHudSelfTestTick(void)
         FocusCommand *focus = memAlloc(sizeofSelectCommand(20), "hudtestfocus", 0);
         catHudSelfTestStarted = TRUE;
         // the headless Mission01 start gives the level's whole fleet to player 1 and none to the local player (no
-        //      mission script yet, CAT_HW1_MISSION_SCRIPTS 0); the test views the HUD as the fleet's owner, so the
+        //      opening NIS or mission script in the direct start of /oracleMission); the test views the HUD as the fleet's owner, so the
         //      own-ship paths (info panel, own-ship colours, band box of own ships) run on Mission01's ships
         for (node = universe.ShipList.head; node != NULL; node = node->next)
         {

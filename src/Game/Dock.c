@@ -3311,7 +3311,7 @@ void catDockSelfTestTick(void)
         catDockSelfTestTrace = TRUE;
         player->autoLaunch = 0;                             // scripted: docked ships stay inside until launched
         // a census of what the level put in the universe (the mission file's fleet is player 1's; the player's own
-        // Somtaaw ships come from the kas2c script, which is off under CAT_HW1_MISSION_SCRIPTS 0)
+        // Somtaaw ships come from the opening NIS and the kas2c script, which the direct start of /oracleMission skips)
         {
             sdword census[MAX_MULTIPLAYER_PLAYERS + 1];
 

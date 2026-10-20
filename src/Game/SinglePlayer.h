@@ -17,11 +17,6 @@
     Switches:
 =============================================================================*/
 
-// CAT-PROVISIONAL (stage 6): 0 = HW1's compiled mission scripts and mission-start NIS names are not used on
-//      Cataclysm data (singlePlayerKasMissionStart, singlePlayerStartGame); stage 6 replaces both with Cataclysm's
-//      kas2c missions and NIS-first start and deletes this switch.
-#define CAT_HW1_MISSION_SCRIPTS     0
-
 #ifdef HW_BUILD_FOR_DEBUGGING
 
 #define SP_ERROR_CHECKING           1           //general error checking
@@ -53,7 +48,13 @@ typedef enum
     HYPERSPACE_WHITEOUT,
     HYPERSPACE_LOADDONE,
     HYPERSPACE_SHIPSARRIVING,
-    HYPERSPACE_FAILED
+    HYPERSPACE_FAILED,
+    // CAT (M2-R8 kas-runtime-mission01): two more states (singlePlayerGameUpdate 0x005197d0's switch has cases 9 and
+    //      10; Ghidra's HW1 enum shows them as FAILED|PREWAIT and FAILED|WAITINGROLLCALL). A level is loaded in
+    //      HYPERSPACE_SHIPSARRIVING and waits there (no case) until its KAS script calls StartLevelByHyperspacingShips
+    //      (0x00498230), which sets HYPERSPACE_CATSHIPSHYPERSPACINGIN: the fleet then arrives. Names chosen
+    HYPERSPACE_CATSHIPSHYPERSPACINGIN,  // 9
+    HYPERSPACE_CATFAILEDRETURN          // 10: the end of a failed hyperspace jump (the exe's case 10)
 } HyperspaceState;
 
 #define HS_INACTIVE         0
@@ -69,7 +70,7 @@ typedef enum
 
 #define SP_CAMERA_POINT_NAME        "StartCameraPosition"
 
-#define NUMBER_SINGLEPLAYER_MISSIONS 19
+#define NUMBER_SINGLEPLAYER_MISSIONS 20     // CAT: MISSION_17 added (M2-R8 kas-runtime-mission01)
 
 /*=============================================================================
     Type definitions:
@@ -102,7 +103,8 @@ typedef enum
     MISSION_14_BRIDGE_OF_SIGHS,
     MISSION_15_CHAPEL_PERILOUS,
     MISSION_16_HIIGARA,
-    
+    MISSION_17,             // CAT: Cataclysm's 17th and last mission (singlePlayerGameUpdate 0x005197d0: missions 1 .. 0x11)
+
     // whilst these are out of sequence
     MISSION_5B_TURANIC_RAIDER_PLANETOID,
     MISSION_TUTORIAL,
@@ -196,7 +198,9 @@ void singlePlayerSetMissionAttributes(char *directory,char *filename);
 void singlePlayerGameCleanup(void);
 
 void singlePlayerGameUpdate(void);
-void singlePlayerLoadNewLevel(void);
+// CAT: singlePlayerLoadNewLevel 0x0051ac80 (nisLevel: load the mission's NIS staging level MissionNN_NISmm; keepMission:
+//      do not advance the mission number)
+void singlePlayerLoadNewLevel(sdword nisLevel, sdword keepMission);
 void singlePlayerStartGame(void);
 void singlePlayerNextLevel(void);
 
@@ -215,7 +219,12 @@ MissionEnum spGetPreviousMission(void);
 MissionEnum spGetCurrentMission (void);
 MissionEnum spGetNextMission    (void);
 
-void GetMissionsDirAndFile(MissionEnum mission);
+void GetMissionsDirAndFile(MissionEnum mission, bool32 nisLevel);     // CAT: 0x00517200 (+ the staging level)
+extern bool32 catHrMissionNisVariant;   // CAT: 0x00a6adac, the level being loaded is a NIS staging level (HorseRace.c)
+extern bool32 catSpStartInLoadingScreen;    // CAT: 0x00a6ac68, gameStart's loading screen is up (utility.c)
+extern bool32 catSpFleetArriving;           // CAT: 0x00a6ad78, a level's fleet is arriving
+extern real32 catSpLevelFade;               // CAT: 0x00a6ac70, the black fade over a newly loaded level
+extern real32 catSpWhiteFlash;              // CAT: 0x00a75280, the white flash of Mission01's nislet
 
 void spMainScreen(void);
 
@@ -240,17 +249,23 @@ void spUnlockout(void);
 void LoadSinglePlayerGame(void);
 void SaveSinglePlayerGame(void);
 
-MissionEnum      WatchFunctionToMissionEnum(KASWatchFunction watchFunction);
-KASWatchFunction MissionEnumToWatchFunction(MissionEnum mission);
-
-udword FunctionListSize(MissionEnum mission);
-const void** MissionEnumToFunctionList(MissionEnum mission);
+// CAT: the KAS scripts by cataclysm.exe's index (0 .. 16 = Mission01 .. Mission17, 17 = Tutorial1; -1 none):
+//      WatchFunctionToMissionEnum 0x0051b230, MissionEnumToWatchFunction 0x0051b340 (the saves' mission word)
+sdword           WatchFunctionToMissionEnum(KASWatchFunction watchFunction);
+KASWatchFunction MissionEnumToWatchFunction(sdword missionIndex);
+// CAT (M2-R8 kas-runtime-mission01): a script's generated function list (each function with its cataclysm.exe address)
+//      and its Watch function's exe address, by the exe's index; NULL when the script is not generated yet (the address
+//      is still given for an index 0 .. CAT_SP_KAS_SCRIPTS - 1: the saves' base, kasConvertFuncPtrToOffset)
+#define CAT_SP_KAS_SCRIPTS  18
+const struct CatKasFunctionTag *cat_spKasScriptFunctions(sdword missionIndex, udword *count, udword *watchExe);
 
 #if SP_NISLET_TEST
 void spNISletTestAttempt(sdword index);
 #endif
 
-bool32 singlePlayerNISletNamesGet(char **nisname, char **scriptname, sdword nisletNumber);
+void singlePlayerStartNis(char *nisname, char *scriptname, hvector *positionAndAngle, bool32 loadLevel, bool32 keepMission);
+extern sdword singlePlayerNisNumber;        // CAT: 0x00894694
+extern sdword singlePlayerNisletNumber;     // CAT: 0x00894698
 bool32 spFindCameraAttitude(vector *position);
 
 void UpdateMidLevelHyperspacingShips(void);

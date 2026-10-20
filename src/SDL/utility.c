@@ -53,6 +53,7 @@
 #include "Clamp.h"
 #include "LaunchMgr.h"
 #include "LevelLoad.h"
+#include "MissionSelfTest.h"   // HWI-TEST (M2-R8 kas-runtime-mission01): /catMissionTestTutorial
 #include "Light.h"
 #include "mainrgn.h"
 #include "Memory.h"
@@ -1838,9 +1839,35 @@ void gameStart(char *loadfilename)
                 dbgMessagef("player is race %u", universe.players[0].race);
 #endif
 
-                // CAT: gameStart 0x005a9290 sets the start-position table to the 8 indices 0..7 here (read by the MissionSphere readers)
-                // CAT-TODO(stage 6 level load): gameStart 0x005a9290 then shuffles catStartPositions with 20 swaps of two ranRandomFn(stream 0) % spScenarios[spCurrentSelected].maxplayers picks; the readers scriptSetMissionSphereCB 0x004a2420 / scriptPreMissionSphereCB 0x004a2820 are ported (skirmish-start), only these 40 stream-0 draws are left (they move the Mission01 stream's rng0)
-                for (i = 0; i < MAX_MULTIPLAYER_PLAYERS; i++) catStartPositions[i] = i;     // CAT-PROVISIONAL: no shuffle until stage 6, player i starts at the map's position i
+                // CAT: gameStart 0x005a9290 sets the start-position table to the 8 indices 0..7 here (read by the MissionSphere
+                //      readers scriptSetMissionSphereCB 0x004a2420 / scriptPreMissionSphereCB 0x004a2820), then shuffles it
+                //      with 20 swaps of two stream-0 picks modulo the picked scenario's player count (0x005a9644 ..
+                //      0x005a96a7: both picks are drawn even when they are equal, then nothing is swapped); every
+                //      non-tutorial new game draws these 40 (M2-R8 kas-runtime-mission01: retires the identity table)
+                for (i = 0; i < MAX_MULTIPLAYER_PLAYERS; i++) catStartPositions[i] = i;
+                {
+                    udword maxplayers = spScenarios[spCurrentSelected].maxplayers;
+                    udword a, b, swap;
+                    sdword n;
+
+                    for (n = 0; n < 20; n++)
+                    {
+                        a = ranRandom(0);
+                        b = ranRandom(0);
+                        if (maxplayers == 0)
+                        {
+                            continue;       // CAT-FIX: the exe divides by the count unchecked (a scenario of no player)
+                        }
+                        a %= maxplayers;
+                        b %= maxplayers;
+                        if ((a != b) && (a < MAX_MULTIPLAYER_PLAYERS) && (b < MAX_MULTIPLAYER_PLAYERS))   // CAT-FIX: within the table
+                        {
+                            swap = (udword)catStartPositions[a];
+                            catStartPositions[a] = catStartPositions[b];
+                            catStartPositions[b] = (sdword)swap;
+                        }
+                    }
+                }
                 for (i = 1; i < numPlayers; i++)
                 {
                     universe.players[i].race = otherRace;
@@ -1912,7 +1939,16 @@ void gameStart(char *loadfilename)
         //!!!do a pass on the first SP level and find what ships/textures are needed
         if (loadfilename == NULL)
         {
-            GetMissionsDirAndFile(spGetCurrentMission());
+            // CAT: a new game at Mission01 preloads its NIS staging level, the level it starts in (gameStart
+            //      0x005a9290: GetMissionsDirAndFile(currentMission, currentMission == 1))
+            bool32 nisLevel = (spGetCurrentMission() == MISSION_1_KHARAK_SYSTEM);
+#if HWI_ORACLE
+            if (oracleMissionDirectStart())
+            {
+                nisLevel = FALSE;                           // HWI-ORACLE: the mission run starts in Mission01 itself
+            }
+#endif
+            GetMissionsDirAndFile(spGetCurrentMission(), nisLevel);
             levelPreInit(spMissionsDir, spMissionsFile);
         }
         // else PreLoadGame already figures out what ships we need to load
@@ -2052,7 +2088,11 @@ void gameStart(char *loadfilename)
         aiCurrentAIPlayer = universe.players[1].aiPlayer;
         aiCurrentAIPlayer->primaryEnemyPlayer = &universe.players[0];
         if (loadfilename == NULL)
+        {
+            catSpStartInLoadingScreen = TRUE;               // CAT: 0x00a6ac68 around the start (gameStart 0x005a9290)
             singlePlayerStartGame();
+            catSpStartInLoadingScreen = FALSE;
+        }
     }
     else
     {
@@ -4776,6 +4816,12 @@ DONE_INTROS:
     else if (catSkirmishSelfTestRequested())
     {
         catSkirmishSelfTestStart();
+    }
+    // HWI-TEST (M2-R8 kas-runtime-mission01): /catMissionTestTutorial starts the tutorial as the front end's Tutorial
+    //      Alert does (utyStartTutorial: tutorial 1, the single-player start)
+    else if (catMissionSelfTestTutorialRequested())
+    {
+        utyStartTutorial("", NULL);
     }
     // HWI-ORACLE: /oracleMission <ticks> starts single player at once too (no screenshots, no next-level loop)
     else if (oracleMissionRequested())

@@ -37,6 +37,7 @@ static const SaveCat32Layout saveCat32Layout_elem_Processor_slots_0_b2708604;
 static const SaveCat32Layout saveCat32Layout_elem_Sentinel_links_0_b1037990;
 static const SaveCat32Layout saveCat32Layout_elem_common_enemyShipsIAmAwareOf_0_647279cc;
 static const SaveCat32Layout saveCat32Layout_elem_common_engineNozzleOffset_0_05b36135;
+static const SaveCat32Layout saveCat32Layout_elem_common_lod_0_59f217fa;
 static const SaveCat32Layout saveCat32Layout_elem_common_playerInfo_0_716f9833;
 static const SaveCat32Layout saveCat32Layout_elem_common_playerStats_0_ac6f2363;
 static const SaveCat32Layout saveCat32Layout_elem_common_players_0_49575e25;
@@ -546,10 +547,10 @@ _Static_assert(sizeof(ResearchTopic) == 0x28, "ResearchTopic: regenerate src/Gam
 
 static const SaveCat32Op ops_ResourceVolume[] = {
     { SC32_PTR, 0x0, 0x0, 4, 4, 4, 8, NULL },
-    { SC32_COPY, 0x10, 0x20, 0x88, 1, 0, 0, NULL },
+    { SC32_COPY, 0x10, 0x20, 0xa0, 1, 0, 0, NULL },
 };
-const SaveCat32Layout saveCat32Layout_ResourceVolume = { "ResourceVolume", 0x98, 0xa8, 2, ops_ResourceVolume };
-_Static_assert(sizeof(ResourceVolume) == 0xa8, "ResourceVolume: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
+const SaveCat32Layout saveCat32Layout_ResourceVolume = { "ResourceVolume", 0xb0, 0xc0, 2, ops_ResourceVolume };
+_Static_assert(sizeof(ResourceVolume) == 0xc0, "ResourceVolume: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
 
 static const SaveCat32Op ops_RetreatAtom[] = {
     { SC32_PTR, 0x0, 0x0, 4, 6, 4, 8, NULL },
@@ -810,6 +811,33 @@ static const SaveCat32Op ops_madanim[] = {
 };
 const SaveCat32Layout saveCat32Layout_madanim = { "madanim", 0x3c, 0x58, 6, ops_madanim };
 _Static_assert(sizeof(madanim) == 0x58, "madanim: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
+
+static const SaveCat32Op ops_nebChunk[] = {
+    { SC32_COPY, 0x0, 0x0, 0x38, 1, 0, 0, NULL },
+    { SC32_PTR, 0x38, 0x38, 4, 3, 4, 8, NULL },
+    { SC32_COPY, 0x44, 0x50, 0xc, 1, 0, 0, NULL },
+    { SC32_PTR, 0x50, 0x60, 4, 2, 4, 8, NULL },
+};
+const SaveCat32Layout saveCat32Layout_nebChunk = { "nebChunk", 0x58, 0x70, 4, ops_nebChunk };
+_Static_assert(sizeof(nebChunk) == 0x70, "nebChunk: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
+
+static const SaveCat32Op ops_elem_common_lod_0_59f217fa[] = {
+    { SC32_COPY, 0x0, 0x0, 0x8, 1, 0, 0, NULL },
+    { SC32_PTR, 0x8, 0x8, 4, 3, 4, 8, NULL },
+    { SC32_COPY, 0x14, 0x20, 0x48, 1, 0, 0, NULL },
+};
+static const SaveCat32Layout saveCat32Layout_elem_common_lod_0_59f217fa = { "elem_common_lod_0_59f217fa", 0x5c, 0x68, 3, ops_elem_common_lod_0_59f217fa };
+
+static const SaveCat32Op ops_nebTendril[] = {
+    { SC32_COPY, 0x0, 0x0, 0x8, 1, 0, 0, NULL },
+    { SC32_PTR, 0x8, 0x8, 4, 2, 4, 8, NULL },
+    { SC32_COPY, 0x10, 0x18, 0x1c, 1, 0, 0, NULL },
+    { SC32_PTR, 0x2c, 0x38, 4, 2, 4, 8, NULL },
+    { SC32_ARRAY, 0x34, 0x48, 0, 2, 0x5c, 0x68, &saveCat32Layout_elem_common_lod_0_59f217fa },
+    { SC32_COPY, 0xec, 0x118, 0xd, 1, 0, 0, NULL },
+};
+const SaveCat32Layout saveCat32Layout_nebTendril = { "nebTendril", 0xfc, 0x128, 6, ops_nebTendril };
+_Static_assert(sizeof(nebTendril) == 0x128, "nebTendril: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
 
 static const SaveCat32Op ops_shipinprogress[] = {
     { SC32_COPY, 0x0, 0x0, 0x20, 1, 0, 0, NULL },

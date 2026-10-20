@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle|replay|ai|skirmish
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle|replay|ai|skirmish|missiontest
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -216,6 +216,18 @@
 #                    result=PASS|FAIL", then the mission run's quit (rc 0; two runs of one map must give byte-identical
 #                    run.hwo streams). About 20 s under ASan for 600 ticks. The default map is not in the front end's
 #                    list (multiPlayerMissions.script comments it out; the test adds its line); Armed8 is a listed one
+#                    missiontest: /catMissionTest <ticks> /oracleDump <run>/run.hwo (M2-R8 kas-runtime-mission01,
+#                    docs/m2-r8-kas-runtime-mission01.md "The mission self-test"): a new single-player game started as
+#                    sp starts it, on the mission mode's virtual clock (one universe tick a frame) but with the exe's
+#                    NIS-first start and Mission01's generated kas2c script, no sound and no speech; the opening NIS
+#                    plays in its staging level, the fleet hyperspaces into Mission01, the KAS FSMs run, and the test
+#                    plays the player's part with scripted events (commands through the command layer, no input);
+#                    "missiontest: <objective> tick=N" per objective of Mission01's map (docs/mission-code-map.md 8),
+#                    "missiontest: fsm ..." per KAS state change, "missiontest: done ticks=N objectives=N/M
+#                    result=PASS|FAIL", then the mission run's quit (rc 0; two runs must give byte-identical run.hwo
+#                    streams). With --tutorial: /catMissionTestTutorial (Tutorial1 starts and its first prompt shows)
+#   --mission-test-ticks N missiontest mode: the run's tick limit (default 20000)
+#   --tutorial       missiontest mode: Tutorial1's first screen instead of Mission01
 #   --skirmish-ticks N skirmish mode: universe ticks to run before the judgement (default 600)
 #   --skirmish-map NAME skirmish mode: the map, a MultiPlayer directory name (default LiveFireExercise2; Armed8 is an
 #                    8-player map, so its spheres 2..7 must be skipped)
@@ -303,7 +315,7 @@ label=${1:?usage: m2_harness.sh <label> [--mode sp|fe] [--timeout N] [--driver D
 shift
 mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"; extra=()
 oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=3000; rframes=600; hframes=600; uticks=400
-conticks=400; bticks=7000; aiticks=400
+conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""; skticks=600; skmap=LiveFireExercise2
 while [[ $# -gt 0 ]]; do
 	case "$1" in
@@ -330,6 +342,8 @@ while [[ $# -gt 0 ]]; do
 		--recording-src) recsrc=$(realpath -- "$2"); shift ;;
 		--recording-as) recas=$2; shift ;;
 		--skirmish-ticks) skticks=$2; shift ;;
+		--mission-test-ticks) mtticks=$2; shift ;;
+		--tutorial) mttut=1 ;;
 		--skirmish-map) skmap=$2; shift ;;
 		--perturb) perturb=$2; shift ;;
 		--hwo) hwo=1 ;;
@@ -378,6 +392,12 @@ elif [[ "$mode" == build ]]; then
 	args+=(/catBuildTest "$bticks" /oracleDump "$out/run.hwo")
 elif [[ "$mode" == ai ]]; then
 	args+=(/catAiTest "$aiticks" /oracleDump "$out/run.hwo")
+elif [[ "$mode" == missiontest ]]; then
+	if [[ $mttut -eq 1 ]]; then
+		args+=(/catMissionTestTutorial "$mtticks" /oracleDump "$out/run.hwo")
+	else
+		args+=(/catMissionTest "$mtticks" /oracleDump "$out/run.hwo")
+	fi
 elif [[ "$mode" == skirmish ]]; then
 	args+=(/catSkirmishMap "$skmap" /catSkirmishTest "$skticks" /oracleDump "$out/run.hwo")
 elif [[ "$mode" == motion ]]; then
@@ -522,6 +542,7 @@ grep -q "nisparsetest: done" "$L" && milestone="nisparse self-test done"
 grep -q "motiontest: done" "$L" && milestone="motion self-test done"
 grep -q "toggletest: done" "$L" && milestone="toggle self-test done"
 grep -q "skirmishtest: done" "$L" && milestone="skirmish self-test done"
+grep -q "missiontest: done" "$L" && milestone="mission self-test done"
 
 # first stop: the first fatal error / failed assertion / ASan report. UBSan runtime errors do not stop the engine; the
 # first one is reported separately (the misaligned-access reports on the packed front-end structs, GoK 64-bit artefacts
@@ -569,6 +590,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == ai ]] && echo "aitest: $(grep -h 'aitest: ' "$L" | grep -v 'aitest: status\|aitest: FAIL\|aitest: loaded' | sed 's/^.*aitest: //' | paste -sd';'); FAIL lines: $(grep -c 'aitest: FAIL' "$L")"
 	[[ "$mode" == nisparse ]] && echo "nisparsetest: $(grep -c . "$out/nis.list" 2>/dev/null) files listed; $(grep -h 'nisparsetest: done' "$L" | sed 's/^.*nisparsetest: //' | head -n 1); FAIL lines: $(grep -c 'nisparsetest: FAIL' "$L"); ignored keywords: $(grep -h 'nisparsetest: keyword' "$L" | sed "s/^.*: '//; s/' / /" | paste -sd',')"
 	[[ "$mode" == motion || "$mode" == nis ]] && echo "motiontest: $(grep -h 'motiontest: ' "$L" | sed 's/^.*motiontest: //' | paste -sd';'); dump $(ls "$out"/*.dump 2>/dev/null | head -n 1 | xargs -r -I{} sh -c 'echo "$(basename {}) $(grep -c "^F " {}) frames, sha256 $(sha256sum {} | cut -c1-16)"')"
+	[[ "$mode" == missiontest ]] && echo "missiontest: $(grep -h 'missiontest: ' "$L" | grep -v 'missiontest: status\|missiontest: fsm\|missiontest: FAIL' | sed 's/^.*missiontest: //' | paste -sd';'); FAIL lines: $(grep -c 'missiontest: FAIL' "$L")"
 	[[ "$mode" == skirmish ]] && echo "skirmishtest: $(grep -h 'skirmishtest: ' "$L" | grep -v 'skirmishtest: FAIL' | sed 's/^.*skirmishtest: //' | paste -sd';'); FAIL lines: $(grep -c 'skirmishtest: FAIL' "$L")"
 	[[ "$mode" == toggle ]] && echo "toggletest: $(grep -h 'toggletest: ' "$L" | grep -v 'toggletest: FAIL' | sed 's/^.*toggletest: //' | paste -sd';'); FAIL lines: $(grep -c 'toggletest: FAIL' "$L")"
 	[[ "$mode" == keys ]] && echo "keystest: $(grep -h 'keystest: ' "$L" | grep -v 'keystest: FAIL' | sed 's/^.*keystest: //' | paste -sd';'); FAIL lines: $(grep -c 'keystest: FAIL' "$L")"

@@ -5540,12 +5540,13 @@ sdword kasfGetShipsClampedTo(GrowSelection *pShipsAttached, GrowSelection *pHost
 
 /*-----------------------------------------------------------------------------
     Name        : kasfStartLevelByHyperspacingShips                 0x00498230
-    Description : CAT: KAS "StartLevelByHyperspacingShips": the single-player hyperspace state goes to the wait before
-                  the ships arrive (HYPERSPACE_FAILED | HYPERSPACE_PREWAIT's value, 0x11)
+    Description : CAT: KAS "StartLevelByHyperspacingShips": the fleet of a newly loaded level starts arriving (the
+                  single-player hyperspace state 9, HYPERSPACE_CATSHIPSHYPERSPACINGIN; M2-R8 kas-runtime-mission01
+                  named it: the kasf library wrote HYPERSPACE_FAILED | HYPERSPACE_PREWAIT, the same value)
 ----------------------------------------------------------------------------*/
 void kasfStartLevelByHyperspacingShips(void)
 {
-    singlePlayerGameInfo.hyperspaceState = (HyperspaceState)(HYPERSPACE_FAILED | HYPERSPACE_PREWAIT);
+    singlePlayerGameInfo.hyperspaceState = HYPERSPACE_CATSHIPSHYPERSPACINGIN;
 }
 
 /*-----------------------------------------------------------------------------

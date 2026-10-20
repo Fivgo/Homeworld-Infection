@@ -42,7 +42,8 @@ COMMON_ROOTS = ["CaptainGameInfo", "Ship", "ClampInfo", "DamageLightStatic", "Gu
                 "CameraStackEntry", "RetreatAtom", "ResourceVolume", "MineFormationInfo", "ShipStaticInfo",
                 "AsteroidStaticInfo", "SinglePlayerGameInfo", "madanim", "splinecurve", "PlayerResearchInfo",
                 "shipsinprogress", "shipinprogress", "CatFOWGrid", "ResearchTopic", "AttackAtom", "DustCloudStaticInfo",
-                "cloudSystem", "Camera", "AIPlayer", "RequestShips", "TeamWaitingForTheseShips", "AITeamMove"]
+                "cloudSystem", "Camera", "AIPlayer", "RequestShips", "TeamWaitingForTheseShips", "AITeamMove",
+                "nebChunk", "nebTendril"]
 OPTIONAL_ROOTS = {"shipsinprogress", "shipinprogress", "CatFOWGrid", "splinecurve"}
 
 SHIP_DIR = os.path.join(ROOT, "src", "Ships")

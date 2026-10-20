@@ -129,6 +129,8 @@ extern const SaveCat32Layout saveCat32Layout_AIPlayer;                      // M
 extern const SaveCat32Layout saveCat32Layout_RequestShips;
 extern const SaveCat32Layout saveCat32Layout_TeamWaitingForTheseShips;
 extern const SaveCat32Layout saveCat32Layout_AITeamMove;
+extern const SaveCat32Layout saveCat32Layout_nebChunk;          // M2-R8 kas-runtime-mission01
+extern const SaveCat32Layout saveCat32Layout_nebTendril;
 extern const SaveCat32SpecLayout saveCat32SpecLayouts[];
 #endif
 

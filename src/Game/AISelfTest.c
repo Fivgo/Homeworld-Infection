@@ -534,7 +534,7 @@ static void catAiTestSetup(sdword tick)
         }
     }
 
-    // the human player's mothership: Mission01 under CAT_HW1_MISSION_SCRIPTS 0 gives player 0 none (the kas2c script
+    // the human player's mothership: the direct Mission01 start of /oracleMission gives player 0 none (the opening NIS
     // would bring the Kuun-Lan), and the AI aims its fleet orders, its patrol paths (aiuGeneratePatrolPath) and its
     // sphere of influence (aidCheckSphereOfInfluence) at the enemy mothership: one is put 25,000 from the factory
     if (universe.players[0].PlayerMothership == NULL)

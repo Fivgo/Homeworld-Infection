@@ -74,6 +74,7 @@ static void scriptSetAIPathCB       (char *directory, char *field, void *dataToF
 static void scriptSetAIBoxCB        (char *directory, char *field, void *dataToFillIn);
 static void scriptSetAISphereCB     (char *directory, char *field, void *dataToFillIn);
 static void scriptSetMissionSphereCB(char *directory, char *field, void *dataToFillIn);
+static void cat_scriptSetMeteorStormCB(char *directory, char *field, void *dataToFillIn);
 static void scriptSetLightingCB     (char *directory, char *field, void *dataToFillIn);
 static void scriptSetBackgroundCB   (char *directory, char *field, void *dataToFillIn);
 static void scriptSetUword2CB       (char *directory, char *field, void *dataToFillIn);
@@ -119,6 +120,8 @@ scriptStructEntry MissionSphereScriptTable[] =
     { "AIBox",     scriptSetAIBoxCB,     0, 0 },
     { "AISphere",  scriptSetAISphereCB,  0, 0 },
     { "Resources", scriptSetResourcesCB, 0, 0 },
+    { "MeteorStorm", cat_scriptSetMeteorStormCB, 0, 0 },     // CAT: 0x004a0d10, after "Resources" (table 0x00883aa8)
+    // CAT-TODO(M2-R9 part B): the exe's table 0x00883a48 has "Mine" (0x004a3f20) and "Slipgate" (cat_scriptSetSlipgateCB 0x004a1020) between "MeteorStorm" and "Derelict"; unported, so their lines are skipped (LiveFireExercise2 and other multiplayer maps, Mission03 / 10 / 12 / 14; none in Mission01 or Tutorial1) [audit: M2-R8 kas-runtime-mission01]
     { "Derelict",  scriptSetDerelictCB,  0, 0 },
 
     END_SCRIPT_STRUCT_ENTRY
@@ -198,6 +201,9 @@ scriptEntry MissionPreloadScriptTablePass2[] =
     END_SCRIPT_ENTRY
 };
 
+// CAT: 0x00a447ac / 0x00a447b0: levelPreInit 0x004a3230 zeroes both before the MissionSphere pass and
+//      scriptSetShipsToBeNeeded 0x004a2f30 only clears them (for a Kushan / Taiidan player's capturable ship), so the
+//      multiplayer capture test after the pass (0x00a447b0 -> tStandardFrigate) never loads anything in the exe
 bool32 needR1CapitalShip = FALSE;
 bool32 needR2CapitalShip = FALSE;
 
@@ -403,19 +409,46 @@ bool32 AddResourceToVolumeAtPosition(struct ResourceVolume *volume,bool32 regrow
                 asteroid->resource.resourceVolume = volume;
             }
             AddRandomRotationToAsteroid(asteroid);
+            // CAT (M2-R8 kas-runtime-mission01): AddResourceToVolumeAtPosition 0x0049fcf0: the velocity towards the
+            //      "TowardsVector" point is that direction at attrVELOCITY_TOWARDS exactly (no random deviation), the
+            //      asteroid marked moving; then Asteroid +0x1A0 is cleared; HW1's head-shot velocity is gone: 0x200 is
+            //      Cataclysm's meteor-storm drift (CAT_ATTRIBUTES_KillerCollision, set by cat_scriptSetMeteorStormCB):
+            //      the volume's axis (1, 0, 0) turned about y by roty and about z by rotz, normalised, times the drift
+            //      speed, plus the two added terms on y and x, and the wrap box the larger of the universe's half size
+            //      and the volume's extents per axis; such an asteroid gets a second chance at a random rotation
             if (volume->attributes & ATTRIBUTES_VelToMothership)
             {
                 hvector dirvector;
 
                 GetPointOfName(&dirvector,"TowardsVector");
-                AddRandomVelocityDirection(&asteroid->obj,(vector *)&dirvector,attrVELOCITY_TOWARDS,attrVELOCITY_TOWARDS_DEVIATION);
+                vecNormalize((vector *)&dirvector);
+                asteroid->obj.posinfo.velocity.x = dirvector.x * attrVELOCITY_TOWARDS;
+                asteroid->obj.posinfo.velocity.y = dirvector.y * attrVELOCITY_TOWARDS;
+                asteroid->obj.posinfo.velocity.z = dirvector.z * attrVELOCITY_TOWARDS;
+                asteroid->obj.posinfo.isMoving = TRUE;
             }
-            if (volume->attributes & ATTRIBUTES_HeadShotVelToMothership)
+            asteroid->catAsteroidReserved1A0 = 0;               // CAT: 0x004a0012
+            if (volume->attributes & CAT_ATTRIBUTES_KillerCollision)
             {
-                hvector startpoint;
+                matrix rotymat, rotzmat;
+                vector axis = { 1.0f, 0.0f, 0.0f };
+                vector turned, direction;
 
-                GetPointOfName(&startpoint,"TowardsPoint");
-                AddRandomVelocityTowards(&asteroid->obj,&asteroid->obj.posinfo.position,(vector *)&startpoint,attrHEADSHOTVELOCITY_TOWARDS,attrHEADSHOTVELOCITY_TOWARDS_DEVIATION);
+                matMakeRotAboutY(&rotymat,(real32)cos(volume->roty),(real32)sin(volume->roty));
+                matMakeRotAboutZ(&rotzmat,(real32)cos(volume->rotz),(real32)sin(volume->rotz));
+                matMultiplyMatByVec(&turned,&rotymat,&axis);
+                matMultiplyMatByVec(&direction,&rotzmat,&turned);
+                vecNormalize(&direction);
+                asteroid->obj.posinfo.velocity.x = volume->catDriftSpeed * direction.x;
+                asteroid->obj.posinfo.isMoving = TRUE;
+                asteroid->obj.posinfo.velocity.y = volume->catDriftSpeed * direction.y;
+                asteroid->obj.posinfo.velocity.z = volume->catDriftSpeed * direction.z;
+                asteroid->obj.posinfo.velocity.y = volume->catDriftAddY + asteroid->obj.posinfo.velocity.y;
+                asteroid->obj.posinfo.velocity.x = volume->catDriftAddX + asteroid->obj.posinfo.velocity.x;
+                asteroid->catWrapExtent.x = (volume->catWrapExtent.x > smUniverseSizeX) ? volume->catWrapExtent.x : smUniverseSizeX;
+                asteroid->catWrapExtent.y = (volume->catWrapExtent.y > smUniverseSizeY) ? volume->catWrapExtent.y : smUniverseSizeY;
+                asteroid->catWrapExtent.z = (volume->catWrapExtent.z > smUniverseSizeZ) ? volume->catWrapExtent.z : smUniverseSizeZ;
+                AddRandomRotationToAsteroid(asteroid);
             }
         }
         break;
@@ -526,6 +559,17 @@ bool32 AddResourceToCylinder(struct ResourceVolume *cylinder,bool32 regrowing)
 
     matMakeRotAboutY(&rotymat,(real32)cos(rotabouty),(real32)sin(rotabouty));
     matMakeRotAboutZ(&rotzmat,(real32)cos(rotaboutz),(real32)sin(rotaboutz));
+
+    // CAT (M2-R8 kas-runtime-mission01): the volume's half extents, the corner (length / 2, radius, radius) turned as
+    //      the volume, per axis without sign (the meteor storm's wrap box; AddResourceToCylinder 0x004a03e0)
+    position1.x = lengthDiv2;
+    position1.y = radius;
+    position1.z = radius;
+    matMultiplyMatByVec(&position2,&rotymat,&position1);
+    matMultiplyMatByVec(&position1,&rotzmat,&position2);
+    cylinder->catWrapExtent.x = (position1.x < 0.0f) ? -position1.x : position1.x;
+    cylinder->catWrapExtent.y = (position1.y < 0.0f) ? -position1.y : position1.y;
+    cylinder->catWrapExtent.z = (position1.z < 0.0f) ? -position1.z : position1.z;
 
     position1.x = frandom(length) - lengthDiv2;
     position1.y = frandom(diameter) - radius;
@@ -670,15 +714,18 @@ static void scriptSetResourcesCB(char *directory,char *field,void *dataToFillIn)
     if (singlePlayerGame && bitTest(attributes, ATTRIBUTES_ScaleResources))
     {
         // scale the number of asteroids depending on fleet strength
+        // CAT (M2-R8 kas-runtime-mission01): the x87 shape of scriptSetResourcesCB 0x004a07b0 (0x004a0917 .. 0x004a094b):
+        //      the count times the modifier in extended precision, truncated once (__ftol), with no rounding of the
+        //      product to a float (HW1 multiplied two floats); a double is exact for these operands
         if (bitTest(attributes, ATTRIBUTES_KillerCollDamage))
         {
             // scale up
-            numAsteroids = (udword)((real32)numAsteroids*spFleetModifier);
+            numAsteroids = (udword)((real64)numAsteroids * (real64)spFleetModifier);
         }
         else
         {
             // scale down
-            numAsteroids = (udword)((real32)numAsteroids*(1-spFleetModifier));
+            numAsteroids = (udword)((1.0 - (real64)spFleetModifier) * (real64)(sdword)numAsteroids);
         }
     }
 
@@ -751,6 +798,104 @@ static void scriptSetResourcesCB(char *directory,char *field,void *dataToFillIn)
     else
     {
         dbgFatalf(DBG_Loc,"Unknown layout found in %s",field);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_scriptSetMeteorStormCB                        0x004a0d10
+    Description : CAT (M2-R8 kas-runtime-mission01): a mission sphere's "MeteorStorm" line (Mission02 and the
+                  multiplayer maps' resource spheres): x, y, z, layout (Sphere or Cylinder), distribution file,
+                  number, radius, length, rot y, rot z (degrees), attributes, drift speed, added y and x velocity
+                  ("%f %f %f %s %s %d %f %f %f %f %d %f %f %f"). Its asteroids drift at the speed along the volume's
+                  axis and wrap in a box (CAT_ATTRIBUTES_KillerCollision is set in the attributes); the volume is kept
+                  only when it regrows (ATTRIBUTES_Regrow)
+----------------------------------------------------------------------------*/
+static void cat_scriptSetMeteorStormCB(char *directory,char *field,void *dataToFillIn)
+{
+    MissionSphereInfo *missionSphereInfo = (MissionSphereInfo *)dataToFillIn;
+    vector position, rotatedposition;
+    real32 roty, rotz;
+    char layoutstr[64];
+    char distributionstr[52];
+    sdword number = 0;
+    real32 radius = 0.0f, length = 0.0f;
+    udword attributes = 0;
+    real32 speed = 0.0f, addY = 0.0f, addX = 0.0f;   // CAT-FIX: the exe leaves the ones a "?" ends early uninitialised
+    ResourceVolume *volume;
+    matrix rotaboutz;
+    sdword i;
+
+    RemoveCommasFromString(field);
+    sscanf(field, "%f %f %f %s %s %d %f %f %f %f %d %f %f %f", &position.x, &position.y, &position.z, layoutstr,
+           distributionstr, &number, &radius, &length, &roty, &rotz, &attributes, &speed, &addY, &addX);
+    if ((distributionstr[0] == '0') && (distributionstr[1] == '\0'))
+    {
+        dbgFatalf(DBG_Loc, "No distribution specified in %s %s", directory, field);     // the exe's text (0x00884110)
+    }
+    roty = DEG_TO_RAD(roty);
+    rotz = DEG_TO_RAD(rotz);
+    if (!missionman)
+    {
+        matMakeRotAboutZ(&rotaboutz,(real32)cos(missionSphereInfo->sphererotz),(real32)sin(missionSphereInfo->sphererotz));
+        matMultiplyMatByVec(&rotatedposition,&rotaboutz,&position);
+        vecAddTo(rotatedposition,missionSphereInfo->position);
+        rotz += missionSphereInfo->sphererotz;
+    }
+    else
+    {
+        rotatedposition = position;
+    }
+
+    volume = memAlloc(sizeof(ResourceVolume), "MeteorStorm", NonVolatile);
+    if (strcmp(layoutstr, "Sphere") == 0)
+    {
+        volume->resourceVolumeType = ResourceSphereType;
+    }
+    else if (strcmp(layoutstr, "Cylinder") == 0)
+    {
+        volume->resourceVolumeType = ResourceCylinderType;
+    }
+    else
+    {
+        dbgFatalf(DBG_Loc, "Invalid meteorstorm layout (must be cylinder or sphere) in %s.", field);   // the exe's text (0x00884198)
+    }
+    volume->centre = rotatedposition;
+    volume->radius = radius;
+    volume->length = length;
+    volume->roty = roty;
+    volume->rotz = rotz;
+    volume->catDriftSpeed = speed;
+    volume->catDriftAddY = addY;
+    volume->catDriftAddX = addX;
+    // CAT-FIX: the exe never sets a sphere's wrap box (only AddResourceToCylinder does): zero, the universe's half size wins
+    volume->catWrapExtent.x = volume->catWrapExtent.y = volume->catWrapExtent.z = 0.0f;
+    volume->number = number;
+    volume->actualnumber = number;
+    volume->attributes = attributes | CAT_ATTRIBUTES_KillerCollision;
+    volume->attributesParam = 0;
+    volume->resourceObjType = OBJ_AsteroidType;
+    GetResourceDistribution(&volume->resourceDistribution, directory, distributionstr, OBJ_AsteroidType);
+    if (volume->resourceVolumeType == ResourceSphereType)
+    {
+        for (i = 0; i < volume->number; i++)
+        {
+            AddResourceToSphere(volume, FALSE);
+        }
+    }
+    else
+    {
+        for (i = 0; i < volume->number; i++)
+        {
+            AddResourceToCylinder(volume, FALSE);
+        }
+    }
+    if (volume->attributes & ATTRIBUTES_Regrow)
+    {
+        listAddNode(&universe.ResourceVolumeList, &volume->link, volume);
+    }
+    else
+    {
+        memFree(volume);
     }
 }
 
@@ -1951,11 +2096,16 @@ void SetTeamColorForShipAndRelatedStaticInfo(ShipType type,ShipRace race,bool8 s
 
     shipstaticinfo = GetShipStaticInfo(type,race);
     memcpy(shipstaticinfo->shipOrDerelict.teamColor, schemes, sizeof(shipstaticinfo->shipOrDerelict.teamColor));
-    if (type == MissileDestroyer || type == P1MissileCorvette)
+    // CAT (M2-R8 kas-runtime-mission01): the missile carriers are Cataclysm's seven types and the mine layer
+    //      tMinelayerCorvette (llAvailableColorScheme 0x004a2cf0 inlines this body: types 10, 0x55, 0x3b, 1, 0x22, 0x19,
+    //      0x5f -> missileStaticInfos[race], 0x54 -> mineStaticInfos[race]; bMissileCorvette is the one more than
+    //      SetInfoNeededForShipAndRelatedStaticInfo's six)
+    if (type == sDreadnought || type == tMissileDestroyer || type == bMissileCorvette || type == sAcolyte ||
+        type == bAcolyte || type == sDestroyer || type == p1MissileCorvette)
     {
         memcpy(missileStaticInfos[race].teamColor, schemes, sizeof(missileStaticInfos[race].teamColor));
     }
-    else if (type == MinelayerCorvette)
+    else if (type == tMinelayerCorvette)
     {
         memcpy(mineStaticInfos[race].teamColor, schemes, sizeof(mineStaticInfos[race].teamColor));
     }
@@ -2160,7 +2310,10 @@ static void llAvailableColorScheme(char *directory,char *field,void *dataToFillI
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-// CAT-TODO(stage 6 level load): scriptSetShipsToBeNeeded 0x004a2f30's other deltas are not ported (only the no-owner lookup is, skirmish-start): it has no single-player race swap, parses colorScheme but loads no team colour, and clears the need-capital-ship words 0x00a447ac / 0x00a447b0 for a player of race 2 / 3 (RACE_Kushan / RACE_Taiidan), which levelPreInit 0x004a3230 only zeroes and tests
+// CAT (M2-R8 kas-runtime-mission01): scriptSetShipsToBeNeeded 0x004a2f30: no single-player race swap, the colorScheme
+//      word is parsed but no team colour is loaded, a race above 6 or a type above 0x90 is fatal; in a multiplayer
+//      game with captures on, a capturable ship of a Kushan (2) / Taiidan (3) player clears 0x00a447ac / 0x00a447b0
+//      (needR1CapitalShip / needR2CapitalShip here; the Kushan case returns after flagging the ship)
 static void scriptSetShipsToBeNeeded(char *directory,char *field,void *dataToFillIn)
 {
     MissionSphereInfo *missionSphereInfo = (MissionSphereInfo *)dataToFillIn;
@@ -2200,31 +2353,18 @@ static void scriptSetShipsToBeNeeded(char *directory,char *field,void *dataToFil
     rot = DEG_TO_RAD(rot);
 
     shiprace = StrToShipRace(racestr);
-    if (!((shiprace >= 0) && (shiprace < NUM_RACES)))
+    if ((udword)shiprace > 6)                                   // CAT: unsigned "6 < race" (0x004a3048)
     {
         dbgFatalf(DBG_Loc,"Bad shiprace in %s",field);
     }
-    dbgAssertOrIgnore(shiprace != -1);
 
     shiptype = StrToShipType(shiptypestr);
-    if (!((shiptype >= 0) && (shiptype < TOTAL_NUM_SHIPS)))
+    if ((udword)shiptype > 0x90)                                // CAT: unsigned "0x90 < type" (0x004a306c)
     {
         dbgFatalf(DBG_Loc,"Bad shiptype in %s",field);
     }
-    dbgAssertOrIgnore(shiptype != -1);
 
-    if (singlePlayerGame)
-    {
-        // CAT: no HW1 CryoTray (M2-R4 ships-b)
-        if (universe.players[0].race == R2)
-        {
-            if ((shiprace == R1) || (shiprace == R2))
-            {
-                shiprace = (shiprace == R1) ? R2 : R1;
-                shiptype = GetAppropriateShipTypeForRace(shiptype,shiprace);
-            }
-        }
-    }
+    // CAT: no single-player race swap (scriptSetShipsToBeNeeded 0x004a2f30)
 
     //find what color scheme these ships will be
     miscPointer = strtok(miscstr, llMiscDelimiters);
@@ -2248,18 +2388,21 @@ static void scriptSetShipsToBeNeeded(char *directory,char *field,void *dataToFil
         // CAT: the player is looked up only here, after the test of the number (scriptSetShipsToBeNeeded 0x004a2f30):
         //      the sphere of no owner passes -1 (scriptPreMissionSphereCB); HW1 indexed universe.players with it on entry
         player = &universe.players[missionSphereInfo->playerNumber];
-        if (player->race == R1)
+        if (player->race == RACE_Kushan)                        // CAT: races 2 / 3 (HW1: R1 / R2)
+        {
             needR1CapitalShip = FALSE;
-        else if (player->race == R2)
+            bitSet(shipstaticinfo->common.infoFlags, IF_InfoNeeded);
+            return;
+        }
+        if (player->race == RACE_Taiidan)
+        {
             needR2CapitalShip = FALSE;
+        }
     }
     bitSet(shipstaticinfo->common.infoFlags, IF_InfoNeeded);//this ship will have to be loaded
-    if (colorScheme >= 0)
-    {
-        memcpy(teamCol,shipstaticinfo->shipOrDerelict.teamColor,sizeof(teamCol));//make sure the right team colors are loaded
-        teamCol[colorScheme] = TRUE;                            // make sure this ship's color scheme gets loaded
-        SetTeamColorForShipAndRelatedStaticInfo(shiptype,shiprace,teamCol);
-    }
+    // CAT: the colour scheme is parsed but loads no team colour (scriptSetShipsToBeNeeded 0x004a2f30)
+    (void)colorScheme;
+    (void)teamCol;
 }
 
 /*-----------------------------------------------------------------------------
@@ -2367,20 +2510,9 @@ void levelPreInit(char *directory,char *pickedMission)
         }
     }
 
+    // CAT: both words start at 0 (levelPreInit 0x004a3230 at 0x004a3655; HW1 set them for every player of R1 / R2)
     needR1CapitalShip = FALSE;
     needR2CapitalShip = FALSE;
-
-    for (index=0;index<numPlayers;index++)
-    {
-        if (universe.players[index].race == R1)
-        {
-            needR1CapitalShip = TRUE;
-        }
-        if (universe.players[index].race == R2)
-        {
-            needR2CapitalShip = TRUE;
-        }
-    }
 
     scriptSet(directory, pickedMission, MissionPreloadScriptTablePass2);
 
@@ -2399,16 +2531,10 @@ void levelPreInit(char *directory,char *pickedMission)
     }
     else
     {
-        if (bitTest(tpGameCreated.flag,MG_CaptureCapitalShip))
+        // CAT: only 0x00a447b0 is tested, for one static (tStandardFrigate's InfoNeeded bit; levelPreInit 0x004a3664)
+        if (bitTest(tpGameCreated.flag,MG_CaptureCapitalShip) && needR2CapitalShip)
         {
-            if (needR1CapitalShip)
-            {
-                SetInfoNeededForShipAndRelatedStaticInfo(CapturableCapitalShipToGive,R1,TRUE);
-            }
-            if (needR2CapitalShip)
-            {
-                SetInfoNeededForShipAndRelatedStaticInfo(CapturableCapitalShipToGive,R2,TRUE);
-            }
+            bitSet(GetShipStaticInfo(tStandardFrigate, RACE_Taiidan)->common.infoFlags, IF_InfoNeeded);
         }
 
         if (bitTest(tpGameCreated.flag,MG_CratesEnabled))

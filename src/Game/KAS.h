@@ -90,6 +90,7 @@ GrowSelection *kasGrowSelectionPtr(udword label);
 GrowSelection *kasGetGrowSelectionPtrIfExists(udword label);
 
 void kasShipDied(Ship *ship);
+void cat_kasShipRemovedFromSelections(void *obj);     // 0x004911e0 (M2-R8 KAS runtime)
 
 void kasGrowSelectionClear(GrowSelection *ships);
 

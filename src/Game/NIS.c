@@ -1686,7 +1686,10 @@ void nisSeek(nisplaying *NIS, real32 seekTime)
                 }
             }
 
-            if (currentPos[j] != REALlyBig)
+            // CAT-FIX (M2-R8 kas-runtime-mission01): HW1 and the exe (nisSeek 0x004ce2e0, local_18[6]) read currentPos[6]
+            //      here (j after the loop, one past the array; unset for a one-keyframe path): ASan stack-buffer-overflow
+            //      when the /debugScreenshots run's nisGoToEnd seeks the opening NIS. The first channel is tested instead
+            if ((NIS->header->objectPath[index].nSamples != NIS_OneKeyframe) && (currentPos[0] != REALlyBig))
             {                                               //seek to the current position
                 newShip->obj.posinfo.position.x = position.x - currentPos[2];
                 newShip->obj.posinfo.position.y = position.y + currentPos[0];

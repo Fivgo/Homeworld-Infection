@@ -36,6 +36,7 @@
 #include "Key.h"
 #include "LaunchMgr.h"
 #include "LevelLoad.h"      // HWI-TEST (skirmish-start): /catSkirmishTest, /catSkirmishMap
+#include "MissionSelfTest.h" // HWI-TEST (M2-R8 kas-runtime-mission01): /catMissionTest
 #include "main.h"
 #include "mainrgn.h"
 #include "Memory.h"
@@ -436,6 +437,25 @@ bool32 CatAiTestSet(char *string)
 
 // HWI-TEST (skirmish-start): port diagnostic: /catSkirmishTest <ticks>, /catSkirmishMap <name> (LevelLoad.c
 //      catSkirmishSelfTestStart / Tick: the front end's skirmish start with no input, judged after <ticks> ticks)
+// HWI-TEST (M2-R8 kas-runtime-mission01): /catMissionTest <ticks> (MissionSelfTest.c: Mission01 from its NIS-first
+//      start through its KAS objectives, headless, no input); /catMissionTestTutorial <ticks> (Tutorial1's first screen).
+//      The mission test runs without sound and speech (as /oracleReplay: the mixer and speech threads run on the wall
+//      clock); the tutorial test keeps speech (its prompt is a narration's subtitle) and is not a stream comparison
+bool32 CatMissionTestSet(char *string)
+{
+    catMissionSelfTestSet(string);
+    enableSFX = FALSE;
+    enableSpeech = FALSE;
+    return TRUE;
+}
+
+bool32 CatMissionTestTutorialSet(char *string)
+{
+    catMissionSelfTestTutorialSet(string);
+    enableSFX = FALSE;                  // speech stays on (SDL's dummy driver): the first prompt is the narration's subtitle
+    return TRUE;
+}
+
 bool32 CatSkirmishTestSet(char *string)
 {
     catSkirmishSelfTestSet(string);
@@ -1157,6 +1177,8 @@ commandoption commandOptions[] =
     entryFnParam("/catDockTest",        CatDockTestSet, " <ticks> - headless Mission01 run: dock, deposit, harvest and launch orders with no input, exit after <ticks> ticks."),
     entryFnParam("/catAiTest",          CatAiTestSet, " <ticks> - headless Mission01 run: the computer player (player 1) gets a scripted factory, RUs and fleet and fleet control with no input, logs aitest lines (teams, orders, moves, commands), exit after <ticks> ticks."),
     entryFnParam("/catBuildTest",       CatBuildTestSet, " <ticks> - headless Mission01 run: the construction manager builds a docking bay module, a destroyer (both built externally) and an acolyte at a scripted mothership with no input, logs buildtest lines, exit after <ticks> ticks."),
+    entryFnParam("/catMissionTest",     CatMissionTestSet, " <ticks> - headless single-player game from Mission01's NIS-first start: the opening NIS, the KAS objectives with scripted events in place of input, logs missiontest lines, exit after the mission's end or <ticks> ticks."),
+    entryFnParam("/catMissionTestTutorial", CatMissionTestTutorialSet, " <ticks> - headless tutorial start: Tutorial1's KAS script runs until its first prompt shows, logs missiontest lines, exit."),
     entryFnParam("/catSkirmishTest",    CatSkirmishTestSet, " <ticks> - start a 2-player skirmish (Sect against a computer player) through the front end's own callbacks with no input, run <ticks> universe ticks on the virtual clock, judge the universe, log skirmishtest lines, exit."),
     entryFnParam("/catSkirmishMap",     CatSkirmishMapSet, " <name> - the map of /catSkirmishTest (a MultiPlayer directory name; default LiveFireExercise2)."),
     entryFnParam("/catCommandTest",     CatCommandTestSet, " <ticks> - headless Mission01 run: link, unlink, mimic, research, point orders and force-field formations with no input, exit after <ticks> ticks."),

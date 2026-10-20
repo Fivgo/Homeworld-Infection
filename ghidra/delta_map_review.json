@@ -6618,8 +6618,8 @@
  "0x004a3230": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "the previous level's fog layer and lens flare textures go after teReset",
-  "note": "[review: M2-R5 render] fog / lens flare part ported (LevelLoad.c); the other deltas are the level-load producers'",
+  "change": "the previous level's fog layer and lens flare textures go after teReset; the need-capital-ship words start at 0; multiplayer captures test 0x00a447b0 for tStandardFrigate only",
+  "note": "[review: M2-R5 render] fog / lens flare part ported (LevelLoad.c); the other deltas are the level-load producers' [review: M2-R8 kas-runtime-mission01] the need words ported as the exe has them",
   "sample": "port-R5-render"
  },
  "0x004a4250": {
@@ -10909,15 +10909,15 @@
  "0x0051ac80": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "cat_missionTimerReset at the end; singlePlayerLoadNewLevel: cat_fowCreatePlayerGrids after bobResetProperties ported (CAT-FIX: the previous level's grid freed first)",
-  "note": "[review: M2-R5 hud] the call added | [review: M2-R6 mainrgn-popup] cat_mimicInitDisguiseTables added | [review: M2-R6 nis-fow-camera] singlePlayerLoadNewLevel: cat_fowCreatePlayerGrids after bobResetProperties ported (CAT-FIX: the previous level's grid freed first)",
+  "change": "cat_missionTimerReset at the end; singlePlayerLoadNewLevel: cat_fowCreatePlayerGrids after bobResetProperties ported (CAT-FIX: the previous level's grid freed first); (nisLevel, keepMission); Mission01 from its opening NIS: the fleet docks and the capital ships / modules go into the ether; cat_spDeleteLeftBehindShips; the fleet modifier by ship class; the effects start",
+  "note": "[review: M2-R5 hud] the call added | [review: M2-R6 mainrgn-popup] cat_mimicInitDisguiseTables added | [review: M2-R6 nis-fow-camera] singlePlayerLoadNewLevel: cat_fowCreatePlayerGrids after bobResetProperties ported (CAT-FIX: the previous level's grid freed first) [review: M2-R8 kas-runtime-mission01] the whole body ported",
   "sample": "port-R6-nis-fow-camera"
  },
  "0x0051b340": {
   "class": "MODIFIED",
   "confidence": "medium",
-  "change": "switch over Cataclysm's missions returning Watch_MissionNN, with a \"Could not find watch function\" message for unknown values",
-  "note": "the compared body is HomeworldSDL's (GoK-HEAD); Relic's 2003 tree has no such function",
+  "change": "switch over Cataclysm's missions returning Watch_MissionNN, with a \"Could not find watch function\" message for unknown values; the exe's script index 0..17",
+  "note": "the compared body is HomeworldSDL's (GoK-HEAD); Relic's 2003 tree has no such function [review: M2-R8 kas-runtime-mission01] ported on the script table",
   "sample": "MODIFIED/low"
  },
  "0x0051c1b0": {
@@ -13290,13 +13290,13 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "smObjectDied always, inline bullet/missile clean-up with the missile self-destruct, ramming frigates and KAS selections told",
-  "note": "M2-R4 univupdate: ported except ramming frigates (M2-R4 #4) and KAS (stage 6)"
+  "note": "M2-R4 univupdate: ported except ramming frigates (M2-R4 #4) and KAS (stage 6) [review: M2-R8 kas-runtime-mission01] the KAS selections drop the resource (cat_kasShipRemovedFromSelections, inlined DeleteDeadResource)"
  },
  "0x00549270": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "as univReallyDeleteThisResourceRightNow; asteroids break unless attribute bit 0x200, whatever their value",
-  "note": "M2-R4 univupdate: ported except the break test (M2-R4 #3 asteroid pieces)"
+  "note": "M2-R4 univupdate: ported except the break test (M2-R4 #3 asteroid pieces) [review: M2-R8 kas-runtime-mission01] the KAS selections drop the resource (cat_kasShipRemovedFromSelections)"
  },
  "0x00549430": {
   "class": "MODIFIED",
@@ -13326,7 +13326,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "mesh state and +0x84 freed, KAS selections told, smObjectDied and ccRemoveShip at the end",
-  "note": "M2-R4 univupdate: ported except KAS (stage 6)"
+  "note": "M2-R4 univupdate: ported except KAS (stage 6) [review: M2-R8 kas-runtime-mission01] the KAS selections drop the missile (cat_kasShipRemovedFromSelections 0x00549a2a)"
  },
  "0x00549ac0": {
   "class": "IDENTICAL",
@@ -13482,7 +13482,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "frame step, multiplayer autosave, real-time quit/win, Cataclysm speech ids, no tacticsGlobalUpdate, blasts and bullet-effect recreation after the ship update, inline dead-object loops, KAS save",
-  "note": "M2-R4 univupdate: ported except cat_blastUpdateAll (#3), cat_kasSaveLevelNow (stage 6) and the stats-screen quit (stage 3) | [review: M2-R5 hud] call sites updated [review: M2-R8 kasf-library] the KAS save request (cat_kasSaveLevelRequested -> cat_kasSaveLevelNow, 0x0054ce03) ported",
+  "note": "M2-R4 univupdate: ported except cat_blastUpdateAll (#3), cat_kasSaveLevelNow (stage 6) and the stats-screen quit (stage 3) | [review: M2-R5 hud] call sites updated [review: M2-R8 kasf-library] the KAS save request (cat_kasSaveLevelRequested -> cat_kasSaveLevelNow, 0x0054ce03) ported [review: M2-R8 kas-runtime-mission01] the KAS selections drop the deleted resource (0x0054cc49, DeleteDeadResource inlined)",
   "sample": "port-R5-hud"
  },
  "0x0054ce20": {
@@ -16350,8 +16350,8 @@
  "0x005a9290": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "(not reviewed in full) a new game calls cat_mimicInitDisguiseTables; in a non-tutorial new game the start-position table 0x00ab77e0 is set to 0..7 and shuffled with 20 swaps of two ranRandomFn(0) % spScenarios[spCurrentSelected].maxplayers picks",
-  "note": "[review: M2-R6 mainrgn-popup] only that call checked and added [review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): M2-R7 ai-player-skirmish: a new game also resets the skirmish AI (cat_aisReset 0x00433d30, 0x005a9ef4) [review: skirmish-start] the table and its 0..7 fill ported (catStartPositions), the 40 stream-0 draws left to stage 6 (CAT-TODO) [review: M2-R8 kasf-library] no tbStartup (the task bar is never set up)",
+  "change": "(not reviewed in full) a new game calls cat_mimicInitDisguiseTables; in a non-tutorial new game the start-position table 0x00ab77e0 is set to 0..7 and shuffled with 20 swaps of two ranRandomFn(0) % spScenarios[spCurrentSelected].maxplayers picks; the start-position shuffle: 20 swaps of two ranRandomFn(0) picks % maxplayers; Mission01's preload is its NIS staging level",
+  "note": "[review: M2-R6 mainrgn-popup] only that call checked and added [review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): M2-R7 ai-player-skirmish: a new game also resets the skirmish AI (cat_aisReset 0x00433d30, 0x005a9ef4) [review: skirmish-start] the table and its 0..7 fill ported (catStartPositions), the 40 stream-0 draws left to stage 6 (CAT-TODO) [review: M2-R8 kasf-library] no tbStartup (the task bar is never set up) [review: M2-R8 kas-runtime-mission01] the shuffle (0x005a9644 .. 0x005a96a7) and the preload ported",
   "sample": "port-R6-mainrgn-popup"
  },
  "0x005aa5e0": {
@@ -18097,7 +18097,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R6 nis-fow-camera] compared: same (including HW1's read of currentPos[6] after the curve loop)",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (including HW1's read of currentPos[6] after the curve loop) | [review: M2-R8 kas-runtime-mission01 audit] stays IDENTICAL (the exe reads local_18[6] too); this tree's body was edited: CAT-FIX tests currentPos[0] for a path with keyframes instead of the out-of-bounds currentPos[6] (the sp run's nisGoToEnd on the opening NIS stopped ASan)",
   "sample": "port-R6-nis-fow-camera"
  },
  "0x004ce5d0": {
@@ -18928,7 +18928,7 @@
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "[review: M2-R6 oracle-mode-a audit] nebLoad_Nebula: the exe body reads the nebula and tendril chunks as plain 0x58 / 0xFC copies (IDENTICAL kept); the tree adds only a refusal (dbgFatalf) when a cataclysm.exe save holds nebulae, whose 32-bit chunks are not converted yet (CAT-TODO(stage 6 level load))"
+  "note": "[review: M2-R6 oracle-mode-a audit] nebLoad_Nebula: the exe body reads the nebula and tendril chunks as plain 0x58 / 0xFC copies (IDENTICAL kept); the tree adds only a refusal (dbgFatalf) when a cataclysm.exe save holds nebulae, whose 32-bit chunks are not converted yet (CAT-TODO(stage 6 level load)) [review: M2-R8 kas-runtime-mission01] the chunk (0x58) and tendril (0xFC) records are this tree's structs on ILP32 (pinned): the mode-A loader converts them (SaveCat32Layouts.c) instead of refusing a save with nebulae"
  },
  "0x004cbf00": {
   "class": "IDENTICAL",
@@ -20994,8 +20994,8 @@
  "0x004a2f30": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "universe.players is indexed only after the test that the sphere's number is >= 0 (the no-owner sphere passes -1); no single-player Sect/Beast swap; colorScheme is parsed but no team colour is loaded; the capture-capital test on the 16-type list clears the need words 0x00a447ac / 0x00a447b0 for a player of race 2 / 3 (Kushan / Taiidan)",
-  "note": "[review: skirmish-start] whole body read; only the -1 lookup ported (LevelLoad.c), the other deltas CAT-TODO(stage 6 level load)",
+  "change": "universe.players is indexed only after the test that the sphere's number is >= 0 (the no-owner sphere passes -1); no single-player Sect/Beast swap; colorScheme is parsed but no team colour is loaded; the capture-capital test on the 16-type list clears the need words 0x00a447ac / 0x00a447b0 for a player of race 2 / 3 (Kushan / Taiidan); no single-player race swap; colorScheme parsed, no team colour; Kushan / Taiidan players clear the need words (the Kushan case returns)",
+  "note": "[review: skirmish-start] whole body read; only the -1 lookup ported (LevelLoad.c), the other deltas CAT-TODO(stage 6 level load) [review: M2-R8 kas-runtime-mission01] the other deltas ported (closes the stage-6 level-load tag)",
   "sample": "port-skirmish-start"
  },
  "0x004b9440": {
@@ -22416,7 +22416,259 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library audit] compared with the exe body (decompile): levelInit, the two lesson names cleared, kasMissionStart(\"tutorial1\", Init_Tutorial1 0x006704e0, Watch_Tutorial1 0x006708a0) when tutorial == 1, as HW1; this tree skips the start under CAT_HW1_MISSION_SCRIPTS 0 (CAT-PROVISIONAL until the generated Tutorial1)",
+  "note": "[review: M2-R8 kasf-library audit] compared with the exe body (decompile): levelInit, the two lesson names cleared, kasMissionStart(\"tutorial1\", Init_Tutorial1 0x006704e0, Watch_Tutorial1 0x006708a0) when tutorial == 1, as HW1; this tree skips the start under CAT_HW1_MISSION_SCRIPTS 0 (CAT-PROVISIONAL until the generated Tutorial1) | [review: M2-R8 kas-runtime-mission01 audit] the start is live now: kasMissionStart(\"tutorial1\", Init_Tutorial1, Watch_Tutorial1) when tutorial == 1 with the generated Tutorial1 (the CAT_HW1_MISSION_SCRIPTS guard retired); stays IDENTICAL",
   "sample": "audit-R8-kasf-library"
+ },
+ "0x004906d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared with the exe body: the mission watch, then each ScriptTeam's FSM and state watch (or only kasUnpausedTeam's): identical",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x00490770": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "hsStaticInit takes no argument; name copied with 0x2f",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: memStrncpy 0x2f (KAS_MISSION_NAME_MAX_LENGTH 47), watch stored, hsStaticInit(), init: as the tree",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004909f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: the centre of CurrentTeamP's ships (w 1.0) or the static error position 0x00882068: identical",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x00490f90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "also clears the hashed KAS variable store (cat_kasVarDestroyAll)",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: selections, vectors, volumes, paths freed as HW1; aivarShutdown (= aivarDestroyAll, folded) then cat_kasVarDestroyAll 0x00491ae0 then timTimerDestroyAll: ported",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004911a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: clRemoveShipFromSelection on every KAS selection: identical (its unfolded twin 0x004911e0 ported as cat_kasShipRemovedFromSelections)",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x00491220": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the difficulty 0x008941a0 in the skill slot; 0xC / 8-byte hashed entries; a single-player save ends with rmCanBuildShip of 6 types",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: ported",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x00491450": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "scope and watch index read back as saved; the difficulty modifier rescale; G_RecentlyLoaded = 1; rmEnableShip of the 6 saved types",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: ported; the difficulty rescale is a CAT-TODO(stage 6 single player)",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x00490470": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: hsNoGate flag, the 0x30-byte static gate records with the derelict pointer as its registry ID: identical",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x00490510": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: the mirror of SaveHyperspaceGates (the only writer of the static gate table in the exe): identical",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a07b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the scaled asteroid count in extended precision, truncated once (x87, no float rounding of the product)",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared with the disassembly (the decompile garbles the volume fields): as HW1 but the scaling's x87 shape (0x004a0917 .. 0x004a094b): ported",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a0290": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared (features: same calls, constants, fields): identical",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a03e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "stores the volume's half extents (the corner turned as the volume, per axis without sign) before the random point",
+  "note": "[review: M2-R8 kas-runtime-mission01] found modified (was IDENTICAL): ported",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a05f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: identical",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a0c50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: identical (the switch is an if-chain in the exe)",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a11e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared with the disassembly (the decompile misplaces attributes / attributesParam at +0x38 / +0x3c and drops the anomaly ping): identical; derelict types 0..8 as NUM_DERELICTTYPES",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a2090": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: identical (the string copies inline)",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a2230": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: identical (the string copies inline)",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a2a80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: identical (GetSinglePlayerRaceEquivalent and SetInfoNeededForShipAndRelatedStaticInfo inline, with the Cataclysm missile / mine types the tree's helper already has)",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a2ba0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: identical",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a2bf0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: identical",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a2c20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: identical",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a2c50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: identical",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a2c80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: identical (8 derelict statics, stride 0x124)",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a2cf0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the related missile statics are Cataclysm's seven carriers (+ bMissileCorvette 0x3b), the mine one tMinelayerCorvette",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: SetTeamColorForShipAndRelatedStaticInfo inline with types 10, 0x55, 0x3b, 1, 0x22, 0x19, 0x5f / 0x54: the helper ported",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a31c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: identical (type > 8 fatal = NUM_DERELICTTYPES)",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x00491800": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the offset is the function's exe address minus the current mission's Watch's (MissionEnumToWatchFunction(currentMission - 1))",
+  "note": "[review: M2-R8 kas-runtime-mission01] ported on the generated scripts' function lists (CatMissions.h: each function with its exe address), so the numbers are the exe's",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x00491830": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the inverse: Watch's exe address + offset, -1 -> NULL",
+  "note": "[review: M2-R8 kas-runtime-mission01] ported (the function whose exe address it is)",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x0049fcf0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the velocity towards TowardsVector has no random deviation; HW1's head-shot velocity is gone; Cataclysm's 0x200 meteor drift (axis turned by roty / rotz times the volume's speed, + y / x terms, the wrap box from the volume's extents and the universe's half size, a second rotation chance); Asteroid +0x1A0 cleared",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared with the disassembly: ported (the gas / dust branches as HW1)",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x00517200": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a second argument: the mission's NIS staging level SinglePlayer\\MissionNN_NISmm (mm = 0x00894508[mission]); stores it in 0x00a6adac",
+  "note": "[review: M2-R8 kas-runtime-mission01] ported",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x005197d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "KAS globals G_PlayNis / G_PlayNislet / Traders.PopUpGUI; the black fade; HYPERSPACE_LOADDONE starts the mission's kas2c script (missions 1..17); states 7 (wait) and 9 (the fleet arrives, G_ShipsHaveArrived); the rest of the hyperspace flow",
+  "note": "[review: M2-R8 kas-runtime-mission01] the head, the load-done case and case 9 ported; the roll call, whiteout and case 10 are M2-R8 producer 4's (stage 6 single player)",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x0051b230": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the exe's script index 0..17 (Mission01..17, Tutorial1), -1 none",
+  "note": "[review: M2-R8 kas-runtime-mission01] ported on the script table (SinglePlayer.c catKasScripts)",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x0051b430": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the mothership is the player's ship of class Mothership; KAS globals G_Nis%dComplete / G_Nislet%dComplete; Mission01's white flash; the lockout kept with the letterbox; an opening NIS loads the mission's level (HYPERSPACE_LOADDONE)",
+  "note": "[review: M2-R8 kas-runtime-mission01] ported",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x0051b670": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "(nis, script, position or NULL = StartPointPlayer, loadLevel, keepMission): the staging level loads first; no mothership-centred NIS; KAS globals for the derelict centre",
+  "note": "[review: M2-R8 kas-runtime-mission01] ported",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x0051bdb0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "a new game plays nis\\n01.nis in the staging level Mission01_NIS01 (NIS-first)",
+  "note": "[review: M2-R8 kas-runtime-mission01] ported (the warp start cat_spWarpToLevel is producer 4's)",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a3860": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: identical (the warnings are debug messages)",
+  "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x004a3e10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: identical (SOF_Dead 0x800 / SOF_Hide 0x8000, MiningBase = trMiningBase 100)",
+  "sample": "port-R8-kas-runtime-mission01"
  }
 }

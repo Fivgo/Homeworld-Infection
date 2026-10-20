@@ -102,6 +102,12 @@ typedef struct tendril_s
     ubyte maxAlpha;
 } nebTendril;
 
+// CAT (M2-R8 kas-runtime-mission01): a cataclysm.exe save's nebula chunk and tendril records are these structs on ILP32
+//      (nebLoad_Nebula 0x004cb7f0 copies 0x58 and 0xFC bytes); pinned so the mode-A loader converts them field by field
+#if defined(__i386__)
+_Static_assert(sizeof(nebChunk) == 0x58 && sizeof(nebTendril) == 0xFC, "the nebula chunk / tendril records of cataclysm.exe");
+#endif
+
 typedef struct nebulae_s
 {
     udword numChunks;

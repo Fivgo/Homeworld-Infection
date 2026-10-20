@@ -814,7 +814,9 @@ bool32 hsIsStaticGate(char* label)
 void hsStaticInit(void)
 {
     // CAT (hsStaticInit 0x004901b0): Cataclysm frees the static gate table and zeroes its count, nothing more (no KAS
-    //      labelled-vector scan, no aivar: the exe takes no argument). CAT-TODO(stage 6): where the static gates come from
+    //      labelled-vector scan, no aivar: the exe takes no argument). CAT (M2-R8 KAS runtime): nothing in cataclysm.exe
+    //      adds a static gate: the table 0x00a43e84 / 0x00a43e80 is written only by LoadHyperspaceGates 0x00490510 (a
+    //      save's gates) and cleared by hsStaticInit / hsStaticReset 0x00490180, so a new game has none
     if (hsStaticData != NULL)
     {
         memFree(hsStaticData);

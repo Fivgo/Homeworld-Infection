@@ -3,10 +3,8 @@
 */
 
 #include "Tutor.h"
-#include "SinglePlayer.h"     // CAT_HW1_MISSION_SCRIPTS
-#if CAT_HW1_MISSION_SCRIPTS
-#include "Tutorial1.h"
-#endif
+#include "SinglePlayer.h"
+#include "CatMissions.h"      // CAT (M2-R8 kas-runtime-mission01): the generated Tutorial1 (Init_Tutorial1 / Watch_Tutorial1)
 
 #include <math.h>
 
@@ -530,18 +528,12 @@ void tutInitTutorial(char *dirfile, char *levelfile)
     tutLastLessonName[0] = '\0';
     tutCurrLessonName[0] = '\0';
 
-#if CAT_HW1_MISSION_SCRIPTS
-    switch(tutorial)
+    // CAT (M2-R8 kas-runtime-mission01): Cataclysm's kas2c Tutorial1, generated from the exe (tutInitTutorial 0x0052f690:
+    //      kasMissionStart("tutorial1", Init_Tutorial1 0x006704e0, Watch_Tutorial1 0x006708a0) when tutorial == 1)
+    if (tutorial == 1)
     {
-    case 1:
         kasMissionStart("tutorial1", Init_Tutorial1, Watch_Tutorial1);
-        break;
     }
-#else
-    // CAT-PROVISIONAL (stage 6, the kas2c mission code): HW1's compiled Tutorial1 is out of the build (M2-R8 kasf library,
-    //      SinglePlayer.c); tutInitTutorial 0x0052f690 starts Cataclysm's ("tutorial1", Init_Tutorial1 0x006704e0,
-    //      Watch_Tutorial1 0x006708a0) once the generated tutorial exists
-#endif
 }
 
 void tutSaveLesson(sdword Num, char *pName)

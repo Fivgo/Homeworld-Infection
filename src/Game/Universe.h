@@ -94,7 +94,19 @@ typedef struct ResourceVolume
     real32 length;      // only valid for ResourceCylinderType and ResourceRectangleType
     real32 roty;
     real32 rotz;
+    // CAT (M2-R8 kas-runtime-mission01): a meteor storm's drift (cat_scriptSetMeteorStormCB 0x004a0d10; read by
+    //      AddResourceToVolumeAtPosition 0x0049fcf0 for CAT_ATTRIBUTES_KillerCollision): the speed along the volume's
+    //      axis, two velocity terms added to y and x, and the half extents of the box the asteroids wrap in
+    //      (AddResourceToCylinder 0x004a03e0); 0xB0 bytes in cataclysm.exe (memAllocFunction(0xb0) in both creators)
+    real32 catDriftSpeed;       // +0x98
+    real32 catDriftAddY;        // +0x9C
+    real32 catDriftAddX;        // +0xA0
+    vector catWrapExtent;       // +0xA4 .. +0xAC
 } ResourceVolume;
+#if defined(__i386__)
+_Static_assert(sizeof(ResourceVolume) == 0xB0 && offsetof(ResourceVolume, roty) == 0x90 &&
+               offsetof(ResourceVolume, catWrapExtent) == 0xA4, "ResourceVolume is 0xB0 bytes in cataclysm.exe");
+#endif
 
 typedef enum PlayerState
 {

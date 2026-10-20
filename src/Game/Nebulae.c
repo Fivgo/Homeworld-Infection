@@ -2515,6 +2515,10 @@ void nebLoad_nebChunk(nebulae_t* neb, nebChunk *nebchunk)
     SaveChunk *chunk;
 
     chunk = LoadNextChunk();
+    if (saveCat32Loading)
+    {                                       // CAT (M2-R8 kas-runtime-mission01): the exe's 0x58-byte record (nebLoad_Nebula 0x004cb7f0)
+        chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(nebChunk));
+    }
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_NEBCHUNK,sizeof(nebChunk));
 
     memcpy(nebchunk,chunkContents(chunk),sizeof(nebChunk));
@@ -2567,6 +2571,10 @@ void nebLoad_nebTendril(nebulae_t* neb, nebTendril *nebtendril)
     sdword i;
 
     chunk = LoadNextChunk();
+    if (saveCat32Loading)
+    {                                       // CAT (M2-R8 kas-runtime-mission01): the exe's 0xFC-byte record (nebLoad_Nebula 0x004cb7f0)
+        chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(nebTendril));
+    }
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_NEBTENDRIL,sizeof(nebTendril));
 
     memcpy(nebtendril,chunkContents(chunk),sizeof(nebTendril));
@@ -2598,11 +2606,9 @@ void nebLoad_Nebula(void)
 
     numNebulae = LoadInfoNumber();
 
-    // CAT-TODO(stage 6 level load): convert the exe's nebula chunk and tendril chunks (nebLoad_Nebula 0x004cb7f0) when a cataclysm.exe save holds nebulae; the skirmish recording has none
-    if (saveCat32Loading && (numNebulae != 0))
-    {
-        dbgFatalf(DBG_Loc, "Cataclysm save: %d nebulae (their 32-bit chunks are not converted yet)", (int)numNebulae);
-    }
+    // CAT (M2-R8 kas-runtime-mission01): a cataclysm.exe save's nebula chunk and tendril records are converted from their
+    //      ILP32 layouts (nebLoad_nebChunk / nebLoad_nebTendril, SaveCat32Layouts.c); the LOD vertex and normal arrays
+    //      are floats in both. No sample save with nebulae exists yet (the skirmish recordings have none)
 
     for (nebIndex = 0; nebIndex < numNebulae; nebIndex++)
     {

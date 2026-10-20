@@ -46,6 +46,8 @@ void oracleRunSelfTest(void);
 // task clock by exactly one universe tick per frame (utyTasksDispatch) and quits after <ticks> universe ticks
 void oracleSetMission(char *string);            // /oracleMission <ticks>
 bool32 oracleMissionRequested(void);
+bool32 oracleMissionDirectStart(void);          // M2-R8 kas-runtime-mission01: /oracleMission without a mission self-test
+void oracleMissionStopAfterThisTick(void);      // M2-R8 kas-runtime-mission01: a self-test ends the run
 // the replay of a recorded game (M2-R6 oracle-mode-a): /oracleReplay <name>
 void oracleSetReplay(char *string);             // /oracleReplay <name>
 bool32 oracleReplayRequested(void);
