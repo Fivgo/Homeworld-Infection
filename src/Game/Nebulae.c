@@ -2451,7 +2451,7 @@ void nebSave_nebTendril(nebulae_t* neb, nebTendril *nebtendril)
     savecontents->prev = (struct tendril_s *)nebTendrilPtrToNum(neb, savecontents->prev);
     savecontents->next = (struct tendril_s *)nebTendrilPtrToNum(neb, savecontents->next);
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(nebTendril));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
 
     for (i=0;i<NUM_NEBTENDRIL_LODS;i++)
@@ -2477,7 +2477,7 @@ void nebSave_nebChunk(nebulae_t* neb, nebChunk *nebchunk)
     savecontents->spaceobj = (void *)SpaceObjRegistryGetID(savecontents->spaceobj);
     savecontents->nebulae = (void *)nebIndexOfNeb(neb);
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(nebChunk));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
 }
 

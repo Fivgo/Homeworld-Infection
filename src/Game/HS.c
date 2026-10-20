@@ -1059,8 +1059,20 @@ void SaveHyperspaceGates(void)
     memcpy(data, hsStaticData, size);
 
     hsPreFixStaticData(data);
-    SaveInfoNumber(size);
-    SaveStructureOfSize(data, size);
+    if (saveCat32Saving)
+    {
+        // CAT (M2-R9 recorder-leftovers): the exe's 0x30-byte ILP32 gates (SaveHyperspaceGates 0x00490470 saves
+        //      count * 0x30 and the block [audit: the function is at 0x00490470, not 0x004904a0]; LoadHyperspaceGates 0x00490510 reads size / 0x30 of them)
+        SaveChunk *chunk = CreateChunk(BASIC_STRUCTURE, size, data);
+        SaveInfoNumber(hsStaticNumGates * 0x30);
+        saveCat32SaveArray(chunk, NULL, 0, 0, SAVECAT32_LAYOUT(hsStaticGate), hsStaticNumGates);
+        memFree(chunk);
+    }
+    else
+    {
+        SaveInfoNumber(size);
+        SaveStructureOfSize(data, size);
+    }
 
     memFree(data);
 }

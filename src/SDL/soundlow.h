@@ -239,5 +239,9 @@ sword soundstreamgetvol(sdword handle);
 real32 soundusage(void);
 sdword soundstreamfading(sdword streamhandle);
 
-#endif
+// HWI-TEST (M2-R9 recorder-leftovers): the virtual audio clock (/catVirtualAudio, soundlow.c)
+extern bool32 soundVirtualClock;
+void soundVirtualMixBlock(void);
+void soundVirtualAdvance(udword taskTicks, udword ticksPerSecond);
 
+#endif

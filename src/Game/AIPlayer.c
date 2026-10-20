@@ -1595,7 +1595,11 @@ void SaveRequestShipsCB(void *stuff)
     memcpy(&copyOfRequest,stuff,sizeof(RequestShips));
     copyOfRequest.creator = (ShipPtr)SpaceObjRegistryGetID((SpaceObj *)copyOfRequest.creator);
 
-    SaveStructureOfSize(&copyOfRequest,sizeof(RequestShips));
+    {
+        SaveChunk *chunk = CreateChunk(BASIC_STRUCTURE,sizeof(RequestShips),&copyOfRequest);
+        saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(RequestShips));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
+        memFree(chunk);
+    }
 }
 
 void SaveTeamWaitingCB(void *stuff)
@@ -1608,7 +1612,7 @@ void SaveTeamWaitingCB(void *stuff)
 
     sc->team = (AITeam*)AITeamToTeamIndex(sc->team);
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(TeamWaitingForTheseShips));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
 }
 
@@ -1702,7 +1706,7 @@ void SaveThisAIPlayer(AIPlayer *aiplayer)
     sc->ScriptCreator = (ShipPtr)SpaceObjRegistryGetID((SpaceObj *)aiplayer->ScriptCreator);
     sc->AICreator     = (ShipPtr)SpaceObjRegistryGetID((SpaceObj *)aiplayer->AICreator);
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(AIPlayer));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
     sc = NULL;
 

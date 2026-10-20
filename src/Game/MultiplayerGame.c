@@ -4919,6 +4919,7 @@ void mgGamePasswordConfirm(char *name, featom *atom)
     }
 }
 
+// CAT-TODO(stage 5 multiplayer options): mgUnitCapsEnabled 0x004bdce0 only disables its button (atom FAF_Disabled 0x1000, region RSF_RegionDisabled 4: HW1's demo branch); Cataclysm's options never toggle MG_UnitCapsEnabled here
 void mgUnitCapsEnabled(char *name, featom *atom)
 {
 #if defined(HW_GAME_DEMO) || defined(HW_GAME_RAIDER_RETREAT)

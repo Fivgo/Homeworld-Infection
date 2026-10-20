@@ -542,33 +542,59 @@ void recPackInGameStartCB(char *filename)
     startRecordingGameWhenSafe = TRUE;
 }
 
+// HWI-FIX (M2-R9 recorder-leftovers): a recording's two files are deleted where they are written, in the user
+//      settings path (fileDelete is relative to the working directory in this tree; the exe's prepends its one install
+//      path); otherwise a second recording of the same name appended its packets to the first one's .pkts
+static void recPackDeleteFile(char *name)
+{
+    char *path = filePathPrepend(name, FF_UserSettingsPath);
+
+    fileNameReplaceSlashesInPlace(path);
+    remove(path);
+}
+
+// CAT (M2-R9 recorder-leftovers): set while the recording's save is written (recPackInGameStartCBSafeToStart
+//      0x004cbbb0); cat_saveSavePlayerFOW 0x004ff6b0 then writes no grid. Name chosen here (0x00a578f8)
+bool32 recordingStartSave = FALSE;
+
+// CAT (M2-R9 recorder-leftovers): recPackInGameStartCBSafeToStart 0x004cbbb0: the recording flags (recordPackets
+//      0x00a75188, recordplayPacketsInGame 0x00a75194, the recorded-game word 0x00a7519c) are set BEFORE the save, which
+//      runs with recordingStartSave 0x00a578f8 set; a failed save leaves them set (the exe returns after its message);
+//      a local game (a skirmish) then records with fake sends and says it is not a multiplayer recording (0x00a75190
+//      = 0), a multiplayer game says it is (0x00a75190 = 1). HW1 set the flags after a successful save
 void recPackInGameStartCBSafeToStart(void)
 {
     // clear file
-    fileDelete(recordPacketSaveFileName);
-    fileDelete(recordPacketFileName);
+    recPackDeleteFile(recordPacketSaveFileName);
+    recPackDeleteFile(recordPacketFileName);
+
+    recordPackets = TRUE;
+    recordplayPacketsInGame = TRUE;
+    recordedGameActive = TRUE;
+    recordingStartSave = TRUE;
 
     if (!SaveGame(recordPacketSaveFileName))
     {
         clCommandMessage(strGetString(strPatchUnableWriteFile), 0xff0000ff);
+        recordingStartSave = FALSE;
         return;
     }
-    else
-    {
-        clCommandMessage(strGetString(strRecordingGame), 0xffffffff);
-    }
-
-    recordPackets = TRUE;
-    recordplayPacketsInGame = TRUE;
+    clCommandMessage(strGetString(strRecordingGame), 0xffffffff);
+    recordingStartSave = FALSE;
 
     if (!multiPlayerGame)
     {
         recordFakeSendPackets = TRUE;
+        recordedGameMultiplayer = FALSE;
         captainIndex = 0;
         sigsPlayerIndex = 0;
         sigsNumPlayers = 1;
         sigsPressedStartGame = TRUE;
         netcheckInit();
+    }
+    else
+    {
+        recordedGameMultiplayer = TRUE;
     }
 }
 
@@ -593,18 +619,25 @@ void recPackRecordInit(void)
     strcat(recordPacketFileName,tempstr);
 
     // clear file
-    fileDelete(recordPacketFileName);
+    recPackDeleteFile(recordPacketFileName);
 
     dbgAssertOrIgnore(!recordplayPacketsInGame);
     recPackRecordSaveHeader();
 }
 
+// HWI-FIX (M2-R9 recorder-leftovers): the packet files are opened in the user settings path, where the recording's
+//      save is written (SaveGame), read (VerifySaveFile / PreLoadGame) and both files are deleted (fileDelete): the
+//      exe keeps everything relative to the install's folder, GoK split it, and its default fileOpen path is the data
+//      folder (HW_Data), so a recording's packets went there, away from its save. Here every recorder open
+//      (recPackRecordSaveHeader, recPackRecordPacket, recPackRecordPacketFilename, recPackPlayInGameInit,
+//      recPackPlayInit) takes FF_UserSettingsPath
+// CAT-TODO(stage 5): recPackRecordSaveHeader 0x004cbdb0 writes "HEAD", 0x2B0 and the exe's 0x2B0-byte tpGameCreated; this tree writes its native CaptainGameInfo (only /packetRecord's debug recordings have the header, read back by recPackPlayLoadHeader for /packetPlay; the in-game recording has none)
 #define HEADERCHECK 0x44414548
 void recPackRecordSaveHeader(void)
 {
     udword size = sizeof(CaptainGameInfo);
     udword validcheck = HEADERCHECK;
-    filehandle fh = fileOpen(recordPacketFileName,FF_AppendMode);
+    filehandle fh = fileOpen(recordPacketFileName,FF_AppendMode|FF_UserSettingsPath);
     FILE *fp;
     dbgAssertOrIgnore(!fileUsingBigfile(fh));
     fp = fileStream(fh);
@@ -623,7 +656,7 @@ void recPackRecordPacket(ubyte *packet,udword sizeofPacket)
     udword size = sizeofPacket;
     udword validcheck = VALIDCHECK;
 
-    filehandle fh = fileOpen(recordPacketFileName,FF_AppendMode);
+    filehandle fh = fileOpen(recordPacketFileName,FF_AppendMode|FF_UserSettingsPath);
     FILE *fp;
     dbgAssertOrIgnore(!fileUsingBigfile(fh));
     fp = fileStream(fh);
@@ -639,7 +672,7 @@ void recPackRecordPacketFilename(ubyte *packet,udword sizeofPacket,char *filenam
     udword size = sizeofPacket;
     udword validcheck = VALIDCHECK;
 
-    filehandle fh = fileOpen(filename,FF_AppendMode);
+    filehandle fh = fileOpen(filename,FF_AppendMode|FF_UserSettingsPath);
     FILE *fp;
     dbgAssertOrIgnore(!fileUsingBigfile(fh));
     fp = fileStream(fh);
@@ -707,7 +740,7 @@ void recPackPlayInGameInit(void)
 {
     playPackets = TRUE;
     recordplayPacketsInGame = TRUE;
-    playPacketFileFH = fileOpen(recordPacketFileName, 0);
+    playPacketFileFH = fileOpen(recordPacketFileName, FF_UserSettingsPath);
     dbgAssertOrIgnore(!fileUsingBigfile(playPacketFileFH));
     playPacketFile = fileStream(playPacketFileFH);
     netcheckInit();
@@ -716,7 +749,7 @@ void recPackPlayInGameInit(void)
 void recPackPlayInit(void)
 {
     char *str;
-    playPacketFileFH = fileOpen(recordPacketFileName, 0);
+    playPacketFileFH = fileOpen(recordPacketFileName, FF_UserSettingsPath);
     dbgAssertOrIgnore(!fileUsingBigfile(playPacketFileFH));
     playPacketFile = fileStream(playPacketFileFH);
 

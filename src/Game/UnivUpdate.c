@@ -6460,7 +6460,8 @@ bool32 univObjectOutsideWorld(SpaceObj *obj)
 //      exe's]; and with fogOfWar set (while 0x00a75188 is 0) a resource in an unvisited cell of the player's
 //      grid. The exe's out-of-world test is pieMovePointClipToLimits on a copy of the position, compared with a second
 //      copy: the clip only writes its second argument, so no resource is dropped (HW1 tested univObjectOutsideWorld).
-//      CAT-TODO(stage 5 recorder): the exe skips the fog-of-war test while the recorder flag 0x00a75188 is set (0x00549eac)
+//      CAT (M2-R9 recorder-leftovers): the fog-of-war test is skipped while a game is recorded (recordPackets
+//      0x00a75188 tested at 0x00549eac, after fogOfWar at 0x00549ea4 and before the grid at 0x00549eb5)
 #define CAT_MIMIC_RESOURCE_PICK_SCALE   0x1.9p-25f          // 0x0072bd74 (0x33480000)
 #define CAT_MIMIC_RESOURCE_PICK_LIMIT   5.0f                // 0x0072a624
 Resource *univFindNearestResource(Ship *ship,real32 volumeRadius,vector *volumePosition,bool32 fogOfWar)
@@ -6547,8 +6548,9 @@ Resource *univFindNearestResource(Ship *ship,real32 volumeRadius,vector *volumeP
         {
             goto nextnode;
         }
-        // CAT: with fogOfWar, not in an unvisited cell of the player's grid (0x00549ea4)
-        if (fogOfWar && ((grid = ship->playerowner->catFOWGrid) != NULL))
+        // CAT: with fogOfWar and no recording running, not in an unvisited cell of the player's grid (0x00549ea4,
+        //      0x00549eac)
+        if (fogOfWar && !recordPackets && ((grid = ship->playerowner->catFOWGrid) != NULL))
         {
             fowSelect(grid);
             if (fowIsValidW(position.x, position.y, position.z) && (fowGetVisitedW(position) == 0))

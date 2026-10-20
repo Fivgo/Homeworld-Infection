@@ -701,6 +701,17 @@ void cat_nomadMoonBeamEffect(vector *moon, real32 frac, vector *emitter, vector 
 
 static void cat_blastSaveCB(void *stuff)                                // 0x005169b0
 {
+    ubyte record32[CAT_BLASTNODE32];
+
+    if (saveCat32Saving)
+    {
+        // CAT (M2-R9 recorder-leftovers): the exe's 0x74-byte record: its 0x10-byte list node (written as 0: the
+        //      load relinks it) and the 0x64-byte blast (plain words)
+        memset(record32, 0, sizeof(record32));
+        memcpy(record32 + 0x10, &((CatBlastNode *)stuff)->blast, sizeof(CatBlast));
+        SaveStructureOfSize(record32, CAT_BLASTNODE32);
+        return;
+    }
     SaveStructureOfSize(stuff, sizeof(CatBlastNode));
 }
 

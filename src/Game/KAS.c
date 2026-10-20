@@ -1188,9 +1188,18 @@ static void *kasLoadEntry(sdword size, const void *layout32)
     return entry;
 }
 
+// CAT (M2-R9 recorder-leftovers): the writer's counterpart of kasLoadEntry (the exe's layout in an exe-format save)
+static void kasSaveEntry(void *entry, sdword size, const void *layout32)
+{
+    SaveChunk *chunk = CreateChunk(BASIC_STRUCTURE, size, entry);
+
+    saveCat32SaveStruct(chunk, layout32);
+    memFree(chunk);
+}
+
 void SaveKasSelection(KasSelection *kasselection)
 {
-    SaveStructureOfSize(kasselection,sizeof(KasSelection));
+    kasSaveEntry(kasselection,sizeof(KasSelection),SAVECAT32_LAYOUT(KasSelection));
     SaveGrowSelection(&kasselection->shipList);
 }
 
@@ -1203,7 +1212,7 @@ KasSelection *LoadKasSelection(void)
 
 void SaveLabelledPath(LabelledPath *labelledpath)
 {
-    SaveStructureOfSize(labelledpath,sizeof(LabelledPath));
+    kasSaveEntry(labelledpath,sizeof(LabelledPath),SAVECAT32_LAYOUT(LabelledPath));
     SavePath(labelledpath->path);
 }
 
@@ -1216,7 +1225,7 @@ LabelledPath *LoadLabelledPath(void)
 
 void SaveLabelledVector(LabelledVector *labelledvector)
 {
-    SaveStructureOfSize(labelledvector,sizeof(LabelledVector));
+    kasSaveEntry(labelledvector,sizeof(LabelledVector),SAVECAT32_LAYOUT(LabelledVector));
     SaveStructureOfSize(labelledvector->hvector,sizeof(hvector));
 }
 
@@ -1229,7 +1238,7 @@ LabelledVector *LoadLabelledVector(void)
 
 void SaveLabelledVolume(LabelledVolume *labelledvolume)
 {
-    SaveStructureOfSize(labelledvolume,sizeof(LabelledVolume));
+    kasSaveEntry(labelledvolume,sizeof(LabelledVolume),SAVECAT32_LAYOUT(LabelledVolume));
     SaveStructureOfSize(labelledvolume->volume,sizeof(Volume));
 }
 

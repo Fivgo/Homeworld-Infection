@@ -54,6 +54,40 @@ static Ship *madDupeShip;
 
 
 #ifdef HW_PTR_64
+/*-----------------------------------------------------------------------------
+    CAT (M2-R9 recorder-leftovers): the .mad file's own offset of each object's keyframe block (the file's
+    madobjpath.times), kept per loaded header. cataclysm.exe loads the file as it is (minus the trailing string block),
+    so its saves hold the spline curves' pointers as these file offsets (PreFix_madBindings 0x004b6fb0); this tree
+    converts the file to an LP64 layout first, so the offsets are remembered here for the exe-format save writer
+    (SaveCat32.c saveCat32SaveShip)
+----------------------------------------------------------------------------*/
+typedef struct MadCat32FileOffsets
+{
+    madheader *header;
+    sdword nObjects;
+    udword *times;
+    struct MadCat32FileOffsets *next;
+} MadCat32FileOffsets;
+
+static MadCat32FileOffsets *madCat32Offsets = NULL;
+static udword *madCat32PendingTimes = NULL;         // the converter's offsets until madFileLoad has the header
+static sdword madCat32PendingObjects = 0;
+
+bool32 madCat32ObjectFileOffset(madheader *header, sdword object, udword *offset)
+{
+    MadCat32FileOffsets *e;
+
+    for (e = madCat32Offsets; e != NULL; e = e->next)
+    {
+        if ((e->header == header) && (object >= 0) && (object < e->nObjects))
+        {
+            *offset = e->times[object];
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 sdword madFileLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
 {
     int i;
@@ -142,8 +176,17 @@ sdword madFileLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
 
     //printf("sizeof madOpArgs= %d\n",madOpArgs);
 
+    // CAT (M2-R9 recorder-leftovers): the file's keyframe block offsets, for the exe-format save writer
+    if (madCat32PendingTimes != NULL)
+    {
+        memFree(madCat32PendingTimes);
+    }
+    madCat32PendingObjects = newHeader->nObjects;
+    madCat32PendingTimes = memAlloc(sizeof(udword) * (madCat32PendingObjects > 0 ? madCat32PendingObjects : 1), "madCat32Times", NonVolatile);
+
     for (madobjloop=0; madobjloop <newHeader->nObjects ; madobjloop++){
 
+        madCat32PendingTimes[madobjloop] = (udword)oldMOP->times;
         madOpArgsThis = oldMOP->nKeyframes * madOpArgs;
 
         oldptr = oldbase + oldMOP->times;
@@ -241,6 +284,19 @@ madheader *madFileLoad(char *fileName)
 
     newHeader = memAlloc(fileSize - header.stringBlockLength, "meshAnimation", NonVolatile);
     *newHeader = header;
+#ifdef HW_PTR_64
+    if (madCat32PendingTimes != NULL)
+    {                                                       // CAT (M2-R9 recorder-leftovers): keep the file offsets
+        MadCat32FileOffsets *e = memAlloc(sizeof(MadCat32FileOffsets), "madCat32Offsets", NonVolatile);
+        e->header = newHeader;
+        e->nObjects = madCat32PendingObjects;
+        e->times = madCat32PendingTimes;
+        e->next = madCat32Offsets;
+        madCat32Offsets = e;
+        madCat32PendingTimes = NULL;
+        madCat32PendingObjects = 0;
+    }
+#endif
     memcpy(&newHeader->anim[0], loadAddress + madHeaderSize(0), fileSize - newHeader->stringBlockLength - madHeaderSize(0));
 
     newHeader->stringBlock = memAlloc(newHeader->stringBlockLength, "madStringBlock", NonVolatile);//!!!should this be non volatile?  I guess it depends on how soon the string block is freed, if ever.
@@ -317,6 +373,18 @@ madheader *madFileLoad(char *fileName)
 ----------------------------------------------------------------------------*/
 void madHeaderDelete(madheader *header)
 {
+    MadCat32FileOffsets **link, *e;
+
+    for (link = &madCat32Offsets; (e = *link) != NULL; link = &e->next)
+    {                                                       // CAT (M2-R9 recorder-leftovers)
+        if (e->header == header)
+        {
+            *link = e->next;
+            memFree(e->times);
+            memFree(e);
+            break;
+        }
+    }
     if (header->stringBlock != NULL)
     {
         memFree(header->stringBlock);

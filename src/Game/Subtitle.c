@@ -1141,7 +1141,12 @@ void subTitlesUpdate(void)
             strcpy(fullNewStringBuffer, subNewSubtitles[index].text);//intialize the concatenation string
             lastActor = subNewSubtitles[index].actor;       //!!! this is the concatenation criteria
             region = &subRegion[STR_LetterboxBar];          //default region to print to
-            theme = &subTheme[lastActor];                   //default theme for this actor
+            // CAT-FIX (M2-R9 recorder-leftovers): subTitlesUpdate 0x005842f0 forms the default theme's address from
+            //      the actor alone (0x00abdb20 + actor * 0x20 at 0x0058437b), also for the location cards' actor 0x70
+            //      (kasfLocationCard 0x00497710, cat_nisSubtitle 0x004cf740), past its 16-theme table; those texts
+            //      start with "#r3#tf", so subControlsScan replaces the theme before anything reads it. Here an actor
+            //      past the table starts from the location card's theme, so no out-of-table address is formed
+            theme = ((lastActor >= 0) && (lastActor < SUB_NumberThemes)) ? &subTheme[lastActor] : &subTheme[STT_LocationCard];
             lastSpeechEvent = subNewSubtitles[index].speechEvent;
             fullNewString = subControlsScan(fullNewStringBuffer, &region, &theme, &bContinuous);
             totalLength = strlen(fullNewString);

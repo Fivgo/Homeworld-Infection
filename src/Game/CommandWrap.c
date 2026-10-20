@@ -101,9 +101,9 @@ void clWrapMove(CommandLayer *comlayer,SelectCommand *selectcom,sdword pathType,
     }
     else
     {
-        // CAT-TODO(stage 5): the exe's clSendMove 0x0044eb20 sends the whole path (its packet is sized by numPoints);
-        //      this tree's packet is HW1's from/to, so a network or recorded move goes to the last point only
-        clSendMove(comlayer,selectcom,from,points[numPoints - 1]);
+        // CAT (M2-R9 recorder-leftovers): the whole path goes to clSendMove 0x0044eb20 (clWrapMove 0x004529e0 passes its
+        //      arguments on unchanged)
+        clSendMove(comlayer,selectcom,pathType,from,numPoints,points);
     }
 }
 
@@ -208,8 +208,9 @@ void clWrapFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfForma
     }
     else
     {
-        // CAT-TODO(stage 5): the exe's formation packet carries the force-field level (clSendFormation 0x0044ef10)
-        clSendFormation(comlayer,selectcom,formation);
+        // CAT (M2-R9 recorder-leftovers): the formation packet carries the force-field level (clSendFormation
+        //      0x0044f690, called by clWrapFormation 0x00452ca0 with both as uwords)
+        clSendFormation(comlayer,selectcom,formation,catForceFieldLevel);
     }
 }
 

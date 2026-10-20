@@ -105,6 +105,12 @@ void univRemoveShipFromOutside(Ship *ship, bool32 fowDeactivate);      // CAT: t
 extern udword catStealthDetectionUpdates;                            // HWI-TEST (M2-R6 nis-fow-camera)
 void univDeleteWipeInsideShipOutOfExistence(Ship *ship);
 void univDeleteDeadShip(Ship *ship, sdword deathBy);// deletes ship, but lets part of it hang around for explosion
+// CAT (M2-R9 recorder-leftovers): the four delete-list passes, also called by SaveUniverse 0x005034c0
+void univDeleteDeadShips(void);         // 0x00548e00
+void univRemoveShipReferences(Ship *ship);  // 0x0054b230 (CAT M2-R9: also called by RegisterAllSpaceObjs 0x004fe470)
+void univDeleteDeadResources(void);     // 0x00549270
+void univDeleteDeadDerelicts(void);     // 0x00549820
+void univDeleteDeadMissiles(void);      // 0x00549ac0
 void univWipeShipOutOfExistence(Ship *ship);                // totally deletes ship, frees memory
 void univWipeDerelictOutOfExistance(Derelict *derelict);    //totally deletes the derelict, frees memory and spawns no new effects
 void univReallyDeleteThisShipRightNow(Ship *ship);      //totally deletes it immediately

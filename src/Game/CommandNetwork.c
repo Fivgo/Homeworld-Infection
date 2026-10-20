@@ -659,46 +659,100 @@ bool32 packetBroadcastSync(ubyte *packet,udword sizeofPacket)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : clPktCommandAlloc / clPktPut16 / clPktPut32 / clPktPutVector / clPktPutSelection
+    Description : CAT (M2-R9 recorder-leftovers): the send side of Cataclysm's command packets, the counterpart of the
+                  clPkt readers of clProcessSyncPacket below: a 0x1C-byte packet header (type 0xCCCC, the sending
+                  player, frame 0, one command at +0x18) and one command (a uword: the type in the low byte, the
+                  player in the high byte) whose body is written at the exe's offsets. The exe's blocks are not
+                  cleared (the checksum words and the header's last two bytes are the allocator's until the captain's
+                  sync packet fills the checksums); here the block is zeroed so a recording's bytes do not depend on
+                  the heap
+----------------------------------------------------------------------------*/
+static ubyte *clPktCommandAlloc(udword sizeofPacket, udword bodyMax, udword commandType, char *name)
+{
+    udword size = (bodyMax > sizeofPacket) ? bodyMax : sizeofPacket;
+    ubyte *packet = memAlloc(size, name, 0);
+    HWPacketHeader *header = (HWPacketHeader *)packet;
+    uword command;
+
+    memset(packet, 0, size);
+    header->type = PACKETTYPE_COMMAND;
+    header->from = (uword)sigsPlayerIndex;
+    header->frame = 0;
+    header->numberOfCommands = 1;
+    command = (uword)(((ubyte)sigsPlayerIndex << 8) | commandType);
+    memcpy(packet + sizeof(HWPacketHeader), &command, sizeof(command));
+    return packet;
+}
+
+static void clPktPut16(ubyte *p, uword v)
+{
+    memcpy(p, &v, sizeof(v));
+}
+
+static void clPktPut32(ubyte *p, udword v)
+{
+    memcpy(p, &v, sizeof(v));
+}
+
+static void clPktPutVector(ubyte *p, vector v)
+{
+    memcpy(p, &v.x, sizeof(real32));
+    memcpy(p + 4, &v.y, sizeof(real32));
+    memcpy(p + 8, &v.z, sizeof(real32));
+}
+
+// a NetSelection: the count, then each ship's number (the exe writes ShipID.shipNumber, +0x43C of its Ship)
+static void clPktPutSelection(ubyte *p, SelectCommand *selectcom)
+{
+    sdword i;
+
+    clPktPut16(p, (uword)selectcom->numShips);
+    for (i = 0; i < selectcom->numShips; i++)
+    {
+        clPktPut16(p + 2 + 2 * i, (selectcom->ShipPtr[i])->shipID.shipNumber);
+    }
+}
+
+#define CL_PKT_BODY     (sizeof(HWPacketHeader) + sizeof(HWCommandHeader))     // 0x1E: the command body
+
+/*-----------------------------------------------------------------------------
     Name        : clSendMove
     Description : sends the Move command over the network
-    Inputs      : selectcom,from,to
+    Inputs      : selectcom, the path (type, from, points)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-// CAT-TODO(stage 5 recorder): clSendMove, clSendMpHyperspace and clSendFormation still build HW1's bodies (one point, no path type, no force-field level); since M2-R6 oracle-mode-a clProcessSyncPacket reads Cataclysm's (0x106 + 2n with the path, and the level), so a packet these send would be misread until their send side is ported (clSendMove 0x0044f0a0 ff.)
-void clSendMove(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to)
+// CAT (M2-R9 recorder-leftovers): clSendMove 0x0044eb20 takes clWrapMove's arguments unchanged (the path type, from,
+//      the number of points and the points) and sends 0x124 + 2n bytes: +0 the path type, +4 from, +0x10 the number of
+//      points, +0x14 the points (numPoints * 12 bytes copied as given), +0x104 the selection (written after the
+//      points). HW1 sent from / to and a ShipID selection. The block is sized for the points too: the callers pass
+//      at most CAT_MOVE_MAX_POINTS (21), whose last point the selection overwrites as in the exe; the exe's block
+//      would overflow only from 25 points on
+void clSendMove(CommandLayer *comlayer,SelectCommand *selectcom,sdword pathType,vector from,sdword numPoints,vector *points)
 {
     udword sizeofPacket;
-    HWPacketHeader *packet;
-    HWCommandHeader *commandheader;
-    NetMoveCommand *move;
-    udword numShips = selectcom->numShips;
-    udword i;
+    ubyte *packet;
+    ubyte *body;
+    sdword i;
 
-    dbgAssertOrIgnore(numShips > 0);
+    dbgAssertOrIgnore(selectcom->numShips > 0);
 
-    sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeofNetMoveCommand(numShips);
+    sizeofPacket = 0x124 + 2 * (udword)selectcom->numShips;
+    packet = clPktCommandAlloc(sizeofPacket, CL_PKT_BODY + 0x14 + 12 * (udword)((numPoints > 0) ? numPoints : 0),
+                               COMMANDTYPE_MOVE, "movepacket");
+    body = packet + CL_PKT_BODY;
 
-    packet = memAlloc(sizeofPacket,"movepacket",0);
-
-    packet->type = PACKETTYPE_COMMAND;
-    packet->from = (uword)sigsPlayerIndex;
-    packet->frame = 0;
-    packet->numberOfCommands = 1;
-
-    commandheader = (HWCommandHeader *)(((ubyte *)packet) + sizeof(HWPacketHeader));
-    commandheader->commandType = COMMANDTYPE_MOVE | (sigsPlayerIndex<<8);
-
-    move = (NetMoveCommand *)(((ubyte *)commandheader) + sizeof(HWCommandHeader));
-    move->from = from;
-    move->to = to;
-    move->selection.numShips = (uword)numShips;
-    for (i=0;i<numShips;i++)
+    clPktPut32(body, (udword)pathType);
+    clPktPutVector(body + 4, from);
+    clPktPut32(body + 0x10, (udword)numPoints);
+    for (i = 0; i < numPoints; i++)
     {
-        move->selection.ShipID[i] = (selectcom->ShipPtr[i])->shipID;
+        clPktPutVector(body + 0x14 + 12 * i, points[i]);
     }
+    clPktPutSelection(body + 0x104, selectcom);
 
-    if (packetSendToCaptain((ubyte *)packet,sizeofPacket))
+    if (packetSendToCaptain(packet,sizeofPacket))
     {
         memFree(packet);
     }
@@ -710,39 +764,27 @@ void clSendMove(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vect
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT (M2-R9 recorder-leftovers): clSendMpHyperspace 0x0044ed00 sends the move's layout (0x124 + 2n): path type 0,
+//      from, one point (the destination) and the selection at +0x104
 void clSendMpHyperspace(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to)
 {
     udword sizeofPacket;
-    HWPacketHeader *packet;
-    HWCommandHeader *commandheader;
-    NetMoveCommand *move;
-    udword numShips = selectcom->numShips;
-    udword i;
+    ubyte *packet;
+    ubyte *body;
 
-    dbgAssertOrIgnore(numShips > 0);
+    dbgAssertOrIgnore(selectcom->numShips > 0);
 
-    sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeofNetMoveCommand(numShips);
+    sizeofPacket = 0x124 + 2 * (udword)selectcom->numShips;
+    packet = clPktCommandAlloc(sizeofPacket, 0, COMMANDTYPE_MP_HYPERSPACE, "hyperspacepacket");
+    body = packet + CL_PKT_BODY;
 
-    packet = memAlloc(sizeofPacket,"hyperspacepacket",0);
+    clPktPut32(body, 0);
+    clPktPutVector(body + 4, from);
+    clPktPut32(body + 0x10, 1);
+    clPktPutVector(body + 0x14, to);
+    clPktPutSelection(body + 0x104, selectcom);
 
-    packet->type = PACKETTYPE_COMMAND;
-    packet->from = (uword)sigsPlayerIndex;
-    packet->frame = 0;
-    packet->numberOfCommands = 1;
-
-    commandheader = (HWCommandHeader *)(((ubyte *)packet) + sizeof(HWPacketHeader));
-    commandheader->commandType = COMMANDTYPE_MP_HYPERSPACE | (sigsPlayerIndex<<8);
-
-    move = (NetMoveCommand *)(((ubyte *)commandheader) + sizeof(HWCommandHeader));
-    move->from = from;
-    move->to = to;
-    move->selection.numShips = (uword)numShips;
-    for (i=0;i<numShips;i++)
-    {
-        move->selection.ShipID[i] = (selectcom->ShipPtr[i])->shipID;
-    }
-
-    if (packetSendToCaptain((ubyte *)packet,sizeofPacket))
+    if (packetSendToCaptain(packet,sizeofPacket))
     {
         memFree(packet);
     }
@@ -869,44 +911,29 @@ void clSendSpecial(CommandLayer *comlayer,SelectCommand *selectcom,SpecialComman
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void clSendFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation formation)
+// CAT (M2-R9 recorder-leftovers): clSendFormation 0x0044f690 sends 0x24 + 2n bytes: +0 the formation, +2 the
+//      force-field level (clWrapFormation's fourth argument, both as uwords), +4 the selection; it sends for any
+//      non-empty selection (HW1 returned below ABSOLUTE_MIN_SHIPS_IN_FORMATION; clFormation tests that)
+void clSendFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation formation,sdword catForceFieldLevel)
 {
     udword sizeofPacket;
-    HWPacketHeader *packet;
-    HWCommandHeader *commandheader;
-    NetFormationCommand *formationcom;
-    udword numShips = selectcom->numShips;
-    udword i;
+    ubyte *packet;
+    ubyte *body;
 
-    if (selectcom->numShips < ABSOLUTE_MIN_SHIPS_IN_FORMATION)
+    if (selectcom->numShips <= 0)
     {
-#if DEBUG_FORMATIONS
-        dbgMessage("Not enough ships to do a formation");
-#endif
         return;
     }
 
-    sizeofPacket = sizeof(HWPacketHeader) + sizeof(HWCommandHeader) + sizeofNetFormationCommand(numShips);
+    sizeofPacket = 0x24 + 2 * (udword)selectcom->numShips;
+    packet = clPktCommandAlloc(sizeofPacket, 0, COMMANDTYPE_FORMATION, "formationpacket");
+    body = packet + CL_PKT_BODY;
 
-    packet = memAlloc(sizeofPacket,"formationpacket",0);
+    clPktPut16(body, (uword)formation);
+    clPktPut16(body + 2, (uword)catForceFieldLevel);
+    clPktPutSelection(body + 4, selectcom);
 
-    packet->type = PACKETTYPE_COMMAND;
-    packet->from = (uword)sigsPlayerIndex;
-    packet->frame = 0;
-    packet->numberOfCommands = 1;
-
-    commandheader = (HWCommandHeader *)(((ubyte *)packet) + sizeof(HWPacketHeader));
-    commandheader->commandType = COMMANDTYPE_FORMATION | (sigsPlayerIndex<<8);
-
-    formationcom = (NetFormationCommand *)(((ubyte *)commandheader) + sizeof(HWCommandHeader));
-    formationcom->typeOfFormation = (uword)formation;
-    formationcom->selection.numShips = (uword)numShips;
-    for (i=0;i<numShips;i++)
-    {
-        formationcom->selection.ShipID[i] = (selectcom->ShipPtr[i])->shipID;
-    }
-
-    if (packetSendToCaptain((ubyte *)packet,sizeofPacket))
+    if (packetSendToCaptain(packet,sizeofPacket))
     {
         memFree(packet);
     }
@@ -2661,6 +2688,7 @@ void KillAnyDroppedOutPlayers(void)
     clSendPlayerDropped(killmask);
 }
 
+// CAT-TODO(stage 5 LAN): KeepAliveDropPlayerCB 0x00451e70 stamps printTimeout with universe.realtimeelapsed (HW1 totaltimeelapsed)
 void KeepAliveDropPlayerCB(sdword playerindex)
 {
     LockMutex(AliveTimeoutStatusesMutex);

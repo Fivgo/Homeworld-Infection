@@ -44,6 +44,12 @@ CHANNEL channels[SOUND_MAX_VOICES];
 sword numpatches = 0;
 sdword	lasthandle = 0;
 bool32 soundinited = FALSE;
+// HWI-TEST (M2-R9 recorder-leftovers): /catVirtualAudio (the Tutorial1 leg of the mission self-test): the mixer and the
+//      "soundstream" thread do not run on SDL's audio thread and their own thread at the wall clock's pace; the game
+//      thread advances them by the virtual clock instead (soundVirtualAdvance from utyTasksDispatch: 22050 samples a
+//      second of task time, a 256-sample mixer block at a time, one stream pass before each block), so the speech's
+//      subtitles start and end at the same frame in every run. Not a Cataclysm behaviour; never on in a normal run
+bool32 soundVirtualClock = FALSE;
 BANK *bank;
 PATCH *patches;
 sdword channelsinuse = 0;
@@ -181,6 +187,50 @@ real32 soundusage(void)
 
 
 extern void soundfeedercb(void *userdata, Uint8 *stream, int len);
+extern void isoundstreamstep(void);
+
+/*-----------------------------------------------------------------------------
+	Name		: soundVirtualMixBlock / soundVirtualAdvance
+	Description	: HWI-TEST (M2-R9 recorder-leftovers): the virtual audio clock (soundVirtualClock above). One block: a
+				  pass of the stream loop (it reads the next speech block, its header and so its subtitle, when the
+				  mixer has freed a buffer), then one 256-sample mixer block through SDL's callback path (the status
+				  transitions included) into a scratch buffer. Advance: the blocks a frame's task ticks hold, kept
+				  exact with a sample accumulator (22050 * ticks against taskFrequency * 256)
+	Inputs		: taskTicks - the task ticks this frame ran
+	Outputs		:
+	Return		:
+----------------------------------------------------------------------------*/
+void soundVirtualMixBlock(void)
+{
+	Uint8 block[FQ_SIZE * sizeof(short) * 2];
+
+	if (!soundinited)
+	{
+		return;
+	}
+	if (streamer.status >= SOUND_STOPPED)
+	{
+		isoundstreamstep();
+	}
+	soundfeedercb(NULL, block, (int)sizeof(block));
+}
+
+void soundVirtualAdvance(udword taskTicks, udword ticksPerSecond)
+{
+	static udword accumulated = 0;
+	udword perBlock = ticksPerSecond * FQ_SIZE;
+
+	if (!soundVirtualClock || !soundinited || (perBlock == 0))
+	{
+		return;
+	}
+	accumulated += (udword)FQ_RATE * taskTicks;
+	while (accumulated >= perBlock)
+	{
+		accumulated -= perBlock;
+		soundVirtualMixBlock();
+	}
+}
 
 /*-----------------------------------------------------------------------------
 	Name		:
@@ -227,7 +277,18 @@ sdword soundinit(bool32 mode)
 	aspec.callback = soundfeedercb;
 	aspec.userdata = NULL;
 
-	if (SDL_OpenAudio(&aspec, NULL) < 0) {
+	if (soundVirtualClock) {
+	    // HWI-TEST: no audio device: the mixer is driven by soundVirtualAdvance
+	    if (isoundmixerinit(&aspec) != SOUND_OK) {
+	        dbgMessagef("Unable to init mixer subsystem");
+	        result = SOUND_ERR;
+	    } else {
+	        soundinited = TRUE;
+	        mixer.status = SOUND_PLAYING;
+	        result = SOUND_OK;
+	    }
+	}
+	else if (SDL_OpenAudio(&aspec, NULL) < 0) {
 	    dbgMessagef("Couldn't open audio: %s", SDL_GetError());
 	    result = SOUND_ERR;
 	}
@@ -342,7 +403,14 @@ void soundpause(bool32 bPause)
 			while ((mixer.status != SOUND_STOPPED) && (--timeout))
 			{
 				musicEventUpdateVolume();
-				SDL_Delay(SOUND_PAUSE_DELAY);
+				if (soundVirtualClock)
+				{
+					soundVirtualMixBlock();		// HWI-TEST: the mixer fades out block by block, not on the wall clock
+				}
+				else
+				{
+					SDL_Delay(SOUND_PAUSE_DELAY);
+				}
 			}
 			if (!timeout) {
 				dbgMessagef("WARNING: Sound refused to pause in %d*%d ms, forcing exit", SOUND_PAUSE_BREAKOUT, SOUND_PAUSE_DELAY);

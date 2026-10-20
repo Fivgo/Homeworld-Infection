@@ -50,6 +50,7 @@
 #include "LinkedList.h"
 #include "MultiplayerGame.h"
 #include "NetCheck.h"
+#include "SaveGame.h"     // HWI-ORACLE (M2-R9 recorder-leftovers): /oracleResave
 #include "GamePick.h"      // HWI-ORACLE: gpLoadRecordedGameGivenName (the replay)
 #include "mainswitches.h"
 #include "Randy.h"
@@ -89,6 +90,17 @@ static bool32 oracleMissionDone = FALSE;
 static char oracleReplayName[MAX_RECORDPACKETFILENAME_STRLEN] = "";     // /oracleReplay <name> (M2-R6 oracle-mode-a)
 static bool32 oracleReplayDone = FALSE;
 static udword oracleReplayPackets = 0;              // sync packets processed by the replay
+// HWI-ORACLE (M2-R9 recorder-leftovers): /oracleRecord <name> [/oracleRecordStop <tick>], the mode-B recording: the
+// game's own in-game recording is started at the first universe tick and stopped at <tick>, as the GOG DLL's record
+// mode does (tools/oracle/dll/hwi_oracle.c start_recording / on_tick)
+static char oracleRecordName[MAX_RECORDPACKETFILENAME_STRLEN] = "";
+static sdword oracleRecordStopTick = 9600;          // the DLL's default (record_reference.sh ORACLE_STOP)
+static bool32 oracleRecordStarted = FALSE;
+static bool32 oracleRecordStopped = FALSE;
+// HWI-ORACLE (M2-R9 recorder-leftovers): /oracleResave <name>: right after a replay's load the loaded game is saved
+// again as a recording's save (cataclysm.exe's format) to SavedGames/RecordedGames/<name>, so the writer can be
+// compared byte by byte with the GOG game's own save of the same game (tools/formats/recording_compare.py --chunks)
+static char oracleResaveName[MAX_RECORDPACKETFILENAME_STRLEN] = "";
 
 // HWI-ORACLE (M2-R8 oracle-rung-physics): /oracleShipDump <ships>[@<from>-<to>], the permanent per-ship / per-packet
 // dump (docs/m2-r8-oracle-rung-physics.md "dump"): <ships> is a ship number (shipID.shipNumber, the id the stream
@@ -284,12 +296,103 @@ void oracleStartReplay(void)
         utyGameQuit(NULL, NULL);
         return;
     }
+    if (oracleResaveName[0] != '\0')
+    {
+        char path[MAX_RECORDPACKETFILENAME_STRLEN];
+        bool32 saved;
+
+        snprintf(path, sizeof(path), "SavedGames%cRecordedGames%c%s", ORACLE_PATH_SEP, ORACLE_PATH_SEP, oracleResaveName);
+        recordingStartSave = TRUE;                  // as recPackInGameStartCBSafeToStart's save: the exe's format, no grid
+        saved = SaveGame(path);
+        recordingStartSave = FALSE;
+        fprintf(stdout, "oracle: resave '%s' %s\n", path, saved ? "written" : "FAILED");
+        fflush(stdout);
+    }
     snprintf(text, sizeof(text), "%s players=%u ships=%u tick=%u multiplayer=%d", oracleReplayName,
              (unsigned)universe.numPlayers, (unsigned)universe.ShipList.num, (unsigned)universe.univUpdateCounter,
              (int)recordedGameMultiplayer);
     oracleEmitEvent(HWO_EV_PLAYBACK_START, text);
     fprintf(stdout, "oracle: replay started %s\n", text);
     fflush(stdout);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : oracleSetRecord / oracleSetRecordStop / oracleRecordTick
+    Description : HWI-ORACLE (M2-R9 recorder-leftovers): the mode-B oracle's record side on this engine. At the first
+                  universe tick of the run the game's own in-game recording is requested for
+                  SavedGames/RecordedGames/<name> (recPackInGameStartCB 0x004cbaf0: the names and
+                  startRecordingGameWhenSafe; universeUpdateTask then saves the game and starts recording,
+                  recPackInGameStartCBSafeToStart 0x004cbbb0), with the record-start event in the stream; at
+                  <stop> (default 9600) recPackInGameStopCB 0x004cbd10 stops it, with the record-stop event. The
+                  same calls, in the same place (after the tick's 'T' record), as the GOG DLL's record mode. The files
+                  land in the settings path, the save and the packets alike (NetCheck.c opens the packet file
+                  there; [audit: was "the working directory (the packets)"]): the run's settings dir under the
+                  harness. Nothing else changes: the run's own self-test (a skirmish, ...) goes on
+----------------------------------------------------------------------------*/
+void oracleSetRecord(char *string)
+{
+    strncpy(oracleRecordName, string, sizeof(oracleRecordName) - 1);
+    oracleRecordName[sizeof(oracleRecordName) - 1] = '\0';
+}
+
+void oracleSetResave(char *string)
+{
+    strncpy(oracleResaveName, string, sizeof(oracleResaveName) - 1);
+    oracleResaveName[sizeof(oracleResaveName) - 1] = '\0';
+}
+
+void oracleSetRecordStop(char *string)
+{
+    oracleRecordStopTick = (sdword)strtol(string, NULL, 10);
+    if (oracleRecordStopTick <= 1)
+    {
+        oracleRecordStopTick = 9600;
+    }
+}
+
+static void oracleRecordTick(void)
+{
+    static char path[MAX_RECORDPACKETFILENAME_STRLEN];
+    char text[HWO_EVENT_TEXT_MAX];
+
+    if ((oracleRecordName[0] == '\0') || !gameIsRunning)
+    {
+        return;
+    }
+    if (!oracleRecordStarted)
+    {
+        oracleRecordStarted = TRUE;
+        if (singlePlayerGame)
+        {
+            // as the DLL: the engine's recorded games are skirmish / multiplayer games only
+            oracleEmitEvent(HWO_EV_NOTE, "refused: recording needs a skirmish (multiplayer-type) game");
+            fprintf(stdout, "oracle: record refused (single-player game)\n");
+            fflush(stdout);
+            return;
+        }
+        snprintf(path, sizeof(path), "SavedGames%cRecordedGames%c%s", ORACLE_PATH_SEP, ORACLE_PATH_SEP, oracleRecordName);
+        recPackInGameStartCB(path);
+        oracleEmitEvent(HWO_EV_RECORD_START, path);
+        fprintf(stdout, "oracle: record requested '%s' tick=%u stop=%d\n", path, (unsigned)universe.univUpdateCounter,
+                (int)oracleRecordStopTick);
+        fflush(stdout);
+    }
+    else if (!oracleRecordStopped && ((sdword)universe.univUpdateCounter >= oracleRecordStopTick))
+    {
+        oracleRecordStopped = TRUE;
+        recPackInGameStopCB();
+        oracleEmitEvent(HWO_EV_RECORD_STOP, oracleRecordName);
+#if SYNC_CHECK
+        snprintf(text, sizeof(text), "tick=%u packets=%u ships=%u randSyncErr=%u univSyncErr=%u blobSyncErr=%u pktSyncErr=%u",
+                 (unsigned)universe.univUpdateCounter, (unsigned)receivedPacketNumber, (unsigned)universe.ShipList.num,
+                 (unsigned)randSyncErr, (unsigned)univSyncErr, (unsigned)blobSyncErr, (unsigned)pktSyncErr);
+#else
+        snprintf(text, sizeof(text), "tick=%u packets=%u ships=%u", (unsigned)universe.univUpdateCounter,
+                 (unsigned)receivedPacketNumber, (unsigned)universe.ShipList.num);
+#endif
+        fprintf(stdout, "oracle: record stopped '%s' %s\n", oracleRecordName, text);
+        fflush(stdout);
+    }
 }
 
 // one sync packet of the replay was processed (netcheckShow's oracleEmitPacket): progress lines every 128 packets
@@ -1076,6 +1179,12 @@ bool32 oracleUnivUpdate(real32 phystimeelapsed)
     if ((oracleFileName[0] != '\0' || oracleInSelfTest) && universe.univUpdateCounter != before)
     {
         oracleEmitTick();
+    }
+    // HWI-ORACLE (M2-R9 recorder-leftovers): the mode-B recording's start and stop, after the tick's record (the DLL's
+    //      on_tick order)
+    if (universe.univUpdateCounter != before)
+    {
+        oracleRecordTick();
     }
     // HWI-ORACLE (M2-R8 oracle-rung-physics): the per-ship dump's 'S' lines of this tick (/oracleShipDump)
     if (oracleShipDumpOn && (universe.univUpdateCounter != before))

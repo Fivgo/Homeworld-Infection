@@ -594,7 +594,7 @@ void SaveObjective(Objective *objective)
 
     sc->fleetIntelligence = (FleetIntelligence *)ConvertPointerInListToNum(&poFleetIntelligence,sc->fleetIntelligence);
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(Objective));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
 
     Save_String(objective->description);
@@ -626,7 +626,9 @@ Objective *LoadObjective(void)
 
 void SaveFleetIntelligence(void *stuff)
 {
-    SaveStructureOfSize(stuff,sizeof(FleetIntelligence));
+    SaveChunk *chunk = CreateChunk(BASIC_STRUCTURE,sizeof(FleetIntelligence),stuff);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(FleetIntelligence));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
+    memFree(chunk);
     Save_String(((FleetIntelligence *)stuff)->description);
 }
 

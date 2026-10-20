@@ -18,6 +18,7 @@
 #include "Task.h"
 #include "Salvage.h"
 #include "BeastWeapon.h"
+#include "NetCheck.h"        // CAT (M2-R9 recorder-leftovers): recordingStartSave
 
 #include <string.h>
 
@@ -97,6 +98,7 @@ void FixSpaceObj(SpaceObj *obj);
 void SaveSpaceObj(SpaceObj *obj);
 void LoadUniverse(void);
 void SaveUniverse(void);
+static void saveCat32SaveCaptainGameInfo(void);    // CAT (M2-R9 recorder-leftovers)
 
 typedef void (*ListAddCB)(LinkedList *list,SpaceObj *obj);
 
@@ -565,7 +567,8 @@ void LoadLighting(void)
 
 void SaveVersionInfo(void)
 {
-    sdword version = SAVE_VERSION_NUMBER;
+    // CAT (M2-R9 recorder-leftovers): an exe-format save carries cataclysm.exe's number (0x10ad0027)
+    sdword version = saveCat32Saving ? SAVE_VERSION_NUMBER_CATACLYSM : SAVE_VERSION_NUMBER;
     FILE *fp;
 
     dbgAssertOrIgnore(!fileUsingBigfile(savefile));
@@ -710,7 +713,14 @@ void SavePreGameInfo(void)
     }
     else
     {
-        SaveStructureOfSize(&tpGameCreated,sizeof(tpGameCreated));
+        if (saveCat32Saving)
+        {
+            saveCat32SaveCaptainGameInfo();     // CAT (M2-R9 recorder-leftovers): the exe's 0x2B0 bytes
+        }
+        else
+        {
+            SaveStructureOfSize(&tpGameCreated,sizeof(tpGameCreated));
+        }
     }
 
     if (tutorial != TUTORIAL_ONLY)
@@ -729,6 +739,29 @@ void SavePreGameInfo(void)
                   HW1's playerInfo[] and is left zero here, with a log line when it is not zero in the file.
                   CAT-TODO(stage 5 multiplayer): the exe's 0x2B0 layout after +0xC8 (the 0x48 new bytes and playerInfo), for LAN interop and for a recorded multiplayer game
 ----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    Name        : saveCat32SaveCaptainGameInfo
+    Description : CAT (M2-R9 recorder-leftovers): the inverse of saveCat32LoadCaptainGameInfo for an exe-format save: the
+                  first 0xC8 bytes are tpGameCreated converted back into the ILP32 layout, the rest of the exe's 0x2B0
+                  bytes (Cataclysm's 0x48 bytes and its playerInfo, layout not established) are 0, as in the GOG
+                  skirmish recordings' saves (oracle01 of the 10-17 session: every byte after +0xC8 is 0)
+----------------------------------------------------------------------------*/
+static void saveCat32SaveCaptainGameInfo(void)
+{
+    ubyte block[SAVE_CAT32_CAPTAINGAMEINFO];
+    ubyte head[0x268];
+
+    memset(block, 0, sizeof(block));
+    memset(head, 0, sizeof(head));
+#if SAVECAT32_LP64
+    saveCat32ConvertBack(&saveCat32Layout_CaptainGameInfo, &tpGameCreated, head);
+#else
+    memcpy(head, &tpGameCreated, sizeof(head));
+#endif
+    memcpy(block, head, 0xC8);
+    SaveStructureOfSize(block, SAVE_CAT32_CAPTAINGAMEINFO);
+}
+
 static void saveCat32LoadCaptainGameInfo(void)
 {
     SaveChunk *chunk = LoadNextChunk();
@@ -837,6 +870,14 @@ bool32 SaveGame(char *filename)
     }
     savefilestatus = 0;
 
+    // CAT (M2-R9 recorder-leftovers): a recording's save is written in cataclysm.exe's format (version 0x10ad0027, the
+    //      exe's ILP32 struct layouts, SaveCat32.c), so the GOG game can play an hwi-engine recording back; this tree's
+    //      other saves keep its native format
+    if (recordingStartSave)
+    {
+        saveCat32SaveBegin();
+    }
+
     SaveVersionInfo();
     SavePreGameInfo();
 
@@ -903,6 +944,7 @@ bool32 SaveGame(char *filename)
 
     fileClose(savefile);
     savefile = 0;
+    saveCat32SaveEnd(filename);                 // CAT (M2-R9 recorder-leftovers): the writer's log line, if it ran
 
 #ifdef __EMSCRIPTEN__
     EM_ASM(
@@ -1155,6 +1197,8 @@ void RegisterAllBlobs(void)
     }
 }
 
+// CAT (M2-R9 recorder-leftovers): RegisterAllSpaceObjsInsideMe 0x004fe400 also registers the ships inside each ship it
+//      registers (a recursion through Ship+0x4B4 shipsInsideMe); HW1 registered one level
 void RegisterAllSpaceObjsInsideMe(ShipsInsideMe *shipsInsideMe)
 {
     Node *insidenode = shipsInsideMe->insideList.head;
@@ -1167,12 +1211,18 @@ void RegisterAllSpaceObjsInsideMe(ShipsInsideMe *shipsInsideMe)
         if ((insideship->ship->header.flags & SOF_Dead) == 0)
         {
             SpaceObjRegistryRegister((SpaceObj *)insideship->ship);
+            if (insideship->ship->shipsInsideMe != NULL)
+            {
+                RegisterAllSpaceObjsInsideMe(insideship->ship->shipsInsideMe);
+            }
         }
 
         insidenode = insidenode->next;
     }
 }
 
+// CAT (M2-R9 recorder-leftovers): RegisterAllSpaceObjs 0x004fe470 as the exe: the dead ships of the object list get
+//      univRemoveShipReferences, a mimic's fake asteroid is registered, the ships inside are registered recursively
 void RegisterAllSpaceObjs(void)
 {
     Node *node = universe.SpaceObjList.head;
@@ -1188,6 +1238,12 @@ void RegisterAllSpaceObjs(void)
         }
         if (obj->header.flags & SOF_Dead)
         {
+            // CAT: a dead ship still in the list has its references removed (RegisterAllSpaceObjs 0x004fe470:
+            //      univRemoveShipReferences 0x0054b230)
+            if (obj->header.objtype == OBJ_ShipType)
+            {
+                univRemoveShipReferences((Ship *)obj);
+            }
             goto nextnode;
         }
 
@@ -1198,6 +1254,12 @@ void RegisterAllSpaceObjs(void)
             {
                 // check ships inside too
                 RegisterAllSpaceObjsInsideMe(((Ship *)obj)->shipsInsideMe);
+            }
+            // CAT: and a mimic's fake asteroid, which is in no list the save walks (0x004fe567: the +0x18 mimic
+            //      bit, cat_mimicGetFakeResource 0x005b9960)
+            if (bitTest(obj->header.catFlags18, CAT_SHIPFLAG_Mimic) && (cat_mimicGetFakeResource((Ship *)obj) != NULL))
+            {
+                SpaceObjRegistryRegister((SpaceObj *)cat_mimicGetFakeResource((Ship *)obj));
             }
         }
 
@@ -1303,7 +1365,7 @@ void SaveBlob(blob *tblob)
 
     sblob->subBlobs.num = BIT31;        // flag subblobs as nonexistent
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(blob));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
 
     dbgAssertOrIgnore(bitTest(sblob->flags, BTF_FreeThisBlob));
     dbgAssertOrIgnore(bitTest(sblob->flags, BTF_FreeBlobObjects));
@@ -1436,7 +1498,7 @@ void SaveAttackTargets(AttackTargets *multipleAttackTargets)
         savecontents->TargetPtr[i] = (TargetPtr)SpaceObjRegistryGetID((SpaceObj *)multipleAttackTargets->TargetPtr[i]);
     }
 
-    SaveThisChunk(chunk);
+    saveCat32SaveArray(chunk, NULL, 4, (udword)offsetof(AttackTargets, TargetPtr), NULL, multipleAttackTargets->numAttackTargets);   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
 }
 
@@ -1488,7 +1550,7 @@ void SaveGunInfo(Ship *ship)
         savecontents->guns[i].gunstatic = NULL;
     }
 
-    SaveThisChunk(chunk);
+    saveCat32SaveArray(chunk, NULL, 4, (udword)offsetof(GunInfo, guns), SAVECAT32_LAYOUT(Gun), originalGunInfo->numGuns);   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
 }
 
@@ -1571,7 +1633,7 @@ void SaveShipSinglePlayerGameInfo(Ship *ship)
     chunk = CreateChunk(BASIC_STRUCTURE|SAVE_SHIPSINGLEPLAYERGAMEINFO,sizeof(ShipSinglePlayerGameInfo),ship->shipSinglePlayerGameInfo);
 //    savecontents = chunkContents(chunk);
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(ShipSinglePlayerGameInfo));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
 }
 
@@ -1724,7 +1786,7 @@ void SaveShipsInsideMe(Ship *ship)
     SaveChunk *chunk;
     chunk = CreateChunk(BASIC_STRUCTURE|SAVE_SHIPSINSIDEME,sizeof(ShipsInsideMe),ship->shipsInsideMe);
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(ShipsInsideMe));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
 
     SaveLinkedListOfInsideShips(&ship->shipsInsideMe->insideList);
@@ -1808,7 +1870,7 @@ void SaveClampInfo(ClampInfo *clampInfo)
 
     sc->host = (SpaceObjRotImpTarg*)SpaceObjRegistryGetID((SpaceObj *)sc->host);
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(ClampInfo));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
 
     // CAT: a host's clamped-object list follows as a selection (SaveShip 0x004ffd70 / LoadSpaceObj's derelict case)
     if (clampInfo->clampedObjs != NULL)
@@ -1968,12 +2030,12 @@ void SaveShip(Ship *ship)
         shipstaticinfo->custshipheader.CustShip_PreFix(savecontents);
     }
 
-    SaveThisChunk(chunk);
+    saveCat32SaveShip(chunk, ship);   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
 
     if (ship->header.flags & SOF_StaticInfoIsDynamic)
     {
         SaveChunk *statchunk = CreateChunk(BASIC_STRUCTURE|SAVE_STATICINFO,sizeof(ShipStaticInfo),ship->staticinfo);
-        SaveThisChunk(statchunk);
+        saveCat32SaveStruct(statchunk, SAVECAT32_LAYOUT(ShipStaticInfo));
         memFree(statchunk);
     }
 
@@ -2269,14 +2331,14 @@ void SaveAsteroid(Asteroid *asteroid)
     // CAT: the mimic posing as this asteroid is saved as its ID (FixAllSpaceObjs 0x004ff3e0 resolves +0x1A4)
     savecontents->catMimicShip = (Ship *)(size_t)SpaceObjRegistryGetID((SpaceObj *)asteroid->catMimicShip);
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(Asteroid));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
 
     dbgAssertOrIgnore(asteroid->staticinfo != NULL);
     if (asteroid->header.flags & SOF_StaticInfoIsDynamic)
     {
         SaveChunk *statchunk = CreateChunk(BASIC_STRUCTURE|SAVE_STATICINFO,sizeof(AsteroidStaticInfo),asteroid->staticinfo);
-        SaveThisChunk(statchunk);
+        saveCat32SaveStruct(statchunk, SAVECAT32_LAYOUT(AsteroidStaticInfo));
         memFree(statchunk);
     }
 }
@@ -2342,7 +2404,7 @@ void SaveCloudSystem(DustCloud *dustcloud)
         savecontents->bursts[i] = 0;        // reset all lightening for now.  Fix later
     }
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(cloudSystem));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
 
     memFree(chunk);
 }
@@ -2380,14 +2442,14 @@ void SaveDustCloud(DustCloud *dustcloud)
 
     savecontents->resource.resourceVolume = (ResourceVolume *)ConvertPointerInListToNum(&universe.ResourceVolumeList,dustcloud->resource.resourceVolume);
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(DustCloud));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
 
     dbgAssertOrIgnore(dustcloud->staticinfo != NULL);
     if (dustcloud->header.flags & SOF_StaticInfoIsDynamic)
     {
         SaveChunk *statchunk = CreateChunk(BASIC_STRUCTURE|SAVE_STATICINFO,sizeof(DustCloudStaticInfo),dustcloud->staticinfo);
-        SaveThisChunk(statchunk);
+        saveCat32SaveStruct(statchunk, SAVECAT32_LAYOUT(DustCloudStaticInfo));
         memFree(statchunk);
     }
 
@@ -2463,7 +2525,7 @@ void SaveNebula(Nebula *nebula)
     neb = (nebulae_t*)nebchunk->nebulae;
     savecontents->stub = (nebChunk*)nebChunkPtrToNum(neb, nebula->stub);
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(Nebula));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
 }
 
@@ -2523,7 +2585,7 @@ void SaveBullet(Bullet *bullet)
 
     savecontents->playerowner = (Player*)SavePlayerToPlayerIndex(bullet->playerowner);
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(Bullet));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
 
     memFree(chunk);
 }
@@ -2580,7 +2642,7 @@ void SaveDerelict(Derelict *derelict)
 
     savecontents->newDockWithTransfer = (Ship*)SpaceObjRegistryGetID((SpaceObj *)derelict->newDockWithTransfer);
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(Derelict));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
 
     memFree(chunk);
 
@@ -2656,7 +2718,7 @@ void SaveMissile(Missile *missile)
 
     savecontents->formationinfo = (MineFormationInfo*)ConvertPointerInListToNum(&universe.MineFormationList,savecontents->formationinfo);
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(Missile));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
 
     memFree(chunk);
 
@@ -3264,7 +3326,7 @@ void SaveMilitarySlot(MilitarySlot *milslot)
         savecontents->subslots[i].ship = (ShipPtr)SpaceObjRegistryGetID((SpaceObj *)savecontents->subslots[i].ship);
     }
 
-    SaveThisChunk(chunk);
+    saveCat32SaveArray(chunk, NULL, 8, (udword)offsetof(MilitarySlot, subslots), NULL, milslot->numSubslots);   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
 }
 
@@ -3279,7 +3341,7 @@ void SaveMilitaryParade(MilitaryParadeCommand *militaryParade)
 
     savecontents->aroundShip = (Ship*)SpaceObjRegistryGetID((SpaceObj *)militaryParade->aroundShip);
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(MilitaryParadeCommand));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
 
     for (i=0;i<MAX_MILITARY_SLOTS;i++)
@@ -3394,7 +3456,7 @@ void Save_CommandToDo(CommandToDo *command)
             break;
     }
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(CommandToDo));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
 
     dbgAssertOrIgnore(command->selection);
     SaveSelection((SpaceObjSelection *)command->selection);
@@ -3654,7 +3716,7 @@ void Save_CameraStackEntry(CameraStackEntry *currententry)
         savecse->focus.ShipPtr[i] = (ShipPtr)SpaceObjRegistryGetID((SpaceObj *)savecse->focus.ShipPtr[i]);
     }
 
-    SaveThisChunk(chunk);
+    saveCat32SaveArray(chunk, SAVECAT32_LAYOUT(CameraStackEntry), 0x74, (udword)offsetof(CameraStackEntry, focus.ShipPtr), NULL, numShips);   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
 }
 
@@ -3761,7 +3823,7 @@ void Save_CameraCommand(CameraCommand *cameracommand)
 
     savecc->dontFocusOnMe = (CameraStackEntry *)ConvertPointerInListToNum(&savecc->camerastack,savecc->dontFocusOnMe);
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(CameraCommand));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
 
     infocontents.info = num;
     SaveThisChunk(CreateChunk(INFO_CHUNK,sizeof(InfoChunkContents),&infocontents));
@@ -3914,7 +3976,7 @@ void SaveLinkedListOfResearchTopics(LinkedList *list)
     {
         cur++;
         chunk = CreateChunk(BASIC_STRUCTURE|SAVE_RESEARCHTOPIC,sizeof(ResearchTopic),listGetStructOfNode(node));
-        SaveThisChunk(chunk);
+        saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(ResearchTopic));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
         memFree(chunk);
 
         node = node->next;
@@ -3978,7 +4040,10 @@ void Prefix_PlayerResearchInfo(PlayerResearchInfo *researchinfo)
                   grid and rebuilds the boundary with every cell dirty (cat_fowBoundaryCreate(TRUE)).
                   While a recorded game plays back (0x00a75194, recordplayPacketsInGame) the load reads nothing and clears
                   the local player's grid instead (M2-R6 oracle-mode-a).
-                  CAT-TODO(stage 5 recorder): the exe skips the save while a game recording starts (0x00a578f8)
+                  CAT (M2-R9 recorder-leftovers): the save writes nothing while a game recording starts
+                  (recordingStartSave 0x00a578f8, set by recPackInGameStartCBSafeToStart 0x004cbbb0 around its
+                  SaveGame; cat_saveSavePlayerFOW 0x004ff6b0 tests it first), so a recording's save has no grid
+                  chunks, which is what the playback's load expects
 ----------------------------------------------------------------------------*/
 typedef struct CatFOWGridSave
 {
@@ -4003,7 +4068,7 @@ void cat_saveSavePlayerFOW(Player *player)
     CatFOWGridSave header;
     sdword size;
 
-    if (player->playerIndex != curPlayer)
+    if (recordingStartSave || (player->playerIndex != curPlayer))     // CAT: 0x00a578f8 first (0x004ff6b0)
     {
         return;
     }
@@ -4105,7 +4170,7 @@ void SaveMineFormationInfo(MineFormationInfo *mineFormationInfo)
     savecontents->playerowner = (Player*)SavePlayerToPlayerIndex(savecontents->playerowner);
     savecontents->effect = NULL;
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(MineFormationInfo));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
 
     SaveLinkedListOfSpaceObjs(&mineFormationInfo->MineList);
@@ -4267,7 +4332,7 @@ void SaveAttackAtom(AttackAtom *attackAtom)
         savecontents->attackerList.ShipPtr[i] = (ShipPtr)SpaceObjRegistryGetID((SpaceObj *)savecontents->attackerList.ShipPtr[i]);
     }
 
-    SaveThisChunk(chunk);
+    saveCat32SaveArray(chunk, SAVECAT32_LAYOUT(AttackAtom), 0x24, (udword)offsetof(AttackAtom, attackerList.ShipPtr), NULL, numShips);   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
 }
 
@@ -4345,7 +4410,10 @@ void LoadAttackMemory(LinkedList *list)
 
 void SaveResourceVolumeCB(void *stuff)
 {
-    SaveStructureOfSize(stuff,sizeof(ResourceVolume));
+    // CAT (M2-R9 recorder-leftovers): SaveStructureOfSize's chunk, in the exe's 0xB0 layout in an exe-format save
+    SaveChunk *chunk = CreateChunk(BASIC_STRUCTURE,sizeof(ResourceVolume),stuff);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(ResourceVolume));
+    memFree(chunk);
 }
 
 void LoadResourceVolumeCB(LinkedList *list)
@@ -4393,7 +4461,7 @@ void SaveUniverse(void)
 
     cat_saveShipRecordTablePreFix();            // CAT: the ship names' IDs (SaveUniverse 0x005034c0, 0x0050f870)
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(Universe));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
 
     Save_CommandLayer(&universe.mainCommandLayer);
     Save_CameraCommand(&universe.mainCameraCommand);
@@ -4411,12 +4479,15 @@ void SaveUniverse(void)
     SaveLinkedListOfSpaceObjs(&universe.MissileList);
     SaveMineFormationList(&universe.MineFormationList);
 
-    // Delete Lists assumed to be empty, because SaveUniverse is never called in the middle of a univupdate
-    // CAT-TODO(stage 5 recorder): SaveUniverse 0x005034c0 here deletes the dead ships, resources, derelicts and missiles (univDeleteDeadShips .. univDeleteDeadMissiles, plural forms the tree does not have) instead of asserting the lists empty
-    dbgAssertOrIgnore(universe.DeleteMissileList.num == 0);
-    dbgAssertOrIgnore(universe.DeleteResourceList.num == 0);
-    dbgAssertOrIgnore(universe.DeleteDerelictList.num == 0);
-    dbgAssertOrIgnore(universe.DeleteShipList.num == 0);
+    // CAT (M2-R9 recorder-leftovers): the dead ships, resources, derelicts and missiles are deleted here, after the
+    //      lists are saved (SaveUniverse 0x005034c0 calls univDeleteDeadShips 0x00548e00, univDeleteDeadResources
+    //      0x00549270, univDeleteDeadDerelicts 0x00549820 and univDeleteDeadMissiles 0x00549ac0 in that order after
+    //      SaveMineFormationList); HW1 asserted the delete lists empty. A recording's save runs at the end of a
+    //      universe update, where they need not be
+    univDeleteDeadShips();
+    univDeleteDeadResources();
+    univDeleteDeadDerelicts();
+    univDeleteDeadMissiles();
 
     // CAT: one tactics list: the attack memory at universe+0x180 (SaveUniverse 0x005034c0 saves its count and each
     //      atom with SaveRetreatAtom, 0x24 + 4n bytes = HW1's AttackAtom); HW1's RetreatList is gone. Then the blast

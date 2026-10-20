@@ -2795,7 +2795,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "no tutGameMessage; SpeechEventsForFuel reduced to an empty scan",
-  "note": "M2-R4 command: ported | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
+  "note": "M2-R4 command: ported | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged | [review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): the path goes to clSendMove unchanged in a network / recorded game (the stage-5 CAT-TODO closed)",
   "sample": "port-R5-hud"
  },
  "0x00452ae0": {
@@ -2816,7 +2816,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "no formation check; 4th argument passed to clFormation/clSendFormation",
-  "note": "M2-R4 command: check removed; the 4th argument is CAT-TODO with clFormation | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
+  "note": "M2-R4 command: check removed; the 4th argument is CAT-TODO with clFormation | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged | [review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): the force-field level goes to clSendFormation (the stage-5 CAT-TODO closed)",
   "sample": "port-R5-hud"
  },
  "0x00452d60": {
@@ -7158,14 +7158,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "HW1's loader: 0x28-byte header, fileSize - stringBlockLength, the same fix-ups; the automatic field/loop differences are Ghidra typing (M2-R2 mesh report: MeshAnim needed no change, 29 .mad files load); was MODIFIED/high",
+  "note": "HW1's loader: 0x28-byte header, fileSize - stringBlockLength, the same fix-ups; the automatic field/loop differences are Ghidra typing (M2-R2 mesh report: MeshAnim needed no change, 29 .mad files load); was MODIFIED/high | [review: M2-R9 recorder-leftovers] HWI: the .mad file's keyframe block offsets are kept per loaded header (madCat32ObjectFileOffset) for the exe-format save writer's spline curves; no change to the load",
   "sample": "port-R3"
  },
  "0x004b6700": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R9 recorder-leftovers] HWI: the .mad file's keyframe block offsets are kept per loaded header (madCat32ObjectFileOffset) for the exe-format save writer's spline curves; no change to the load",
   "sample": "reread-R2"
  },
  "0x004b68d0": {
@@ -7662,7 +7662,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "clCommandMessage colours red / white",
-  "note": "[review: M2-R5 hud] call sites updated",
+  "note": "[review: M2-R5 hud] call sites updated | [review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): ported in the exe's order: recordPackets, recordplayPacketsInGame, the recorded-game word 0x00a7519c and recordingStartSave 0x00a578f8 set before the save (a failed save leaves the first three set), 0x00a75190 = 0 in a local game (fake sends) / 1 in a multiplayer one",
   "sample": "port-R5-hud"
  },
  "0x004cbd10": {
@@ -9346,7 +9346,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] same",
+  "note": "[review: M2-R5 render] same | [review: M2-R9 recorder-leftovers] unchanged as a port; the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
   "sample": "port-R5-render"
  },
  "0x004e9790": {
@@ -9813,7 +9813,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "cat_missionTimerSave after the single-player chunk",
-  "note": "[review: M2-R5 hud] the call added (cat_saveGameMiscChunks is M2-R6's) | [review: M2-R6 oracle-mode-a] SaveGame: the exe order (dmgStopEffect loop, cat_saveStateBlock, cat_saveGamePreGameTable after the blobs, cat_saveGameMiscChunks after SaveSinglePlayerGame) and the difficulty factor after the mission number",
+  "note": "[review: M2-R5 hud] the call added (cat_saveGameMiscChunks is M2-R6's) | [review: M2-R6 oracle-mode-a] SaveGame: the exe order (dmgStopEffect loop, cat_saveStateBlock, cat_saveGamePreGameTable after the blobs, cat_saveGameMiscChunks after SaveSinglePlayerGame) and the difficulty factor after the mission number | [review: M2-R9 recorder-leftovers] a recording's save (recordingStartSave) is written in the exe's format: saveCat32SaveBegin / End around it (HWI: the tree's other saves keep the native format)",
   "sample": "port-R5-hud"
  },
  "0x004fdfc0": {
@@ -9862,7 +9862,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "no longer clears shipSinglePlayerGameInfo->hyperspaceEffect before saving (the 0x48-byte struct is written as is)",
-  "note": "CreateChunk/SaveThisChunk inlined",
+  "note": "CreateChunk/SaveThisChunk inlined | [review: M2-R9 recorder-leftovers] unchanged as a port; the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
   "sample": "reread-R2"
  },
  "0x004ffa30": {
@@ -9904,7 +9904,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "position/rotation and the 3 bursts cleared in the saved copy",
+  "note": "position/rotation and the 3 bursts cleared in the saved copy | [review: M2-R9 recorder-leftovers] unchanged as a port; the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
   "sample": "reread-R2"
  },
  "0x00500df0": {
@@ -9918,7 +9918,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "SaveSalvageInfo is no longer called for derelicts (HW1 saves derelict->salvageInfo); SaveClampInfo inlined, now also saving the new clamped-object list as a selection chunk",
-  "note": "the four registry fixups of the derelict copy as HW1",
+  "note": "the four registry fixups of the derelict copy as HW1 | [review: M2-R9 recorder-leftovers] unchanged as a port; the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
   "sample": "reread-R2"
  },
  "0x00501660": {
@@ -10037,7 +10037,7 @@
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "SaveLinkedListOfResearchTopics inlined (count, then one 0x18-byte chunk per topic); Ghidra names the list fields through CET's HW1-layout struct",
+  "note": "SaveLinkedListOfResearchTopics inlined (count, then one 0x18-byte chunk per topic); Ghidra names the list fields through CET's HW1-layout struct | [review: M2-R9 recorder-leftovers] unchanged as a port; the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
   "sample": "reread-R2"
  },
  "0x00503380": {
@@ -10051,7 +10051,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "SaveStructureOfSize inlined (ResourceVolume 0xb0)",
+  "note": "SaveStructureOfSize inlined (ResourceVolume 0xb0) | [review: M2-R9 recorder-leftovers] unchanged as a port; the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
   "sample": "reread-R2"
  },
  "0x00503480": {
@@ -13356,7 +13356,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "univFindNearestResource: ported with the fourth argument (the fog of war for a player without an AI), the attribute 0x200 test, the mimic-asteroid test with its stream-0 draw, and the exe's clip test (pieMovePointClipToLimits on a copy, which drops nothing) in place of univObjectOutsideWorld; x87 shape of the distance test: differences and (z*z + y*y) + x*x double, compared with the stored float minimum",
-  "note": "[review: M2-R6 nis-fow-camera] univFindNearestResource: ported with the fourth argument (the fog of war for a player without an AI), the attribute 0x200 test, the mimic-asteroid test with its stream-0 draw, and the exe's clip test (pieMovePointClipToLimits on a copy, which drops nothing) in place of univObjectOutsideWorld | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component)",
+  "note": "[review: M2-R6 nis-fow-camera] univFindNearestResource: ported with the fourth argument (the fog of war for a player without an AI), the attribute 0x200 test, the mimic-asteroid test with its stream-0 draw, and the exe's clip test (pieMovePointClipToLimits on a copy, which drops nothing) in place of univObjectOutsideWorld | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component) | [review: M2-R9 recorder-leftovers] the fog-of-war test skipped while recordPackets 0x00a75188 is set (0x00549eac): ported",
   "sample": "port-R8-oracle-rung-physics"
  },
  "0x00549f50": {
@@ -15467,7 +15467,7 @@
   "class": "MODIFIED",
   "confidence": "low",
   "change": "takes one argument; DirectSound / waveOut start-up and cat_isoundmixerStartThread; clears the channels and the master EQ",
-  "note": "[review: M2-R5 sound] platform: the SDL soundinit stands for it",
+  "note": "[review: M2-R5 sound] platform: the SDL soundinit stands for it | [review: M2-R9 recorder-leftovers] HWI-TEST: with the virtual audio clock no SDL audio device is opened; the mixer is driven by soundVirtualAdvance",
   "sample": "port-R5-sound"
  },
  "0x00580a00": {
@@ -15488,7 +15488,7 @@
   "class": "MODIFIED",
   "confidence": "low",
   "change": "stop all with fade 1.0 and wait while the mixer status is above 1",
-  "note": "[review: M2-R5 sound] platform layer",
+  "note": "[review: M2-R5 sound] platform layer | [review: M2-R9 recorder-leftovers] HWI-TEST: with the virtual audio clock the pause's fade-out wait mixes block by block instead of sleeping",
   "sample": "port-R5-sound"
  },
  "0x00580d40": {
@@ -15572,7 +15572,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R9 recorder-leftovers] HWI-TEST: with the virtual audio clock (/catVirtualAudio) no thread is started; the game thread steps the stream (isoundstreamstep)",
   "sample": "reread-R2"
  },
  "0x00581da0": {
@@ -15754,7 +15754,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "note": "[review: M2-R6 frontend] compared with r6: same | [review: M2-R9 recorder-leftovers] compared again: the default theme 0x00abdb20 + actor * 0x20 is formed for the location cards' actor 0x70 too (past the 16-theme table), and their \"#r3#tf\" text replaces it before any read; CAT-FIX: an actor past the table starts from STT_LocationCard (UBSan Subtitle.c:1144)",
   "sample": "port-R6-frontend"
  },
  "0x00584580": {
@@ -16405,7 +16405,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "none in the game code (HWI-ORACLE instrumentation only: /oracleMission advances the task clock by one universe tick per frame under #if HWI_ORACLE, src/SDL/utility.c)",
-  "note": "[audit: M2-R4 rest-oracle] edited IDENTICAL without a review entry; body is HW1's utyTasksDispatch | [audit: M2-R6 motion-interp] two more HWI-FEATURE(motion-interp) lines (taskSubTick from the millisecond remainder or the virtual clock; oracleVirtualFrameStep in a motion run), not a Cataclysm delta",
+  "note": "[audit: M2-R4 rest-oracle] edited IDENTICAL without a review entry; body is HW1's utyTasksDispatch | [audit: M2-R6 motion-interp] two more HWI-FEATURE(motion-interp) lines (taskSubTick from the millisecond remainder or the virtual clock; oracleVirtualFrameStep in a motion run), not a Cataclysm delta | [review: M2-R9 recorder-leftovers] HWI-TEST: the virtual clock's branch advances the virtual audio clock after the tasks (soundVirtualAdvance)",
   "sample": "audit-R4-rest-oracle"
  },
  "0x005acd90": {
@@ -17332,7 +17332,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "edited IDENTICAL: 0x91 entries and the external ship by ID; ported",
-  "note": "[review: M2-R6 managers] edited IDENTICAL: 0x91 entries and the external ship by ID; ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: 0x91 entries and the external ship by ID; ported | [review: M2-R9 recorder-leftovers] unchanged as a port; the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
   "sample": "port-R6-managers"
  },
  "0x00459ee0": {
@@ -18802,7 +18802,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "SaveUniverse: cat_saveSavePlayerFOW 0x004ff6b0 in the player loop after the research info ported (the rest of the body not compared here)",
-  "note": "[review: M2-R6 nis-fow-camera] SaveUniverse: cat_saveSavePlayerFOW 0x004ff6b0 in the player loop after the research info ported (the rest of the body not compared here) | [review: M2-R6 oracle-mode-a] SaveUniverse: the same exe order as LoadUniverse (record table prefix, blasts, record table, second grow selection, counters, frame-step INFO); univDeleteDead* stays CAT-TODO(stage 5 recorder)",
+  "note": "[review: M2-R6 nis-fow-camera] SaveUniverse: cat_saveSavePlayerFOW 0x004ff6b0 in the player loop after the research info ported (the rest of the body not compared here) | [review: M2-R6 oracle-mode-a] SaveUniverse: the same exe order as LoadUniverse (record table prefix, blasts, record table, second grow selection, counters, frame-step INFO); univDeleteDead* stays CAT-TODO(stage 5 recorder) | [review: M2-R9 recorder-leftovers] univDeleteDeadShips / Resources / Derelicts / Missiles after SaveMineFormationList: ported (HW1 asserted the lists empty); the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
   "sample": "port-R6-nis-fow-camera"
  },
  "0x00503910": {
@@ -18945,7 +18945,7 @@
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "[review: M2-R6 oracle-mode-a] recPackPlayInGameInit: compared: identical"
+  "note": "[review: M2-R6 oracle-mode-a] recPackPlayInGameInit: compared: identical | [review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same; HWI-FIX: the file is opened in the user settings path (FF_UserSettingsPath), where the recording's save lives"
  },
  "0x004cc400": {
   "class": "IDENTICAL",
@@ -18975,7 +18975,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "adds calls SaveSelection, fileStream, memAllocFunction; drops calls to Save_madBindings (absent from Cataclysm); globals +savefile, savefilestatus; constants 48, 80, 240, 0x300, 0xe00 not in body; loops 8 -> 19",
-  "note": "[review: M2-R6 oracle-mode-a] SaveShip: compared; catDissolveEffect cleared in the copy, the beast infector/owner, salvage depot/big gun, creator and queued attack target written as IDs; formationcommand is written raw as the exe does; sizeship rounded to 8 like LoadShip (CAT-FIX)"
+  "note": "[review: M2-R6 oracle-mode-a] SaveShip: compared; catDissolveEffect cleared in the copy, the beast infector/owner, salvage depot/big gun, creator and queued attack target written as IDs; formationcommand is written raw as the exe does; sizeship rounded to 8 like LoadShip (CAT-FIX) | [review: M2-R9 recorder-leftovers] unchanged as a port; the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)"
  },
  "0x00500490": {
   "class": "MODIFIED",
@@ -19005,7 +19005,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "adds calls SaveInfoNumber, cat_spSaveMiscInfo; body 3.5x larger than predicted",
-  "note": "[review: M2-R6 oracle-mode-a] SaveSinglePlayerGame: the 10 INFOs, cat_spSaveMiscInfo 0x005b9df0 and the catSpBigGunAllowed INFO as the exe"
+  "note": "[review: M2-R6 oracle-mode-a] SaveSinglePlayerGame: the 10 INFOs, cat_spSaveMiscInfo 0x005b9df0 and the catSpBigGunAllowed INFO as the exe | [review: M2-R9 recorder-leftovers] unchanged as a port; the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)"
  },
  "0x0051bf90": {
   "class": "MODIFIED",
@@ -20793,7 +20793,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the armada targets are an embedded MaxSelection, always saved (0x00411ff0; HW1 saved the pointer's selection when set)",
-  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported"
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported | [review: M2-R9 recorder-leftovers] unchanged as a port; the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)"
  },
  "0x00411c80": {
   "class": "IDENTICAL",
@@ -20943,7 +20943,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the message queue is saved as its count and 64 zero numbers (the exe's pointers are not saved); the message queue is saved as its count and the 64 message hash words",
-  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported; the KAS message identity is CAT-TODO(stage 6 KAS) [review: M2-R8 kasf-library] the queued messages are their hashes, saved as they are (closes the KAS message CAT-TODO)"
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported; the KAS message identity is CAT-TODO(stage 6 KAS) [review: M2-R8 kasf-library] the queued messages are their hashes, saved as they are (closes the KAS message CAT-TODO) | [review: M2-R9 recorder-leftovers] unchanged as a port; the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)"
  },
  "0x00418180": {
   "class": "MODIFIED",
@@ -22157,7 +22157,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (disassembly): same | [review: M2-R9 recorder-leftovers] unchanged as a port; the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
   "sample": "port-R8-kasf-library"
  },
  "0x004d68d0": {
@@ -22465,7 +22465,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the difficulty 0x008941a0 in the skill slot; 0xC / 8-byte hashed entries; a single-player save ends with rmCanBuildShip of 6 types",
-  "note": "[review: M2-R8 kas-runtime-mission01] compared: ported",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: ported | [review: M2-R9 recorder-leftovers] unchanged as a port; the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
   "sample": "port-R8-kas-runtime-mission01"
  },
  "0x00491450": {
@@ -22479,7 +22479,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kas-runtime-mission01] compared: hsNoGate flag, the 0x30-byte static gate records with the derelict pointer as its registry ID: identical",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: hsNoGate flag, the 0x30-byte static gate records with the derelict pointer as its registry ID: identical | [review: M2-R9 recorder-leftovers] unchanged as a port; the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
   "sample": "port-R8-kas-runtime-mission01"
  },
  "0x00490510": {
@@ -23181,5 +23181,1167 @@
   "change": "",
   "note": "[review: M2-R9 oracle-rung-physics] compared with the exe: identical (binary search on collOptimizeDist, before / after insert)",
   "sample": "port-R9-oracle-rung-physics"
+ },
+ "0x004018c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (Ghidra's names are HW1's: +0xC18 numReconTeams, +0xC04 reconTeam[], +0xC00 harassTeam, aiaAttackProbability[HARASS_BIG] at +0xCDC)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004019b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (Ghidra's field names are HW1's: the exe reads +0xBB4 airEasilyAccesibleRUsInWorld and +0x1CAC aiaTimeout, as the tree)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00401f00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00402820": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00402870": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00402c40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00403890": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004039b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00404000": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (+0x114 .. +0x120 of the move: the numbersLow event at events +0x48)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00404050": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (+0x140 .. +0x150: the interrupt event, interval written to both counters)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00404e10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00404e60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (the three managers' request callbacks and constructTeamWaiting inlined)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00405a80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00405f70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00405fa0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004065a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00406650": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00406830": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00406d80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00406da0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00406dc0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00406e10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00406e90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00406f00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00406fe0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004072a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004072e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004073f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00407500": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00407570": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00407670": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00407770": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004077d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00407860": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004078a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004078d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00407960": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00407990": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004079c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00407a10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00407a30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00407b80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00407bc0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00407cc0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00407fe0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004082a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00409760": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00409ff0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040a1c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040a790": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040abb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040aee0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040bb40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040bb70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040bbc0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (the NoAdd body inlined)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040bed0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040bef0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040bf10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (the plain-attack fallback aimCreateAttackNoAdd inlined; its callbacks folded as above)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040c020": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040c260": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040c4b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (the NoAdd body inlined)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040c550": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040c590": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040c5b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040c5d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040c6a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (the NoAdd body inlined)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040c750": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (the NoAdd body inlined)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040c7e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040c820": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040c840": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (the NoAdd body inlined; the callbacks are aimShipDiedGuardShips 0x00406f00 and aimCloseKamikaze 0x0040d950, the ICF folds of the tree's identical aimSupportShipDied / aimSupportClose)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040c900": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (the NoAdd body inlined)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040c9c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040ca80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (the NoAdd body inlined)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040cb30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (the NoAdd body inlined; its ship-died callback is nullsub 0x0049ae30, the ICF fold of the tree's empty aimControlResourcesShipDied)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040cbf0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040cc20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040cc50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040d0e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040d260": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040d420": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040d5b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040d780": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040d800": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (the NoAdd body inlined; the callbacks 0x00406f00 / 0x0040d950 are the ICF folds of the tree's identical aimSpecialShipDied / aimSpecialClose)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040d8c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040d950": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040d970": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (the NoAdd body inlined)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040da30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040da50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040e100": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040e140": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0040f530": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004106b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00410d20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00411010": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (the exe also writes 0 to +0x950 catNumSupportModulesBeingBuilt after its memset of the 0x1D18-byte AIPlayer: no effect)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00411390": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00411970": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00411a80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00411ae0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00411bb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same; M2-R9 recorder-leftovers routes its chunk through the exe-format writer (saveCat32SaveStruct: as it is in a native save, the exe's 0x20-byte layout in a recording's save)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00411bf0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (AITeamToTeamIndex inlined); M2-R9 recorder-leftovers routes its chunk through the exe-format writer (the exe's 0x4C-byte layout in a recording's save)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00411ca0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00412020": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00412350": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00412540": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004128c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00416940": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00416970": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004169c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00416cd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00416d00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00416d60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00416ee0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004170c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004172c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00417310": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004173c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004173f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00417700": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00417760": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00417f40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same; M2-R9 recorder-leftovers routes its chunk through the exe-format writer (the exe's 0x170-byte layout in a recording's save)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00417fb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00418120": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00418270": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same (FixThisAITeam inlined)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0044eb20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the whole waypoint path in a 0x124 + 2n packet (path type, from, points, selection at +0x104)",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): found modified: Cataclysm's 0x124 + 2n move packet with the path (path type, from, number of points, the points, the selection at +0x104), clWrapMove's arguments passed on; ported (the HW1 from/to body is gone)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0044ed00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the move packet layout with one point",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): found modified: the move layout (path type 0, from, one point, selection at +0x104); ported",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0044f690": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "carries the force-field level; no minimum ship count",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): found modified: +2 the force-field level (clWrapFormation's fourth argument), sends for any non-empty selection; ported",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004cbd30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the callees): same (the \"_x.pkts\" name with the player digit, fileDelete 0x00479f60, recPackRecordSaveHeader 0x004cbdb0); edited by the port with no note: HWI-FIX recPackDeleteFile deletes the packet file in the user settings path, where NetCheck.c now opens it",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004cbe20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same; HWI-FIX: the file is opened in the user settings path (FF_UserSettingsPath), where the recording's save lives",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004cbe90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same; HWI-FIX: the file is opened in the user settings path (FF_UserSettingsPath), where the recording's save lives",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004cc0e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same; HWI-FIX: the file is opened in the user settings path (FF_UserSettingsPath), where the recording's save lives",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004cbdb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "writes \"HEAD\", 0x2B0 and the 0x2B0-byte Cataclysm tpGameCreated",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): found modified: \"HEAD\", 0x2B0 and the exe's 0x2B0-byte tpGameCreated; the tree writes its native CaptainGameInfo; only /packetRecord's debug recordings have the header: not ported, CAT-TODO(stage 5) at the function",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00500f00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (the owner, gun index, target and player as numbers, the two effect pointers cleared); the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00502040": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (SaveMilitarySlot inlined: 8 + 4n with the ship IDs); the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00502a10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (current stack entry and dontFocusOnMe as list positions, the camera's player as an index); the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00503290": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same as the tree's SaveAttackAtom (the exe's one tactics list: 0x24 + 4n, the retreater and the attackers as IDs; HW1's RetreatAtom saver is this tree's dead SaveRetreatAtom); the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004cb560": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (nebSave_nebChunk / nebSave_nebTendril inlined: tendril pointers as indices, the space object as an ID, the nebula as an index); the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004fe400": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the ships inside are registered recursively",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): found modified: the ships inside each registered ship are registered too (recursion through Ship+0x4B4); ported",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004fe470": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_mimicGetFakeResource, univRemoveShipReferences; drops calls to SalCapCorvette_RegisterExtraSpaceObjs (absent from Cataclysm); loops 4 -> 11",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): found modified: a dead ship of the object list gets univRemoveShipReferences 0x0054b230, a mimic's fake asteroid (the +0x18 mimic bit, cat_mimicGetFakeResource 0x005b9960) is registered, the inside ships recursively; ported",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004fe7d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "adds calls SpaceObjRegistryObjPresent, fileStream, memAllocFunction; fields +next, node, prev -blobBigShips, blobBigTargets, blobBullets, blobDerelicts (+9); globals +savefile, savefilestatus; loops 0 -> 7",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same as the tree (SaveSelection inlined per member, a NULL entry saved as -1 as SpaceObjRegistryGetID does; subBlobs.num BIT31): the automatic class came from the inlining; the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004ff080": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls SpaceObjRegistryObjPresent, fileStream, memAllocFunction; fields +clampInfo, dockingship, next, objlink (+5) -ShipPtr, info, nebulae, numShips (+4); globals +savefile, savefilestatus -SpaceObjRegistry; loops 1 -> 3",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): the per-type savers inlined (SaveAsteroid with the mimic ship ID and its dynamic static info, SaveNebula, ...): the tree's SaveSpaceObj and savers do the same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x005012c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls fileStream; fields +FORCE_DROPPED, formationLink, formation_position, objlink (+5) -ShipPtr, clampInfo, collMyBlob, contentsSize (+12); globals +savefile, savefilestatus -BlobRegistry; loops 2 -> 8",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same as the tree (SaveClampInfo inlined; owner, target, player, hit effect index, mine formation index); the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x005022d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls fileStream, memAllocFunction; globals +savefile, savefilestatus; constants 160 not in body; loops 0 -> 7",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same as the tree (the launch / collect / build pointers as IDs, then the selections, formation, protect, passive attack, attack, special targets and parade by the order's attributes); the chunk goes through the exe-format writer (saveCat32Save*, SaveCat32.c: as it is in a native save, the exe's ILP32 layout in a recording's save)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00451e70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "printTimeout from realtimeelapsed",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): found modified: printTimeout from universe.realtimeelapsed (HW1 totaltimeelapsed): not ported (stage 5 LAN, decision 9), CAT-TODO at the function",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0046fe30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "takes one argument-array pointer instead of 2 parameters",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (the argument array read directly)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0046fe40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "takes one argument-array pointer instead of 2 parameters",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (the argument array read directly)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0046fe50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "takes one argument-array pointer instead of 2 parameters",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (the argument array read directly)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004e3e40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "takes one argument-array pointer instead of 2 parameters",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (the tree's ETG callables return 0; the exe's returns nothing that is read)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004e3ad0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "takes one argument-array pointer instead of 3 parameters",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (as partSetDeltaR)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004d6b40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "adds strings \"CLASS_HeavyCruiser\"; body 11.3x smaller than predicted",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (NumToStr inlined)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004d6bc0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "adds strings \"sAcolyte\"; body 11.3x smaller than predicted; fields -number, str",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (NumToStr inlined)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00586aa0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "adds strings \"C:\\Cataclysm\\src\\win32\\\texreg.c\"; drops strings \"StatusDump.txt\"",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (the four header fix-ups; the tree's LP64 LiF conversion is GoK's platform layer)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x005856b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "drops calls trColorInfosPointer; body 2.0x smaller than predicted; constants 24 not in body",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (trColorInfosPointer inlined; GLOBAL_NO_TEXTURES returns -1)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00505300": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds strings \"default.hff\"",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same as the tree: selReset and primScreenToGLX(6) inlined, the default.hff font ported",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00509250": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_mimicGetSelectRadius",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same as the tree: the mimic select radius ported, selCircleComputeGeneral inlined",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00479f60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops strings \"StatusDump.txt\"; globals -fileCDROMPath; loops 0 -> 7",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): platform: the exe prepends its one install path; GoK deletes relative to the working directory (kept); the recorder deletes its files in the settings path itself (NetCheck.c recPackDeleteFile, HWI-FIX)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x005b0490": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "drops calls fmathSqrtDouble, listDeleteNode, matCreateCoordSysFromHeading, matMultiplyMatByVec, ranRandomFn, soundEventBurstStop (+3); adds strings \"\\n@@@@@@@@ Defense Fighter Doesn't Wo...\"; params 1 -> 0 (prototype); body 123.0x smaller than predicted; fields -CoolDown, CoolDownTime, CoolDownTimePerLaser, DamageRate (+47); globals -universe; float constants 100, 10000 not in body",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): dormant in the exe (it only prints \"Defense Fighter Doesn't Work\"): the tree deleted DefenseFighter.c with the dormant HW1 types (M2-R4 ships-b); nothing to port",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x005b08b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls SpaceObjRegistryGetObj; drops calls to SpaceObjRegistryGetBullet (absent from Cataclysm); fields -DefenseList, ShipSpecifics, bullet, head (+3)",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): dormant ship type: the tree has no DefenseFighter.c (M2-R4 ships-b); nothing to port",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00427f60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "drops strings \"StatusDump.txt\"",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (FF_ReturnNULLOnFail, ident 0x4D42, 24 bits, no compression)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x005216b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "takes one argument-array pointer instead of 2 parameters",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00525170": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls GetShipStaticInfo; adds strings \"  CDET:%d %d %d %d %d %d\\n\"; \"BOUNT:\"; uses fields HW1 never uses: cat_unknown_02EC; fields +CanDoResearch, totaltimeelapsed -bounties, classtotals, hastechnology, header (+8); library calls +fprintf; constants 24, 58, 66, 67, 68 not in body; loops 3 -> 5",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same as the tree (ported in M2-R4); also a dead loop when totaltimeelapsed is below 0x0072a4f0 (59 static infos summed into a register the checksum never reads): no effect",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004f1350": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "calls with a changed parameter count: RemoveShipsFromDoingStuff 2->3; fields +belongto, head, next, num (+6) -ShipXHarvestsResourceY, attributes, collect, order (+9)",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same as the tree (InitShipForResourceCollection and InitCommandToDo inlined, reason 0x22)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004bdce0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "disables its button; never toggles MG_UnitCapsEnabled",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): found modified: Cataclysm only disables the unit-caps button (FAF_Disabled, RSF_RegionDisabled: HW1's demo branch); not ported (stage 5 multiplayer options, decision 9), CAT-TODO at the function",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x004c7270": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "adds calls TTimerInit; drops calls to TTimerDisable (absent from Cataclysm)",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (TTimerInit is TTimerDisable's ICF fold: both clear the timer)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0052d750": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "adds strings \"Emergence 1\"; drops strings \"DLD_05\"",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (_stricmp)",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0049c310": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls trailDelete; drops calls to transFree (absent from Cataclysm)",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): the exe frees ten trails of the Transformer; the tree's Transformer is stubbed (decision 28): kept",
+  "sample": "port-R9-recorder-leftovers"
+ },
+ "0x00555b00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "adds calls cat_ddDelete; drops calls to ddDeleteWindow (absent from Cataclysm)",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (platform: cat_ddDelete for the DirectDraw path)",
+  "sample": "port-R9-recorder-leftovers"
  }
 }

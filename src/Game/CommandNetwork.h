@@ -528,9 +528,9 @@ void CommandNetworkReset(void);
 void SendTransferCaptaincyPacket(sdword playerIndex,uword subtype,udword misc,CaptaincyCustomInfo *custominfo);
 void SendRequestSyncPkts(udword frompacketnum,udword topacketnum);
 
-void clSendMove(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to);
+void clSendMove(CommandLayer *comlayer,SelectCommand *selectcom,sdword pathType,vector from,sdword numPoints,vector *points);   // CAT: 0x0044eb20
 void clSendAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *attackcom);
-void clSendFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation formation);
+void clSendFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation formation,sdword catForceFieldLevel);   // CAT: 0x0044f690
 void clSendDock(CommandLayer *comlayer,SelectCommand *selectcom,DockType dockType,ShipPtr dockwith);
 void clSendCreateShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uword playerIndex,ShipPtr creator);
 void clSendBuildShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uword playerIndex,ShipPtr creator);

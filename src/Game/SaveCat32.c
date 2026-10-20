@@ -23,6 +23,7 @@
 #include "Debug.h"
 #include "Memory.h"
 #include "SaveCat32.h"
+#include "MeshAnim.h"
 
 /*=============================================================================
     Data:
@@ -408,6 +409,346 @@ SaveChunk *saveCat32ChunkShip(SaveChunk *chunk)
 #else
     return chunk;
 #endif
+}
+
+/*=============================================================================
+    The writer (M2-R9 recorder-leftovers): cataclysm.exe's save format written from this tree's native chunks
+=============================================================================*/
+
+bool32 saveCat32Saving = FALSE;
+
+static udword saveCat32SavedChunks = 0;     // chunks converted back while saving
+static udword saveCat32SavedShips = 0;
+static udword saveCat32SaveProblems = 0;
+
+static void saveCat32SaveProblem(const char *what, sdword got, sdword want)
+{
+    saveCat32SaveProblems++;
+    dbgMessagef("Cataclysm save writer: %s: %d, expected %d", what, (int)got, (int)want);
+}
+
+#if SAVECAT32_LP64
+/*-----------------------------------------------------------------------------
+    Name        : saveCat32ConvertBack
+    Description : the inverse of saveCat32Convert: one native struct into the exe's ILP32 layout, op by op (a pointer
+                  slot keeps its low 4 bytes: the save code has put an ID, an index or NULL there; a long or a wide
+                  character its low bytes). Bytes no op writes (padding) keep what dst32 held (the callers zero it).
+    Inputs      : layout, src64 (layout->size64 bytes)
+    Outputs     : dst32 (layout->size32 bytes)
+----------------------------------------------------------------------------*/
+void saveCat32ConvertBack(const SaveCat32Layout *layout, const void *src64, void *dst32)
+{
+    const ubyte *src = (const ubyte *)src64;
+    ubyte *dst = (ubyte *)dst32;
+    const SaveCat32Op *op;
+    udword i, k;
+    int64_t v;
+    sdword s;
+
+    for (i = 0; i < layout->nops; i++)
+    {
+        op = &layout->ops[i];
+        switch (op->kind)
+        {
+            case SC32_COPY:
+                memcpy(dst + op->off32, src + op->off64, op->n);
+                break;
+
+            case SC32_PTR:
+                for (k = 0; k < op->count; k++)
+                {
+                    memcpy(&v, src + op->off64 + 8 * k, 8);
+                    s = (sdword)v;
+                    if (((int64_t)s != v) && (s == 0))
+                    {
+                        // HWI: a real (stale) pointer whose low half is 0 stays non-NULL: the exe's loaders test such
+                        //      slots for NULL (LoadBlob 0x004feb30: a selection chunk follows when the pointer is set)
+                        s = 4;
+                    }
+                    memcpy(dst + op->off32 + 4 * k, &s, 4);
+                }
+                break;
+
+            case SC32_SEXT:
+            case SC32_ZEXT:
+                for (k = 0; k < op->count; k++)
+                {
+                    memcpy(dst + op->off32 + op->s32 * k, src + op->off64 + op->s64 * k, op->s32);   // the low bytes
+                }
+                break;
+
+            case SC32_ARRAY:
+                for (k = 0; k < op->count; k++)
+                {
+                    saveCat32ConvertBack(op->sub, src + op->off64 + op->s64 * k, dst + op->off32 + op->s32 * k);
+                }
+                break;
+
+            default:
+                dbgFatalf(DBG_Loc, "saveCat32ConvertBack: bad op %u in %s", (unsigned)op->kind, layout->name);
+                break;
+        }
+    }
+}
+
+static SaveChunk *saveCat32NewChunk32(TypeOfSaveChunk type, sdword size32)
+{
+    SaveChunk *chunk = memAlloc(sizeofSaveChunk(size32), "cat32save", Pyrophoric);
+
+    memset(chunk, 0, sizeofSaveChunk(size32));
+    chunk->type = type;
+    chunk->contentsSize = size32;
+    saveCat32SavedChunks++;
+    return chunk;
+}
+#endif // SAVECAT32_LP64
+
+/*-----------------------------------------------------------------------------
+    Name        : saveCat32SaveStruct
+    Description : writes a chunk holding one struct: as it is (a native save), or converted into the exe's layout
+                  while saveCat32Saving. The caller's chunk is left as it was (several savers read it afterwards)
+----------------------------------------------------------------------------*/
+void saveCat32SaveStruct(SaveChunk *chunk, const void *layout)
+{
+#if SAVECAT32_LP64
+    const SaveCat32Layout *L = (const SaveCat32Layout *)layout;
+    SaveChunk *nchunk;
+
+    if (!saveCat32Saving)
+    {
+        SaveThisChunk(chunk);
+        return;
+    }
+    if (chunk->contentsSize != (sdword)L->size64)
+    {
+        saveCat32SaveProblem(L->name, chunk->contentsSize, (sdword)L->size64);
+    }
+    nchunk = saveCat32NewChunk32(chunk->type, (sdword)L->size32);
+    saveCat32ConvertBack(L, chunkContents(chunk), chunkContents(nchunk));
+    SaveThisChunk(nchunk);
+    memFree(nchunk);
+#else
+    (void)layout;
+    SaveThisChunk(chunk);
+#endif
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : saveCat32SaveArray
+    Description : the inverse of saveCat32ChunkArray: a native head of head64 bytes (converted back by headLayout, or
+                  copied when it is NULL) and count elements (by elemLayout, or 8-byte pointer slots kept as 4-byte
+                  IDs when it is NULL) written as the exe's head32 + count * size32 bytes while saveCat32Saving
+----------------------------------------------------------------------------*/
+void saveCat32SaveArray(SaveChunk *chunk, const void *headLayout, udword head32, udword head64,
+                        const void *elemLayout, sdword count)
+{
+#if SAVECAT32_LP64
+    const SaveCat32Layout *H = (const SaveCat32Layout *)headLayout;
+    const SaveCat32Layout *E = (const SaveCat32Layout *)elemLayout;
+    udword e32 = (E != NULL) ? E->size32 : 4;
+    udword e64 = (E != NULL) ? E->size64 : 8;
+    udword size32, size64, pad32, pad64;
+    ubyte *src, *dst;
+    SaveChunk *nchunk;
+    sdword i, id;
+    int64_t v;
+
+    if (!saveCat32Saving)
+    {
+        SaveThisChunk(chunk);
+        return;
+    }
+    if (count < 0)
+    {
+        count = 0;
+    }
+    size32 = head32 + e32 * (udword)count;
+    size64 = head64 + e64 * (udword)count;
+    if (chunk->contentsSize != (sdword)size64)
+    {
+        saveCat32SaveProblem((H != NULL) ? H->name : ((E != NULL) ? E->name : "pointer array"), chunk->contentsSize, (sdword)size64);
+    }
+    pad32 = size32;
+    pad64 = size64;
+    if ((H != NULL) && (H->size32 > pad32))
+    {
+        pad32 = H->size32;
+    }
+    if ((H != NULL) && (H->size64 > pad64))
+    {
+        pad64 = H->size64;
+    }
+    src = memAlloc(pad64 + 8, "cat32savesrc", Pyrophoric);
+    dst = memAlloc(pad32 + 8, "cat32savedst", Pyrophoric);
+    memset(src, 0, pad64 + 8);
+    memset(dst, 0, pad32 + 8);
+    memcpy(src, chunkContents(chunk), ((udword)chunk->contentsSize < pad64) ? (udword)chunk->contentsSize : pad64);
+    if (H != NULL)
+    {
+        saveCat32ConvertBack(H, src, dst);
+    }
+    else
+    {
+        memcpy(dst, src, (head32 < head64) ? head32 : head64);
+    }
+    for (i = 0; i < count; i++)
+    {
+        if (E != NULL)
+        {
+            saveCat32ConvertBack(E, src + head64 + e64 * (udword)i, dst + head32 + e32 * (udword)i);
+        }
+        else
+        {
+            memcpy(&v, src + head64 + 8 * (udword)i, 8);
+            id = (sdword)v;
+            memcpy(dst + head32 + 4 * (udword)i, &id, 4);
+        }
+    }
+    nchunk = saveCat32NewChunk32(chunk->type, (sdword)size32);
+    memcpy(chunkContents(nchunk), dst, size32);
+    SaveThisChunk(nchunk);
+    memFree(nchunk);
+    memFree(src);
+    memFree(dst);
+#else
+    (void)headLayout; (void)head32; (void)head64; (void)elemLayout; (void)count;
+    SaveThisChunk(chunk);
+#endif
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : saveCat32SaveShip
+    Description : the inverse of saveCat32ChunkShip: SaveShip's native chunk (Ship, specifics, the 8-aligned blocks
+                  after them: PreciseSelection, the mesh-animation block) written as the exe's (Ship 0x63C + specifics
+                  size32 - 4, PreciseSelection 0x7C, then madanim 0x38 + 4 per LOD, the spline curves 0x18 each, the
+                  mesh bindings 0x58 each). The curves' three pointers, which PreFix_madBindings made offsets from
+                  this tree's (LP64) animation header, become offsets in the .mad file as the exe loads it
+                  (madCat32ObjectFileOffset); the binding pointers and the per-LOD binding slots are written as 0,
+                  since the exe's Fix_madBindings 0x004b7000 makes them anew (madAnimBindingsDupe), as this tree's
+                  loader does
+----------------------------------------------------------------------------*/
+void saveCat32SaveShip(SaveChunk *chunk, Ship *ship)
+{
+#if SAVECAT32_LP64
+    const ubyte *src = (const ubyte *)chunkContents(chunk);
+    ShipStaticInfo *shipstatic = ship->staticinfo;
+    const SaveCat32Layout *spec;
+    udword spec32, spec64, sizeship32, sizeship64, total32, total64, mad32 = 0, mad64 = 0;
+    udword precise, nLevels = 0, nObjects = 0, nBindings = 0, curves32 = 0, curves64 = 0;
+    udword madHead32, i, j, n, k, T, times64, objTimes64, v32;
+    ubyte *dst;
+    SaveChunk *nchunk;
+    madheader *header = NULL;
+    madobjpath *path;
+    splinecurve curve;
+    sdword size32;
+
+    if (!saveCat32Saving)
+    {
+        SaveThisChunk(chunk);
+        return;
+    }
+    saveCat32SavedShips++;
+    spec = saveCat32SpecLayout(shipHeaders[ship->shiptype]);
+    spec64 = shipstatic->custshipheader.sizeofShipSpecifics;
+    spec32 = (spec != NULL) ? spec->size32 : spec64;
+    sizeship32 = SAVE_CAT32_SHIP + ((spec32 != 0) ? spec32 - 4 : 0);
+    sizeship64 = (udword)sizeof(Ship) + ((spec64 != 0) ? spec64 - (udword)sizeof(udword) : 0);
+    sizeship64 = (sizeship64 + 7) & ~(udword)7;     // as univCreateShip and SaveShip (CAT-FIX M2-R5 layout)
+    precise = (shipstatic->common.staticCollInfo.preciseSelection != 0xff) ? 1 : 0;
+    total32 = sizeship32 + (precise ? 0x7C : 0);
+    total64 = sizeship64 + (precise ? (udword)sizeof(PreciseSelection) : 0);
+    madHead32 = 0x30 + 8;
+    if (ship->madBindings != NULL)
+    {
+        header = shipstatic->madStatic->header;
+        nLevels = (udword)shipstatic->common.LOD->nLevels;
+        nObjects = (udword)header->nObjects;
+        nBindings = (udword)shipstatic->hierarchySize;
+        curves32 = madHead32 + 4 * nLevels;
+        curves64 = (udword)madAnimSize(nLevels);
+        mad32 = curves32 + nObjects * 6 * 0x18 + nBindings * 0x58;
+        mad64 = curves64 + nObjects * 6 * (udword)sizeof(splinecurve) + nBindings * (udword)sizeof(mhlocalbinding);
+    }
+    if ((udword)chunk->contentsSize != total64 + mad64)
+    {
+        saveCat32SaveProblem("ship", chunk->contentsSize, (sdword)(total64 + mad64));
+    }
+    size32 = (sdword)(total32 + mad32);
+    nchunk = saveCat32NewChunk32(chunk->type, size32);
+    dst = (ubyte *)chunkContents(nchunk);
+
+    saveCat32ConvertBack(&saveCat32Layout_Ship, src, dst);
+    if (spec32 != 0)
+    {
+        if (spec != NULL)
+        {
+            saveCat32ConvertBack(spec, src + offsetof(Ship, ShipSpecifics), dst + SAVE_CAT32_SHIP - 4);
+        }
+        else
+        {
+            memcpy(dst + SAVE_CAT32_SHIP - 4, src + offsetof(Ship, ShipSpecifics), spec32);
+        }
+    }
+    if (precise)
+    {
+        memcpy(dst + sizeship32, src + sizeship64, 0x7C);     // PreciseSelection: plain words, 0x7C in both
+    }
+    if (mad32 != 0)
+    {
+        saveCat32ConvertBack(&saveCat32Layout_madanim, src + total64, dst + total32);
+        v32 = mad32;
+        memcpy(dst + total32 + 4, &v32, 4);                 // madanim.totalSize: the exe's size of the block
+        memset(dst + total32 + 0x30, 0, madHead32 - 0x30 + 4 * nLevels);    // the bindings' head: made anew on load
+        for (i = 0; i < nObjects * 6; i++)
+        {
+            memcpy(&curve, src + total64 + curves64 + (udword)sizeof(splinecurve) * i, sizeof(curve));
+            saveCat32ConvertBack(&saveCat32Layout_splinecurve, &curve, dst + total32 + curves32 + 0x18 * i);
+            path = &header->objPath[i / 6];
+            j = i % 6;
+            n = (udword)path->nKeyframes;
+            times64 = (udword)(uintptr_t)curve.times;
+            objTimes64 = (udword)((ubyte *)path->times - (ubyte *)header);
+            k = (times64 - objTimes64) / 4;
+            if ((times64 < objTimes64) || (((times64 - objTimes64) % 4) != 0) || (k > n) ||
+                !madCat32ObjectFileOffset(header, (sdword)(i / 6), &T))
+            {
+                saveCat32SaveProblem("mesh animation curve", (sdword)i, -1);
+                continue;
+            }
+            v32 = T + 4 * k;                                // times
+            memcpy(dst + total32 + curves32 + 0x18 * i + 0x10, &v32, 4);
+            v32 = T + 4 * n + 12 * k;                       // params (tcb, 12 bytes a keyframe)
+            memcpy(dst + total32 + curves32 + 0x18 * i + 0x14, &v32, 4);
+            v32 = T + (16 + 4 * j) * n + 4 * k;             // points: path[j]
+            memcpy(dst + total32 + curves32 + 0x18 * i + 0xC, &v32, 4);
+        }
+        // the mesh bindings (nBindings * 0x58) stay 0: Fix_madBindings makes them anew
+    }
+    SaveThisChunk(nchunk);
+    memFree(nchunk);
+#else
+    (void)ship;
+    SaveThisChunk(chunk);
+#endif
+}
+
+void saveCat32SaveBegin(void)
+{
+    saveCat32Saving = TRUE;
+    saveCat32SavedChunks = saveCat32SavedShips = saveCat32SaveProblems = 0;
+}
+
+void saveCat32SaveEnd(char *filename)
+{
+    if (!saveCat32Saving)
+    {
+        return;
+    }
+    fprintf(stdout, "savecat32: saved '%s': %u chunks converted, %u ships, %u problems\n", filename,
+            (unsigned)saveCat32SavedChunks, (unsigned)saveCat32SavedShips, (unsigned)saveCat32SaveProblems);
+    fflush(stdout);
+    saveCat32Saving = FALSE;
 }
 
 /*=============================================================================

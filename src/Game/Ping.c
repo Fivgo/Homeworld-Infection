@@ -1102,7 +1102,17 @@ void SaveAnomalyPing(ping *tping)
     savecontents->owner = (SpaceObj *)SpaceObjRegistryGetID(tping->owner);
     savecontents->user = (SpaceObj *)SpaceObjRegistryGetID(tping->user);
 
-    SaveThisChunk(chunk);
+    if (saveCat32Saving)
+    {
+        // CAT (M2-R9 recorder-leftovers): the inverse of the loader below: the exe's 0x58-byte head (userDataSize at
+        //      +0x48 in 4-byte words) and the user data as dwords (pingSave 0x004e96f0)
+        savecontents->userDataSize = (tping->userDataSize / (sdword)sizeof(void *)) * 4;
+        saveCat32SaveArray(chunk, SAVECAT32_LAYOUT(ping), 0x58, sizeof(ping), NULL, tping->userDataSize / (sdword)sizeof(void *));
+    }
+    else
+    {
+        SaveThisChunk(chunk);
+    }
     memFree(chunk);
 
     if (tping->userDataSize > 0)

@@ -4559,7 +4559,12 @@ void SaveSinglePlayerGame(void)
 {
     dbgAssertOrIgnore(singlePlayerGameLoadNewLevelFlag == FALSE);
 
-    SaveStructureOfSize(&singlePlayerGameInfo,sizeof(SinglePlayerGameInfo));
+    {
+        // CAT (M2-R9 recorder-leftovers): the exe's 0x54-byte layout in an exe-format save
+        SaveChunk *chunk = CreateChunk(BASIC_STRUCTURE,sizeof(SinglePlayerGameInfo),&singlePlayerGameInfo);
+        saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(SinglePlayerGameInfo));
+        memFree(chunk);
+    }
 
     SaveLinkedListOfInsideShips(&singlePlayerGameInfo.ShipsInHyperspace);
     SaveGrowSelection(&singlePlayerGameInfo.ShipsToHyperspace);

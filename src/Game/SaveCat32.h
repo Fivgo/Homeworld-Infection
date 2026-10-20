@@ -151,6 +151,7 @@ extern const SaveCat32SpecLayout saveCat32SpecLayouts[];
 =============================================================================*/
 
 extern bool32 saveCat32Loading;     // TRUE while a cataclysm.exe save is read (saveCatLoadHook .. end of LoadGame)
+extern bool32 saveCat32Saving;      // M2-R9 recorder-leftovers: TRUE while a save is written in cataclysm.exe's format
 
 /*=============================================================================
     Functions:
@@ -175,6 +176,18 @@ sdword saveCat32ChunkCount(SaveChunk *chunk, udword offset32);
 
 // a ship's VARIABLE_STRUCTURE chunk: Ship + specifics - 4 (+ PreciseSelection) (+ the mesh-animation block)
 SaveChunk *saveCat32ChunkShip(SaveChunk *chunk);
+
+// M2-R9 recorder-leftovers: the writer. Each writes the given native chunk as it is, or (while saveCat32Saving)
+// converted into the exe's layout; the chunk itself is not changed or freed
+#if SAVECAT32_LP64
+void saveCat32ConvertBack(const SaveCat32Layout *layout, const void *src64, void *dst32);
+#endif
+void saveCat32SaveStruct(SaveChunk *chunk, const void *layout);
+void saveCat32SaveArray(SaveChunk *chunk, const void *headLayout, udword head32, udword head64,
+                        const void *elemLayout, sdword count);
+void saveCat32SaveShip(SaveChunk *chunk, Ship *ship);
+void saveCat32SaveBegin(void);
+void saveCat32SaveEnd(char *filename);
 
 // chunk accounting for the log line at the end of a load
 void saveCat32Begin(void);

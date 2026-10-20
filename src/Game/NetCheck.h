@@ -57,6 +57,7 @@ extern udword catSyncExtra;                 // CAT: 0x00ab7658 (M2-R6 oracle-mod
 void recPackInGameStartCB(char *filename);
 void recPackInGameStartCBSafeToStart(void);
 void recPackInGameStopCB(void);
+extern bool32 recordingStartSave;          // CAT: 0x00a578f8 (M2-R9 recorder-leftovers)
 
 extern char OrigRecordPacketFileName[];
 

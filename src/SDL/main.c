@@ -478,6 +478,18 @@ bool32 CatMissionTestTutorialSet(char *string)
 {
     catMissionSelfTestTutorialSet(string);
     enableSFX = FALSE;                  // speech stays on (SDL's dummy driver): the first prompt is the narration's subtitle
+    // HWI-TEST (M2-R9 recorder-leftovers): the speech runs on the virtual audio clock (soundlow.c soundVirtualClock), so
+    //      the narration's subtitles start and end at the same frame in every run and the leg's stream is a pair
+    soundVirtualClock = TRUE;
+    return TRUE;
+}
+
+// HWI-TEST (M2-R9 recorder-leftovers): /catVirtualAudio: the mixer and the speech stream advanced by the virtual clock on
+//      the game thread instead of SDL's audio thread and the stream thread (only with a virtual-clock run)
+bool32 CatVirtualAudioSet(char *string)
+{
+    (void)string;
+    soundVirtualClock = TRUE;
     return TRUE;
 }
 
@@ -639,6 +651,25 @@ bool32 OracleShipDumpSet(char *string)
 bool32 OracleMissionSet(char *string)
 {
     oracleSetMission(string);
+    return TRUE;
+}
+
+// HWI-ORACLE (M2-R9 recorder-leftovers): the mode-B recording (OracleDump.c oracleRecordTick)
+bool32 OracleRecordSet(char *string)
+{
+    oracleSetRecord(string);
+    return TRUE;
+}
+
+bool32 OracleResaveSet(char *string)
+{
+    oracleSetResave(string);
+    return TRUE;
+}
+
+bool32 OracleRecordStopSet(char *string)
+{
+    oracleSetRecordStop(string);
     return TRUE;
 }
 
@@ -1234,6 +1265,7 @@ commandoption commandOptions[] =
     entryFnParam("/catMissionTestMission", CatMissionTestMissionSet, " <N> - with /catMissionTest: mission N (2 .. 17) from the exe's warp start (Warp.script's level N record) through its KAS objectives and the jump to the next level."),
     entryFn("/catWarpStartTest",      CatWarpStartTestSet, " - with /catMissionTest: the warp start of the data dir's warp.script (WarpEnabled 1) checked against its record, through the fleet's arrival."),
     entryFn("/catMissionTestTrace",   CatMissionTestTraceSet, " - with /catMissionTest: every new KAS message logged (missiontest: msg lines; a diagnostic)."),
+    entryFn("/catVirtualAudio",       CatVirtualAudioSet, " - with a virtual-clock run: the mixer and the speech stream advanced by the virtual clock on the game thread (the tutorial test sets it)."),
     entryFnParam("/catMissionTestTutorial", CatMissionTestTutorialSet, " <ticks> - headless tutorial start: Tutorial1's KAS script runs until its first prompt shows, logs missiontest lines, exit."),
     entryFnParam("/catSkirmishTest",    CatSkirmishTestSet, " <ticks> - start a 2-player skirmish (Sect against a computer player) through the front end's own callbacks with no input, run <ticks> universe ticks on the virtual clock, judge the universe, log skirmishtest lines, exit."),
     entryFnParam("/catSkirmishMap",     CatSkirmishMapSet, " <name> - the map of /catSkirmishTest (a MultiPlayer directory name; default LiveFireExercise2)."),
@@ -1268,6 +1300,9 @@ commandoption commandOptions[] =
     entryFnParam("/oracleShipDump", OracleShipDumpSet, " <ships>[@<from>-<to>] - write shipdump.txt next to the /oracleDump file: per tick each listed ship (numbers, comma-separated, or all) with position, velocity, rotation, coordsys, order and health as bits, and every sync-packet command."),
     entryFnParam("/oracleMission",  OracleMissionSet, " <ticks> - headless oracle run: start single player at once, no animatic, one universe tick per frame, exit after <ticks> ticks."),
     entryVr("/oracleLibmSqrt",      catFsqrtTable, FALSE, " - HWI-EXPERIMENT: fsqrt, fmathSqrt and catFsqrtD use libm's sqrtf instead of the exe's table square root (fsqrt 0x00472860, the default since decision 70)."),
+    entryFnParam("/oracleRecord",   OracleRecordSet, " <name> - oracle mode B: record the game from its first universe tick as SavedGames/RecordedGames/<name> (+ .pkts), the game's own in-game recording."),
+    entryFnParam("/oracleRecordStop", OracleRecordStopSet, " <tick> - /oracleRecord: stop the recording at this universe tick (default 9600)."),
+    entryFnParam("/oracleResave",   OracleResaveSet, " <name> - with /oracleReplay: save the loaded game again at once, in cataclysm.exe's format, as SavedGames/RecordedGames/<name> (a check of the save writer)."),
     entryFnParam("/oracleReplay",   OracleReplaySet, " <name> - oracle mode A: replay SavedGames/RecordedGames/<name> (+ .pkts) as LoadRecordedGame does, one universe tick per frame, exit at the end of the packets."),
 #endif
 

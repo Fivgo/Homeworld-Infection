@@ -90,6 +90,10 @@ sdword streamStartThread(void)
 {
 	streamer.status = SOUND_PLAYING;
 
+	if (soundVirtualClock)
+	{
+		return (SOUND_OK);		// HWI-TEST (M2-R9 recorder-leftovers): the game thread steps it (soundVirtualAdvance)
+	}
 	streamThread = SDL_CreateThread(isoundstreamupdate, "soundstream", NULL);
 
 	return (SOUND_OK);
@@ -1081,10 +1085,17 @@ void isoundstreamcleanup(void)
 	Outputs		:
 	Return		:
 ----------------------------------------------------------------------------*/	
-int isoundstreamupdate(void *dummy)
+/*-----------------------------------------------------------------------------
+	Name		: isoundstreamstep
+	Description	: HWI-TEST (M2-R9 recorder-leftovers): one pass of the "soundstream" thread's loop (GoK's
+				  isoundstreamupdate body, unchanged): the thread calls it between its sleeps; with the virtual audio
+				  clock (soundVirtualClock, soundlow.c) the game thread calls it before every mixer block instead
+	Inputs		:
+	Outputs		:
+	Return		:
+----------------------------------------------------------------------------*/
+void isoundstreamstep(void)
 {
-#ifndef _MACOSX_FIX_SOUND
-
 	sdword i;
 	STREAM *pstream;
 	CHANNEL *pchan;
@@ -1094,14 +1105,7 @@ int isoundstreamupdate(void *dummy)
 	sdword bufsize;
 	STREAMQUEUE *pqueue;
 	
-	if (streams == NULL)
-	{
-	/* not inited yet */
-	return 0;
-	}
 
-	while (soundinited && (streamer.status >= SOUND_STOPPED))
-	{
 		if (streamer.status == SOUND_STOPPING)
 		{
 			/* check and see if its done yet */
@@ -1417,10 +1421,27 @@ Recover:
 			}
 		}
 
+}
+
+int isoundstreamupdate(void *dummy)
+{
+#ifndef _MACOSX_FIX_SOUND
+
+	sdword i;
+
+	if (streams == NULL)
+	{
+	/* not inited yet */
+	return 0;
+	}
+
+	while (soundinited && (streamer.status >= SOUND_STOPPED))
+	{
+		isoundstreamstep();
+
                 // TODO: Use semaphores !
                 SDL_Delay(SOUND_STREAM_SLEEP);
 	}
-	
 	/* clean up all the streams */
     for (i = 0; i < numstreams; i++)
 	{

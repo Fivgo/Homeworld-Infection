@@ -1948,7 +1948,7 @@ void SaveMoveCB(void *stuff)
 
     aiePreFixAIEvents(sc);
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(AITeamMove));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
     sc = NULL;
 
@@ -2036,6 +2036,55 @@ MsgQueue *LoadMsgQueue(AITeam *team)
     return msgQueue;
 }
 
+// the dword at offset off of a cataclysm.exe chunk (M2-R9 recorder-leftovers: and its writer)
+static void aitCat32PutWord(ubyte *contents, udword off, sdword v)
+{
+    memcpy(contents + off, &v, 4);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : aitCat32SaveTeam
+    Description : CAT (M2-R9 recorder-leftovers): the inverse of aitCat32LoadTeam: a team written as the exe's 0x280-byte
+                  chunk (SaveThisAITeam 0x00418040), the words at the exe's offsets from the team the save code has
+                  prepared (owner number, current move position, team indexes, the cooperating-team callback number,
+                  the kas2c offsets); the bytes the loader does not read (the exe's lists, selection and run-time
+                  words, which aitLoad 0x00418180 / aitFix replace) are written as 0. The grow selection, the moves and
+                  the message queue follow as for a native save
+----------------------------------------------------------------------------*/
+static void aitCat32SaveTeam(AITeam *sc)
+{
+    SaveChunk *chunk = CreateChunk(BASIC_STRUCTURE|AITEAM,0x280,NULL);
+    ubyte *c = (ubyte *)chunkContents(chunk);
+
+    memset(c, 0, 0x280);
+    aitCat32PutWord(c, 0x00, (sdword)sc->teamType);
+    aitCat32PutWord(c, 0x04, (sdword)sc->teamFlags);
+    aitCat32PutWord(c, 0x08, (sdword)sc->catUnknown08);
+    aitCat32PutWord(c, 0x0C, (sdword)sc->TeamFeatures);
+    c[0x10] = (ubyte)sc->teamDelay;
+    aitCat32PutWord(c, 0x14, (sdword)sc->newships);
+    aitCat32PutWord(c, 0x18, (sdword)(size_t)sc->aiplayerowner);
+    aitCat32PutWord(c, 0x24, (sdword)sc->teamStrength);
+    aitCat32PutWord(c, 0x28, (sdword)sc->teamValue);
+    c[0x2C] = (ubyte)sc->teamDifficultyLevel;
+    aitCat32PutWord(c, 0x3C, (sdword)(size_t)sc->curMove);
+    aitCat32PutWord(c, 0x48, (sdword)(size_t)sc->cooperatingTeam);
+    aitCat32PutWord(c, 0x4C, (sdword)(size_t)sc->cooperatingTeamDiedCB);
+    aitCat32PutWord(c, 0x50, (sc->msgQueue != NULL) ? 1 : 0);
+    aitCat32PutWord(c, 0x54, (sdword)(size_t)sc->msgSender);
+    aitCat32PutWord(c, 0x58, (sdword)sc->kasLabel);
+    aitCat32PutWord(c, 0x5C, (sdword)sc->kasFSMName);
+    aitCat32PutWord(c, 0x60, (sdword)sc->kasStateName);
+    aitCat32PutWord(c, 0x64, (sdword)(size_t)sc->kasFSMWatchFunction);
+    aitCat32PutWord(c, 0x68, (sdword)(size_t)sc->kasStateWatchFunction);
+    aitCat32PutWord(c, 0x6C, (sdword)sc->kasOrigShipsType);
+    aitCat32PutWord(c, 0x70, (sdword)sc->kasOrigShipsCount);
+    aitCat32PutWord(c, 0x74, (sdword)sc->kasTactics);
+    aitCat32PutWord(c, 0x78, (sdword)sc->kasFormation);
+    SaveThisChunk(chunk);
+    memFree(chunk);
+}
+
 void SaveThisAITeam(AITeam *team)
 {
     SaveChunk *chunk;
@@ -2057,7 +2106,14 @@ void SaveThisAITeam(AITeam *team)
     sc->kasFSMWatchFunction = (void *)kasConvertFuncPtrToOffset(team->kasFSMWatchFunction);
     sc->kasStateWatchFunction = (void *)kasConvertFuncPtrToOffset(team->kasStateWatchFunction);
 
-    SaveThisChunk(chunk);
+    if (saveCat32Saving)
+    {
+        aitCat32SaveTeam(sc);                           // CAT (M2-R9 recorder-leftovers): the exe's 0x280-byte team
+    }
+    else
+    {
+        SaveThisChunk(chunk);
+    }
     memFree(chunk);
     sc = NULL;
 

@@ -57,6 +57,10 @@ void oracleSetReplay(char *string);             // /oracleReplay <name>
 bool32 oracleReplayRequested(void);
 void oracleStartReplay(void);                   // end of utyGameSystemsInit: LoadRecordedGame's sequence
 void oracleReplayEnd(void);                     // universeUpdateTask: no packet left while playPackets
+// the mode-B recording (M2-R9 recorder-leftovers): /oracleRecord <name>, /oracleRecordStop <tick>
+void oracleSetRecord(char *string);
+void oracleSetRecordStop(char *string);
+void oracleSetResave(char *string);               // /oracleResave <name> (a replay's load saved again)
 udword oracleVirtualFrameTicks(void);          // task ticks per frame in a mission run, 0 = real time
 udword oracleVirtualFrameStep(void);           // HWI-FEATURE(motion-interp): this frame's task ticks (N frames per tick in a motion run)
 real32 oracleVirtualSubTick(void);             // HWI-FEATURE(motion-interp): the leftover fraction of a task tick

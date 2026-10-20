@@ -4366,7 +4366,7 @@ void Save_shipsinprogress(shipsinprogress *sinprogress)
         savecontents->progress[i].catExternalShip = (Ship *)SpaceObjRegistryGetID((SpaceObj *)savecontents->progress[i].catExternalShip);
     }
 
-    SaveThisChunk(chunk);
+    saveCat32SaveStruct(chunk, SAVECAT32_LAYOUT(shipsinprogress));   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save
     memFree(chunk);
 }
 
@@ -4406,7 +4406,7 @@ void SaveConsMgr(void)
             savecontents[i].owner = (Player *)SavePlayerToPlayerIndex(savecontents[i].owner);
         }
 
-        SaveThisChunk(chunk);
+        saveCat32SaveArray(chunk, NULL, 0, 0, NULL, 2 * cmNumCarriers);   // CAT (M2-R9 recorder-leftovers): the exe's layout in an exe-format save: a ship ID and a player index a carrier
         memFree(chunk);
     }
 }

@@ -304,7 +304,26 @@ void cat_saveShipRecordTablePreFix(void)                                    // 0
 
 void cat_saveShipRecordTable(void)
 {
+    ubyte *table32;
+    sdword i;
+
     SaveInfoNumber(catShipNameCount);
+    if (saveCat32Saving)
+    {
+        // CAT (M2-R9 recorder-leftovers): the exe's 0x70-byte records: the ship pointer (written as 0: the load takes
+        //      the ship from the ID), the ID, the type and the name
+        table32 = memAlloc(CAT_SHIPNAME_RECORD32 * MAX_SHIP_NAMES, "shipnames32", Pyrophoric);
+        memset(table32, 0, CAT_SHIPNAME_RECORD32 * MAX_SHIP_NAMES);
+        for (i = 0; i < MAX_SHIP_NAMES; i++)
+        {
+            memcpy(table32 + CAT_SHIPNAME_RECORD32 * i + 4, &catShipNames[i].shipID, sizeof(sdword));
+            memcpy(table32 + CAT_SHIPNAME_RECORD32 * i + 8, &catShipNames[i].type, sizeof(sdword));
+            memcpy(table32 + CAT_SHIPNAME_RECORD32 * i + 0xC, catShipNames[i].name, SHIP_NAME_LENGTH);
+        }
+        SaveStructureOfSize(table32, CAT_SHIPNAME_RECORD32 * MAX_SHIP_NAMES);
+        memFree(table32);
+        return;
+    }
     SaveStructureOfSize(catShipNames, sizeof(catShipNames));
 }
 

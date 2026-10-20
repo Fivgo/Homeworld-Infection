@@ -156,7 +156,8 @@
 #                    and NAME.pkts are copied from original/game/SavedGames/RecordedGames into the harness data dir's
 #                    SavedGames/RecordedGames (where a real install keeps its recordings; refreshed when the copy differs,
 #                    never written in original/game) and linked into the run's settings dir, where this engine reads saved
-#                    games (/settingspath) and its relative paths (the cwd); once the start-up has put up the main screen
+#                    games (/settingspath; M2-R9 recorder-leftovers: the packets too, NetCheck.c opens them there) and its
+#                    relative paths (the cwd); once the start-up has put up the main screen
 #                    the engine loads it as the front end's LoadRecordedGame does (VerifySaveFile, feScreenDisappear,
 #                    recPackPlayInGameInit, utyLoadMultiPlayerGameGivenFilename, the recorded-game words), plays the
 #                    packets on the lockstep branch with the virtual clock (one universe tick per frame, as mission), writes
@@ -204,6 +205,16 @@
 #                    are the exe's table square root (fsqrt 0x00472860, src/Game/FastMath.c) by default; pass
 #                    "-- /oracleLibmSqrt" (HWI-EXPERIMENT) to any mode for libm's sqrtf instead, the A/B run of the rung
 #                    (docs/m2-r9-oracle-rung-physics.md). The old switch /oracleTableFsqrt (M2-R7 / R8) is gone
+#   --record NAME    skirmish mode (M2-R9 recorder-leftovers; any mode that plays a skirmish / multiplayer-type game):
+#                    /oracleRecord NAME: the mode-B oracle's record side on this engine. At the first universe tick the
+#                    game's own in-game recording starts (recPackInGameStartCB, as the GOG DLL's record mode calls it):
+#                    universeUpdateTask saves the game (cataclysm.exe's save format, version 0x10ad0027) as
+#                    <run>/settings/SavedGames/RecordedGames/NAME and from then on runs the lockstep with fake sends,
+#                    appending every sync packet to NAME.pkts there; the stream gets the record-start / record-stop
+#                    events; "oracle: record requested ..." and "oracle: record stopped ..." lines. Nothing is written
+#                    in original/game or the harness data dir. Replay it with --mode replay --recording NAME
+#                    --recording-src <run>/settings/SavedGames/RecordedGames --recording-as NAME2
+#   --record-stop N  with --record: the universe tick the recording stops at (/oracleRecordStop; default 9600, the DLL's)
 #   --recording NAME replay mode: the recorded game to replay (default oracle01)
 #   --recording-src DIR replay mode: the directory NAME and NAME.pkts are copied from (default the install's
 #                    SavedGames/RecordedGames). M2-R7 integrate: an archived recording (original/oracle/<session>/, where
@@ -251,6 +262,9 @@
 #                    speech
 #   --mission-test-ticks N missiontest mode: the run's tick limit (default 20000)
 #   --tutorial       missiontest mode: Tutorial1's first screens instead of Mission01
+#                    (M2-R9 recorder-leftovers: the tutorial run's speech and mixer run on the virtual audio clock,
+#                    /catVirtualAudio set by /catMissionTestTutorial: the speech's subtitles start and end at the same frame in
+#                    every run, so two runs give byte-identical run.hwo streams)
 #   --mission N      missiontest mode (M2-R9 missions-02-09): mission N (2 .. 17) instead of Mission01: /catMissionTest
 #                    <ticks> /catMissionTestMission N. The mission starts through the exe's warp start (cat_spWarpToLevel
 #                    0x0051b9c0 with Warp.script's level N record: the fleet, resources and technologies Relic set for
@@ -376,7 +390,7 @@ mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"
 oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=3000; rframes=600; hframes=600; uticks=400
 conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0; mtmission=1; savename="01 - Hiigara"; ldticks=400
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""; skticks=600; skmap=LiveFireExercise2
-warplevel=10; savesrc=""; training=0
+warplevel=10; savesrc=""; training=0; recordname=""; recordstop=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -398,6 +412,8 @@ while [[ $# -gt 0 ]]; do
 		--motion-ticks) motticks=$2; shift ;;
 		--nis) nisspec=$2; shift ;;
 		--fps) vfps=$2; shift ;;
+		--record) recordname=$2; shift ;;
+		--record-stop) recordstop=$2; shift ;;
 		--recording) recording=$2; shift ;;
 		--recording-src) recsrc=$(realpath -- "$2"); shift ;;
 		--recording-as) recas=$2; shift ;;
@@ -495,7 +511,7 @@ elif [[ "$mode" == motion ]]; then
 	args+=(/catMotionFps "$vfps" /catMotionTest "$motticks" /catMotionDump "$out/motion.dump")
 elif [[ "$mode" == replay ]]; then
 	# M2-R6 oracle-mode-a: the recording into the data dir's SavedGames/RecordedGames (as a real install keeps it),
-	# then linked into the run's settings dir, where the engine looks (saved games: /settingspath; the packets: the cwd)
+	# then linked into the run's settings dir, where the engine looks (saved games and, since M2-R9, the packets: /settingspath)
 	# M2-R7 integrate: --recording-src DIR takes the pair from an archived session directory instead (read only) and
 	# --recording-as NAME2 copies and replays it under another name, so the install's current recording of the same
 	# name is not replaced in the data dir (the engine names the packets <name>.pkts, OracleDump.c oracleStartReplay)
@@ -561,6 +577,12 @@ if [[ "$mode" == etg ]]; then
 	fi
 	args+=(/catEtgParseTest "$out/etg.list")
 	[[ "$etgticks" -gt 0 ]] && args+=(/catEtgEffectTest "$etgticks")
+fi
+if [[ -n "$recordname" ]]; then
+	# M2-R9 recorder-leftovers: the recording lands in the run's settings dir (saves and packets: /settingspath [audit: was "packets: the cwd"; NetCheck.c opens them in the settings path])
+	mkdir -p "$out/settings/SavedGames/RecordedGames"
+	args+=(/oracleRecord "$recordname")
+	[[ -n "$recordstop" ]] && args+=(/oracleRecordStop "$recordstop")
 fi
 args+=("${extra[@]}")
 
@@ -673,6 +695,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	echo "ship statics: $(grep -c 'shipstatic: loaded' "$L") loaded, $(grep -c 'shipstatic: .* not found' "$L") not found (disabled), $(grep -c 'shipstatic: other' "$L") other .shp; $(grep -h 'shipstatic: self-test done' "$L" | sed 's/^.*shipstatic: //' | head -n 1)"
 	[[ "$mode" == meshes ]] && echo "meshes: $(grep -c . "$out/meshes.list" 2>/dev/null) listed, $(grep -c 'meshtest: loaded' "$L") .geo/.peo loaded, $(grep -c 'meshtest: mad loaded' "$L") .mad loaded, $(grep 'meshtest: .*loaded' "$L" | grep -c -v ' bad=0$') with bad=; $(grep -h 'meshtest: self-test done' "$L" | sed 's/^.*meshtest: //' | head -n 1)"
 	[[ -f "$out/run.hwo" ]] && echo "oracle: $(grep -h 'oracle: self-test done\|oracle: mission run done\|oracle: replay done' "$L" | sed 's/^.*oracle: //' | head -n 1); run.hwo $(stat -c %s "$out/run.hwo") bytes, sha256 $(sha256sum "$out/run.hwo" | cut -c1-16)"
+	[[ -n "$recordname" ]] && echo "record: $(grep -h 'oracle: record ' "$L" | sed 's/^.*oracle: //' | paste -sd';'); files: $(cd "$out/settings/SavedGames/RecordedGames" 2>/dev/null && for f in "$recordname" "$recordname.pkts"; do [[ -f "$f" ]] && echo -n "$f $(stat -c %s "$f") B sha256 $(sha256sum "$f" | cut -c1-16); "; done)"
 	[[ "$mode" == replay ]] && echo "replay: $(grep -h 'oracle: replay started\|savecat32: loaded\|oracle: replay load failed' "$L" | sed 's/^.*\(oracle\|savecat32\): //' | paste -sd';'); last tick line: $(grep -h 'oracle: replay tick' "$L" | tail -n 1 | sed 's/^.*oracle: //')"
 	[[ "$mode" == mission ]] && echo "mission: last tick line: $(grep -h 'oracle: mission tick' "$L" | tail -n 1 | sed 's/^.*oracle: //'); ships loaded $(grep -c 'shipstatic: loaded' "$L")"
 	[[ "$mode" == textures ]] && echo "textures: $(grep -h 'texturetest: listing lookups\|texturetest: self-test done' "$L" | sed 's/^.*texturetest: //' | paste -sd';')"

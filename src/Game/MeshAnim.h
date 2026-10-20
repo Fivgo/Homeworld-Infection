@@ -224,6 +224,7 @@ madheader_disk;
 struct Ship;
 struct ShipStaticInfo;
 
+bool32 madCat32ObjectFileOffset(madheader *header, sdword object, udword *offset);  // CAT (M2-R9 recorder-leftovers)
 madheader *madFileLoad(char *fileName);
 void madHeaderDelete(madheader *header);
 

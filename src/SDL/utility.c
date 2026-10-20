@@ -5284,6 +5284,7 @@ void utyTasksDispatch(void)
         utyNFrameTicks = oracleVirtualFrameStep();  // HWI-FEATURE(motion-interp): N frames a tick in a motion run (else oracleVirtualFrameTicks())
         taskSubTick = oracleVirtualSubTick();       // HWI-FEATURE(motion-interp): the virtual clock's leftover
         taskExecuteAllPending(utyNFrameTicks);
+        soundVirtualAdvance(utyNFrameTicks, (udword)taskFrequency);    // HWI-TEST (M2-R9): the virtual audio clock, if on
         utyTimerLast = SDL_GetTicks();
         return;
     }
