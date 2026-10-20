@@ -45,7 +45,7 @@ const RUNG_EXCL = 'players at tick 93 (10-17) / 272 (10-18) and rng6 at tick 161
 //           ai, skirmish and mission-test streams do, once).
 // Flip this constant only on the user's word; the producer-1 and integrate prompts change with it, so a relaunch reruns
 // producer 1 from its report.
-const FSQRT_DEFAULT = 'sqrtf'
+const FSQRT_DEFAULT = 'table'   // the user's ruling 2026-10-19 (decision 70 ANSWERED): the game keeps the exe's table square root
 // STAGE 5's fate (the user's; "What the user must decide" item 2). Producer 4's row is BUILT from this constant (port4):
 // 'recorder' = the plan's row 4 as written: stage 5 reduced to the recorder's record side (the 4 CAT-TODO(stage 5
 //              recorder) sites: a mode-B oracle) plus the test / tooling leftovers; the other 22 stage-5 sites stay deferred;

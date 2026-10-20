@@ -468,7 +468,7 @@ Objectives.c / SinglePlayer.c / Tutor.c** (R7: 104 unread) + 2,365 cat-new (2,08
 
 ### M2-R9 plan (stage 6 part B: missions 02-17; the rung's next item; stage 5 reduced to the recorder unless the user rules otherwise; M3's Linux play-test in parallel; details, sizing, the play-test brief and the exit test in docs/m2-r8-summary.md "Plan for M2-R9")
 
-NOT YET LAUNCHED; `cycle/workflows/m2-r9.js` is WRITTEN (48925e2, an Opus draft reviewed by the user's session 38027cce: constants `FSQRT_DEFAULT 'sqrtf'`, `STAGE5 'recorder'`, `FOURTH_RECORDING null`, `ROUND_BASE 54dcbb2`; the user's answers fold in by flipping those constants before the launch; launch = Workflow({scriptPath: cycle/workflows/m2-r9.js}) from the user's terminal session, never the orchestrator). It waits for the user's answers to docs/m2-r8-summary.md
+NOT YET LAUNCHED; `cycle/workflows/m2-r9.js` is WRITTEN (48925e2, an Opus draft reviewed by the user's session 38027cce: constants `FSQRT_DEFAULT 'table'` (the user's ruling 2026-10-19), `STAGE5 'recorder'`, `FOURTH_RECORDING null`, `ROUND_BASE 54dcbb2`; the user's answers fold in by flipping those constants before the launch; launch = Workflow({scriptPath: cycle/workflows/m2-r9.js}) from the user's terminal session, never the orchestrator). It waits for the user's answers to docs/m2-r8-summary.md
 "What the user must decide" (the table `fsqrt` as the default: decision 70; stage 5's fate; the DLL's `CAT_SHIP_coordsys`
 0x98 edit before the fourth recording; M3's play-test now). Sizing: 1,936 kas2c mission functions not yet generated
 (about 566 KB; 16 missions, 298 FSMs) from `tools/m2_kas2c_gen.py --scripts` (its machine-code verification covers them),
@@ -737,7 +737,7 @@ a skirmish and the tutorial can start now (the brief in docs/m2-r8-summary.md "P
     `/oracleTableFsqrt` (`FastMath.c`, HWI-EXPERIMENT) compiled in and off. With the table the rung's reference reads 246
     (10-17) / 154 (10-18), without it 176 / 117, and the divergence at 177 is the square root itself. Recommendation: make
     the table the default in M2-R9 (`FSQRT_DEFAULT 'table'`, the switch inverted to `/oracleLibmSqrt`); the headless
-    Mission01 baseline does not move with it, the replay, ai, skirmish and mission-test streams do.
+    Mission01 baseline does not move with it, the replay, ai, skirmish and mission-test streams do. **ANSWERED 2026-10-19: the table `fsqrt` is the engine default** ("keep the game relying on fsqrt, don't ditch core fundamentals"); M2-R9 producer 1 makes it the default and inverts the switch to `/oracleLibmSqrt` (`FSQRT_DEFAULT 'table'` in m2-r9.js).
 71. **The exe's x87 shape on the flight path** (the vector, matrix, heading, guidance, rotation, avoidance, formation,
     parade, collision and move-point helpers; `catFsqrtD`): the 53-bit intermediates and single roundings of the
     disassembly; libm `sin` / `cos` for `fsin` / `fcos`, `tanl` + `fma` for `fptan`. The motion / nis guard-rail dumps are
