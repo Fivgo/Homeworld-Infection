@@ -7008,7 +7008,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] same",
+  "note": "[review: M2-R5 render] same | [review: M2-R10 render-animatics-sp] compared again (disassembly): the exe unregisters every handle of a material but -1; the tree's GoK HW_PTR_64 guard also skipped every handle >= TR_RegistrySize, i.e. every palette index above 0, so the textures' usage never reached 0 and they stayed loaded into the next level (the Mission04 nPalettes < 8 stop): fixed as an HWI fix, the body is the exe's",
   "sample": "port-R5-render"
  },
  "0x004af790": {
@@ -8658,7 +8658,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same loop/end tests; ftol of currentFrame",
+  "note": "same loop/end tests; ftol of currentFrame | [review: M2-R10 render-animatics-sp] compared again: the end test compares the 4-byte handle with -1; the 64-bit tree reads the 8-byte trhandle whose high half is the next ETG constant, so is_final_tex (GoK) now decides on the low 32 bits (no warning)",
   "sample": "reread-R2"
  },
  "0x004df9c0": {
@@ -15792,9 +15792,9 @@
  },
  "0x005860d0": {
   "class": "MODIFIED",
-  "confidence": "medium",
+  "confidence": "high",
   "change": "pending palette slot reset only when nUsageCount reaches 0 (HW1 reset it on every unregister)",
-  "note": "Ghidra shows void return; callers ignore it",
+  "note": "Ghidra shows void return; callers ignore it | [review: M2-R10 render-animatics-sp] ported (texreg.c: flags & TRF_Pending and nUsageCount == 0 after the decrement); GoK's HW_PTR_64 guard now tests the registry index (the low 16 bits), not the whole handle",
   "sample": "reread-R2"
  },
  "0x00586880": {
@@ -17708,7 +17708,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "ported into GoK's animAviPlay / animAviDecode / animAviEnd (Bink is replaced by GoK's avi player): cat_taskTimeCompressionReset first, universe.realtimeelapsed saved, zeroed and restored with the total time, the decode callback (0x004217d0) converts frames by the movie's frame rate (Bink's 0x00a70f1c; the animatics are 30 fps, GoK assumed 15) and sets the real time too; soundstopallSFX(0,1) = soundstopall; the glide/RGL display callbacks are GoK-backend",
-  "note": "[review: M2-R6 nis-fow-camera] ported into GoK's animAviPlay / animAviDecode / animAviEnd (Bink is replaced by GoK's avi player): cat_taskTimeCompressionReset first, universe.realtimeelapsed saved, zeroed and restored with the total time, the decode callback (0x004217d0) converts frames by the movie's frame rate (Bink's 0x00a70f1c; the animatics are 30 fps, GoK assumed 15) and sets the real time too; soundstopallSFX(0,1) = soundstopall; the glide/RGL display callbacks are GoK-backend",
+  "note": "[review: M2-R6 nis-fow-camera] ported into GoK's animAviPlay / animAviDecode / animAviEnd (Bink is replaced by GoK's avi player): cat_taskTimeCompressionReset first, universe.realtimeelapsed saved, zeroed and restored with the total time, the decode callback (0x004217d0) converts frames by the movie's frame rate (Bink's 0x00a70f1c; the animatics are 30 fps, GoK assumed 15) and sets the real time too; soundstopallSFX(0,1) = soundstopall; the glide/RGL display callbacks are GoK-backend | [review: M2-R10 render-animatics-sp] every caller (kasfMissionCompleted, singlePlayerPostInit, singlePlayerGameUpdate, utyVideoPlay) reaches animAviPlay; a headless run skips the playback (HWI, after the tutorial test) with an 'animatic: skipped (headless)' line",
   "sample": "port-R6-nis-fow-camera"
  },
  "0x0042b650": {
@@ -19160,7 +19160,8 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R6 startup-keys] compared: identical (glcompat calls N/A; the stipple GL calls are rGL-only)"
+  "note": "[review: M2-R6 startup-keys] compared: identical (glcompat calls N/A; the stipple GL calls are rGL-only) | [review: M2-R10 render-animatics-sp] compared again: animBinkPlay 0x00421860 (0, 1) at 0x005a81ba between cat_glcActive / glcActivate (rGL only); the call now reaches animAviPlay",
+  "sample": "port-R10-render-animatics-sp"
  },
  "0x005a8200": {
   "class": "IDENTICAL",
@@ -22639,7 +22640,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "KAS globals G_PlayNis / G_PlayNislet / Traders.PopUpGUI; the black fade; HYPERSPACE_LOADDONE starts the mission's kas2c script (missions 1..17); states 7 (wait) and 9 (the fleet arrives, G_ShipsHaveArrived); the rest of the hyperspace flow",
-  "note": "[review: M2-R8 kas-runtime-mission01] the head, the load-done case and case 9 ported; the roll call, whiteout and case 10 are M2-R8 producer 4's (stage 6 single player) [review: M2-R8 singleplayer-tutorial] the rest of the body ported: the letterbox jump of the catSpMissionNextLevel missions, the roll call ending through spGoNowHyperspaceCB, Fleet Command's 0x2001020, the ships left in the ether wiped, the inlined fleet tests, the white-out's animatic (cur, cur + 1; mission 17 credits), the ether's damage effects (cat_spForgetDamageEffects) and DeleteAfterHSOut ships, the next mission's level or its opening NIS (state 8), the at-once arrival (cat_spLaunchDockedShipsOnArrival), the failed jump as case 10 | [review: M2-R9 missions-10-17] compared again (the end of the game): mission 17's white-out sets quittime = realtimeelapsed and utyCreditsSequence (0x0051a027 ..): same as ported. Mission17 itself ends through MissionCompleted, not this branch. Found: the two animatic calls of this function and singlePlayerPostInit reach the tree's animBinkPlay, GoK's #if 0 stub, so no animatic plays in the port (left for M2-R10: animAviPlay is the port of 0x00421860 and would play Animatic01 in real time in the sp gate)",
+  "note": "[review: M2-R8 kas-runtime-mission01] the head, the load-done case and case 9 ported; the roll call, whiteout and case 10 are M2-R8 producer 4's (stage 6 single player) [review: M2-R8 singleplayer-tutorial] the rest of the body ported: the letterbox jump of the catSpMissionNextLevel missions, the roll call ending through spGoNowHyperspaceCB, Fleet Command's 0x2001020, the ships left in the ether wiped, the inlined fleet tests, the white-out's animatic (cur, cur + 1; mission 17 credits), the ether's damage effects (cat_spForgetDamageEffects) and DeleteAfterHSOut ships, the next mission's level or its opening NIS (state 8), the at-once arrival (cat_spLaunchDockedShipsOnArrival), the failed jump as case 10 | [review: M2-R9 missions-10-17] compared again (the end of the game): mission 17's white-out sets quittime = realtimeelapsed and utyCreditsSequence (0x0051a027 ..): same as ported. Mission17 itself ends through MissionCompleted, not this branch. Found: the two animatic calls of this function and singlePlayerPostInit reach the tree's animBinkPlay, GoK's #if 0 stub, so no animatic plays in the port (left for M2-R10: animAviPlay is the port of 0x00421860 and would play Animatic01 in real time in the sp gate) | [review: M2-R10 render-animatics-sp] compared again: one call of animBinkPlay 0x00421860 (cur, cur + 1) at 0x0051a01a (the white-out), not two; it now reaches animAviPlay",
   "sample": "port-R9-missions-10-17"
  },
  "0x0051b230": {
@@ -22826,9 +22827,9 @@
  },
  "0x005193d0": {
   "class": "IDENTICAL",
-  "confidence": "medium",
+  "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 singleplayer-tutorial] compared: same as HW1 (animBinkPlay(0, 1) for mission 1); GoK's sequence call replaced",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same as HW1 (animBinkPlay(0, 1) for mission 1); GoK's sequence call replaced | [review: M2-R10 render-animatics-sp] compared again: animBinkPlay 0x00421860 (0, 1) at 0x005193e5; the tree's call now reaches animAviPlay (the port of 0x00421860)",
   "sample": "port-R8-singleplayer-tutorial"
  },
  "0x00519440": {
@@ -24412,5 +24413,73 @@
   "change": "bullets left out of the target lists",
   "note": "[review: M2-R10 oracle-rung-physics] compared with the exe body (the sub-blob recursion, the shift, the per-type lists, BTF_RecentDeath for ships and resources, the return after the find): the bullet exclusion ported, the rest as the tree. IDENTICAL found modified",
   "sample": "port-R10-oracle-rung-physics"
+ },
+ "0x005854c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the entry is cleared in every build and its colour-info list (+0x14) is freed when non-NULL (HW1 cleared the pointer only under TR_ERROR_CHECKING and leaked the list)",
+  "note": "[review: M2-R10 render-animatics-sp] IDENTICAL found modified: 0x005855b5 .. 0x005855e8 memFree of +0x14 and the clears; ported",
+  "sample": "port-R10-render-animatics-sp"
+ },
+ "0x00585760": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "4th argument bScalable at +0x30; the default colour info returns at once with the usage incremented; trColorsEqual / trColorsIndexAlloc inlined; the colour append unbounded",
+  "note": "[review: M2-R10 render-animatics-sp] compared (decompile, disassembly at 0x005858ef ..): as HW1 with the two helpers inlined and the 4th argument; the append past 8 schemes is the exe's out-of-bounds write (CAT-FIX in trColorsIndexAlloc: palette 0, no write); the exe's __strupr of the name is HW1's, GoK's tree does not uppercase (not changed here)",
+  "sample": "port-R10-render-animatics-sp"
+ },
+ "0x00585b60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R10 render-animatics-sp] compared (decompile): as HW1 (trColorInfosPointer / trColorsEqual / trColorsIndexAlloc inlined, the auto-class came from the inlining); the append is unbounded as in trTextureRegister (CAT-FIX in trColorsIndexAlloc)",
+  "sample": "port-R10-render-animatics-sp"
+ },
+ "0x00585e70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R10 render-animatics-sp] compared (decompile): as HW1 (trColorInfosPointer inlined)",
+  "sample": "port-R10-render-animatics-sp"
+ },
+ "0x00585fa0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R10 render-animatics-sp] compared (decompile): as HW1 (trColorInfosPointer inlined)",
+  "sample": "port-R10-render-animatics-sp"
+ },
+ "0x00585280": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R10 render-animatics-sp] compared (decompile, disassembly of the tail): same (the shared palette's usage count in entry 0's alpha, freed at 0)",
+  "sample": "port-R10-render-animatics-sp"
+ },
+ "0x00586140": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R10 render-animatics-sp] compared: same (nUsageCount < 1)",
+  "sample": "port-R10-render-animatics-sp"
+ },
+ "0x00506720": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_mimicGetSelectRadius; the sphere radius: a mimic's select radius, a bullet 1.0, the slipgates +200/300/400; a bullet has no precise selection; the hit and the rectangle only at depth > 0; the rectangle rounded to the nearest pixel; selShipUnderMouse 1 argument",
+  "note": "[review: M2-R10 render-animatics-sp] ported (Select.c): the radius cases (0x005067a2 ..), the bullet return in the precise branch, the depth test before the rectangle (0x005070b8; [audit: was cited 0x0050683f, inside a call]) and before a precise hit (0x00506fb7, the radius test 0x00506fa0), the rounding (catSelScreenX/Y). Select.c:1153/1154's INT_MIN came from an object exactly in the camera plane (camera-space z 0, w 0: the circle infinite), which the exe returns on before converting",
+  "sample": "port-R10-render-animatics-sp"
+ },
+ "0x004adae0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R10 render-animatics-sp] edited by the port only inside #if MEM_VERBOSE_LEVEL >= 1 (the 'failed to find block' note names the block, HWI); that code is compiled out of the retail shape the map classifies (Memory.h: MEM_VERBOSE_LEVEL 0 in retail), so the class stays IDENTICAL; the body was not re-compared by the audit"
+ },
+ "0x004adc60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R10 render-animatics-sp] edited by the port only inside #if MEM_VERBOSE_LEVEL >= 1 (the 'failed to find block' note names the block, HWI); that code is compiled out of the retail shape the map classifies (Memory.h: MEM_VERBOSE_LEVEL 0 in retail), so the class stays IDENTICAL; the exe's failure tail (0x004add8d: the size-list reset and the retry) was read and is HW1's"
  }
 }

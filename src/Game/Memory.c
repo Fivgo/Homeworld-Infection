@@ -876,7 +876,13 @@ void *memAllocFunctionANV(sdword length, udword flags, mempool *pool)
         if (length > MSB_SizeMax)
         {                                                   //if we were searching from the beginning
 #if MEM_VERBOSE_LEVEL >= 1
+#if MEM_USE_NAMES
+            // HWI (M2-R10 render-animatics-sp): the block's name too; the caller (memAllocFunction) then takes a growth
+            //      heap, so this line is a note, not a failure
+            dbgMessagef("memAllocFunctionANV: failed to find block of length %d ('%s'): trying the growth heaps", length, name);
+#else
             dbgMessagef("memAllocFunctionANV: failed to find block of length %d", length);
+#endif
 #endif
         }
         else if (mslSizeBytes(length) != pool->lastFree && (mslSizeBytes(length) != pool->lastFree))
@@ -1088,7 +1094,13 @@ noMoreFree:;
         if (length > MSB_SizeMax)
         {                                                   //if we were searching from the beginning
 #if MEM_VERBOSE_LEVEL >= 1
+#if MEM_USE_NAMES
+            // HWI (M2-R10 render-animatics-sp): the block's name too; the caller (memAllocFunction) then takes a growth
+            //      heap, so this line is a note, not a failure
+            dbgMessagef("memAllocFunctionA: failed to find block of length %d ('%s'): trying the growth heaps", length, name);
+#else
             dbgMessagef("memAllocFunctionA: failed to find block of length %d", length);
+#endif
 #endif
         }
         else if (msbSizeBytes(length) != pool->firstFree && (msbSizeBytes(length) != pool->firstFree))

@@ -1402,17 +1402,16 @@ void meshFree(meshdata *mesh)
                 if (((trhandle *)mesh->localMaterial[index].texture)[j] != TR_Invalid)
                 {                                           //if this player was this race
 #ifdef HW_PTR_64
+                    // HWI (M2-R10 render-animatics-sp): GoK also skipped every handle >= TR_RegistrySize here, which is
+                    //      every handle of a palette index above 0 (the index is in bits 16..: trHandleMake), so the
+                    //      second .. eighth colour schemes were never unregistered, the textures' usage counts never
+                    //      reached 0 and trTextureDeleteAllUnregistered kept them loaded into the next level, where the
+                    //      next level's registrations appended to a loaded texture's colour block (the Mission04
+                    //      texreg.c nPalettes < 8 stop). The exe's meshFree 0x004af710 unregisters every handle but -1;
+                    //      only GoK's sign-extended -1 is still skipped
                     if (((trhandle *)mesh->localMaterial[index].texture)[j] != 0xffffffffffffffff) // Check for -1
-                    {
-                        if (((trhandle *)mesh->localMaterial[index].texture)[j] < TR_RegistrySize ) {
 #endif
-                
                     trTextureUnregister(((trhandle *)mesh->localMaterial[index].texture)[j]);
-
-#ifdef HW_PTR_64
-                        }
-                    }
-#endif
                 }                                           //unregister the texture
             }
             memFree((ubyte *)mesh->localMaterial[index].texture);    //free the texture handle list

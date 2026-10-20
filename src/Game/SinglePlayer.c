@@ -2299,10 +2299,11 @@ void spTaskBarHyperspaceCB(struct taskbutton *button, ubyte *userData)
 
 void singlePlayerPostInit(bool32 loadingSaveGame)
 {
-    // CAT: Animatic01 before Mission01 (singlePlayerPostInit 0x005193d0: animBinkPlay(0, 1))
+    // CAT: Animatic01 before Mission01 (singlePlayerPostInit 0x005193d0: animBinkPlay 0x00421860 (0, 1) at 0x005193e5;
+    //      the tree's port of 0x00421860 is animAviPlay, GoK's animBinkPlay is a stub: M2-R10 render-animatics-sp)
     if (!loadingSaveGame && (singlePlayerGameInfo.currentMission == MISSION_1_KHARAK_SYSTEM))
     {
-        animBinkPlay(0, 1);
+        animAviPlay(0, 1);
     }
 }
 
@@ -2929,8 +2930,10 @@ void singlePlayerGameUpdate(void)
             if (spBinkPlay)
             {
                 // playback level transition animatic
+                // CAT: animBinkPlay 0x00421860 (cur, cur + 1) at 0x0051a01a, the function's only call of it; the tree's
+                //      port of 0x00421860 is animAviPlay (M2-R10 render-animatics-sp; GoK's animBinkPlay is a stub)
                 catSpLevelFade = 0.0f;
-                animBinkPlay(singlePlayerGameInfo.currentMission, singlePlayerGameInfo.currentMission + 1);
+                animAviPlay(singlePlayerGameInfo.currentMission, singlePlayerGameInfo.currentMission + 1);
                 if (singlePlayerGameInfo.currentMission == MISSION_17)
                 {
                     // CAT: Cataclysm's last mission ends the game with the credits (0x0051a10d)

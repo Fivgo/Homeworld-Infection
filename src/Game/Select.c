@@ -985,7 +985,31 @@ void selCircleCompute(hmatrix *modelView, hmatrix *projection, SpaceObjRotImpTar
     centre.w = 1.0f;
     hmatMultiplyHMatByHVec(&selCameraSpace, modelView, &centre);//in camera space
     radius = selCameraSpace;                                   //project another point to determine selection sphere size
-    radius.x += (target->staticinfo->common.staticCollInfo.collspheresize);
+    // CAT: the sphere's radius (selCircleCompute 0x00506720, 0x005067a2 ..): a mimic's select radius
+    //      (cat_mimicGetSelectRadius 0x005b94e0); a bullet 1.0 only; the slipgates (dSlipgateSmall / Medium / Large)
+    //      200 / 300 / 400 more than their collision sphere
+    if ((target->header.objtype == OBJ_ShipType) && bitTest(target->header.catFlags18, CAT_SHIPFLAG_Mimic))
+    {
+        radius.x += cat_mimicGetSelectRadius((Ship *)target);
+    }
+    else if (target->header.objtype == OBJ_BulletType)
+    {
+        radius.x += 1.0f;
+    }
+    else
+    {
+        if (target->header.objtype == OBJ_ShipType)
+        {
+            switch (((Ship *)target)->shiptype)
+            {
+                case dSlipgateSmall:  radius.x += 200.0f; break;
+                case dSlipgateMedium: radius.x += 300.0f; break;
+                case dSlipgateLarge:  radius.x += 400.0f; break;
+                default: break;
+            }
+        }
+        radius.x += (target->staticinfo->common.staticCollInfo.collspheresize);
+    }
     hmatMultiplyHMatByHVec(&screenSpace, projection, &selCameraSpace);//in screen space
     hmatMultiplyHMatByHVec(&radiusProjected, projection, &radius);
     collision->selCircleX = screenSpace.x / screenSpace.w;
@@ -996,6 +1020,10 @@ void selCircleCompute(hmatrix *modelView, hmatrix *projection, SpaceObjRotImpTar
     //compute the precise selection if the ship type demands it
     if (collision->precise != NULL)
     {
+        if (target->header.objtype == OBJ_BulletType)
+        {                                                   // CAT: a bullet has no precise selection (0x005068af)
+            return;
+        }
         if (target->obj.currentLOD <= target->staticinfo->common.staticCollInfo.preciseSelection)
         {                                                   //if we should do precise selection
             precise = collision->precise;
@@ -1134,10 +1162,11 @@ void selCircleCompute(hmatrix *modelView, hmatrix *projection, SpaceObjRotImpTar
                 p3 = primPointLineIntersection(xReal, yReal, point[pIndex[base + 3]].x, point[pIndex[base + 3]].y, point[pIndex[base + 0]].x, point[pIndex[base + 0]].y);
                 if (p0 > 0.0f && p1 > 0.0f && p2 > 0.0f && p3 > 0.0f)
                 {                                       //if mouse inside this poly
-                    if (target->impactable.collInfo.selCircleRadius > 0.0f)
+                    // CAT: the hit counts only with a positive radius and depth (0x00506fa0 / 0x00506fb7: an object on or
+                    //      behind the camera plane is not under the mouse); HW1's distance is the exe's dead store
+                    if ((target->impactable.collInfo.selCircleRadius > 0.0f) &&
+                        (target->impactable.collInfo.selCircleDepth > 0.0f))
                     {
-                        distance = ABS(primGLToScreenX(target->impactable.collInfo.selCircleX) - mouseCursorX()) +
-                            ABS(primGLToScreenY(target->impactable.collInfo.selCircleY) - mouseCursorY());
                         selShipUnderMouse(target);
                     }
                     break;
@@ -1148,18 +1177,23 @@ void selCircleCompute(hmatrix *modelView, hmatrix *projection, SpaceObjRotImpTar
     else
     {
         // CAT (M2-R5 layout): HW1 jumped here (checkUnderMouse) from the slaveable branch, which is gone
-        selectRect.x0 = primGLToScreenX(collision->selCircleX - collision->selCircleRadius) - selClickMargin;
-        selectRect.x1 = primGLToScreenX(collision->selCircleX + collision->selCircleRadius) + selClickMargin;
-        selectRect.y0 = primGLToScreenY(collision->selCircleY + collision->selCircleRadius) - selClickMargin;
-        selectRect.y1 = primGLToScreenY(collision->selCircleY - collision->selCircleRadius) + selClickMargin;
+        // CAT: an object on or behind the camera plane (depth <= 0) is skipped before its rectangle is computed
+        //      (selCircleCompute 0x00506720 at 0x005070b8: Select.c's INT_MIN reports came from an object exactly in
+        //      the camera plane, camera-space z 0, whose w = 0 made the circle infinite and GoK's truncating
+        //      primGLToScreenY turned it into INT_MIN); the rectangle rounds to the nearest pixel (catSelScreen*)
+        if (collision->selCircleDepth <= 0.0f)
+        {
+            return;
+        }
+        selectRect.x0 = catSelScreenX(collision->selCircleX - collision->selCircleRadius) - selClickMargin;
+        selectRect.x1 = catSelScreenX(collision->selCircleX + collision->selCircleRadius) + selClickMargin;
+        selectRect.y0 = catSelScreenY(collision->selCircleY + collision->selCircleRadius) - selClickMargin;
+        selectRect.y1 = catSelScreenY(collision->selCircleY - collision->selCircleRadius) + selClickMargin;
 
         if ((selectRect.x0 <= mouseCursorX()) && (mouseCursorX() <= selectRect.x1) &&
             (selectRect.y0 <= mouseCursorY()) && (mouseCursorY() <= selectRect.y1))
         {                                               //if under mouse
-            distance = ABS(primGLToScreenX(collision->selCircleX) - mouseCursorX()) +
-                ABS(primGLToScreenY(collision->selCircleY) - mouseCursorY());
             selShipUnderMouse(target);
-
         }
     }
 }

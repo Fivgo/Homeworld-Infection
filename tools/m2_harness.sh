@@ -210,6 +210,16 @@
 #                    are the exe's table square root (fsqrt 0x00472860, src/Game/FastMath.c) by default; pass
 #                    "-- /oracleLibmSqrt" (HWI-EXPERIMENT) to any mode for libm's sqrtf instead, the A/B run of the rung
 #                    (docs/m2-r9-oracle-rung-physics.md). The old switch /oracleTableFsqrt (M2-R7 / R8) is gone
+#                    The animatics (M2-R10 render-animatics-sp, docs/m2-r10-render-animatics-sp.md): every caller of the
+#                    exe's animBinkPlay 0x00421860 reaches animAviPlay (Animatic.c, its port): singlePlayerPostInit
+#                    (Animatic01 before Mission01), singlePlayerGameUpdate's white-out (AnimaticNN+1 between missions N
+#                    and N+1), kasfMissionCompleted (Mission17's end: Animatic18) and utyVideoPlay (no .fib binds it). A
+#                    headless run plays none: every mode on the virtual clock (mission, missiontest, warpstart, loadgame,
+#                    replay, ai, skirmish, build, oracle, ... : univRealTimeVirtual) and sp's /debugScreenshots loop skip
+#                    the real-time playback after the exe's own time-compression reset and tutorial test, and log one
+#                    line per animatic the engine would play: "animatic: skipped (headless) a=<from level> b=<to level>
+#                    file=<AnimaticNN>"; the summary's "animatics:" line counts and lists them. An attended run
+#                    (tools/play.sh) plays them (its log: "animatic: play a=.. b=.. file=Movies/AnimaticNN.bik")
 #   --record NAME    skirmish mode (M2-R9 recorder-leftovers; any mode that plays a skirmish / multiplayer-type game):
 #                    /oracleRecord NAME: the mode-B oracle's record side on this engine. At the first universe tick the
 #                    game's own in-game recording starts (recPackInGameStartCB, as the GOG DLL's record mode calls it):
@@ -725,6 +735,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == keys ]] && echo "keystest: $(grep -h 'keystest: ' "$L" | grep -v 'keystest: FAIL' | sed 's/^.*keystest: //' | paste -sd';'); FAIL lines: $(grep -c 'keystest: FAIL' "$L")"
 	[[ "$mode" == sound ]] && echo "soundtest: $(grep -h 'soundtest: ' "$L" | sed 's/^.*soundtest: //' | paste -sd';'); UBSan reports in fquant.c/fqcodec.c: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c 'fquant\.c\|fqcodec\.c'); PATCH reports: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c "struct PATCH")"
 	[[ "$mode" == etg ]] && echo "etg: $(grep -c . "$out/etg.list" 2>/dev/null) listed; $(grep -h 'etgtest: etgStartup done\|etgtest: self-test done\|etgtest: created\|etgtest: effect self-test done' "$L" | sed 's/^.*etgtest: //' | paste -sd';')"
+	echo "animatics: $(grep -c 'animatic: skipped (headless)' "$L") skipped (headless): $(grep -h 'animatic: skipped (headless)' "$L" | sed 's/^.*file=//' | paste -sd',')"
 	echo "engine glows:$(grep -c -i 'engineglows' "$out/FileLoads.log" 2>/dev/null) mesh/mex loads from misc\\EngineGlows in FileLoads.log"
 	echo "UBSan report kinds (count, site):"; echo "$ubsan_kinds"
 	echo "log tail:"; grep -v '^    #\|^ *$' "$L" | tail -n 8

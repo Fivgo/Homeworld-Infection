@@ -817,7 +817,10 @@ scriptEntry utyOptionsList[] =
 
 void utyVideoPlay(char* name, featom* atom)
 {
-    animBinkPlay(0,1);
+    // CAT: animBinkPlay 0x00421860 (0, 1) at 0x005a81ba (utyVideoPlay 0x005a81a0); the tree's port of 0x00421860 is
+    //      animAviPlay (M2-R10 render-animatics-sp; GoK's animBinkPlay is a stub). The exe's cat_glcActive /
+    //      glcActivate around it are the rGL backend's (decision 28)
+    animAviPlay(0,1);
 
 #ifdef DEBUG_STOMP
     regVerify((regionhandle)&regRootRegion);

@@ -135,6 +135,14 @@ static sdword fowToCellRadius(real32 r, real32 cellSize)
     return (sdword)((double)r * (1.0 / (double)cellSize)) + 1;
 }
 
+// CAT-FIX: a cube's cell box x - r / x + r in the exe's 32-bit two's complement (fowActivateCube 0x0047eeb0,
+//      fowDeactivateCube 0x0047f070, fowCubeHasUnvisited 0x0047f400: sub / add that wrap). A position the exe's __ftol
+//      cannot convert (NaN or out of range) gives the cell 0x80000000 there and here (cvttsd2si); x - r then wraps to
+//      a large positive x0 and x + r stays negative, so the clipped box is empty in both. C's signed overflow is
+//      undefined, so the wrap is done in unsigned arithmetic (UBSan's FOW.c:296-437 reports in Mission17)
+#define fowCellSub(a, b)    ((sdword)((udword)(a) - (udword)(b)))
+#define fowCellAdd(a, b)    ((sdword)((udword)(a) + (udword)(b)))
+
 static void fowCellMarkDirty(sdword x, sdword y, sdword z, bool32 neighbours);
 static void cat_fowBoundaryDestroy(void);
 
@@ -293,9 +301,9 @@ void fowActivateCube(sdword x, sdword y, sdword z, sdword r)    // 0x0047eeb0
     {
         return;
     }
-    x0 = x - r; x1 = x + r;
-    y0 = y - r; y1 = y + r;
-    z0 = z - r; z1 = z + r;
+    x0 = fowCellSub(x, r); x1 = fowCellAdd(x, r);           // CAT-FIX: the exe's wrapping arithmetic (see fowCellSub)
+    y0 = fowCellSub(y, r); y1 = fowCellAdd(y, r);
+    z0 = fowCellSub(z, r); z1 = fowCellAdd(z, r);
     if (x0 < 0) x0 = 0;
     if (x1 >= fowCurrentGrid->nx) x1 = fowCurrentGrid->nx - 1;
     if (y0 < 0) y0 = 0;
@@ -346,9 +354,9 @@ void fowDeactivateCube(sdword x, sdword y, sdword z, sdword r)  // 0x0047f070
     {
         return;
     }
-    x0 = x - r; x1 = x + r;
-    y0 = y - r; y1 = y + r;
-    z0 = z - r; z1 = z + r;
+    x0 = fowCellSub(x, r); x1 = fowCellAdd(x, r);           // CAT-FIX: the exe's wrapping arithmetic (see fowCellSub)
+    y0 = fowCellSub(y, r); y1 = fowCellAdd(y, r);
+    z0 = fowCellSub(z, r); z1 = fowCellAdd(z, r);
     if (x0 < 0) x0 = 0;
     if (x1 >= fowCurrentGrid->nx) x1 = fowCurrentGrid->nx - 1;
     if (y0 < 0) y0 = 0;
@@ -432,9 +440,9 @@ bool32 fowCubeHasUnvisited(sdword x, sdword y, sdword z, sdword r)  // 0x0047f40
     {
         return FALSE;
     }
-    x0 = x - r; x1 = x + r;
-    y0 = y - r; y1 = y + r;
-    z0 = z - r; z1 = z + r;
+    x0 = fowCellSub(x, r); x1 = fowCellAdd(x, r);           // CAT-FIX: the exe's wrapping arithmetic (see fowCellSub)
+    y0 = fowCellSub(y, r); y1 = fowCellAdd(y, r);
+    z0 = fowCellSub(z, r); z1 = fowCellAdd(z, r);
     if (x0 < 0) x0 = 0;
     if (x1 >= fowCurrentGrid->nx) x1 = fowCurrentGrid->nx - 1;
     if (y0 < 0) y0 = 0;

@@ -3011,13 +3011,18 @@ void loadbankAndConvertTo64Bit(char *fileName, void** loadAddress)
 
     //printf("%s size is %d\n",oldFile, oldLength);
 
-    newLength = 2*oldLength;
+    // HWI (M2-R10 render-animatics-sp): the converted bank's exact size, the old length plus the larger patch table
+    //      and its alignment padding (the same offset the patches' data moves by below); GoK allocated twice the old
+    //      length, 16.4 MB of the 64 MB main heap for the 8.2 MB of the four banks (in the chained campaign the main
+    //      heap was full from Mission04: the growth-heap notes, and the full pool's memFree assertion in Mission05)
+    newLength = oldLength + (sdword)(((BANK *)oldbase)->numpatches * (sizeof(PATCH) - sizeof(PATCH_DISK))
+                                     + (SND_BANK_PATCHES_OFFSET - offsetof(BANK, firstpatch)));
 
-	newbase = memAlloc(2* oldLength, "bank 64bit conversion", 0); 
+	newbase = memAlloc(newLength, "bank 64bit conversion", 0);
     newHeader = newbase;
     newptr =  (void*) newbase;
 
-    memset (newbase, 0 ,2*oldLength);
+    memset (newbase, 0 ,newLength);
   
 
     newHeader->id = oldHeader->id;
@@ -3064,6 +3069,7 @@ void loadbankAndConvertTo64Bit(char *fileName, void** loadAddress)
     newLength = oldLength + offset;
     
     offset = (memsize)oldptr + oldLength - (memsize) oldPatch;
+    dbgAssertOrIgnore((ubyte *)newPatch + offset <= (ubyte *)newbase + newLength);  // HWI (M2-R10): the exact size
 
     memcpy (newPatch, oldPatch, offset);
 

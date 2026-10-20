@@ -401,15 +401,21 @@ sdword trTextureDelete(trhandle handle)
     memFree(reg->fileName);                                 //free the name of the texture
     trNameCRCs[trIndex(handle)] = 0;                        //clear this CRC to blank
     reg->flags = 0;
-#if TR_ERROR_CHECKING
+    // CAT: the entry is cleared in every build and its colour-info list is freed (trTextureDelete 0x005854c0 at
+    //      0x005855b5 .. 0x005855e8: memFree of +0x14 when non-NULL); HW1 only cleared the pointer under
+    //      TR_ERROR_CHECKING, so every deleted texture leaked its 64-byte list (pending, or the duplicate
+    //      trInternalTexturesDelete leaves) in the game heap
     reg->meshReference = NULL;
     reg->nUsageCount = 0;
     reg->diskWidth = reg->diskHeight = 0;
     reg->scaledWidth = reg->scaledHeight = 0;
     reg->fileName = NULL;
     reg->nPalettes = 0;
-    reg->palettes = NULL;
-#endif
+    if (reg->palettes != NULL)
+    {
+        memFree(reg->palettes);
+        reg->palettes = NULL;
+    }
     reg->nSharedTo = 0;
     reg->sharedFrom = TR_NotShared;
     trSetFree(trIndex(handle));
@@ -566,7 +572,18 @@ sdword trColorsIndexAlloc(trcolorinfo *info, sdword textureIndex)
         }
     }
     //no slot found, allocate a new one
-    dbgAssertOrIgnore(reg->nPalettes < TR_NumPalettesPerTexture);   //make sure there is room
+    // CAT-FIX: the exe appends without a bound (trTextureRegister 0x00585760 from 0x005858ef, trRegisterAddition
+    //      0x00585b60): a ninth scheme is written past the 64-byte colour block of a pending texture (memAllocFunction
+    //      0x40 at registration) or past the palettes + infos block of a loaded one, and nPalettes (a signed byte)
+    //      becomes 9. HW1 asserted here (the release build had no check and wrote past the block). The texture keeps
+    //      its 8 schemes and the request gets palette 0; with every scheme unregistered at a level's end (meshFree)
+    //      no ninth scheme arrives in the campaign
+    if (reg->nPalettes >= TR_NumPalettesPerTexture)
+    {
+        dbgWarningf(DBG_Loc, "trColorsIndexAlloc: '%s' has %d colour schemes; %08x/%08x gets palette 0",
+                    reg->fileName, reg->nPalettes, info->base, info->detail);
+        return(0);
+    }
     *textureColor = *info;                                  //put the color into the last slot
     reg->nPalettes++;                                       //one more palette now
     return(reg->nPalettes - 1);
@@ -994,7 +1011,9 @@ sdword trTextureUnregister(trhandle handle)
 
 #ifdef HW_PTR_64
 // Legacy error catching due to not everything working straight away.
-if (handle >= TR_RegistrySize){
+// HWI (M2-R10 render-animatics-sp): the registry index is the handle's low 16 bits; GoK compared the whole handle, so
+//      every handle with a palette index above 0 was refused here (and in meshFree)
+if ((handle >> 32) != 0 || trIndex(handle) >= TR_RegistrySize){
     dbgMessagef("Invalid handle %lx in trTextureUnregister",handle);
     return 0;
 }
@@ -1009,7 +1028,9 @@ if (handle >= TR_RegistrySize){
     //sharing handled - nothing special here...
     dbgAssertOrIgnore(trAllocated(index));
     trTextureRegistry[index].nUsageCount--;
-    if (trPending(index))
+    // CAT: the pending texture's colour slot is freed only when its last usage goes (trTextureUnregister 0x005860d0:
+    //      flags & TRF_Pending and nUsageCount == 0); HW1 freed it on every unregister
+    if (trPending(index) && (trTextureRegistry[index].nUsageCount == 0))
     {                                                       //if texture not yet loaded
         ((trcolorinfo *)trTextureRegistry[index].palettes)[paletteIndex] = trUnusedColorInfo;//this palette not needed anymore
     }

@@ -22,6 +22,7 @@
 #include "Subtitle.h"
 #include "Task.h"
 #include "Universe.h"
+#include "UnivUpdate.h"    // HWI (M2-R10): univRealTimeVirtual
 
 
 #include "CatSort.h"         // CAT (M2-R9 oracle-rung-physics): the exe's qsort
@@ -783,6 +784,19 @@ bool32 animBinkPlay(sdword a, sdword b)
 }
 
 
+// HWI (M2-R10 render-animatics-sp): TRUE in a headless run (see animAviPlay)
+extern bool32 debugScreenshots;
+static bool32 animHeadlessSkip(void)
+{
+#if HWI_ORACLE
+    if (univRealTimeVirtual || oracleMissionRequested())
+    {
+        return TRUE;
+    }
+#endif
+    return debugScreenshots;
+}
+
 /*-----------------------------------------------------------------------------
     Name        : animAviPlay
     Description : plays a Bink video file
@@ -811,15 +825,20 @@ bool32 animAviPlay(sdword a, sdword b)
     {
         return FALSE;
     }
-#if HWI_ORACLE
-    // HWI-ORACLE: a headless oracle run (/oracleMission) plays no animatic: it is real time only (about 246 s for
-    // Animatic01.bik) and nothing in the universe depends on it (OracleDump.c; the exe's animBinkPlay 0x00421860 has no
-    // such switch, this is instrumentation)
-    if (oracleMissionRequested())
+    // HWI (M2-R10 render-animatics-sp): a headless run plays no animatic: the playback is real time only (about 246 s
+    //      for Animatic01.bik), nothing in the universe depends on it, and the run cannot be watched. Headless = the
+    //      virtual clock of the oracle and self-test modes (/oracleMission, /catMissionTest, /oracleDump, /oracleReplay,
+    //      /oracleSelfTest: univRealTimeVirtual) or GoK's /debugScreenshots loop (the harness's sp mode, whose
+    //      screenshot timer would stall behind a real-time playback). One "animatic: ..." line says which animatic
+    //      the engine would play, so a headless run proves the call is reached at each transition (the exe's
+    //      animBinkPlay 0x00421860 has no such switch: the skip returns before anything the playback changes, as
+    //      the earlier /oracleMission skip did)
+    if (animHeadlessSkip())
     {
+        dbgMessagef("animatic: skipped (headless) a=%d b=%d file=%s", a, b,
+                    (a < 0) ? (char *)(memsize)b : ((a < NUMBER_SINGLEPLAYER_MISSIONS) ? animlisting[a].filename : "?"));
         return FALSE;
     }
-#endif
 
     g_cleared = FALSE;
     g_frame = 0;
@@ -849,6 +868,7 @@ bool32 animAviPlay(sdword a, sdword b)
 #endif
         animScriptHeader = animLoadNISScript(scriptname);
     }
+    dbgMessagef("animatic: play a=%d b=%d file=%s", a, b, filename);   // HWI (M2-R10): the attended run's log
 
     soundEventStopMusic(0.0f);
     soundstopall(0.0f);

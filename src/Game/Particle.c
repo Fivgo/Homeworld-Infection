@@ -2197,7 +2197,12 @@ int is_final_tex(trhandle tex)
     if (tex == 0x7fffffff) return 1;
 
 #ifdef HW_PTR_64_FIX_ME
-    if (tex == 0xffffffff) {
+    // HWI (M2-R10 render-animatics-sp): a texture animation (an ETG subTextureDWORD list, etgSubTextureDWORD) ends with
+    //      the script's "int 4294967295", a 4-byte constant in the effect's constant data; the 64-bit frame's handle is
+    //      8 bytes, so its high half is the next constant's first bytes (e.g. 0x65726628ffffffff: "(fre"). The exe's
+    //      partAdvanceTexAnim 0x004df940 compares the 4-byte handle with -1, so the low 32 bits decide here too (GoK
+    //      warned on every such end: 98,718 warnings in a Mission17 run)
+    if ((udword)tex == 0xffffffff) {
       return 1;
     }
     if (0x7fffffff == (tex & 0x7fffffff)) { 
