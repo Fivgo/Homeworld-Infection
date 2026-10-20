@@ -644,7 +644,7 @@ fecallback utyCallbacks[] =
     {cat_opTextureDetail,       "OP_Texture_Detail"},
     {cat_opSpeechTest,          "OP_Speech_Test"},
     {cat_opSoundFXTest,         "OP_SoundFX_Test"},
-    // CAT-TODO(stage 6 single player): {cat_spGameDifficulty, "SP_GameDifficulty"} (0x0051c140, the difficulty radio with cat_spGetDifficultyModifiers) comes with the single-player port
+    {cat_spGameDifficulty,      "SP_GameDifficulty"},      // CAT: 0x0051c140 (SinglePlayer.c)
     {cat_opCataclysmFramerate,  "OP_CataclysmFramerate"},
     {cat_opLODDetail,           "OP_LODDetail"},
 
@@ -680,7 +680,8 @@ color versionColor = colWhite;
 static udword catUtyMPGameFlags = 0;                // 0x008860ea
 static udword catUtyMPGameSetting = 0;              // 0x008860d4
 // CAT: the difficulty word of the options table's last row (0x008941a0, 2 in .data); written by the single-player
-//      difficulty screen. CAT-TODO(stage 6 single player): its readers (cat_spGetDifficultyModifiers) and its setter (SP_GameDifficulty) come with the single-player port
+//      difficulty screen (cat_spGameDifficulty 0x0051c140, which sets the modifiers through cat_spGetDifficultyModifiers);
+//      it is also the KAS skill level (kasfMissionSkillSet / Get 0x00493b80 / 0x00493b90) and kasSave's difficulty
 udword catSpDifficultySetting = 2;                  // 0x008941a0
 
 scriptEntry utyOptionsList[] =
@@ -3128,8 +3129,7 @@ void utySinglePlayerGameStart(char *name, featom *atom)
     curPlayer = 0;      // player 0 is human
     strcpy(playerNames[0],"Player");
 
-    // CAT-TODO(stage 6 single player): utySinglePlayerGameStart 0x005aaf80 has no mission-sequence reset (GoK's spResetMissionSequenceToBeginning, kept until SinglePlayer.c's singlePlayerInit 0x00518c50 is ported)
-    spResetMissionSequenceToBeginning();
+    // CAT: no mission-sequence reset (utySinglePlayerGameStart 0x005aaf80): singlePlayerInit 0x00518c50 starts at mission 1
     singlePlayerInit();
 
     horseRaceInit();
@@ -4822,6 +4822,11 @@ DONE_INTROS:
     else if (catMissionSelfTestTutorialRequested())
     {
         utyStartTutorial("", NULL);
+    }
+    // HWI-TEST (M2-R8 singleplayer-tutorial): /catLoadGameTest loads a single-player save as the front end's Load Game
+    else if (catLoadGameSelfTestRequested())
+    {
+        catLoadGameSelfTestStart();
     }
     // HWI-ORACLE: /oracleMission <ticks> starts single player at once too (no screenshots, no next-level loop)
     else if (oracleMissionRequested())

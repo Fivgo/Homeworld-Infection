@@ -27,6 +27,7 @@
 #include "render.h"
 #include "rglu.h"
 #include "SaveGame.h"
+#include "SaveCat32.h"     // CAT (M2-R8 singleplayer-tutorial): a cataclysm.exe save's mission tail
 #include "Select.h"
 #include "SinglePlayer.h"
 #include "Timer.h"
@@ -78,7 +79,6 @@ char CurrentMissionName[KAS_MISSION_NAME_MAX_LENGTH+1];
 KASWatchFunction CurrentMissionWatchFunction = NULL;
 AITeam *CurrentTeamP = NULL;
 AITeam *kasUnpausedTeam = NULL;
-sdword CurrentMissionSkillLevel = 0;
 
 #define kasThisTeamPtr CurrentTeamP
 
@@ -1166,6 +1166,28 @@ void kasDebugDraw(void)
     Save Game Stuff
 =============================================================================*/
 
+/*-----------------------------------------------------------------------------
+    CAT (M2-R8 singleplayer-tutorial): a KAS label entry. A cataclysm.exe save holds the ILP32 struct (kasLoad
+    0x00491450: 0xC-byte selections, 8-byte path / vector / volume entries), converted by the save loader's tables
+    (SaveCat32Layouts.c); this tree's own saves hold the native struct
+----------------------------------------------------------------------------*/
+static void *kasLoadEntry(sdword size, const void *layout32)
+{
+    SaveChunk *chunk;
+    void *entry;
+
+    chunk = LoadNextChunk();
+    if (saveCat32Loading)
+    {
+        chunk = saveCat32ChunkStruct(chunk, layout32);
+    }
+    VerifyChunk(chunk, BASIC_STRUCTURE, size);
+    entry = memAlloc(size, "loadedstructure", 0);
+    memcpy(entry, chunkContents(chunk), size);
+    memFree(chunk);
+    return entry;
+}
+
 void SaveKasSelection(KasSelection *kasselection)
 {
     SaveStructureOfSize(kasselection,sizeof(KasSelection));
@@ -1174,7 +1196,7 @@ void SaveKasSelection(KasSelection *kasselection)
 
 KasSelection *LoadKasSelection(void)
 {
-    KasSelection *kasselection = LoadStructureOfSize(sizeof(KasSelection));
+    KasSelection *kasselection = kasLoadEntry(sizeof(KasSelection), SAVECAT32_LAYOUT(KasSelection));
     LoadGrowSelectionAndFix(&kasselection->shipList);
     return kasselection;
 }
@@ -1187,7 +1209,7 @@ void SaveLabelledPath(LabelledPath *labelledpath)
 
 LabelledPath *LoadLabelledPath(void)
 {
-    LabelledPath *labelledpath = LoadStructureOfSize(sizeof(LabelledPath));
+    LabelledPath *labelledpath = kasLoadEntry(sizeof(LabelledPath), SAVECAT32_LAYOUT(LabelledPath));
     labelledpath->path = LoadPath();
     return labelledpath;
 }
@@ -1200,7 +1222,7 @@ void SaveLabelledVector(LabelledVector *labelledvector)
 
 LabelledVector *LoadLabelledVector(void)
 {
-    LabelledVector *labelledvector = LoadStructureOfSize(sizeof(LabelledVector));
+    LabelledVector *labelledvector = kasLoadEntry(sizeof(LabelledVector), SAVECAT32_LAYOUT(LabelledVector));
     labelledvector->hvector = LoadStructureOfSize(sizeof(hvector));
     return labelledvector;
 }
@@ -1213,7 +1235,7 @@ void SaveLabelledVolume(LabelledVolume *labelledvolume)
 
 LabelledVolume *LoadLabelledVolume(void)
 {
-    LabelledVolume *labelledvolume = LoadStructureOfSize(sizeof(LabelledVolume));
+    LabelledVolume *labelledvolume = kasLoadEntry(sizeof(LabelledVolume), SAVECAT32_LAYOUT(LabelledVolume));
     labelledvolume->volume = LoadStructureOfSize(sizeof(Volume));
     return labelledvolume;
 }
@@ -1325,10 +1347,16 @@ void kasLoad(void)
     dbgAssertOrIgnore(universe.players[1].aiPlayer);
     CurrentTeamP = AITeamIndexToTeam(universe.players[1].aiPlayer,LoadInfoNumber());
 
-    // CAT: the saved difficulty (kasLoad 0x00491450 scales the build-time divisor 0x008941a4 by the current difficulty's
-    //      modifier over the saved one's through cat_spGetDifficultyModifiers 0x00516f90)
-    // CAT-TODO(stage 6 single player): the divisor 0x008941a4 = modifier(catSpDifficultySetting) / modifier(saved) with cat_spGetDifficultyModifiers 0x00516f90 (kasLoad 0x0049150a)
-    (void)LoadInfoNumber();
+    // CAT: the saved difficulty (kasLoad 0x00491450): the modifiers follow the current difficulty and a loaded
+    //      Somtaaw ship's health is scaled by the current health factor over the saved one's (0x008941a4, FixShip)
+    {
+        real32 savedHealthFactor = 1.0f;    // CAT-FIX: the exe divides by an uninitialised local for a bad difficulty
+
+        cat_spGetDifficultyModifiers(&savedHealthFactor, NULL, NULL, LoadInfoNumber());
+        cat_spGetDifficultyModifiers(&spDifficultyHealthModifier, &catCmSinglePlayerBuildFactor,
+                                     &catCmSinglePlayerCostFactor, catSpDifficultySetting);
+        spDifficultyHealthLoadFactor = spDifficultyHealthModifier / savedHealthFactor;
+    }
 
     // Load Selections
 

@@ -93,7 +93,6 @@
 extern char SinglePlayerSavedGamesPath[];
 extern char TutorialSavedGamesPath[];          // CAT: the level-0 save path of cat_kasSaveLevelNow (GamePick.c)
 extern bool32 catWipeShipFreeDirectly;          // CAT: 0x00a44000 (UnivUpdate.c; kasfMission13DeleteEngineeringModuleHack)
-extern sdword CurrentMissionSkillLevel;
 //extern char *getWord(char *dest, char *source); // Found in researchgui.c
 
 //
@@ -1670,14 +1669,17 @@ void kasfTeamSetPercentFueled(sdword percentFueled)
             (real32)((real64)percentFueled * (real64)CurrentTeamP->shipList.selection->ShipPtr[i]->staticinfo->maxfuel * (real64)0.01f);
 }
 
+// CAT (M2-R8 singleplayer-tutorial): the KAS skill level is the single-player difficulty word 0x008941a0
+//      (catSpDifficultySetting); HW1 kept a separate CurrentMissionSkillLevel (0 here, which made
+//      cat_shipGetDamageMultiplier double every single-player ship's damage)
 void kasfMissionSkillSet(sdword skillLevel)  // KAS MissionSkillSet, cataclysm.exe 0x00493b80
 {
-    CurrentMissionSkillLevel = skillLevel;
+    catSpDifficultySetting = (udword)skillLevel;
 }
 
 sdword kasfMissionSkillGet(void)  // KAS MissionSkillGet, cataclysm.exe 0x00493b90
 {
-    return CurrentMissionSkillLevel;
+    return (sdword)catSpDifficultySetting;
 }
 
 // CAT: 0x00493ba0: the temporary team's label is the current team's label hash + 1 (HW1: "R" + the label)
@@ -4054,7 +4056,7 @@ void kasfCameraFocus(GrowSelection *ships)
         {
             piePointModeOnOff(PIE_SPEC_None, NULL);
         }
-        spMainScreen();
+        spMainScreen(TRUE);
         cat_ccFocusScripted(&universe.mainCameraCommand, (FocusCommand *)ships->selection);
     }
 }
@@ -4090,7 +4092,7 @@ void kasfCameraFocusClose(GrowSelection *ships)
         {
             piePointModeOnOff(PIE_SPEC_None, NULL);
         }
-        spMainScreen();
+        spMainScreen(TRUE);
         cat_ccFocusCloseScripted(&universe.mainCameraCommand, (FocusCommand *)ships->selection);
         return;
     }
@@ -4110,7 +4112,7 @@ void kasfTutCameraFocus(GrowSelection *ships)
         {
             piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
         }
-        spMainScreen();
+        spMainScreen(TRUE);
         ccFocus(&universe.mainCameraCommand, (FocusCommand *)ships->selection);
     }
     else
@@ -4147,7 +4149,7 @@ void kasfTutCameraFocusDerelictType(char *derelictType)  // KAS TutCameraFocusDe
             {
                 piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
             }
-            spMainScreen();
+            spMainScreen(TRUE);
 
             focus.DerelictPtr[0] = derelict;
             ccFocus(&universe.mainCameraCommand, (FocusCommand *)&focus);
@@ -4162,7 +4164,7 @@ void kasfTutCameraFocusFar(GrowSelection *ships)
 {
     if (ships->selection->numShips > 0)
     {
-        spMainScreen();
+        spMainScreen(TRUE);
         ccCameraTimeoutOverride = TRUE;
         ccFocusFar(&universe.mainCameraCommand, (FocusCommand *)ships->selection, &universe.mainCameraCommand.actualcamera);
     }
@@ -4270,7 +4272,7 @@ void kasfOpenSensors(sdword flag)  // KAS OpenSensors, cataclysm.exe 0x00496bc0
         smFleetIntel = flag;
     }
 
-    spMainScreen();
+    spMainScreen(FALSE);                    // CAT: the sensors manager is not closed (kasfOpenSensors pushes 0)
     catSmForceOpen = TRUE;                  // CAT (M2-R6 managers, sensors): opened past the disable flag (0x00a5b22c,
     smSensorsBegin(NULL, NULL);             //      kasfOpenSensors 0x00496bc0)
     catSmForceOpen = FALSE;

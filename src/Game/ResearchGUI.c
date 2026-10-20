@@ -485,8 +485,8 @@ TechPrintList *PlayerTechList;              // 0x00c17aa8
 =============================================================================*/
 
 // CAT (M2-R6 managers): the exe's tutorial gates test bits of its two tutEnable words 0x00ba2e58 / 0x00ba2e5c (as
-//      mainrgn.c's catMrTutEnabled); outside the tutorial everything is enabled.
-//      CAT-TODO(stage 6 tutorial): the exe's tutGameEnableFlags layout
+//      mainrgn.c's catMrTutEnabled); outside the tutorial everything is enabled. M2-R8 singleplayer-tutorial:
+//      tutGameEnableFlags has the exe's layout (Tutor.h: a flag's bit is its index in the name table)
 static bool32 catRmTutEnabled1(udword bit)
 {
     return (tutorial != TUTORIAL_ONLY) || ((((udword *)&tutEnable)[0] & bit) != 0);
@@ -699,7 +699,7 @@ static bool32 catRmClose(void)
     {
         catSmReopenAfterManager();
     }
-    // CAT-TODO(stage 6 tutorial): cat_tutButtonsRestoreAfterScreen (the tutorial's buttons come back)
+    cat_tutButtonsRestoreAfterScreen();      // CAT: the tutorial's buttons come back (rmCloseIfOpen 0x004f4f18 ..)
     return TRUE;
 }
 
@@ -1615,7 +1615,7 @@ sdword rmResearchGUIBegin(regionhandle region, smemsize ID, udword event, udword
     tutGameMessage("Start_ResearchManager");
     mouseCursorShow();
     mouseCursorShow();
-    // CAT-TODO(stage 6 tutorial): cat_tutButtonsHideForScreen 0x005341f0 (the tutorial's buttons hide while the screen is open)
+    cat_tutButtonsHideForScreen();           // CAT: the tutorial's buttons hide while the screen is open (rmResearchGUIBegin 0x004f7575)
     return 0;
 }
 

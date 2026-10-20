@@ -1844,6 +1844,10 @@ _Static_assert(SPECIAL_2_CatBeingBuilt == 0x8 && SPECIAL_2_CatBeingSalvaged == 0
 // CAT (M2-R7 oracle-rung-aiship): set by the mission function kasfShipsEffectedByMines 0x0049a080 to its argument's
 //      low bit; aishipmineaquiretarget 0x004162c0 never picks a ship with it. Name chosen here.
 #define CAT_SHIPFLAG_KasMines                       BIT5
+// CAT (M2-R8 singleplayer-tutorial): set by the roll call's Emergency Hyperspace (cat_spEmergencyHyperspaceCB 0x005174b0)
+//      on the ships that cannot jump by themselves: the roll call no longer counts them (CalculateRollCall 0x005176e0);
+//      cat_meshCurrentMaterialAlt 0x004afcb0 also reads it. Name chosen here
+#define CAT_SHIPFLAG_LeftBehind                     BIT6
 
 
 // CAT (M2-R3 selection): Ship.catUpgradeFlags bits the selection code tests (names chosen here from their users)

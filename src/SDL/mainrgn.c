@@ -512,9 +512,9 @@ static bool32 catMrTacticsCyclePending = FALSE; // 0x00a752ac
 bool32 catMrWaypointCentre = FALSE;             // 0x00a75270: an option (Options.c 0x004d9fde, M2-R6 front end)
 #define CAT_MR_CYCLE_DELAY          1.0f        // 0x0072a4c4: a cycled formation / tactic is set 1 s after the key
 
-// CAT: the exe's tutorial gates test bits of its own tutEnable word 0x00ba2e58 (and 0x00ba2e5c); the Cataclysm
-//      tutorial flags are stage 6's, so outside the tutorial everything is enabled and inside it the word is read raw.
-//      CAT-TODO(stage 6 tutorial): the exe's tutGameEnableFlags layout
+// CAT: the exe's tutorial gates test bits of its own tutEnable word 0x00ba2e58 (and 0x00ba2e5c): outside the tutorial
+//      everything is enabled, inside it the word is read raw (tutGameEnableFlags has the exe's layout, Tutor.h, since
+//      M2-R8 singleplayer-tutorial: a flag's bit is its index in the exe's name table)
 static bool32 catMrTutEnabled(udword bit)
 {
     return (tutorial != TUTORIAL_ONLY) || ((*(udword *)&tutEnable & bit) != 0);
@@ -1766,7 +1766,7 @@ void cat_mrFocusOnMothership(void)
     FocusCommand focus;
 
     if ((tutorial == TUTORIAL_ONLY) && !((*((udword *)&tutEnable + 1) & 0x10000) != 0))
-    {                                                       // CAT-TODO(stage 6 tutorial): the second flag word
+    {                                                       // CAT: the second word's bit 16: MothershipFocus (index 48)
         return;
     }
     if ((mrMothershipPtr == NULL) ||
@@ -5671,6 +5671,38 @@ void mrRegionDraw(regionhandle reg)
         glVertex2f(primScreenToGLX(MAIN_WindowWidth), primScreenToGLY(MAIN_WindowHeight - y + NIS_EXCESSSCISSORMARGIN));
         glEnd();
         glDisable(GL_BLEND);
+    }
+
+    // CAT: the black fade over the main view after a level load (catSpLevelFade 0x00a6ac70, not while an NIS plays:
+    //      0x00a4cabc, nisIsRunning) and Mission01's white flash (catSpWhiteFlash 0x00a75280, additive): full-screen
+    //      quads (mrRegionDraw 0x00569260, 0x005699d0 ..; the corners through this tree's pixel centre, decision 29)
+    if ((catSpLevelFade > 0.0f) && !nisIsRunning)
+    {
+        glEnable(GL_BLEND);
+        rndAdditiveBlends(FALSE);
+        glColor4f(0.0f, 0.0f, 0.0f, catSpLevelFade);
+        glBegin(GL_QUADS);
+        glVertex2f(primScreenToGLX(-1), primScreenToGLY(-1));
+        glVertex2f(primScreenToGLX(-1), primScreenToGLY(MAIN_WindowHeight));
+        glVertex2f(primScreenToGLX(MAIN_WindowWidth), primScreenToGLY(MAIN_WindowHeight));
+        glVertex2f(primScreenToGLX(MAIN_WindowWidth), primScreenToGLY(-1));
+        glEnd();
+        glDisable(GL_BLEND);
+        rndAdditiveBlends(FALSE);
+    }
+    if (catSpWhiteFlash > 0.0f)
+    {
+        glEnable(GL_BLEND);
+        rndAdditiveBlends(TRUE);
+        glColor4f(1.0f, 1.0f, 1.0f, catSpWhiteFlash);
+        glBegin(GL_QUADS);
+        glVertex2f(primScreenToGLX(-1), primScreenToGLY(-1));
+        glVertex2f(primScreenToGLX(-1), primScreenToGLY(MAIN_WindowHeight));
+        glVertex2f(primScreenToGLX(MAIN_WindowWidth), primScreenToGLY(MAIN_WindowHeight));
+        glVertex2f(primScreenToGLX(MAIN_WindowWidth), primScreenToGLY(-1));
+        glEnd();
+        glDisable(GL_BLEND);
+        rndAdditiveBlends(FALSE);
     }
 
     if (mrWhiteOut)

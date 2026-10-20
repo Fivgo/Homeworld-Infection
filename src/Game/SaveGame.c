@@ -786,9 +786,9 @@ void LoadPreGameInfo(void)
     {
         if (saveCat32Loading)
         {
-            // CAT: the exe's mission number is Cataclysm's (PreLoadGame 0x004fdfc0 stores it in 0x00c0a5c0 as it is).
-            //      CAT-TODO(stage 6 single player): map Cataclysm's mission number to this tree's MissionEnum (LoadMissionNumber maps HW1's 1..16) when single-player saves are loaded
-            (void)LoadInfoNumber();
+            // CAT: the exe's mission number is Cataclysm's 1 .. 17 (PreLoadGame 0x004fdfc0 stores it in 0x00c0a5c0 as it
+            //      is), which this tree's MissionEnum numbers alike (MISSION_1_KHARAK_SYSTEM 1 .. MISSION_17)
+            spSetCurrentMission((MissionEnum)LoadInfoNumber());
         }
         else
         {

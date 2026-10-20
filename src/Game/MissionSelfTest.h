@@ -21,5 +21,13 @@ bool32 catMissionSelfTestTutorialRequested(void);
 void catMissionSelfTestTick(void);
 void catMissionSelfTestPlay(void);                  // the scripted player, inside univUpdate (after the AI players)
 void catMissionSelfTestEvent(const char *what);     // a flow event (NIS start / stop, level load, KAS start)
+// HWI-TEST (M2-R8 singleplayer-tutorial): /catLoadGameTest <ticks> /catLoadGameName <name> (harness mode loadgame): a
+//      single-player save of the install (SavedGames/SinglePlayer/<name>) loaded as the front end's Load Game does, then
+//      run <ticks> universe ticks on the mission run's virtual clock
+void catLoadGameSelfTestSet(char *string);
+void catLoadGameSelfTestNameSet(char *string);
+bool32 catLoadGameSelfTestRequested(void);
+void catLoadGameSelfTestStart(void);
+void catLoadGameSelfTestTick(void);
 
 #endif

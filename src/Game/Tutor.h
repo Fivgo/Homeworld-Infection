@@ -57,6 +57,8 @@ typedef struct
 	udword	bLaunch:1;
 	udword	bMove:1;
     udword  bMoveIssue:1;
+    udword  bWaypoint:1;        // CAT: new (the exe's flag names 0x008ab74c: index 11)
+    udword  bWaypointIssue:1;   // CAT: new (index 12)
 	udword	bAttack:1;
     udword  bHarvest:1;
     udword  bCancelCommand:1;
@@ -97,7 +99,14 @@ typedef struct
 	udword	bLaunchLaunch:1;
 	udword	bLaunchLaunchAll:1;
 	udword	bLaunchClose:1;
+    udword  bManagersLocked:1;  // CAT: new (index 53)
 } tutGameEnableFlags;
+// CAT (M2-R8 singleplayer-tutorial): Cataclysm's 54 flags in two words, the bit of each its index in the name table
+//      (tutSetEnableFlags 0x00533630: word index >> 5, bit index & 31; the save keeps 8 bytes); the managers' and the
+//      main region's raw tests (catMrTutEnabled, catRmTutEnabled1/2, catCmTutEnabled) read these bits
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(tutGameEnableFlags) == 8, "the tutorial flags are two words in cataclysm.exe (0x00ba2e58)");
+#endif
 
 //structure of a named pointer
 typedef struct
@@ -109,8 +118,12 @@ typedef struct
     rectangle rect;                             //if the pointer points to a rectangle of some sort
     Volume *volume;                             //if it points to an AI point
     SelectCommand *selection;                   //optional selection of ships
+    bool32 objective;                           // CAT: a pointer of the objective list (the setters' third argument): tutRemoveAllPointers keeps it
 }
 tutpointer;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(tutpointer) == 0x68, "a tutorial pointer is 0x68 bytes in cataclysm.exe (0x00a6bc28)");
+#endif
 
 extern bool32 tutPointersDrawnThisFrame;
 
@@ -195,8 +208,8 @@ sdword tutBuildManagerShipTypeSelected(char *pShipType);
 
 sdword tutCameraFocusedOnShipType(char *pShipTypes);
 
-// CAT (M2-R6 frontend): the tutorial's button row under a subtitle picture (0x00532480; its readers are stage 6)
-extern sdword catTutButtonRowY;
+// CAT (M2-R6 frontend): the tutorial's button row under a subtitle picture (0x00532480): the text box's bottom
+//      0x00a6bc14 (tutTextRect.y1), where the buttons are placed and drawn (M2-R8 singleplayer-tutorial)
 sdword cat_tutButtonRowSet(sdword y);
 // CAT (M2-R8 kasf library): the kasf library's Cataclysm tutorial entry points (Tutor.c, end of file)
 void cat_tutSetPointerTargetObj(char *name);                        // 0x00530060
@@ -209,5 +222,11 @@ void cat_tutShowQuitButton(void);                                   // 0x005324a
 void cat_tutHideQuitButton(void);                                   // 0x00532700
 sdword cat_tutQuitButtonClicked(void);                              // 0x00532ab0
 void cat_tutSelectShips(MaxSelection *ships);                      // 0x00533ca0
+// CAT (M2-R8 singleplayer-tutorial)
+void cat_tutPointerListReset(void);                                 // 0x0052f890
+void cat_tutObjPointerXYSet(sdword x, sdword y);                    // 0x00531290
+void cat_tutButtonsHideForScreen(void);                             // 0x005341f0
+void cat_tutButtonsRestoreAfterScreen(void);                        // 0x00534300
+bool32 tutPointerIsSet(char *name);                                  // HWI-TEST: the mission self-test's tutorial leg
 
 #endif

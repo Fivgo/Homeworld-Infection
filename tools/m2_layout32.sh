@@ -27,7 +27,7 @@
 #   NIS.h (nisevent 0x28, nisheader 0x84, nisplaying 0x54, ...), FOW.h (CatFOWGrid 0x20) and, through SpaceObj.h, MeshAnim.h's
 #   madanim offsets (docs/m2-r6-nis-fow-camera.md); since M2-R7 ai-player-skirmish also AIPlayer.h (AIPlayer 0x1D18 and
 #   its field offsets) and AISkirmish.h (AISTeamSelection 0xFB4, AISTeamEntry 0x9D10) [audit: these asserts were not
-#   included before]. Prints the ILP32 sizes on success.
+#   included before]. Since M2-R8 singleplayer-tutorial also Tutor.h (tutpointer 0x68, tutGameEnableFlags 8). Prints the ILP32 sizes on success.
 #   No 32-bit libc is needed: an empty gnu/stubs-32.h shim is created in a temporary directory.
 # Exit status: 0 if every assert holds, 1 otherwise.
 set -euo pipefail
@@ -66,6 +66,7 @@ cat > "$tmp/layout.c" <<'EOF'
 #include "FOW.h"
 #include "AIPlayer.h"
 #include "AISkirmish.h"
+#include "Tutor.h"
 char (*cat_ssi)[sizeof(ShipStaticInfo)] = 1;
 char (*cat_gs)[sizeof(GunStatic)] = 1;
 char (*cat_csh)[sizeof(CustShipHeader)] = 1;

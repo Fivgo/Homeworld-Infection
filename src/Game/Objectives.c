@@ -16,6 +16,7 @@
 #include "Objectives.h"
 #include "render.h"
 #include "SaveGame.h"
+#include "SaveCat32.h"     // CAT (M2-R8 singleplayer-tutorial): a cataclysm.exe save's mission tail
 #include "Sensors.h"
 #include "ShipSelect.h"
 #include "SinglePlayer.h"
@@ -472,7 +473,7 @@ void poPopupTextDraw(rectangle *rect)
 ----------------------------------------------------------------------------*/
 void poPlayerObjectivesBegin(regionhandle region)
 {
-    spMainScreen();     // make sure we're on main screen
+    spMainScreen(TRUE);     // make sure we're on main screen
 
     // disbale rendering of main screen - NOT!
     //mrRenderMainScreen = FALSE;
@@ -605,6 +606,10 @@ Objective *LoadObjective(void)
     Objective *objective;
 
     chunk = LoadNextChunk();
+    if (saveCat32Loading)
+    {                                       // CAT (M2-R8 singleplayer-tutorial): the exe's 0x34-byte record (objectiveLoad 0x004d6960)
+        chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(Objective));
+    }
     VerifyChunk(chunk,BASIC_STRUCTURE,sizeof(Objective));
 
     objective = memAlloc(sizeof(Objective),"objective",0);
@@ -627,7 +632,17 @@ void SaveFleetIntelligence(void *stuff)
 
 void LoadFleetIntelligence(LinkedList *list)
 {
-    FleetIntelligence *fleetintelligence = LoadStructureOfSize(sizeof(FleetIntelligence));
+    FleetIntelligence *fleetintelligence;
+    SaveChunk *chunk = LoadNextChunk();
+
+    if (saveCat32Loading)
+    {                                       // CAT (M2-R8 singleplayer-tutorial): the exe's 0x18-byte record (0x004d68a0)
+        chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(FleetIntelligence));
+    }
+    VerifyChunk(chunk, BASIC_STRUCTURE, sizeof(FleetIntelligence));
+    fleetintelligence = memAlloc(sizeof(FleetIntelligence), "loadedstructure", 0);
+    memcpy(fleetintelligence, chunkContents(chunk), sizeof(FleetIntelligence));
+    memFree(chunk);
     fleetintelligence->description = Load_String();
 
     listAddNode(list,&fleetintelligence->node,fleetintelligence);

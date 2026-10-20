@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle|replay|ai|skirmish|missiontest
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle|replay|ai|skirmish|missiontest|loadgame
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -225,9 +225,25 @@
 #                    "missiontest: <objective> tick=N" per objective of Mission01's map (docs/mission-code-map.md 8),
 #                    "missiontest: fsm ..." per KAS state change, "missiontest: done ticks=N objectives=N/M
 #                    result=PASS|FAIL", then the mission run's quit (rc 0; two runs must give byte-identical run.hwo
-#                    streams). With --tutorial: /catMissionTestTutorial (Tutorial1 starts and its first prompt shows)
+#                    streams). With --tutorial: /catMissionTestTutorial (Tutorial1 starts and its first prompt shows;
+#                    M2-R8 singleplayer-tutorial: its Next / previous / quit buttons come up, its first three prompts
+#                    show (each a new subtitle text, the third with the objective list's pointer), then the Next
+#                    button is clicked through its region's own click callback (no input) and the Tutorial FSM must
+#                    reach Lesson2: "missiontest: tutorial ..." lines)
+#                    loadgame: /catLoadGameTest <ticks> /catLoadGameName <name> /oracleDump <run>/run.hwo (M2-R8
+#                    singleplayer-tutorial, docs/m2-r8-singleplayer-tutorial.md): the single-player save --save NAME
+#                    (default "01 - Hiigara", the user's) is copied from original/game/SavedGames/SinglePlayer into the
+#                    run's settings dir's SavedGames/SinglePlayer (where the engine reads saved games; never into the
+#                    data dir, whose SavedGames stay empty, nor written in original/game); once the start-up has put
+#                    up the main screen the engine loads it as the front end's Load Game does (gpLoadGivenGame: the
+#                    mode-A loader converts cataclysm.exe's chunks, "savecat32: loaded ..."), runs --load-ticks N
+#                    universe ticks (default 400) on the mission run's virtual clock and quits: "loadgametest: loaded
+#                    ...", "loadgametest: status ...", "loadgametest: done ... result=PASS|FAIL", rc 0. No sound, no
+#                    speech
 #   --mission-test-ticks N missiontest mode: the run's tick limit (default 20000)
-#   --tutorial       missiontest mode: Tutorial1's first screen instead of Mission01
+#   --tutorial       missiontest mode: Tutorial1's first screens instead of Mission01
+#   --save NAME      loadgame mode: the single-player save to load (default "01 - Hiigara")
+#   --load-ticks N   loadgame mode: universe ticks to run after the load (default 400)
 #   --skirmish-ticks N skirmish mode: universe ticks to run before the judgement (default 600)
 #   --skirmish-map NAME skirmish mode: the map, a MultiPlayer directory name (default LiveFireExercise2; Armed8 is an
 #                    8-player map, so its spheres 2..7 must be skipped)
@@ -315,7 +331,7 @@ label=${1:?usage: m2_harness.sh <label> [--mode sp|fe] [--timeout N] [--driver D
 shift
 mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"; extra=()
 oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=3000; rframes=600; hframes=600; uticks=400
-conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0
+conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0; savename="01 - Hiigara"; ldticks=400
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""; skticks=600; skmap=LiveFireExercise2
 while [[ $# -gt 0 ]]; do
 	case "$1" in
@@ -344,6 +360,8 @@ while [[ $# -gt 0 ]]; do
 		--skirmish-ticks) skticks=$2; shift ;;
 		--mission-test-ticks) mtticks=$2; shift ;;
 		--tutorial) mttut=1 ;;
+		--save) savename=$2; shift ;;
+		--load-ticks) ldticks=$2; shift ;;
 		--skirmish-map) skmap=$2; shift ;;
 		--perturb) perturb=$2; shift ;;
 		--hwo) hwo=1 ;;
@@ -398,6 +416,14 @@ elif [[ "$mode" == missiontest ]]; then
 	else
 		args+=(/catMissionTest "$mtticks" /oracleDump "$out/run.hwo")
 	fi
+elif [[ "$mode" == loadgame ]]; then
+	# M2-R8 singleplayer-tutorial: the save is copied into the run's own settings dir (where the engine reads and writes
+	# saved games: /settingspath), never into the data dir: the engine writes a KAS level save of the same name over an
+	# existing file wherever it finds it, and the data dir's SavedGames must stay empty (only what a real install has)
+	[[ -f "$GAME/SavedGames/SinglePlayer/$savename" ]] || { echo "m2_harness: no save $GAME/SavedGames/SinglePlayer/$savename" >&2; exit 1; }
+	mkdir -p "$out/settings/SavedGames/SinglePlayer"
+	cp -f -- "$GAME/SavedGames/SinglePlayer/$savename" "$out/settings/SavedGames/SinglePlayer/$savename"
+	args+=(/catLoadGameTest "$ldticks" /catLoadGameName "$savename" /oracleDump "$out/run.hwo")
 elif [[ "$mode" == skirmish ]]; then
 	args+=(/catSkirmishMap "$skmap" /catSkirmishTest "$skticks" /oracleDump "$out/run.hwo")
 elif [[ "$mode" == motion ]]; then
@@ -543,6 +569,8 @@ grep -q "motiontest: done" "$L" && milestone="motion self-test done"
 grep -q "toggletest: done" "$L" && milestone="toggle self-test done"
 grep -q "skirmishtest: done" "$L" && milestone="skirmish self-test done"
 grep -q "missiontest: done" "$L" && milestone="mission self-test done"
+grep -q "loadgametest: loaded" "$L" && milestone="save loaded"
+grep -q "loadgametest: done" "$L" && milestone="save-load self-test done"
 
 # first stop: the first fatal error / failed assertion / ASan report. UBSan runtime errors do not stop the engine; the
 # first one is reported separately (the misaligned-access reports on the packed front-end structs, GoK 64-bit artefacts
@@ -590,6 +618,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == ai ]] && echo "aitest: $(grep -h 'aitest: ' "$L" | grep -v 'aitest: status\|aitest: FAIL\|aitest: loaded' | sed 's/^.*aitest: //' | paste -sd';'); FAIL lines: $(grep -c 'aitest: FAIL' "$L")"
 	[[ "$mode" == nisparse ]] && echo "nisparsetest: $(grep -c . "$out/nis.list" 2>/dev/null) files listed; $(grep -h 'nisparsetest: done' "$L" | sed 's/^.*nisparsetest: //' | head -n 1); FAIL lines: $(grep -c 'nisparsetest: FAIL' "$L"); ignored keywords: $(grep -h 'nisparsetest: keyword' "$L" | sed "s/^.*: '//; s/' / /" | paste -sd',')"
 	[[ "$mode" == motion || "$mode" == nis ]] && echo "motiontest: $(grep -h 'motiontest: ' "$L" | sed 's/^.*motiontest: //' | paste -sd';'); dump $(ls "$out"/*.dump 2>/dev/null | head -n 1 | xargs -r -I{} sh -c 'echo "$(basename {}) $(grep -c "^F " {}) frames, sha256 $(sha256sum {} | cut -c1-16)"')"
+	[[ "$mode" == loadgame ]] && echo "loadgame: $(grep -h 'savecat32: loaded\|loadgametest: load\|loadgametest: done' "$L" | sed 's/^.*\(savecat32\|loadgametest\): //' | paste -sd';')"
 	[[ "$mode" == missiontest ]] && echo "missiontest: $(grep -h 'missiontest: ' "$L" | grep -v 'missiontest: status\|missiontest: fsm\|missiontest: FAIL' | sed 's/^.*missiontest: //' | paste -sd';'); FAIL lines: $(grep -c 'missiontest: FAIL' "$L")"
 	[[ "$mode" == skirmish ]] && echo "skirmishtest: $(grep -h 'skirmishtest: ' "$L" | grep -v 'skirmishtest: FAIL' | sed 's/^.*skirmishtest: //' | paste -sd';'); FAIL lines: $(grep -c 'skirmishtest: FAIL' "$L")"
 	[[ "$mode" == toggle ]] && echo "toggletest: $(grep -h 'toggletest: ' "$L" | grep -v 'toggletest: FAIL' | sed 's/^.*toggletest: //' | paste -sd';'); FAIL lines: $(grep -c 'toggletest: FAIL' "$L")"

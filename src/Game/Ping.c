@@ -23,6 +23,7 @@
 #include "prim2d.h"
 #include "ProximitySensor.h"
 #include "SaveGame.h"
+#include "SaveCat32.h"     // CAT (M2-R8 singleplayer-tutorial): a cataclysm.exe save's mission tail
 #include "Select.h"
 #include "Sensors.h"
 #include "SoundEvent.h"
@@ -1118,6 +1119,17 @@ ping *LoadAndFixAnomalyPing(void)
 
     chunk = LoadNextChunk();
     VerifyChunkNoSize(chunk,VARIABLE_STRUCTURE|SAVE_PING);
+    if (saveCat32Loading)
+    {
+        // CAT (M2-R8 singleplayer-tutorial): the exe's ping is its 0x58-byte ILP32 head and its user data, a selection
+        //      (pingLoad 0x004e9790); the head is converted, the data's dwords widened as pointers (the count and the
+        //      ships: this tree's selection layout), and the size made the native one (the selection itself is read
+        //      again after the ping, LoadSelectionAndFix)
+        sdword data32 = chunk->contentsSize - 0x58;
+
+        chunk = saveCat32ChunkArray(chunk, SAVECAT32_LAYOUT(ping), 0x58, sizeof(ping), NULL, data32 / 4);
+        ((ping *)chunkContents(chunk))->userDataSize = (data32 / 4) * (sdword)sizeof(void *);
+    }
 
     size = sizeofping(((ping *)chunkContents(chunk)));
 

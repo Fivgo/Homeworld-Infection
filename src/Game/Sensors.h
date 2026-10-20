@@ -256,8 +256,6 @@ void smShutdown(void);
 void smUpdateParameters(void);
 
 // used in the tactical overlay to draw the players names
-sdword smClickedOnPlayer(rectangle *viewportRect);
-void smPlayerNamesDraw(rectangle *viewportRect);
 
 //activate the sensors manager.  It will stop itself
 void smSensorsBegin(char *name, featom *atom);

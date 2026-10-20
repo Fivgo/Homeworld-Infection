@@ -800,7 +800,7 @@ static void catLmClose(void)
     {
         catSmReopenAfterManager();
     }
-    // CAT-TODO(stage 6 tutorial): cat_tutButtonsRestoreAfterScreen 0x00534300 (the tutorial's buttons come back)
+    cat_tutButtonsRestoreAfterScreen();      // CAT: the tutorial's buttons come back (0x00534300; lmCloseIfOpen 0x0049d3a2 ..)
 }
 
 void lmClose(char *string, featom *atom)
@@ -1779,7 +1779,7 @@ sdword lmLaunchBegin(regionhandle region, smemsize ID, udword event, udword data
 
     cat_lmFillInModuleSlots();
 
-    // CAT-TODO(stage 6 tutorial): cat_tutButtonsHideForScreen 0x005341f0 (the tutorial's buttons hide while the screen is open)
+    cat_tutButtonsHideForScreen();           // CAT: the tutorial's buttons hide while the screen is open (lmLaunchBegin 0x0049e50b)
 
     return(0);
 }

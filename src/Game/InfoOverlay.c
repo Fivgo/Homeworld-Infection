@@ -1116,8 +1116,8 @@ void cat_moObjectivesDraw(void)
 
     if (options->objectives.show)
     {
-        // CAT-TODO(stage 6 tutorial): cat_tutObjPointerXYSet(catMoObjectivesRight, catMoObjectivesBox.y0) 0x0052f.. (the
-        //      tutorial's pointer at the objectives)
+        // CAT: the tutorial's objective pointer points at the list as last drawn (cat_tutObjPointerXYSet 0x00531290)
+        cat_tutObjPointerXYSet(catMoObjectivesRight, catMoObjectivesBox.y0);
         if (catIoObjectiveCount != 0 && options->objectives.box && (!catMoTaskbarBackdrop || tutorial == 1))
         {
             catMoObjectivesBox.y0 = catMoBottomY - CAT_MO_OBJ_BOX_PAD;
@@ -1149,8 +1149,8 @@ void cat_moObjectivesDraw(void)
                 }
                 if (strcasecmp(objective->label, "hyperspace") == 0)
                 {
-                    // CAT-TODO(stage 6 single player): the exe prints cat_spMissionFlagValue 0x0051c120's text here
-                    sprintf(text, "%s", objective->description != NULL ? objective->description : "");
+                    // CAT: the hyperspace objective's row is "next level" or "hyperspace" (cat_spMissionFlagValue 0x0051c120)
+                    sprintf(text, "%s", cat_spMissionFlagValue());
                 }
                 else
                 {

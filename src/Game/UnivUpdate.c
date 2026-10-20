@@ -9615,7 +9615,7 @@ void cat_univSetShipPosition(Ship *ship, vector *position)
 /*-----------------------------------------------------------------------------
     Name        : cat_univPlayerHasFlaggedShip (Cataclysm 0x0054d200)
     Description : TRUE if the current player owns a ship that is being built (specialFlags2 bit 0x8;
-                  SPECIAL_2_CatBeingBuilt). Caller: spHyperspaceButtonPushed (stage 6).
+                  SPECIAL_2_CatBeingBuilt). Caller: spHyperspaceButtonPushed 0x00518f50 (refused then).
     Inputs      :
     Outputs     :
     Return      : bool32
@@ -9780,7 +9780,7 @@ bool32 univUpdate(real32 phystimeelapsed)
         if (universe.realtimeelapsed >= usequittime)
         {
             // quit the game here
-            spMainScreen();
+            spMainScreen(TRUE);
 
 #if (defined(HW_GAME_DEMO) || defined(HW_GAME_RAIDER_RETREAT))
             if ((singlePlayerGame) && (!(utyCreditsSequence|utyPlugScreens)))
@@ -9841,7 +9841,7 @@ bool32 univUpdate(real32 phystimeelapsed)
     if(tutorialdone)
     {
         // quit the game here
-        spMainScreen();
+        spMainScreen(TRUE);
         utyGameQuitToMain(NULL,NULL);
         return TRUE;
     }

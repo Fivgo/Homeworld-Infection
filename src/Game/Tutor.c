@@ -18,6 +18,8 @@
 #include "GamePick.h"
 #include "glinc.h"
 #include "KAS.h"
+#include "NIS.h"            // CAT: nisFullyScissored / nisScissorFade (the pointers under the letterbox)
+#include "Sensors.h"        // CAT: smZoomingIn / smZoomingOut / catSmViewObjectivePointers
 #include "LevelLoad.h"
 #include "main.h"
 #include "mainrgn.h"
@@ -48,6 +50,8 @@
     #include <strings.h>
 #endif
 
+
+extern KASWatchFunction CurrentMissionWatchFunction;       // KAS.c (0x00a43ee4)
 
 //hack to get the speech to work when game is paused
 bool32 FalkosFuckedUpTutorialFlag = FALSE;
@@ -113,6 +117,29 @@ sdword tutBackVisible = FALSE;
 sdword tutPrevVisible = FALSE;
 buttonhandle tutBackRegion = NULL;
 void tutDrawBackButtonFunction(regionhandle reg);
+
+// CAT (M2-R8 singleplayer-tutorial): Cataclysm's other tutorial buttons, each its own region under the root
+//      (0x00532190 ..): the next-text button (0x00a6c4f0 visible, 0x00a6c4f4 region, 0x00a6c4f8 clicked), the
+//      previous-lesson button (tutPrevVisible 0x00a6c4fc, 0x00a6c500, 0x00a6c504; HW1 showed it as the back button)
+//      and the quit button (0x00a6c508, 0x00a6c50c, 0x00a6c510); the Next button (0x00a6c4e4 ..) is the next lesson's
+sdword catTutNextTextVisible = FALSE;
+static buttonhandle catTutNextTextRegion = NULL;
+static sdword catTutNextTextState = 0;
+static buttonhandle catTutPrevRegion = NULL;
+static sdword catTutPrevState = 0;
+sdword catTutQuitVisible = FALSE;
+static buttonhandle catTutQuitRegion = NULL;
+static sdword catTutQuitState = 0;
+// CAT: the buttons shown before a manager screen opened (cat_tutButtonsHideForScreen 0x005341f0: 0x00a6c524 ..)
+static sdword catTutSavedNextVisible = FALSE, catTutSavedPrevVisible = FALSE, catTutSavedQuitVisible = FALSE;
+// CAT: where the objective list's pointer points (cat_tutObjPointerXYSet 0x00531290: 0x00a6c51c / 0x00a6c520)
+static sdword catTutObjPointerX = 0, catTutObjPointerY = 0;
+static udword cat_tutProcessNextTextButton(struct tagRegion *reg, smemsize ID, udword event, udword data);
+static udword cat_tutProcessPrevButton(struct tagRegion *reg, smemsize ID, udword event, udword data);
+static udword cat_tutProcessQuitButton(struct tagRegion *reg, smemsize ID, udword event, udword data);
+static void cat_tutDrawNextTextButtonFunction(regionhandle reg);
+static void cat_tutDrawPrevButtonFunction(regionhandle reg);
+static void cat_tutDrawQuitButtonFunction(regionhandle reg);
 
 // List of image indices for the displayed images
 static char szImageIndexList[16];
@@ -219,6 +246,15 @@ featom tutNextAtom =
     {0}                     //  udword pad[2];
 };
 
+// CAT (M2-R8 singleplayer-tutorial): the atoms of Cataclysm's three other buttons (0x008ab340, 0x008ab390, 0x008ab3e0)
+#define CAT_TUT_BUTTON_ATOM(atomname)                                                                               \
+{                                                                                                                   \
+    atomname, FAF_Function, 0, FA_Button, 0, 0, 150, 4, 0,0, 0,0, 0,0, 0,0, NULL, NULL, 0, {0}, {0}, {0}, 0, {0}      \
+}
+featom catTutNextTextAtom = CAT_TUT_BUTTON_ATOM("TutorialNextText");
+featom catTutPrevAtom = CAT_TUT_BUTTON_ATOM("TutorialPrev");
+featom catTutQuitAtom = CAT_TUT_BUTTON_ATOM("TutorialQuit");
+
 featom tutBackAtom =
 {
     "TutorialBack",         //  char  *name;                                //optional name of control
@@ -244,26 +280,33 @@ featom tutBackAtom =
 };
 
 
-#define TUT_NUM_IMAGES 33
+// CAT (M2-R8 singleplayer-tutorial): Cataclysm's 35 tutorial images (tutInitialize 0x00533190 loads
+//      feman\texdecorative\<name>.LiF from the list of the current language; HW1 had 32): the next-lesson, quit and
+//      restart buttons, the keys and mouse pictures, then the next-text button
+#define TUT_NUM_IMAGES 36
 
-#define TUT_NEXT_ON     0
-#define TUT_NEXT_OFF    1
-#define TUT_NEXT_MOUSE  2
-#define TUT_PREV_ON     3
-#define TUT_PREV_OFF    4
-#define TUT_PREV_MOUSE  5
-#define TUT_REST_ON     6
-#define TUT_REST_OFF    7
-#define TUT_REST_MOUSE  8
+#define TUT_NEXTLESSON_ON       0       // the Next (lesson) button: tutDrawNextButtonFunction 0x00532820
+#define TUT_NEXTLESSON_OFF      1
+#define TUT_NEXTLESSON_MOUSE    2
+#define TUT_QUIT_ON             3       // the quit button: cat_tutDrawQuitButtonFunction 0x005329e0
+#define TUT_QUIT_OFF            4
+#define TUT_QUIT_MOUSE          5
+#define TUT_REST_ON             6       // the previous / back buttons draw the restart art (0x00532940, 0x00532d80)
+#define TUT_REST_OFF            7
+#define TUT_REST_MOUSE          8
+#define TUT_NEXT_ON             32      // the next-text button: cat_tutDrawNextTextButtonFunction 0x005328c0
+#define TUT_NEXT_OFF            33
+#define TUT_NEXT_MOUSE          34
 
+// English (0x008ab47c, also the names tutShowImages looks up)
 char *tutImageList[TUT_NUM_IMAGES] =
 {
-    "Tut_Next_On",
-    "Tut_Next_Off",
-    "Tut_Next_Mouse",
-    "Tut_previous_on",
-    "Tut_previous_off",
-    "Tut_previous_mouse",
+    "Tut_NextLesson_On",
+    "Tut_NextLesson_Off",
+    "Tut_NextLesson_Mouse",
+    "Tut_quit_on",
+    "Tut_quit_off",
+    "Tut_quit_mouse",
     "Tut_restart_on",
     "Tut_restart_off",
     "Tut_restart_mouse",
@@ -290,17 +333,21 @@ char *tutImageList[TUT_NUM_IMAGES] =
     "Tut_Mouse_Middle_RollU",
     "Tut_Mouse_Middle_RollUD",
     "Tut_Mouse_Lbandbox",
+    "Tut_Next_On",
+    "Tut_Next_Off",
+    "Tut_Next_Mouse",
     ""
 };
 
+// French (0x008ab50c)
 char *tutFrenchImageList[TUT_NUM_IMAGES] =
 {
-    "Tut_fr_Next_On",
-    "Tut_fr_Next_Off",
-    "Tut_fr_Next_Mouse",
-    "Tut_fr_previous_on",
-    "Tut_fr_previous_off",
-    "Tut_fr_previous_mouse",
+    "Tut_fr_NextLesson_On",
+    "Tut_fr_NextLesson_Off",
+    "Tut_fr_NextLesson_Mouse",
+    "Tut_fr_quit_on",
+    "Tut_fr_quit_off",
+    "Tut_fr_quit_mouse",
     "Tut_fr_restart_on",
     "Tut_fr_restart_off",
     "Tut_fr_restart_mouse",
@@ -327,17 +374,21 @@ char *tutFrenchImageList[TUT_NUM_IMAGES] =
     "Tut_Mouse_Middle_RollU",
     "Tut_Mouse_Middle_RollUD",
     "Tut_Mouse_Lbandbox",
+    "Tut_fr_Next_On",
+    "Tut_fr_Next_Off",
+    "Tut_fr_Next_Mouse",
     ""
 };
 
+// German (0x008ab59c)
 char *tutGermanImageList[TUT_NUM_IMAGES] =
 {
-    "Tut_ger_Next_On",
-    "Tut_ger_Next_Off",
-    "Tut_ger_Next_Mouse",
-    "Tut_ger_previous_on",
-    "Tut_ger_previous_off",
-    "Tut_ger_previous_mouse",
+    "Tut_ger_NextLesson_On",
+    "Tut_ger_NextLesson_Off",
+    "Tut_ger_NextLesson_Mouse",
+    "Tut_ger_quit_on",
+    "Tut_ger_quit_off",
+    "Tut_ger_quit_mouse",
     "Tut_ger_restart_on",
     "Tut_ger_restart_off",
     "Tut_ger_restart_mouse",
@@ -364,17 +415,21 @@ char *tutGermanImageList[TUT_NUM_IMAGES] =
     "Tut_Mouse_Middle_RollU",
     "Tut_Mouse_Middle_RollUD",
     "Tut_Mouse_Lbandbox",
+    "Tut_ger_Next_On",
+    "Tut_ger_Next_Off",
+    "Tut_ger_Next_Mouse",
     ""
 };
 
+// Spanish (0x008ab62c)
 char *tutSpanishImageList[TUT_NUM_IMAGES] =
 {
-    "Tut_sp_Next_On",
-    "Tut_sp_Next_Off",
-    "Tut_sp_Next_Mouse",
-    "Tut_sp_previous_on",
-    "Tut_sp_previous_off",
-    "Tut_sp_previous_mouse",
+    "Tut_sp_NextLesson_On",
+    "Tut_sp_NextLesson_Off",
+    "Tut_sp_NextLesson_Mouse",
+    "Tut_sp_quit_on",
+    "Tut_sp_quit_off",
+    "Tut_sp_quit_mouse",
     "Tut_sp_restart_on",
     "Tut_sp_restart_off",
     "Tut_sp_restart_mouse",
@@ -401,17 +456,21 @@ char *tutSpanishImageList[TUT_NUM_IMAGES] =
     "Tut_Mouse_Middle_RollU",
     "Tut_Mouse_Middle_RollUD",
     "Tut_Mouse_Lbandbox",
+    "Tut_sp_Next_On",
+    "Tut_sp_Next_Off",
+    "Tut_sp_Next_Mouse",
     ""
 };
 
+// Italian (0x008ab6bc)
 char *tutItalianImageList[TUT_NUM_IMAGES] =
 {
-    "Tut_it_Next_On",
-    "Tut_it_Next_Off",
-    "Tut_it_Next_Mouse",
-    "Tut_it_previous_on",
-    "Tut_it_previous_off",
-    "Tut_it_previous_mouse",
+    "Tut_it_NextLesson_On",
+    "Tut_it_NextLesson_Off",
+    "Tut_it_NextLesson_Mouse",
+    "Tut_it_quit_on",
+    "Tut_it_quit_off",
+    "Tut_it_quit_mouse",
     "Tut_it_restart_on",
     "Tut_it_restart_off",
     "Tut_it_restart_mouse",
@@ -438,6 +497,9 @@ char *tutItalianImageList[TUT_NUM_IMAGES] =
     "Tut_Mouse_Middle_RollU",
     "Tut_Mouse_Middle_RollUD",
     "Tut_Mouse_Lbandbox",
+    "Tut_it_Next_On",
+    "Tut_it_Next_Off",
+    "Tut_it_Next_Mouse",
     ""
 };
 
@@ -457,7 +519,9 @@ char *tutGameEnableString[] =
     "Launch",
     "Move",
     "MoveIssue",
-    "Attack",
+    "Waypoint",         // CAT: new (the exe's flag table 0x008ab74c)
+    "WaypointIssue",    // CAT: new
+    "Attack",           // [audit: M2-R8 singleplayer-tutorial] restored: index 13 in the exe's table, bAttack's bit
     "Harvest",
     "CancelCommand",
     "Scuttle",
@@ -497,8 +561,12 @@ char *tutGameEnableString[] =
     "LaunchLaunch",
     "LaunchLaunchAll",
     "LaunchClose",
+    "ManagersLocked",   // CAT: new
     ""
 };
+// [audit: M2-R8 singleplayer-tutorial] the exe's 54 names (0x008ab74c) and the terminator: a flag's index is its bit
+_Static_assert(sizeof(tutGameEnableString) / sizeof(tutGameEnableString[0]) == 54 + 1,
+               "tutGameEnableString must list the exe's 54 tutorial flags in tutGameEnableFlags' order");
 
 color       tutTexture[TUT_NUM_IMAGES];
 lifheader   *tutImage[TUT_NUM_IMAGES];
@@ -538,12 +606,22 @@ void tutInitTutorial(char *dirfile, char *levelfile)
 
 void tutSaveLesson(sdword Num, char *pName)
 {
+    char name[256];
+    char *comma;
+
     collUpdateCollBlobs();
     collUpdateObjsInCollBlobs();
 
     strcpy(tutLastLessonName, tutCurrLessonName);
 
-    sprintf(tutCurrLessonName, "%s%s", TutorialSavedGamesPath, pName);
+    // CAT: a comma of the lesson's name becomes a space (tutSaveLesson 0x0052f6d0). CAT-FIX: the exe edits the
+    //      caller's string (a KAS literal); a copy is edited here
+    memStrncpy(name, pName, sizeof(name) - 1);
+    for (comma = strchr(name, ','); comma != NULL; comma = strchr(comma + 1, ','))
+    {
+        *comma = ' ';
+    }
+    sprintf(tutCurrLessonName, "%s%s", TutorialSavedGamesPath, name);
     SaveGame(tutCurrLessonName);
 }
 
@@ -560,6 +638,13 @@ sdword Val;
     return Val;
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : tutSaveTutorialGame / tutLoadTutorialGame         0x0052f750 / 0x0052f8b0
+    Description : CAT (M2-R8 singleplayer-tutorial): Cataclysm's tutorial state: the lesson names, the flags (8 bytes),
+                  the build restrictions, the text box, then the visible flags of the text, Next, previous, quit, back
+                  and next-text buttons and the speech flag. A load shows the saved buttons again (the exe inlines
+                  each Show), clears the clicks, frees the pointers (cat_tutPointerListReset) and the pointer ship
+----------------------------------------------------------------------------*/
 void tutSaveTutorialGame(void)
 {
     Save_String(tutCurrLessonName);
@@ -577,14 +662,15 @@ void tutSaveTutorialGame(void)
 
     SaveLong(tutTextVisible);
     SaveLong(tutNextVisible);
+    SaveLong(tutPrevVisible);
+    SaveLong(catTutQuitVisible);
     SaveLong(tutBackVisible);
+    SaveLong(catTutNextTextVisible);
     SaveLong(FalkosFuckedUpTutorialFlag);
 }
 
 void tutLoadTutorialGame(void)
 {
-    sdword index;
-
     Load_StringToAddress(tutCurrLessonName);
     Load_StringToAddress(tutLastLessonName);
 
@@ -599,22 +685,39 @@ void tutLoadTutorialGame(void)
     LoadStructureOfSizeToAddress( &tutTextRect, sizeof(rectangle) );
 
     tutTextVisible = LoadLong();
-    tutNextVisible = LoadLong();
-    tutBackVisible = LoadLong();
+    if (LoadLong())
+    {
+        tutShowNextButton();
+    }
+    if (LoadLong())
+    {
+        tutShowPrevButton();
+    }
+    if (LoadLong())
+    {
+        cat_tutShowQuitButton();
+    }
+    if (LoadLong())
+    {
+        tutShowBackButton();
+    }
+    if (LoadLong())
+    {
+        cat_tutShowNextTextButton();
+    }
     FalkosFuckedUpTutorialFlag = LoadLong();
 
-    tutResetGameMessageQueue();
+    tutResetGameMessageQueue();                             // CAT: 0x00a6c2c4
 
     tutNextButtonState = 0;
-    //tutTextPointerType = 0;
+    catTutPrevState = 0;
+    catTutQuitState = 0;
+    catTutNextTextState = 0;
 
     //clear out all the pointers
-    for (index = 0; index < TUT_NumberPointers; index++)
-    {
-        tutPointer[index].pointerType = TUT_PointerTypeNone;
-        tutPointerShip = NULL;
-        tutPointerShipGroupRect = tutPointerShipHealthRect = NULL;
-    }
+    cat_tutPointerListReset();
+    tutPointerShip = NULL;
+    tutPointerShipGroupRect = tutPointerShipHealthRect = NULL;
     tutFEContextMenuShipType = 0;
 }
 
@@ -661,7 +764,7 @@ tutpointer *tutPointerAllocate(char *name, sdword type)
 
     for (index = 0; index < TUT_NumberPointers; index++)
     {                                                       //make sure this name is unique
-        if (!strcmp(name, tutPointer[index].name))
+        if (!strcasecmp(name, tutPointer[index].name))      // CAT: _stricmp (tutSetPointerTargetXY 0x0052ff70 ..)
         {                                                   //if this one is the same name
             if (tutPointer[index].ship == tutPointerShip)
             {
@@ -686,53 +789,62 @@ tutpointer *tutPointerAllocate(char *name, sdword type)
 
     memStrncpy(tutPointer[freeIndex].name, name, TUT_PointerNameMax);
     tutPointer[freeIndex].pointerType = type;
+    tutPointer[freeIndex].objective = FALSE;                // CAT: +0x64, set by the objective setters
     return(&tutPointer[freeIndex]);
 }
 
-void tutSetPointerTargetXY(char *name, sdword x, sdword y)
+// CAT: a screen point given on the 640 x 480 layout is scaled to the window (tutSetPointerTargetXY 0x0052ff70: x * width
+//      / 640, y * height / 480, integer); the Right / BottomRight / Taskbar / FE setters place their point unscaled
+static void catTutSetPointerXYRaw(char *name, sdword x, sdword y)
 {
     tutpointer *pointer = tutPointerAllocate(name, TUT_PointerTypeXY);
     pointer->x = x;
     pointer->y = y;
 }
 
+void tutSetPointerTargetXY(char *name, sdword x, sdword y)
+{
+    catTutSetPointerXYRaw(name, (MAIN_WindowWidth * x) / 640, (MAIN_WindowHeight * y) / 480);
+}
+
 //sets the tutorial pointer relative to the right side of the screen
 void tutSetPointerTargetXYRight(char *name, sdword x, sdword y)
 {
-    tutSetPointerTargetXY(name, MAIN_WindowWidth+x-640, y);
+    catTutSetPointerXYRaw(name, MAIN_WindowWidth+x-640, y);     // CAT: unscaled (0x00530120)
 }
 
 //sets the tutorial pointer relative to the bottom right corner of the screen
 void tutSetPointerTargetXYBottomRight(char *name, sdword x, sdword y)
 {
-    tutSetPointerTargetXY(name, MAIN_WindowWidth+x-640, MAIN_WindowHeight+y-480);
+    catTutSetPointerXYRaw(name, MAIN_WindowWidth+x-640, MAIN_WindowHeight+y-480);   // CAT: unscaled (0x005301e0)
 }
 
 void tutSetPointerTargetXYTaskbar(char *name, sdword x, sdword y)
 {
-    tutSetPointerTargetXY(name, feResRepositionCentredX(x), MAIN_WindowHeight+y-480);
+    catTutSetPointerXYRaw(name, feResRepositionCentredX(x), MAIN_WindowHeight+y-480);    // CAT: unscaled (0x005302b0)
 }
 
 void tutSetPointerTargetXYFE(char *name, sdword x, sdword y)
 {
-    tutSetPointerTargetXY(name, feResRepositionCentredX(x), feResRepositionCentredY(y));
+    catTutSetPointerXYRaw(name, feResRepositionCentredX(x), feResRepositionCentredY(y));   // CAT: unscaled (0x00530380)
 }
 
 // CAT (M2-R8 kasf library): Cataclysm's pointer setters take a third argument, TRUE for a pointer of the objective list
-//      (kasfTutSetObjPointerTargetShip 0x004963c0 and its siblings pass it to tutSetPointerTargetShip and the others)
-//      CAT-TODO(stage 6 tutorial): Tutor.c's port (M2-R8 producer 4) keeps the flag in the pointer as the exe does; until then it is not stored
+//      (kasfTutSetObjPointerTargetShip 0x004963c0 and its siblings pass it to tutSetPointerTargetShip and the others);
+//      M2-R8 singleplayer-tutorial: kept in the pointer (+0x64, tutSetPointerTargetShip 0x00530450), so that
+//      tutRemoveAllPointers leaves it
 void tutSetPointerTargetShip(char *name, ShipPtr ship, bool32 objective)
 {
     tutpointer *pointer = tutPointerAllocate(name, TUT_PointerTypeShip);
-    (void)objective;
     pointer->ship = ship;
+    pointer->objective = objective;
 }
 
 void tutSetPointerTargetShipSelection(char *name, SelectCommand *ships, bool32 objective)
 {
     tutpointer *pointer = tutPointerAllocate(name, TUT_PointerTypeShips);
-    (void)objective;                                        // CAT: the objective-pointer flag (above)
     pointer->selection = ships;
+    pointer->objective = objective;                         // CAT: 0x00530500
 }
 
 void tutSetPointerTargetShipHealth(char *name, ShipPtr ship)
@@ -798,11 +910,11 @@ void tutSetPointerTargetRect(char *name, sdword x0, sdword y0, sdword x1, sdword
 
 void tutSetPointerTargetAIVolume(char *name, Volume *volume, bool32 objective)
 {
-    (void)objective;                                        // CAT: the objective-pointer flag (above)
     if (volume != NULL)
     {
         tutpointer *pointer = tutPointerAllocate(name, TUT_PointerTypeAIVolume);
         pointer->volume = volume;
+        pointer->objective = objective;                     // CAT: 0x005308f0
     }
 }
 
@@ -819,7 +931,7 @@ void tutRemovePointerByName(char *name)
 
     for (index = 0; index < TUT_NumberPointers; index++)
     {
-        if (!strcmp(tutPointer[index].name, name))
+        if (!strcasecmp(tutPointer[index].name, name))      // CAT: _stricmp (tutRemovePointerByName 0x005309a0)
         {
             tutPointer[index].pointerType = TUT_PointerTypeNone;
             if (tutPointer[index].ship == tutPointerShip)
@@ -849,7 +961,8 @@ void tutRemoveAllPointers(void)
 
     for (index = 0; index < TUT_NumberPointers; index++)
     {
-        if (tutPointer[index].pointerType != TUT_PointerTypeNone)
+        // CAT: the objective list's pointers stay (tutRemoveAllPointers 0x00530a20 tests +0x64)
+        if ((tutPointer[index].pointerType != TUT_PointerTypeNone) && !tutPointer[index].objective)
         {
             tutPointer[index].pointerType = TUT_PointerTypeNone;
             if (tutPointer[index].ship == tutPointerShip)
@@ -859,6 +972,48 @@ void tutRemoveAllPointers(void)
             }
         }
     }
+}
+
+// HWI-TEST (M2-R8 singleplayer-tutorial): a named pointer is set (the mission self-test's tutorial leg; not in the exe)
+bool32 tutPointerIsSet(char *name)
+{
+    sdword index;
+
+    for (index = 0; index < TUT_NumberPointers; index++)
+    {
+        if ((tutPointer[index].pointerType != TUT_PointerTypeNone) && !strcasecmp(tutPointer[index].name, name))
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_tutPointerListReset                           0x0052f890
+    Description : CAT (M2-R8 singleplayer-tutorial): every pointer is free and has no selection (universeReset
+                  0x0053df80, tutStartup 0x00533140, tutLoadTutorialGame 0x0052f8b0)
+----------------------------------------------------------------------------*/
+void cat_tutPointerListReset(void)
+{
+    sdword index;
+
+    for (index = 0; index < TUT_NumberPointers; index++)
+    {
+        tutPointer[index].pointerType = TUT_PointerTypeNone;
+        tutPointer[index].selection = NULL;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_tutObjPointerXYSet                            0x00531290
+    Description : CAT (M2-R8 singleplayer-tutorial): where the objective list is on screen (cat_moObjectivesDraw
+                  0x004a76b0 gives its right edge and top every frame), for cat_tutSetPointerTargetObj
+----------------------------------------------------------------------------*/
+void cat_tutObjPointerXYSet(sdword x, sdword y)
+{
+    catTutObjPointerX = x;
+    catTutObjPointerY = y;
 }
 
 // This function sets the current text display position and size
@@ -909,10 +1064,11 @@ void tutRootDrawFunction(regionhandle reg)
         {
             if (feStack[index].screen != NULL)
             {
-                if (strcmp(feStack[index].screen->name, "Construction_manager") &&
-                    strcmp(feStack[index].screen->name, "Launch_Manager") &&
-                    strcmp(feStack[index].screen->name, "Research_Manager") &&
-                    strcmp(feStack[index].screen->name, "Sensors_manager"))
+                // CAT: _stricmp (tutRootDrawFunction 0x00530b40)
+                if (strcasecmp(feStack[index].screen->name, "Construction_manager") &&
+                    strcasecmp(feStack[index].screen->name, "Launch_Manager") &&
+                    strcasecmp(feStack[index].screen->name, "Research_Manager") &&
+                    strcasecmp(feStack[index].screen->name, "Sensors_manager"))
                 {                                           //if it's not one of the screens the turorial teaches
                     escapeRegion = feStack[index].baseRegion;
                     break;
@@ -1134,6 +1290,10 @@ static long pulseDir = TUT_PointerPulseInc;
     return Val;
 }
 
+// CAT: the pointers' colour (tutDrawTextPointers 0x005312b0: red a quarter, green the pulse, blue two thirds; HW1 had
+//      half, full, half; the XY and region pointers were grey)
+#define CAT_TUT_POINTER_COLOUR(pulse)   colRGB((pulse) / 4, (pulse), ((pulse) * 2) / 3)
+
 // long vector type for the clipper
 typedef struct {
     sdword x,y;
@@ -1244,22 +1404,36 @@ void tutDrawTextPointers(rectangle *pRect)
     tutpointer *pointer;
     color c;
     vector temp;
+    rectangle box;
 
+    // CAT: under the NIS letterbox the box's top is the bar's bottom + 5 (tutDrawTextPointers 0x005312b0)
+    box = *pRect;
+    if (nisFullyScissored)
+    {
+        box.y0 = (MAIN_WindowHeight - (MAIN_WindowWidth * 20) / 37) / 2 + 5;
+    }
     for (pointer = tutPointer, index = 0; index < TUT_NumberPointers; index++, pointer++)
     {                                                       //for each pointer
+        // CAT: an objective list's pointer is drawn only in the sensors manager, not while it zooms, with the
+        //      objective pointers option on and no NIS letterbox
+        if (pointer->objective && (smZoomingIn || smZoomingOut || !smSensorsActive || !catSmViewObjectivePointers ||
+                                   (nisScissorFade > 0.0f) || nisFullyScissored))
+        {
+            continue;
+        }
         switch(pointer->pointerType)
         {
             case TUT_PointerTypeNone:
                 break;                                      //not active; ignore
 
             case TUT_PointerTypeXY:
-                x0 = (pRect->x0 + pRect->x1) / 2;
-                y0 = (pRect->y0 + pRect->y1) / 2;
+                x0 = (box.x0 + box.x1) / 2;
+                y0 = (box.y0 + box.y1) / 2;
                 x1 = pointer->x;//tutPointerX;
                 y1 = pointer->y;//tutPointerY;
 
                 tutClipSegToTextBox(&x0, &y0, &x1, &y1);
-                c = colRGB(tutPulse, tutPulse, tutPulse);
+                c = CAT_TUT_POINTER_COLOUR(tutPulse);
                 primLine2(x0, y0, x1, y1, c);
                 dx = (real32)(x0 - x1);                     //vector from arrowhead to source
                 dy = (real32)(y0 - y1);
@@ -1328,10 +1502,19 @@ shipsCase:
                     //x = pointer->ship->impactable.collInfo.selCircleX;
                     //y = pointer->ship->impactable.collInfo.selCircleY;
 
-                    primGLCircleOutline2(x, y, rad, pieCircleSegmentsCompute(rad), colRGB(tutPulse/2, tutPulse, tutPulse/2));
+                    primGLCircleOutline2(x, y, rad, pieCircleSegmentsCompute(rad), CAT_TUT_POINTER_COLOUR(tutPulse));
 
-                    sx = primScreenToGLX((pRect->x0 + pRect->x1) / 2);
-                    sy = primScreenToGLY((pRect->y0 + pRect->y1) / 2);
+                    // CAT: an objective list's pointer starts at the list (catTutObjPointerX / Y), the others at the box
+                    if (pointer->objective)
+                    {
+                        sx = primScreenToGLX(catTutObjPointerX);
+                        sy = primScreenToGLY(catTutObjPointerY);
+                    }
+                    else
+                    {
+                        sx = primScreenToGLX((box.x0 + box.x1) / 2);
+                        sy = primScreenToGLY((box.y0 + box.y1) / 2);
+                    }
 
                     deltx = x-sx;
                     delty = y-sy;
@@ -1348,7 +1531,7 @@ shipsCase:
                         y1 = primGLToScreenY(sy + delty * len);
 
                         tutClipSegToTextBox(&x0, &y0, &x1, &y1);
-                        primLine2(x0, y0, x1, y1, colRGB(tutPulse/2, tutPulse, tutPulse/2));
+                        primLine2(x0, y0, x1, y1, CAT_TUT_POINTER_COLOUR(tutPulse));
                     }
 
                 }
@@ -1358,15 +1541,15 @@ shipsCase:
                 rad = pointer->ship->impactable.collInfo.selCircleRadius;
                 if(rad > 0.0)
                 {                                           //if ship on-screen
-                    x0 = (pRect->x0 + pRect->x1) / 2;
-                    y0 = (pRect->y0 + pRect->y1) / 2;
+                    x0 = (box.x0 + box.x1) / 2;
+                    y0 = (box.y0 + box.y1) / 2;
 
                     x1 = (pointer->rect.x0 + pointer->rect.x1) / 2;
                     y1 = pointer->rect.y0;
 
                     tutClipSegToTextBox(&x0, &x1, &y0, &y1);
-                    primLine2(x0, y0, x1, y1, colRGB(tutPulse/2, tutPulse, tutPulse/2));
-                    primRectOutline2(&pointer->rect, 1, colRGB(tutPulse/2, tutPulse, tutPulse/2));
+                    primLine2(x0, y0, x1, y1, CAT_TUT_POINTER_COLOUR(tutPulse));
+                    primRectOutline2(&pointer->rect, 1, CAT_TUT_POINTER_COLOUR(tutPulse));
                 }
                 break;
 
@@ -1374,20 +1557,20 @@ shipsCase:
                 rad = pointer->ship->impactable.collInfo.selCircleRadius;
                 if(rad > 0.0)
                 {                                           //if ship on-screen
-                    x0 = (pRect->x0 + pRect->x1) / 2;
-                    y0 = (pRect->y0 + pRect->y1) / 2;
+                    x0 = (box.x0 + box.x1) / 2;
+                    y0 = (box.y0 + box.y1) / 2;
 
                     x1 = (pointer->rect.x0 + pointer->rect.x1) / 2;
                     y1 = pointer->rect.y0;
 
                     tutClipSegToTextBox(&x0, &y0, &x1, &y1);
-                    primLine2(x0, y0, x1, y1, colRGB(tutPulse/2, tutPulse, tutPulse/2));
-                    primRectOutline2(&pointer->rect, 1, colRGB(tutPulse/2, tutPulse, tutPulse/2));
+                    primLine2(x0, y0, x1, y1, CAT_TUT_POINTER_COLOUR(tutPulse));
+                    primRectOutline2(&pointer->rect, 1, CAT_TUT_POINTER_COLOUR(tutPulse));
                 }
                 break;
 
             case TUT_PointerTypeRegion:
-                primRectOutline2(&pointer->rect, 3, colRGB(tutPulse, tutPulse, tutPulse));
+                primRectOutline2(&pointer->rect, 3, CAT_TUT_POINTER_COLOUR(tutPulse));
                 break;
 
             case TUT_PointerTypeAIVolume:
@@ -1404,10 +1587,19 @@ shipsCase:
                     rad = max(rad, TUT_ShipCircleSizeMin);
                     x = sx;
                     y = sy;
-                    primGLCircleOutline2(x, y, rad, pieCircleSegmentsCompute(rad), colRGB(tutPulse/2, tutPulse, tutPulse/2));
+                    primGLCircleOutline2(x, y, rad, pieCircleSegmentsCompute(rad), CAT_TUT_POINTER_COLOUR(tutPulse));
 
-                    sx = primScreenToGLX((pRect->x0 + pRect->x1) / 2);
-                    sy = primScreenToGLY((pRect->y0 + pRect->y1) / 2);
+                    // CAT: an objective list's pointer starts at the list (catTutObjPointerX / Y), the others at the box
+                    if (pointer->objective)
+                    {
+                        sx = primScreenToGLX(catTutObjPointerX);
+                        sy = primScreenToGLY(catTutObjPointerY);
+                    }
+                    else
+                    {
+                        sx = primScreenToGLX((box.x0 + box.x1) / 2);
+                        sy = primScreenToGLY((box.y0 + box.y1) / 2);
+                    }
 
                     deltx = x-sx;
                     delty = y-sy;
@@ -1422,7 +1614,7 @@ shipsCase:
                     y1 = primGLToScreenY(sy + delty * len);
 
                     tutClipSegToTextBox(&x0, &y0, &x1, &y1);
-                    primLine2(x0, y0, x1, y1, colRGB(tutPulse/2, tutPulse, tutPulse/2));
+                    primLine2(x0, y0, x1, y1, CAT_TUT_POINTER_COLOUR(tutPulse));
                 }
                 break;
         }
@@ -1469,49 +1661,85 @@ rectangle   rect;
     fontMakeCurrent(currFont);
 }
 
-void tutShowNextButton(void)
+/*-----------------------------------------------------------------------------
+    CAT (M2-R8 singleplayer-tutorial): Cataclysm's tutorial buttons, in the row at the text box's bottom
+    (tutTextRect.y1, 0x00a6bc14): Next lesson (128 x 32, 192 pixels left of the right edge), previous lesson (128 x 32,
+    320 from it), quit (64 x 32 at the edge), next text (64 x 32 at the text box's left), back (128 x 32 at the text box's
+    left, HW1's). Each is a button region under the tutorial's root (catTutButtonCreate: the exe inlines it per button)
+----------------------------------------------------------------------------*/
+static buttonhandle catTutButtonCreate(featom *atom, sdword x, sdword y, sdword width, sdword height,
+                                       uicfunction process, regiondrawfunction draw)
+{
+    buttonhandle button;
+
+    tutAllocateRootRegion();
+    atom->x = x;
+    atom->y = y;
+    atom->width = width;
+    atom->height = height;
+    // [audit: M2-R8 singleplayer-tutorial] the button's tail past the region (the exe passes 0x1c; HW1's
+    //      sizeof(buttonhandle) - sizeof(regionhandle) is two pointer sizes, 0, and processFunction lay past the block)
+    button = (buttonhandle)regChildAlloc(tutRootRegion, (smemsize)atom, x, y, width, height,
+                                         (sdword)(sizeof(uicbutton) - sizeof(region)), 0);
+    atom->region = (void *)button;
+    button->reg.atom = atom;
+    button->reg.flags |= RPM_MouseEvents;
+    atom->pData = NULL;
+    button->reg.processFunction = uicButtonProcess;
+    button->processFunction = process;
+    regDrawFunctionSet((regionhandle)button, draw);
+    return button;
+}
+
+static void catTutButtonDelete(buttonhandle *button)
+{
+    if (*button)
+    {
+        regRegionDelete((regionhandle)*button);
+        tutDeallocateRootRegion();
+    }
+    *button = NULL;
+}
+
+// the textured button of the three states: pressed, under the mouse, off; drawn in the button row (0x00532820 ..)
+static void catTutButtonDraw(regionhandle reg, sdword texOn, sdword texOff, sdword texMouse)
+{
+    sdword height = reg->rect.y1 - reg->rect.y0;
+    udword texture;
+
+    reg->rect.y0 = tutTextRect.y1;
+    reg->rect.y1 = tutTextRect.y1 + height;
+    texture = tutTexture[texOff];
+    if ((reg->rect.x0 <= mouseCursorX()) && (reg->rect.y0 <= mouseCursorY()) && (mouseCursorX() < reg->rect.x1) &&
+        (mouseCursorY() < reg->rect.y1))
+    {
+        texture = mouseLeftButton() ? tutTexture[texOn] : tutTexture[texMouse];
+    }
+    trRGBTextureMakeCurrent(texture);
+    // CAT: rndPerspectiveCorrection(FALSE) is not issued (render.c: the hint has no effect on a current GL)
+    primRectSolidTextured2(&reg->rect);
+}
+
+void tutShowNextButton(void)                                // CAT: 0x00532010
 {
     if(tutNextVisible)
         tutHideNextButton();
 
-    tutAllocateRootRegion();
-
-    tutNextAtom.x = tutTextRect.x0 + 128;
-    tutNextAtom.y = tutTextRect.y1;
-    tutNextAtom.width = 64;
-    tutNextAtom.height = 32;
-
-    tutNextRegion = (buttonhandle)regChildAlloc(tutRootRegion, (smemsize)&tutNextAtom,
-        tutNextAtom.x, tutNextAtom.y, tutNextAtom.width, tutNextAtom.height, sizeof(buttonhandle) - sizeof(regionhandle), 0);
-
-    tutNextAtom.region = (void*)tutNextRegion;
-    tutNextRegion->reg.atom = &tutNextAtom;
-    tutNextRegion->reg.flags |= RPM_MouseEvents;
-    tutNextAtom.pData = NULL;
-
-    tutNextRegion->reg.processFunction = uicButtonProcess;
-    tutNextRegion->processFunction = tutProcessNextButton;
+    tutNextRegion = catTutButtonCreate(&tutNextAtom, MAIN_WindowWidth - 192, tutTextRect.y1, 128, 32,
+                                       tutProcessNextButton, tutDrawNextButtonFunction);
     tutNextVisible = TRUE;
-
-    regDrawFunctionSet((regionhandle)tutNextRegion, tutDrawNextButtonFunction);
 }
 
 void tutHideNextButton(void)
 {
-    if(tutNextRegion)
-    {
-        regRegionDelete((regionhandle)tutNextRegion);
-        tutDeallocateRootRegion();
-    }
-
-    tutNextRegion = NULL;
+    catTutButtonDelete(&tutNextRegion);
     tutNextVisible = FALSE;
-
 }
 
 udword tutProcessNextButton(struct tagRegion *reg, smemsize ID, udword event, udword data)
 {
-    if(event == CM_ButtonClick)
+    // CAT: a click counts only while the main view or the sensors manager shows (tutProcessNextButton 0x00532750)
+    if ((event == CM_ButtonClick) && (mrRenderMainScreen || smSensorsActive))
     {
         tutNextButtonState = 1;
         return 1;
@@ -1520,21 +1748,12 @@ udword tutProcessNextButton(struct tagRegion *reg, smemsize ID, udword event, ud
     return 0;
 }
 
-void tutDrawNextButtonFunction(regionhandle reg)
+void tutDrawNextButtonFunction(regionhandle reg)            // CAT: 0x00532820: the next-lesson art
 {
-    if(mouseInRect(&reg->rect))
+    if ((mrRenderMainScreen || smSensorsActive) && (tutTextRect.y1 != 0))
     {
-        if(mouseLeftButton())
-            trRGBTextureMakeCurrent(tutTexture[TUT_NEXT_ON]);
-        else
-            trRGBTextureMakeCurrent(tutTexture[TUT_NEXT_MOUSE]);
+        catTutButtonDraw(reg, TUT_NEXTLESSON_ON, TUT_NEXTLESSON_OFF, TUT_NEXTLESSON_MOUSE);
     }
-    else
-        trRGBTextureMakeCurrent(tutTexture[TUT_NEXT_OFF]);
-
-//  glEnable(GL_BLEND);
-    primRectSolidTextured2(&reg->rect);
-//  glDisable(GL_BLEND);
 }
 
 sdword tutNextButtonClicked(void)
@@ -1548,7 +1767,7 @@ sdword  RetVal;
 }
 
 
-void tutShowBackButton(void)
+void tutShowBackButton(void)                                // CAT: 0x00532ac0
 {
     if(tutBackVisible)
     {
@@ -1556,50 +1775,201 @@ void tutShowBackButton(void)
         tutHideBackButton();
     }
 
-    tutAllocateRootRegion();
-
-    tutBackAtom.x = tutTextRect.x0;
-    tutBackAtom.y = tutTextRect.y1;
-    tutBackAtom.width = 128;
-    tutBackAtom.height = 32;
-
-    tutBackRegion = (buttonhandle)regChildAlloc(tutRootRegion, (smemsize)&tutBackAtom,
-        tutBackAtom.x, tutBackAtom.y, tutBackAtom.width, tutBackAtom.height, sizeof(buttonhandle) - sizeof(regionhandle), 0);
-
-    tutBackAtom.region = (void*)tutBackRegion;
-    tutBackRegion->reg.atom = &tutBackAtom;
-    tutBackRegion->reg.flags |= RPM_MouseEvents;
-    tutBackAtom.pData = NULL;
-
-    tutBackRegion->reg.processFunction = uicButtonProcess;
-    tutBackRegion->processFunction = tutProcessBackButton;
+    tutBackRegion = catTutButtonCreate(&tutBackAtom, tutTextRect.x0, tutTextRect.y1, 128, 32,
+                                       tutProcessBackButton, tutDrawBackButtonFunction);
     tutBackVisible = TRUE;
-
-    regDrawFunctionSet((regionhandle)tutBackRegion, tutDrawBackButtonFunction);
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : tutShowPrevButton                                 0x00532300
+    Description : CAT: the previous-lesson button is its own region ("TutorialPrev", 320 pixels left of the right edge,
+                  the restart art; its click sets the flag cat_tutPrevButtonClicked reads); HW1 showed the back button
+----------------------------------------------------------------------------*/
 void tutShowPrevButton(void)
 {
-    if (tutBackVisible)
+    if (tutPrevVisible)
     {
-        tutHideBackButton();
+        catTutButtonDelete(&catTutPrevRegion);
+        tutPrevVisible = FALSE;
     }
+    catTutPrevRegion = catTutButtonCreate(&catTutPrevAtom, MAIN_WindowWidth - 320, tutTextRect.y1, 128, 32,
+                                          cat_tutProcessPrevButton, cat_tutDrawPrevButtonFunction);
     tutPrevVisible = TRUE;
-    tutShowBackButton();
 }
 
-void tutHideBackButton(void)
+/*-----------------------------------------------------------------------------
+    CAT (M2-R8 singleplayer-tutorial): the next-text (0x00532190 ..), previous (0x005326b0 ..) and quit (0x005324a0 ..)
+    buttons
+-----------------------------------------------------------------------------*/
+void cat_tutShowNextTextButton(void)                        // 0x00532190
 {
-    if(tutBackRegion)
+    if (catTutNextTextVisible)
     {
-        regRegionDelete((regionhandle)tutBackRegion);
-        tutDeallocateRootRegion();
+        cat_tutHideNextTextButton();
     }
+    catTutNextTextRegion = catTutButtonCreate(&catTutNextTextAtom, tutTextRect.x0, tutTextRect.y1, 64, 32,
+                                              cat_tutProcessNextTextButton, cat_tutDrawNextTextButtonFunction);
+    catTutNextTextVisible = TRUE;
+}
 
-    tutBackRegion = NULL;
+void cat_tutHideNextTextButton(void)                        // 0x00532660
+{
+    catTutButtonDelete(&catTutNextTextRegion);
+    catTutNextTextVisible = FALSE;
+}
+
+void cat_tutHidePrevButton(void)                            // 0x005326b0
+{
+    catTutButtonDelete(&catTutPrevRegion);
+    tutPrevVisible = FALSE;
+}
+
+void cat_tutShowQuitButton(void)                            // 0x005324a0
+{
+    if (catTutQuitVisible)
+    {
+        cat_tutHideQuitButton();
+    }
+    catTutQuitRegion = catTutButtonCreate(&catTutQuitAtom, MAIN_WindowWidth - 64, tutTextRect.y1, 64, 32,
+                                          cat_tutProcessQuitButton, cat_tutDrawQuitButtonFunction);
+    catTutQuitVisible = TRUE;
+}
+
+void cat_tutHideQuitButton(void)                            // 0x00532700
+{
+    catTutButtonDelete(&catTutQuitRegion);
+    catTutQuitVisible = FALSE;
+}
+
+// 0x00532780: the next-text click also runs key command 0x6b (the subtitles' next line)
+static udword cat_tutProcessNextTextButton(struct tagRegion *reg, smemsize ID, udword event, udword data)
+{
+    if (event == CM_ButtonClick)
+    {
+        catTutNextTextState = 1;
+        cat_kbCommandExecute(0, 0x6b);
+        return 1;
+    }
+    return 0;
+}
+
+// 0x005327b0
+static udword cat_tutProcessPrevButton(struct tagRegion *reg, smemsize ID, udword event, udword data)
+{
+    if ((event == CM_ButtonClick) && (mrRenderMainScreen || smSensorsActive))
+    {
+        catTutPrevState = 1;
+        return 1;
+    }
+    return 0;
+}
+
+// 0x005327e0: the quit click leaves the game for the main menu at once
+static udword cat_tutProcessQuitButton(struct tagRegion *reg, smemsize ID, udword event, udword data)
+{
+    if ((event == CM_ButtonClick) && (mrRenderMainScreen || smSensorsActive))
+    {
+        catTutQuitState = 1;
+        utyGameQuitToMain(NULL, NULL);
+        return 1;
+    }
+    return 0;
+}
+
+static void cat_tutDrawNextTextButtonFunction(regionhandle reg)     // 0x005328c0 (drawn over the managers too)
+{
+    if (tutTextRect.y1 != 0)
+    {
+        catTutButtonDraw(reg, TUT_NEXT_ON, TUT_NEXT_OFF, TUT_NEXT_MOUSE);
+    }
+}
+
+static void cat_tutDrawPrevButtonFunction(regionhandle reg)         // 0x00532940
+{
+    if ((mrRenderMainScreen || smSensorsActive) && (tutTextRect.y1 != 0))
+    {
+        catTutButtonDraw(reg, TUT_REST_ON, TUT_REST_OFF, TUT_REST_MOUSE);
+    }
+}
+
+static void cat_tutDrawQuitButtonFunction(regionhandle reg)         // 0x005329e0
+{
+    if ((mrRenderMainScreen || smSensorsActive) && (tutTextRect.y1 != 0))
+    {
+        catTutButtonDraw(reg, TUT_QUIT_ON, TUT_QUIT_OFF, TUT_QUIT_MOUSE);
+    }
+}
+
+sdword cat_tutNextTextButtonClicked(void)                   // 0x00532a90
+{
+    sdword clicked = catTutNextTextState;
+
+    catTutNextTextState = 0;
+    return clicked;
+}
+
+sdword cat_tutPrevButtonClicked(void)                       // 0x00532aa0
+{
+    sdword clicked = catTutPrevState;
+
+    catTutPrevState = 0;
+    return clicked;
+}
+
+sdword cat_tutQuitButtonClicked(void)                       // 0x00532ab0
+{
+    sdword clicked = catTutQuitState;
+
+    catTutQuitState = 0;
+    return clicked;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_tutButtonsHideForScreen / cat_tutButtonsRestoreAfterScreen     0x005341f0 / 0x00534300
+    Description : CAT (M2-R8 singleplayer-tutorial): a manager screen hides the Next, previous and quit buttons while
+                  it is open (the construction, launch and research managers' begin functions) and shows the ones that
+                  were up when it closes
+----------------------------------------------------------------------------*/
+void cat_tutButtonsHideForScreen(void)
+{
+    catTutSavedNextVisible = tutNextVisible;
+    catTutSavedPrevVisible = tutPrevVisible;
+    catTutSavedQuitVisible = catTutQuitVisible;
+    if (tutNextVisible)
+    {
+        tutHideNextButton();
+    }
+    if (tutPrevVisible)
+    {
+        cat_tutHidePrevButton();
+    }
+    if (catTutQuitVisible)
+    {
+        cat_tutHideQuitButton();
+    }
+}
+
+void cat_tutButtonsRestoreAfterScreen(void)
+{
+    if (catTutSavedNextVisible)
+    {
+        tutShowNextButton();
+    }
+    if (catTutSavedPrevVisible)
+    {
+        tutShowPrevButton();
+    }
+    if (catTutSavedQuitVisible)
+    {
+        cat_tutShowQuitButton();
+    }
+}
+
+void tutHideBackButton(void)                                // CAT: 0x00532c40 (the previous button's flag cleared too)
+{
+    catTutButtonDelete(&tutBackRegion);
     tutBackVisible = FALSE;
     tutPrevVisible = FALSE;
-
 }
 
 udword tutProcessBackButton(struct tagRegion *reg, smemsize ID, udword event, udword data)
@@ -1612,7 +1982,7 @@ udword tutProcessBackButton(struct tagRegion *reg, smemsize ID, udword event, ud
         if (fileExists(tutCurrLessonName, 0) && (VerifySaveFile(tutCurrLessonName) == VERIFYSAVEFILE_OK))
         {
             tutEnableEverything();
-            spMainScreen();
+            spMainScreen(TRUE);
             tbForceTaskbar(FALSE);                  // CAT: kept, the exe calls it (0x00532d48 -> tbForceTaskbar 0x0052b3b0)
             gameEnd();
 
@@ -1626,38 +1996,18 @@ udword tutProcessBackButton(struct tagRegion *reg, smemsize ID, udword event, ud
     return 0;
 }
 
-void tutDrawBackButtonFunction(regionhandle reg)
+void tutDrawBackButtonFunction(regionhandle reg)            // CAT: 0x00532d80: always the restart art, where it was put
 {
-    if (tutPrevVisible)
-    {
-        //put in pointer to prevlesson texture here
-        if(mouseInRect(&reg->rect))
-        {
-            if(mouseLeftButton())
-                trRGBTextureMakeCurrent(tutTexture[TUT_PREV_ON]);
-            else
-                trRGBTextureMakeCurrent(tutTexture[TUT_PREV_MOUSE]);
-        }
-        else
-            trRGBTextureMakeCurrent(tutTexture[TUT_PREV_OFF]);
-    }
-    else
-    {
-        //the back button is displayed as a "Restart Lesson"
-        if(mouseInRect(&reg->rect))
-        {
-            if(mouseLeftButton())
-                trRGBTextureMakeCurrent(tutTexture[TUT_REST_ON]);
-            else
-                trRGBTextureMakeCurrent(tutTexture[TUT_REST_MOUSE]);
-        }
-        else
-            trRGBTextureMakeCurrent(tutTexture[TUT_REST_OFF]);
-    }
+    udword texture = tutTexture[TUT_REST_OFF];
 
-//  glEnable(GL_BLEND);
+    if ((reg->rect.x0 <= mouseCursorX()) && (reg->rect.y0 <= mouseCursorY()) && (mouseCursorX() < reg->rect.x1) &&
+        (mouseCursorY() < reg->rect.y1))
+    {
+        texture = mouseLeftButton() ? tutTexture[TUT_REST_ON] : tutTexture[TUT_REST_MOUSE];
+    }
+    trRGBTextureMakeCurrent(texture);
+    // CAT: rndPerspectiveCorrection(FALSE) is not issued (render.c: the hint has no effect on a current GL)
     primRectSolidTextured2(&reg->rect);
-//  glDisable(GL_BLEND);
 }
 
 
@@ -1818,7 +2168,7 @@ void tutHideImages(void)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void tutStartup(void)
+void tutStartup(void)                                       // CAT: 0x00533140
 {
     sdword index;
 
@@ -1827,6 +2177,7 @@ void tutStartup(void)
         tutTexture[index] = TR_InvalidInternalHandle;
         tutImage[index] = NULL;
     }
+    cat_tutPointerListReset();                              // CAT: and the pointers (inlined)
 }
 
 /*-----------------------------------------------------------------------------
@@ -1910,6 +2261,12 @@ void tutInitialize(void)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    Name        : tutUnInitialize                                   0x005332c0
+    Description : CAT: the text, images and every button go (Cataclysm's next-text, previous and quit too), the images
+                  are freed, everything enabled, the trade manager's technologies cleared and the KAS watch function
+                  dropped (CurrentMissionWatchFunction 0x00a43ee4)
+----------------------------------------------------------------------------*/
 void tutUnInitialize(void)
 {
 long    i;
@@ -1917,7 +2274,10 @@ long    i;
     tutHideText();
     tutHideImages();
     tutHideNextButton();
+    cat_tutHidePrevButton();
+    cat_tutHideQuitButton();
     tutHideBackButton();
+    cat_tutHideNextTextButton();
 
     i = 0;
     while( tutImageList[i][0] )
@@ -1936,6 +2296,8 @@ long    i;
         i++;
     }
     tutEnableEverything();
+    tmClearTechs();
+    CurrentMissionWatchFunction = NULL;
 }
 
 void tutSetFlagIndex(sdword Index, sdword Val)
@@ -1952,10 +2314,11 @@ sdword FlagBit;
     pFlagMem = (sdword *)&tutEnable;
 	pFlagMem += Index/32;
 
+    // CAT: an unsigned shift (the exe's shl of 1; flag 31 is ContextFormX since the exe's layout, M2-R8)
 #if FIX_ENDIAN
-	FlagBit = 1 << (31 - Index & 31);
+	FlagBit = (sdword)(1u << (31 - Index & 31));
 #else
-	FlagBit = 1 << (Index & 31);
+	FlagBit = (sdword)(1u << (Index & 31));
 #endif
 
     if(Val)
@@ -2073,7 +2436,9 @@ long    StrIndex, Count;
 
 void tutGameMessage(char *eventName)
 {
-    if (!tutorial)
+    // CAT: only in the tutorial itself (tutorial 1), and every message is queued while there is room
+    //      (tutGameMessage 0x00533e20; GoK queued in any single-player game and skipped a message already queued)
+    if (tutorial != 1)
     {
         return;
     }
@@ -2082,7 +2447,7 @@ void tutGameMessage(char *eventName)
     dbgMessagef("%s: '%s'", __func__, eventName);
 #endif
 
-    if( !tutGameMessageInQueue(eventName) && tutGameMessageIndex < 16 )
+    if (tutGameMessageIndex < 16)
     {
         strcpy(tutGameMessageList[ tutGameMessageIndex ], eventName);
         tutGameMessageIndex++;
@@ -2259,65 +2624,31 @@ ShipType st;
     Name        : cat_tutButtonRowSet (Cataclysm 0x00532480)
     Description : In the tutorial, place the tutorial's button row under a subtitle picture
     Inputs      : y - the picture's bottom (subTitlesDraw 0x00584620)
-    Outputs     : catTutButtonRowY (0x00a6bc14): the row's top, read by the tutorial's button layout (stage 6)
+    Outputs     : tutTextRect.y1 (0x00a6bc14): the row's top, where the tutorial's buttons are placed and drawn
     Return      : the bottom of the row (y + 32) in the tutorial, else y
 ----------------------------------------------------------------------------*/
-sdword catTutButtonRowY = 0;                        // 0x00a6bc14
-
 sdword cat_tutButtonRowSet(sdword y)
 {
     if (tutorial == 1)
     {
-        catTutButtonRowY = y;
+        tutTextRect.y1 = y;
         y += 32;
     }
     return y;
 }
 
 /*-----------------------------------------------------------------------------
-    CAT (M2-R8 kasf library): entry points of the Cataclysm tutorial that the kasf library calls (KASFunc.c: the
-    TutSetPointerTargetObj, next-text, previous and quit button kasf of cataclysm.exe 0x004964d0 / 0x00496610 ..
-    0x00496690). CAT-TODO(stage 6 tutorial): Tutor.c's port (M2-R8 producer 4) gives each the exe's body (cat_tutSetPointerTargetObj 0x00530060, cat_tutShowNextTextButton 0x00532190, cat_tutHideNextTextButton 0x00532660, cat_tutNextTextButtonClicked 0x00532a90, cat_tutHidePrevButton 0x005326b0, cat_tutPrevButtonClicked 0x00532aa0, cat_tutShowQuitButton 0x005324a0, cat_tutHideQuitButton 0x00532700, cat_tutQuitButtonClicked 0x00532ab0, with their process / draw callbacks and textures); until then they show nothing and report no click
------------------------------------------------------------------------------*/
+    Name        : cat_tutSetPointerTargetObj                        0x00530060
+    Description : CAT (M2-R8 singleplayer-tutorial): a named pointer at the objective list (the point
+                  cat_tutObjPointerXYSet keeps: its right edge and top), not an objective pointer itself (KAS
+                  TutSetPointerTargetObj 0x004964d0)
+----------------------------------------------------------------------------*/
 void cat_tutSetPointerTargetObj(char *name)
 {
-    (void)name;
-}
+    tutpointer *pointer = tutPointerAllocate(name, TUT_PointerTypeXY);
 
-void cat_tutShowNextTextButton(void)
-{
-}
-
-void cat_tutHideNextTextButton(void)
-{
-}
-
-sdword cat_tutNextTextButtonClicked(void)
-{
-    return 0;
-}
-
-void cat_tutHidePrevButton(void)
-{
-    tutHideBackButton();                                    // the tree's previous button is its back button
-}
-
-sdword cat_tutPrevButtonClicked(void)
-{
-    return 0;
-}
-
-void cat_tutShowQuitButton(void)
-{
-}
-
-void cat_tutHideQuitButton(void)
-{
-}
-
-sdword cat_tutQuitButtonClicked(void)
-{
-    return 0;
+    pointer->x = catTutObjPointerX;
+    pointer->y = catTutObjPointerY;
 }
 
 /*-----------------------------------------------------------------------------

@@ -70,6 +70,20 @@
 #include "KASVar.h"
 #include "texreg.h"           // CAT: cat_trPrecacheShipTextures (the Mission01 nislet)
 #include "Mimic.h"
+#include "CameraCommand.h"    // CAT: cat_mcResetRequest / catMotionCueState (UpdateArrivingShip, the fleet's arrival)
+#include "Console.h"          // CAT: catMotionCues 0x008b8844
+#include "ModuleShip.h"       // CAT: cat_moduleIterFirst / Next (AddShipToHyperspace)
+#include "Leech.h"            // CAT: cat_shipIsLeech (cat_spPrepareShipHyperspaceOut)
+#include "RammingFrigate.h"   // CAT: cat_rammingFrigateForceRelease
+#include "Salvage.h"          // CAT: cat_shipIsSalvager / cat_salvageDetach
+#include "Clamp.h"            // CAT: unClampObj
+#include "Dock.h"             // CAT: dockRemoveShipFromInside / dockPutShipOutside (the docked ships launched on arrival)
+#include "Acolyte.h"          // CAT: cat_acolyteLinkReset
+#include "ACV.h"              // CAT: cat_acvLinkReset
+#include "avi.h"              // CAT: aviIsPlaying (the Bink player's binkDonePlaying 0x008b6d94)
+
+// CAT: DEG_TO_RAD as the exe's float constant 0x0072a4f8 (0x3c8efa35)
+#define CAT_SP_DEG_TO_RAD   0.01745329238474369f
 
 #ifdef _MSC_VER
     #define strcasecmp _stricmp
@@ -78,46 +92,21 @@
 #endif
 
 
-#define ShipCanMakeHyperspace(ship) (ShipCanHyperspace(ship) && ((ship)->shipOrDerelict.specialFlags & SPECIAL_SinglePlayerWithinHyperSpaceRange))
-#define WARP_FILENAME "Warp.script"
+// CAT: the exe's tests of the jumping fleet (inlined in CalculateRollCall 0x005176e0, UpdateHyperspacingShip
+//      0x00517af0, OrientHyperspacingShips 0x00517f30, UpdateArrivingShip 0x00518170, singlePlayerGameCleanup
+//      0x00519510, singlePlayerGameUpdate 0x005197d0): a ship the player may take along (cat_spShipCanHyperspace
+//      0x00517650, which holds HW1's ally and disabled tests) that jumps by itself (a capital ship or a module, class
+//      CLASS_Component) and is in range (specialFlags 0x80). HW1 tested ShipCanHyperspace (capital) and the range flag
+#define catSpCapitalOrComponent(ship) (isCapitalShip(ship) || ((ship)->staticinfo->shipclass == CLASS_Component))
+#define ShipCanMakeHyperspace(ship) (cat_spShipCanHyperspace(ship) && catSpCapitalOrComponent(ship) && \
+                                     ((ship)->shipOrDerelict.specialFlags & SPECIAL_SinglePlayerWithinHyperSpaceRange))
 
 //stores the current mission filename
 char CurrentLevelName[256] = "";
 
-udword singlePlayerCurrentMissionIndex = 0;
-
-MissionEnum missionSequence[] = {
-#if defined(HW_GAME_HOMEWORLD)
-    MISSION_1_KHARAK_SYSTEM,                // *REQUIRED* - creates initial fleet
-    MISSION_2_OUTSKIRTS_OF_KHARAK_SYSTEM,
-    MISSION_3_RETURN_TO_KHARAK,
-    MISSION_4_GREAT_WASTELANDS_TRADERS,
-    MISSION_5_GREAT_WASTELANDS_REVENGE,
-    MISSION_6_DIAMOND_SHOALS,
-    MISSION_7_THE_GARDENS_OF_KADESH,
-    MISSION_8_THE_CATHEDRAL_OF_KADESH,
-    MISSION_9_SEA_OF_LOST_SOULS,
-    MISSION_10_SUPER_NOVA_STATION,
-    MISSION_11_TENHAUSER_GATE,
-    MISSION_12_GALACTIC_CORE,
-    MISSION_13_THE_KAROS_GRAVEYARD,
-    MISSION_14_BRIDGE_OF_SIGHS,
-    MISSION_15_CHAPEL_PERILOUS,
-    MISSION_16_HIIGARA,
-    MISSION_17,                             // CAT: Cataclysm has 17 missions (singlePlayerGameUpdate 0x005197d0's mission switch)
-#elif defined(HW_GAME_RAIDER_RETREAT)
-    MISSION_1_KHARAK_SYSTEM,
-    MISSION_2_OUTSKIRTS_OF_KHARAK_SYSTEM,
-    MISSION_3_RETURN_TO_KHARAK,
-    MISSION_4_GREAT_WASTELANDS_TRADERS,
-    MISSION_5B_TURANIC_RAIDER_PLANETOID,
-#elif defined(HW_GAME_DEMO)
-    MISSION_1_KHARAK_SYSTEM,
-    MISSION_2_OUTSKIRTS_OF_KHARAK_SYSTEM,
-#endif
-};
-
-#define NUMBER_MISSIONS_IN_SEQUENCE   (sizeof(missionSequence) / sizeof(MissionEnum))
+// CAT (M2-R8 singleplayer-tutorial): no mission sequence: Cataclysm numbers its missions 1 .. 17 in
+//      singlePlayerGameInfo.currentMission (singlePlayerInit 0x00518c50 starts at 1, singlePlayerLoadNewLevel 0x0051ac80
+//      adds one); GoK's missionSequence / index (and spResetMissionSequenceToBeginning) are gone
 
 // you'd think you could change that 19 to <= 16 but the NIS stuff overloads this
 // in an array declaration that includes end markers and so is larger than 16
@@ -139,7 +128,6 @@ extern fonthandle selGroupFont0;
 bool32 hyperspaceAtEndOfSinglePlayerNIS = FALSE;
 bool32 hyperspaceOverride               = FALSE;
 bool32 singlePlayerGameLoadNewLevelFlag = FALSE;
-bool32 singlePlayerHyperspacingInto     = FALSE;
 bool32 spHoldHyperspaceWindow           = FALSE;
 bool32 spBinkPlay                       = FALSE;
 bool32 triggerNIS                       = FALSE;
@@ -149,13 +137,66 @@ real32 spFleetModifier = 0.0f;
 
 // CAT: the single-player difficulty's health factor for the Somtaaw ships (0x00894194, 1.0 in the exe image; set by
 //      cat_spGetDifficultyModifiers 0x00516f90 from the difficulty 0..4 as 6, 3, 1, 0.85, 0.7 and read by
-//      cat_univSetShipMaxHealth 0x0053c4a0). The difficulty screen (cat_spGameDifficulty 0x0051c140) and its save are
-//      not ported yet (stage 6 single player), so the factor stays 1.0 (difficulty 2, the exe's default 0x008941a0)
+//      cat_univSetShipMaxHealth 0x0053c4a0 and universeStaticInit 0x0053d2a0); the difficulty (catSpDifficultySetting
+//      0x008941a0, 2 in .data) is set on the single-player difficulty screen (cat_spGameDifficulty 0x0051c140)
 real32 spDifficultyHealthModifier = 1.0f;
 // CAT (M2-R6 oracle-mode-a): the factor FixShip 0x00500950 multiplies a loaded single-player Somtaaw ship's health by
-//      (0x008941a4, 1.0 in the exe image; kasLoad 0x00491450 sets it to the difficulty factor over the saved one).
-//      CAT-TODO(stage 6 single player): kasLoad's assignment needs cat_spGetDifficultyModifiers 0x00516f90 (KAS.c kasLoad reads the saved difficulty since M2-R8 kas-runtime-mission01)
+//      (0x008941a4, 1.0 in the exe image; kasLoad 0x00491450 sets it to the current difficulty's factor over the
+//      saved one's)
 real32 spDifficultyHealthLoadFactor = 1.0f;
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_spGetDifficultyModifiers                      0x00516f90
+    Description : CAT: the single-player difficulty's modifiers: the Somtaaw ships' health factor (0..4: 6, 3, 1,
+                  0.85, 0.7), the build-time and the build-cost divisors (4, 2, 1, 1, 1); a NULL output is skipped,
+                  an out-of-range difficulty leaves the outputs unchanged
+    Inputs      : difficulty - 0 (easiest) .. 4
+    Outputs     : healthFactor (0x00894194), buildTimeDivisor (0x00894198), buildCostDivisor (0x0089419c)
+----------------------------------------------------------------------------*/
+void cat_spGetDifficultyModifiers(real32 *healthFactor, sdword *buildTimeDivisor, sdword *buildCostDivisor,
+                                  sdword difficulty)
+{
+    static const real32 health[5] = { 6.0f, 3.0f, 1.0f, 0.85f, 0.7f };
+    static const sdword divisor[5] = { 4, 2, 1, 1, 1 };
+
+    if ((difficulty < 0) || (difficulty > 4))
+    {
+        return;
+    }
+    if (healthFactor != NULL)
+    {
+        *healthFactor = health[difficulty];
+    }
+    if (buildTimeDivisor != NULL)
+    {
+        *buildTimeDivisor = divisor[difficulty];
+    }
+    if (buildCostDivisor != NULL)
+    {
+        *buildCostDivisor = divisor[difficulty];
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_spGameDifficulty                              0x0051c140
+    Description : CAT: the difficulty radio buttons of the single-player game screen ("SP_GameDifficulty"): on its
+                  first call the button of the current difficulty is set (and the region redrawn), on a click the
+                  button's pData is the difficulty; either way the modifiers follow it
+----------------------------------------------------------------------------*/
+void cat_spGameDifficulty(char *name, featom *atom)
+{
+    if ((atom != NULL) && FEFIRSTCALL(atom))
+    {
+        feRadioButtonSet(name, catSpDifficultySetting);
+        cat_spGetDifficultyModifiers(&spDifficultyHealthModifier, &catCmSinglePlayerBuildFactor,
+                                     &catCmSinglePlayerCostFactor, catSpDifficultySetting);
+        bitSet(((regionhandle)atom->region)->status, RSF_DrawThisFrame);
+        return;
+    }
+    catSpDifficultySetting = (udword)(size_t)atom->pData;
+    cat_spGetDifficultyModifiers(&spDifficultyHealthModifier, &catCmSinglePlayerBuildFactor,
+                                 &catCmSinglePlayerCostFactor, catSpDifficultySetting);
+}
 real32 spFleetStr      = 0.0f;
 
 real32 BaseFleetStrengthForLevel    [NUMBER_SINGLEPLAYER_MISSIONS+1];
@@ -163,14 +204,115 @@ real32 AdvancedFleetStrengthForLevel[NUMBER_SINGLEPLAYER_MISSIONS+1];
 
 sdword SINGLEPLAYER_DEBUGLEVEL  =   0;
 sdword SINGLEPLAYER_STARTINGRUS = 200;
-sdword warpLevel                =   0;
 
-// CAT: 0x0051bd90: a single-player game with the warp-to-level script active (the exe keeps a bool the warp script's
-//      scriptSetBool writes at 0x00a67490; here the level WarpToLevelEnabled() found). Callers: universeClosePlayers/
-//      universeClose (the upgrades of player 0 survive a warp) and gameStart.
+/*-----------------------------------------------------------------------------
+    CAT (M2-R8 singleplayer-tutorial): the warp start (a debug start in a later mission with a given fleet). The exe
+    reads Warp.script (the install's warp.script: "WarpEnabled 0") in singlePlayerInit 0x00518c50 through the table
+    0x00894350: WarpEnabled (0x00a67490) and LevelToWarpTo (0x00a67494), then per "Level N" block (N 1 .. 19) the
+    record's Resources, Ships "<type>, <count>" and Tech; cat_spWarpToLevel 0x0051b9c0 builds the fleet. HW1's warp
+    (a "WarpTo N" first line and the mission's WarpFleet lines, WarpInFleet, singleHackResearchWarp) is gone.
+-----------------------------------------------------------------------------*/
+#define CAT_SP_WARP_LEVELS      19
+typedef struct
+{
+    sdword resources;                       // +0x000 (0x00a67498 + level * 0x2F0)
+    sdword ships[TOTAL_NUM_SHIPS];          // +0x004 the count of each ship type
+    CatTechSet tech;                        // +0x248 the technologies held
+} CatSpWarpLevel;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(CatSpWarpLevel) == 0x2F0, "a warp level record is 0x2F0 bytes in cataclysm.exe");
+#endif
+static CatSpWarpLevel catSpWarpLevels[CAT_SP_WARP_LEVELS];     // 0x00a67498
+static bool32 catSpWarpEnabled = FALSE;                         // 0x00a67490
+static sdword catSpWarpLevelTo = 0;                             // 0x00a67494
+static sdword catSpWarpLevelParsing = -1;                       // 0x0089434c (-1 in .data): the record being read
+
+static void cat_spWarpLevelSetCB(char *directory, char *field, void *dataToFillIn);
+static void cat_spWarpResourcesSetCB(char *directory, char *field, void *dataToFillIn);
+static void cat_spWarpShipsSetCB(char *directory, char *field, void *dataToFillIn);
+static void cat_spWarpTechSetCB(char *directory, char *field, void *dataToFillIn);
+
+static scriptEntry catSpWarpScriptTable[] =            // 0x00894350
+{
+    { "WarpEnabled",   scriptSetBool,            &catSpWarpEnabled },
+    { "LevelToWarpTo", scriptSetUdwordCB,        &catSpWarpLevelTo },
+    { "Level",         cat_spWarpLevelSetCB,     NULL },
+    { "Resources",     cat_spWarpResourcesSetCB, NULL },
+    { "Ships",         cat_spWarpShipsSetCB,     NULL },
+    { "Tech",          cat_spWarpTechSetCB,      NULL },
+
+    END_SCRIPT_ENTRY
+};
+
+// 0x00517060: "Level N" selects record N - 1
+static void cat_spWarpLevelSetCB(char *directory, char *field, void *dataToFillIn)
+{
+    RemoveCommasFromString(field);
+    sscanf(field, "%d", &catSpWarpLevelParsing);
+    catSpWarpLevelParsing--;
+    if ((catSpWarpLevelParsing < 0) || (catSpWarpLevelParsing >= CAT_SP_WARP_LEVELS))
+    {
+        dbgFatalf(DBG_Loc, "\nInvalid Level specified in warp script file: %s", field);
+    }
+}
+
+// 0x00517130
+static void cat_spWarpResourcesSetCB(char *directory, char *field, void *dataToFillIn)
+{
+    if (catSpWarpLevelParsing == -1)
+    {
+        dbgFatalf(DBG_Loc, "\nLevel not specified while parsing warp script file. (JS)");
+    }
+    RemoveCommasFromString(field);
+    sscanf(field, "%d", &catSpWarpLevels[catSpWarpLevelParsing].resources);
+}
+
+// 0x005170b0
+static void cat_spWarpShipsSetCB(char *directory, char *field, void *dataToFillIn)
+{
+    char shiptypestr[256];
+    sdword count = 0;
+    ShipType type;
+
+    if (catSpWarpLevelParsing == -1)
+    {
+        dbgFatalf(DBG_Loc, "\nLevel not specified while parsing warp script file. (JS)");
+    }
+    RemoveCommasFromString(field);
+    sscanf(field, "%s %d", shiptypestr, &count);
+    type = StrToShipType(shiptypestr);
+    // CAT-FIX: the exe stores at whatever index StrToShipType returns (-1 for an unknown name)
+    if ((type >= 0) && (type < TOTAL_NUM_SHIPS))
+    {
+        catSpWarpLevels[catSpWarpLevelParsing].ships[type] = count;
+    }
+}
+
+// 0x00517180
+static void cat_spWarpTechSetCB(char *directory, char *field, void *dataToFillIn)
+{
+    char techstr[256];
+    TechnologyType tech;
+
+    if (catSpWarpLevelParsing == -1)
+    {
+        dbgFatalf(DBG_Loc, "\nLevel not specified while parsing warp script file. (JS)");
+    }
+    RemoveCommasFromString(field);
+    sscanf(field, "%s", techstr);
+    tech = StrToTechType(techstr);
+    // CAT-FIX: as above, an unknown technology (-1) is not stored
+    if (tech >= 0)
+    {
+        cat_rmTechSetAdd(catSpWarpLevels[catSpWarpLevelParsing].tech, tech);
+    }
+}
+
+// CAT: 0x0051bd90: a single-player game with the warp start on (Warp.script's WarpEnabled). Callers: universeClosePlayers
+//      / universeClose (the upgrades of player 0 survive a warp) and gameStart.
 bool32 cat_spWarpToLevelEnabled(void)
 {
-    return (singlePlayerGame && (warpLevel != 0));
+    return (singlePlayerGame && catSpWarpEnabled);
 }
 
 
@@ -225,12 +367,9 @@ real32 SUBMESSAGE_SAFETY_TIMEOUT                =     15.0f;
 real32 spHyperspaceDelay                        =      0.0f;
 
 
-static sdword WarpToLevelEnabled(void);
-static udword convertMissionToSequenceIndex(MissionEnum mission);
-
-static MissionEnum spGetAdjacentMission(sbyte direction);
-
 static void singlePlayerKasMissionStart(MissionEnum missionnum);
+static void cat_spLaunchDockedShipsOnArrival(Ship *host);
+static void cat_spForgetDamageEffects(Ship *ship);
 
 /*-----------------------------------------------------------------------------
     CAT (M2-R8 kas-runtime-mission01): the mission flow's tables (cataclysm.exe .data), by the mission number 1 .. 17
@@ -248,6 +387,14 @@ static const bool32 catSpMissionStartsInNis[19] = { 0, 1, 0, 0, 1, 0, 1, 1, 0, 0
 static const sdword catSpMissionNis[19] = { 0, 1, -1, -1, 2, -1, 4, 5, -1, -1, 6, -1, 7, -1, 8, 9, 10, 11, 0 };
 // 0x00894470: the fleet is put at the start point at once when the level has loaded (no arrival flight)
 static const bool32 catSpMissionArrivesAtOnce[19] = { 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0 };
+// 0x00894424: per mission, the jump goes straight to the next level in the letterbox (spHyperspaceButtonPushed: no
+//      roll call; singlePlayerGameUpdate: the fleet leaves after 5 s) and the popup menu's hyperspace row says "next
+//      level" (1), or the fleet hyperspaces through the roll call (0) (cat_spMissionFlagValue)
+static const bool32 catSpMissionNextLevel[] = { 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0 };
+// CAT: 0x00a6adb4: the real time at which a catSpMissionNextLevel jump's fleet leaves (5 s after the button);
+//      0x00a67488: the game time at which the fleet's jump begins after Fleet Command's line (2.5 s). Names chosen
+static real32 catSpWideScreenJumpTime = 0.0f;
+static real32 catSpFleetCommandTime = 0.0f;
 // 0x00894550: the NIS files by NIS number (1 .. 11)
 static char *const catSpNisNames[12][2] =
 {
@@ -280,8 +427,7 @@ static char *catSpNisletName(sdword mission, sdword nislet)
 
 // CAT: 0x00a6ac70 / 0x00a6ac6c / 0x00a6adc0: the black fade over the main view after a level has loaded (1.0 down to
 //      0.0 at 0.5 a second of game time), its restart flag and its last time; 0x00a75280: the white flash of
-//      Mission01's nislet. Names chosen
-// CAT-TODO(stage 6 single player): mrRegionDraw 0x00569260 draws catSpLevelFade (black, unless 0x00a4cabc) and catSpWhiteFlash (white) over the main view; mainrgn.c does not yet
+//      Mission01's nislet. Names chosen. mrRegionDraw 0x00569260 draws both over the main view (mainrgn.c)
 real32 catSpLevelFade = 0.0f;
 static bool32 catSpLevelFadeRestart = FALSE;
 static real32 catSpLevelFadeLastTime = 0.0f;
@@ -304,16 +450,13 @@ extern bool8 etgHasBeenStarted;                         // utility.c (0x00ab7668
 
 static void spAbortHyperspaceCB(char *string, featom *atom);
 static void spGoNowHyperspaceCB(char *string, featom *atom);
+static void cat_spEmergencyHyperspaceCB(char *string, featom *atom);
 
 static void spShipsDockedDrawCB   (featom *atom, regionhandle region);
 static void spShipsRemainingDrawCB(featom *atom, regionhandle region);
 
 static void SetBaseFleetStrCB       (char *directory, char *field, void *dataToFillIn);
 static void SetOnMissionCompleteInfo(char *directory, char *field, void *dataToFillIn);
-static void SetWarpFleetCB          (char *directory, char *field, void *dataToFillIn);
-static void WarpFleetStrengthCB     (char *directory, char *field, void *dataToFillIn);
-static void WarpFleetRUStrengthCB   (char *directory, char *field, void *dataToFillIn);
-static void WarpPreLoadCB           (char *directory, char *field, void *dataToFillIn);
 
 static void FindShipsOfShipTypeOfPlayer(GrowSelection *growselect,ShipType shiptype,Player *player);
 
@@ -360,28 +503,6 @@ scriptEntry SinglePlayerTweaks[] =
     END_SCRIPT_ENTRY
 };
 
-scriptEntry WarpScriptTable[] =
-{
-    { "WarpStartRU", scriptSetSdwordCB, &universe.players[0].resourceUnits },
-    { "WarpFleet",   SetWarpFleetCB,    NULL                               },
-    
-    END_SCRIPT_ENTRY
-};
-
-scriptEntry WarpCalcFleetStrengthTable[] =
-{
-    { "WarpStartRU", WarpFleetRUStrengthCB, NULL },
-    { "WarpFleet",   WarpFleetStrengthCB,   NULL },
-    
-    END_SCRIPT_ENTRY
-};
-
-scriptEntry WarpPreLoadTable[] =
-{
-    { "WarpFleet", WarpPreLoadCB, NULL },
-    
-    END_SCRIPT_ENTRY
-};
 
 scriptEntry SinglePlayerScriptTable[] =
 {
@@ -398,6 +519,7 @@ fecallback spHyperspaceCallback[] =
 {
     { spAbortHyperspaceCB, "AbortHyperspace" },
     { spGoNowHyperspaceCB, "GoNowHyperspace" },
+    { cat_spEmergencyHyperspaceCB, "EmergencyHyperspace" },  // CAT: the exe's third button (table 0x008943f0)
     
     { NULL,                NULL              },
 };
@@ -411,70 +533,25 @@ fedrawcallback spHyperspaceDrawCallback[] =
 };
 
 
-udword convertMissionToSequenceIndex(MissionEnum mission)
-{
-    udword index = 0;
-    
-    for (index = 0; index < NUMBER_MISSIONS_IN_SEQUENCE; index++)
-    {
-        if (mission == missionSequence[index])
-        {
-            return index;
-        }
-    }
-    
-    // getting here is seriously bad and I don't see how to recover from it
-    // other than to lie about the index which will probably crash things anyway
-    // so let's die at the point of failure not somewhere else down the line
-    dbgFatalf(DBG_Loc, "unknown MissionEnum enum: %u", mission);
-    
-    return 0;  // this will never be called but keeps the compiler quiet
-}
 
-void spResetMissionSequenceToBeginning(void)
-{
-    singlePlayerCurrentMissionIndex = 0;
-    
-    spSetCurrentMission(missionSequence[singlePlayerCurrentMissionIndex]);
-}
+
+
 
 void spSetCurrentMission(MissionEnum mission)
 {
-    singlePlayerGameInfo.currentMission = mission;
-    
-    singlePlayerCurrentMissionIndex
-        = convertMissionToSequenceIndex(mission);
+    singlePlayerGameInfo.currentMission = mission;          // CAT: no mission sequence index
 }
 
-MissionEnum spGetPreviousMission(void)
-{
-    return spGetAdjacentMission(-1);
-}
+
 
 MissionEnum spGetCurrentMission(void)
 {
     return singlePlayerGameInfo.currentMission;
 }
 
-MissionEnum spGetNextMission(void)
-{
-    return spGetAdjacentMission(+1);
-}
 
-MissionEnum spGetAdjacentMission(sbyte direction)
-{
-    sdword adjacentMissionIndex
-        = convertMissionToSequenceIndex(spGetCurrentMission())
-        + (direction < 0 ? -1 : +1);
-    
-    if (adjacentMissionIndex < 0
-    ||  adjacentMissionIndex >= NUMBER_MISSIONS_IN_SEQUENCE)
-    {
-        return MISSION_ENUM_NOT_INITIALISED;
-    }
-    
-    return missionSequence[adjacentMissionIndex];
-}
+
+
 
 
 
@@ -667,19 +744,9 @@ void GetFleetStrengthInUniverseOfPlayer(Player *player)
     spFleetStr += GetStrengthOfRUs(player->resourceUnits);
 }
 
-void GetFleetStrengthWarpScript(Player *player)
-{
-    spFleetStr = 0.0f;
-    scriptSet(NULL,WARP_FILENAME,WarpCalcFleetStrengthTable);
-}
 
-void singlePlayerPreLoadCheck(void)
-{
-    if (warpLevel)
-    {
-        scriptSet(NULL,WARP_FILENAME,WarpPreLoadTable);
-    }
-}
+
+
 
 /*-----------------------------------------------------------------------------
     Name        :
@@ -749,34 +816,41 @@ void SetFleetModifier(sdword level,GetStrengthOfFleet getStrengthOfFleetFunc)
 //    speechEventFleet(STAT_F_Hyper_TakingOff, 0, universe.curPlayerIndex);
 //}
 
-void TellShipsToAbortDockForHyperspace(void)
+
+
+/*-----------------------------------------------------------------------------
+    Name        : spAbortHyperspaceCB                               0x00517320
+    Description : CAT: the roll call's Abort: the fleet is halted, the roll-call screen goes, the lockout is lifted and
+                  the player may jump again (HW1 restored the auto-launch setting and kept the lockout). The exe
+                  inlines the same body in singlePlayerGameUpdate 0x005197d0 when the mothership is lost.
+----------------------------------------------------------------------------*/
+void spAbortHyperspaceCB(char *string, featom *atom)
 {
     SelectCommand *selectAll;
 
-    selectAll = selectAllCurrentPlayersNonHyperspacingShips();
-    clHalt(&universe.mainCommandLayer,selectAll);
-    memFree(selectAll);
-}
-
-void spAbortHyperspaceCB(char *string, featom *atom)
-{
     if (singlePlayerGameInfo.hyperspaceState == HYPERSPACE_WAITINGROLLCALL)
     {
-        // Let's abort hyperspace
-        speechEventFleet(COMM_F_Hyper_Abort, 0, universe.curPlayerIndex);
-
-        // give player refund on RU's
-//        universe.curPlayerPtr->resourceUnits += singlePlayerGameInfo.RUNeededForNextHyperSpaceJump;
-        clAutoLaunch(singlePlayerGameInfo.oldAutoLaunch,universe.curPlayerIndex);
+        // CAT: Fleet Command's abort line by its Cataclysm id (0x4001021; HW1 COMM_F_Hyper_Abort)
+        speechEventQueue(NULL, 0x4001021, 0, -1, 0, universe.curPlayerIndex, -1, 5.0f, -1);
         singlePlayerGameInfo.hyperspaceState = NO_HYPERSPACE;
 
-        TellShipsToAbortDockForHyperspace();
+        selectAll = selectAllCurrentPlayersNonHyperspacingShips();
+        clHalt(&universe.mainCommandLayer,selectAll);
+        memFree(selectAll);
 
         feScreenDelete(spHyperspaceRollCallScreen);
         spHyperspaceRollCallScreen = NULL;
+        spUnlockout();
+        singlePlayerGameInfo.playerCanHyperspace = TRUE;
     }
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : spGoNowHyperspaceCB                               0x005173a0
+    Description : CAT: the roll call's Go Now (and the end of the roll call): the letterbox comes in, the small ships
+                  dock at once, every jumping ship but the mothership halts, steadies and joins the parade (no door
+                  cleaning: the exe has no mothership door; the test is the ship class, not the type)
+----------------------------------------------------------------------------*/
 void spGoNowHyperspaceCB(char *string, featom *atom)
 {
     if (singlePlayerGameInfo.hyperspaceState == HYPERSPACE_WAITINGROLLCALL)
@@ -787,47 +861,82 @@ void spGoNowHyperspaceCB(char *string, featom *atom)
         Ship *ship;
         Ship *mothership = universe.curPlayerPtr->PlayerMothership;
 
-        dbgAssertOrIgnore(mothership);
+        cat_kasWideScreenInHyperspace(90);                  // CAT: the letterbox (0x5a frames)
 
         selectAll = selectAllCurrentPlayersNonHyperspacingShips();
         clDock(&universe.mainCommandLayer,selectAll,CAT_DOCK_STAY_INSTANT,NULL);
         memFree(selectAll);
 
         selectAll = selectAllCurrentPlayersHyperspacingShips();
-        if(universe.curPlayerPtr->PlayerMothership->shiprace == R1)
-        {
-            mothershipCleanDoorForHSInstant(universe.curPlayerPtr->PlayerMothership);
-        }
         for (i=0;i<selectAll->numShips;i++)
         {
             ship = selectAll->ShipPtr[i];
-            if (ship->shiptype != Mothership)
+            if (ship->staticinfo->shipclass != CLASS_Mothership)
             {
                 SelectCommand selectone;
-//                if (!(ship->shipOrDerelict.specialFlags & SPECIAL_SinglePlayerWithinHyperSpaceRange))
-//                {
-//putinparade:
-                    selectone.ShipPtr[0] = ship;
-                    selectone.numShips = 1;
-                    RemoveShipsFromDoingStuff(&universe.mainCommandLayer,&selectone,0x23);   // CAT: reason 0x23 as the exe (spGoNowHyperspaceCB 0x00517408) [audit: M2-R5 command-tactics]
-                    aitrackForceSteadyShip(ship);
-                    GroupShipIntoMilitaryParade(&universe.mainCommandLayer,ship,mothership);
-                    bitSet(ship->shipOrDerelict.specialFlags,SPECIAL_SinglePlayerWithinHyperSpaceRange|SPECIAL_SinglePlayerInParade);
-/*                }
-                else
-                {
-                    if (!(ship->shipOrDerelict.specialFlags & SPECIAL_SinglePlayerInParade))
-                    {
-                        goto putinparade;
-                    }
-                }
-*/
+
+                selectone.ShipPtr[0] = ship;
+                selectone.numShips = 1;
+                RemoveShipsFromDoingStuff(&universe.mainCommandLayer,&selectone,0x23);   // CAT: reason 0x23 as the exe (spGoNowHyperspaceCB 0x00517408) [audit: M2-R5 command-tactics]
+                aitrackForceSteadyShip(ship);
+                GroupShipIntoMilitaryParade(&universe.mainCommandLayer,ship,mothership);
+                bitSet(ship->shipOrDerelict.specialFlags,SPECIAL_SinglePlayerWithinHyperSpaceRange|SPECIAL_SinglePlayerInParade);
             }
-            // CAT: no DDDFrigateDockAllDronesInstantly, Cataclysm has no drone frigate (spGoNowHyperspaceCB 0x005173a0)
         }
         memFree(selectAll);
         militaryGroup = GetMilitaryGroupAroundShip(&universe.mainCommandLayer,universe.curPlayerPtr->PlayerMothership);
         if (militaryGroup) setMilitaryParade(militaryGroup);
+
+        feScreenDelete(spHyperspaceRollCallScreen);
+        spHyperspaceRollCallScreen = NULL;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_spEmergencyHyperspaceCB                       0x005174b0
+    Description : CAT: the roll call's Emergency Hyperspace (offered instead of Go Now while one of the player's
+                  ships is under fire, spHyperspaceButtonPushed): the letterbox comes in, the ships that cannot
+                  jump by themselves stop and are left behind (catFlags18 0x40, so the roll call no longer waits for
+                  them; cat_spDeleteLeftBehindShips removes them with the level), the jumping ships but the mothership
+                  halt and steady, flagged in range and in the parade, without being put into it
+----------------------------------------------------------------------------*/
+static void cat_spEmergencyHyperspaceCB(char *string, featom *atom)
+{
+    SelectCommand *selectAll;
+    SelectCommand selectone;
+    Ship *ship;
+    sdword i;
+
+    if (singlePlayerGameInfo.hyperspaceState == HYPERSPACE_WAITINGROLLCALL)
+    {
+        cat_kasWideScreenInHyperspace(90);
+
+        selectAll = selectAllCurrentPlayersNonHyperspacingShips();
+        for (i = 0; i < selectAll->numShips; i++)
+        {
+            ship = selectAll->ShipPtr[i];
+            selectone.numShips = 1;
+            selectone.ShipPtr[0] = ship;
+            RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone, 0x2f);
+            bitSet(ship->header.catFlags18, CAT_SHIPFLAG_LeftBehind);
+        }
+        memFree(selectAll);
+
+        selectAll = selectAllCurrentPlayersHyperspacingShips();
+        for (i = 0; i < selectAll->numShips; i++)
+        {
+            ship = selectAll->ShipPtr[i];
+            if (ship->staticinfo->shipclass != CLASS_Mothership)
+            {
+                selectone.numShips = 1;
+                selectone.ShipPtr[0] = ship;
+                RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone, 0x23);
+                aitrackForceSteadyShip(ship);
+                bitSet(ship->shipOrDerelict.specialFlags,
+                       SPECIAL_SinglePlayerWithinHyperSpaceRange | SPECIAL_SinglePlayerInParade);
+            }
+        }
+        memFree(selectAll);
 
         feScreenDelete(spHyperspaceRollCallScreen);
         spHyperspaceRollCallScreen = NULL;
@@ -860,135 +969,87 @@ void spShipsDockedDrawCB(featom *atom, regionhandle region)
     fontMakeCurrent(fhSave);
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : CalculateRollCall                                 0x005176e0
+    Description : CAT: the roll call counts the ships the player may take (cat_spShipCanHyperspace): the ships docked
+                  in any of them, every ship that does not jump by itself as remaining unless an emergency jump left
+                  it behind (catFlags18 0x40), and the jumping ships but the mothership and the modules as docked
+                  (in range) or remaining. HW1 counted every allied ship that was not a capital ship as remaining.
+----------------------------------------------------------------------------*/
 void CalculateRollCall(void)
 {
-    Node *objnode = universe.ShipList.head;
+    Node *objnode;
     Ship *ship;
 
     singlePlayerGameInfo.rollcallShipsDocked = 0;
     singlePlayerGameInfo.rollcallShipsRemaining = 0;
 
-    while (objnode != NULL)
+    for (objnode = universe.ShipList.head; objnode != NULL; objnode = objnode->next)
     {
         ship = (Ship *)listGetStructOfNode(objnode);
         dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
 
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) && !(ship->header.flags & SOF_Disabled))
+        if (!cat_spShipCanHyperspace(ship))
         {
-            if (ship->shipsInsideMe)
-            {
-                // CAT: every ship inside counts, no DDDFrigate exemption (CalculateRollCall 0x005176e0, 0x00517707)
-                singlePlayerGameInfo.rollcallShipsDocked += ship->shipsInsideMe->insideList.num;
-            }
-
-            if (!ShipCanHyperspace(ship))
+            continue;
+        }
+        if (ship->shipsInsideMe)
+        {
+            // CAT: every ship inside counts, no DDDFrigate exemption (CalculateRollCall 0x005176e0, 0x00517707)
+            singlePlayerGameInfo.rollcallShipsDocked += ship->shipsInsideMe->insideList.num;
+        }
+        if (!catSpCapitalOrComponent(ship))
+        {
+            if (!bitTest(ship->header.catFlags18, CAT_SHIPFLAG_LeftBehind))
             {
                 singlePlayerGameInfo.rollcallShipsRemaining++;
             }
-            else if (ship->shiptype != Mothership)  // non-mothership hyperspacecapable ships must get in range
+        }
+        else if ((ship->staticinfo->shipclass != CLASS_Mothership) && (ship->staticinfo->shipclass != CLASS_Component))
+        {
+            if (ship->shipOrDerelict.specialFlags & SPECIAL_SinglePlayerWithinHyperSpaceRange)
             {
-                // is ship in range?
-                if (ship->shipOrDerelict.specialFlags & SPECIAL_SinglePlayerWithinHyperSpaceRange)
-                {
-                    singlePlayerGameInfo.rollcallShipsDocked++;
-                }
-                else
-                {
-                    singlePlayerGameInfo.rollcallShipsRemaining++;
-                }
+                singlePlayerGameInfo.rollcallShipsDocked++;
             }
-
-        }
-        objnode = objnode->next;
-    }
-
-
-}
-
-void TellShipsToDockForHyperspace(void)
-{
-    Node *objnode;
-    Ship *ship;
-    SelectCommand *selectAll;
-
-    selectAll = selectAllCurrentPlayersNonHyperspacingShips();
-    //cancel all the launch orders so we can then tell all ships to dock permanently.
-    clCancelAllLaunchOrdersFromPlayer(universe.curPlayerPtr);
-    if (clDock(&universe.mainCommandLayer,selectAll,CAT_DOCK_STAY,NULL) > 0)
-    {
-        // moved this here cause I don't want it said if no ships are docking
-        speechEventFleet(STAT_F_Hyper_Autodock, 0, universe.curPlayerIndex);
-    }
-    memFree(selectAll);
-
-    objnode = universe.ShipList.head;
-    while (objnode != NULL)
-    {
-        ship = (Ship *)listGetStructOfNode(objnode);
-        dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
-
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) && !(ship->header.flags & SOF_Disabled))
-        {
-            // CAT: no DDDFrigate / ResearchShip hyperspace preparation, Cataclysm has neither type (M2-R4 ships-b retire)
-        }
-
-        objnode = objnode->next;
-    }
-}
-
-bool32 AreNotInParadeConstraint(Ship *ship)
-{
-    if (ship->shipOrDerelict.specialFlags & SPECIAL_SinglePlayerInParade)
-    {
-        return FALSE;
-    }
-    else
-    {
-        return TRUE;
-    }
-}
-void MakeShipsNotIncludeLaunchingShips(SelectCommand *selection)
-{
-    sdword i;
-    CommandToDo *shipcommand;
-    for(i=0;i<selection->numShips;)
-    {
-        if(ShipCanHyperspace(selection->ShipPtr[i]))
-        {
-            //ship can hyperspace
-            shipcommand = getShipAndItsCommand(&universe.mainCommandLayer,selection->ShipPtr[i]);
-            if(shipcommand != NULL)
+            else
             {
-                if(shipcommand->ordertype.order == COMMAND_LAUNCH_SHIP)
-                {
-                    //launching ship can hyperspace...lets not cancel its
-                    //orders
-                    selection->numShips--;
-                    selection->ShipPtr[i] = selection->ShipPtr[selection->numShips];
-                    continue;
-                }
+                singlePlayerGameInfo.rollcallShipsRemaining++;
             }
         }
-        i++;
     }
-
 }
+
+
+
+
+
+/*-----------------------------------------------------------------------------
+    Name        : TellHyperspacingShipsToReady                      0x00517770
+    Description : CAT: the mothership is in range; a tResourceCollector is healed to full (the exe's 0x58 test); the
+                  other jumping ships are in range only when in the parade; the capital ships and modules launching
+                  keep their order (HW1 tested capital ships only), the rest stop and join the parade
+----------------------------------------------------------------------------*/
 void TellHyperspacingShipsToReady(void)
 {
     SelectCommand *selectAll;
     sdword i;
     Ship *ship;
+    CommandToDo *shipcommand;
 
     selectAll = selectAllCurrentPlayersHyperspacingShips();
     for (i=0;i<selectAll->numShips;i++)
     {
         ship = selectAll->ShipPtr[i];
-        if (ship->shiptype == Mothership)
+        if (ship->staticinfo->shipclass == CLASS_Mothership)
         {
             bitSet(ship->shipOrDerelict.specialFlags,SPECIAL_SinglePlayerWithinHyperSpaceRange);
         }
         else
         {
+            if (ship->shiptype == tResourceCollector)
+            {
+                ship->targetable.health = ship->staticinfo->health.maxhealth;
+            }
             if (shipInMilitaryParade(ship))
             {
                 bitSet(ship->shipOrDerelict.specialFlags,SPECIAL_SinglePlayerWithinHyperSpaceRange|SPECIAL_SinglePlayerInParade);
@@ -1000,31 +1061,28 @@ void TellHyperspacingShipsToReady(void)
         }
     }
 
-    //MakeShipsOnlyFollowConstraints(selectAll,AreNotInParadeConstraint);
-    MakeShipsNotIncludeLaunchingShips(selectAll);
+    // CAT: HW1's MakeShipsNotIncludeLaunchingShips, inlined with the exe's capital-or-module test
+    for (i=0;i<selectAll->numShips;)
+    {
+        ship = selectAll->ShipPtr[i];
+        if (catSpCapitalOrComponent(ship))
+        {
+            shipcommand = getShipAndItsCommand(&universe.mainCommandLayer,ship);
+            if ((shipcommand != NULL) && (shipcommand->ordertype.order == COMMAND_LAUNCH_SHIP))
+            {
+                selectAll->numShips--;
+                selectAll->ShipPtr[i] = selectAll->ShipPtr[selectAll->numShips];
+                continue;
+            }
+        }
+        i++;
+    }
     RemoveShipsFromDoingStuff(&universe.mainCommandLayer,selectAll,0x24);   // CAT: reason 0x24 as the exe (TellHyperspacingShipsToReady 0x0051783f) [audit: M2-R5 command-tactics]
     clSetMilitaryParade(&universe.mainCommandLayer,selectAll);
     memFree(selectAll);
 }
 
-sdword HyperspaceRollCallBegin(regionhandle region, sdword ID, udword event, udword data)
-{
-    if (!spHyperspaceRollCallHandle)
-    {
-        feCallbackAddMultiple(spHyperspaceCallback);      //add in the callbacks
-        feDrawCallbackAddMultiple(spHyperspaceDrawCallback);
-#ifdef _WIN32
-        spHyperspaceRollCallHandle = feScreensLoad("FEMan\\Hyperspace_Roll_Call.fib");   //load in the screen
-#else
-        spHyperspaceRollCallHandle = feScreensLoad("FEMan/Hyperspace_Roll_Call.fib");   //load in the screen
-#endif
-    }
 
-    CalculateRollCall();
-    spHyperspaceRollCallScreen = feScreenStart(region, "HyperspaceRollCall");
-
-    return 0;
-}
 
 ShipSinglePlayerGameInfo *spNewShipSinglePlayerGameInfo(void)
 {
@@ -1078,8 +1136,11 @@ void CalculateHyperspaceTimeForShip(Ship *ship,Ship *mothership)
     }
     else
     {
-        shipSinglePlayerGameInfo->timeToDelayHyperspace =
-            HYPERSPACE_BASE_WAITTIME + frandom(HYPERSPACE_RANDOM_WAITTIME);
+        // CAT: the exe's x87 shape (0x00517a8d ..): the draw of stream 10 is loaded whole (fild of the unsigned
+        //      32 bits), multiplied by RANDOM * 2^-32 and BASE added at the FPU's 53-bit precision, then stored once
+        //      (HW1's frandom rounds the draw and each product to a float)
+        shipSinglePlayerGameInfo->timeToDelayHyperspace = (real32)((real64)HYPERSPACE_RANDOM_WAITTIME *
+            (1.0 / 4294967296.0) * (real64)gamerand() + (real64)HYPERSPACE_BASE_WAITTIME);
     }
     shipSinglePlayerGameInfo->timeToHyperspace = universe.totaltimeelapsed + shipSinglePlayerGameInfo->timeToDelayHyperspace;
 
@@ -1087,40 +1148,32 @@ void CalculateHyperspaceTimeForShip(Ship *ship,Ship *mothership)
     shipHasJustDisappeared(ship);
 }
 
-void CalculateHyperspaceTimesForShips(void)
-{
-    Node *objnode;
-    Ship *ship;
-    Ship *mothership = universe.curPlayerPtr->PlayerMothership;
 
-    dbgAssertOrIgnore(mothership != NULL);
 
-    objnode = universe.ShipList.head;
-    while (objnode != NULL)
-    {
-        ship = (Ship *)listGetStructOfNode(objnode);
-        dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
-
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) && !(ship->header.flags & SOF_Disabled))
-        {
-            if (ShipCanMakeHyperspace(ship))
-            {
-                CalculateHyperspaceTimeForShip(ship,mothership);
-            }
-        }
-
-        objnode = objnode->next;
-    }
-}
-
+/*-----------------------------------------------------------------------------
+    Name        : AddShipToHyperspace                               0x00517a10
+    Description : CAT: the ship enters the ether: its trails are cut (cat: trailZeroLength on all four) and in a
+                  single-player game it, its modules and the ships inside it are healed and refuelled (HW1: the ship
+                  and the ships inside)
+----------------------------------------------------------------------------*/
 void AddShipToHyperspace(Ship *ship)
 {
     InsideShip *insideShip;
+    Ship *module;
+    sdword i;
 
     insideShip = memAlloc(sizeof(InsideShip),"InsideHyper",0);
     insideShip->ship = ship;
     listAddNode(&singlePlayerGameInfo.ShipsInHyperspace,&insideShip->node,insideShip);
     bitSet(ship->header.flags,SOF_Hyperspace);
+
+    for (i = 0; i < MAX_NUM_TRAILS; i++)
+    {
+        if (ship->trail[i])
+        {
+            trailZeroLength(ship->trail[i]);
+        }
+    }
 
     if(singlePlayerGame)
     {
@@ -1128,6 +1181,11 @@ void AddShipToHyperspace(Ship *ship)
         //ONLY in single player game!
         ship->targetable.health = ship->staticinfo->health.maxhealth;
         ship->fuel = ship->staticinfo->maxfuel;
+        for (module = cat_moduleIterFirst(ship); module != NULL; module = cat_moduleIterNext())
+        {
+            module->targetable.health = module->staticinfo->health.maxhealth;
+            module->fuel = module->staticinfo->maxfuel;
+        }
     }
 
     // and any ships inside as well:
@@ -1152,88 +1210,11 @@ void AddShipToHyperspace(Ship *ship)
     }
 }
 
-bool32 NoneDoing(udword state)
-{
-    Node* objnode;
-    Ship* ship;
 
-    objnode = universe.ShipList.head;
-    while (objnode != NULL)
-    {
-        ship = (Ship*)listGetStructOfNode(objnode);
-        dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
 
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) &&
-            ShipCanMakeHyperspace(ship) && !(ship->header.flags & SOF_Disabled))
-        {
-            if (ship->shipSinglePlayerGameInfo->hsState == state)
-            {
-                return FALSE;
-            }
-        }
 
-        objnode = objnode->next;
-    }
 
-    return TRUE;
-}
 
-bool32 AllDoingExceptMe(udword state, Ship* me)
-{
-    Node* objnode;
-    Ship* ship;
-
-    objnode = universe.ShipList.head;
-    while (objnode != NULL)
-    {
-        ship = (Ship*)listGetStructOfNode(objnode);
-        dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
-
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) &&
-            ShipCanMakeHyperspace(ship) && !(ship->header.flags & SOF_Disabled))
-        {
-            if (ship != me)
-            {
-                if (ship->shipSinglePlayerGameInfo->hsState != state)
-                {
-                    return FALSE;
-                }
-            }
-        }
-
-        objnode = objnode->next;
-    }
-
-    return TRUE;
-}
-
-bool32 NoneDoingHS(udword state)
-{
-    InsideShip* insideship;
-    Node* objnode;
-    Ship* ship;
-
-    objnode = singlePlayerGameInfo.ShipsInHyperspace.head;
-    while (objnode != NULL)
-    {
-        insideship = (InsideShip*)listGetStructOfNode(objnode);
-        ship = insideship->ship;
-        dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
-
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) &&
-            ShipCanMakeHyperspace(ship))
-        {
-            if (ship->shipSinglePlayerGameInfo->hsState == state)
-            {
-                return FALSE;
-            }
-        }
-
-        objnode = objnode->next;
-    }
-
-    return TRUE;
-}
 
 void InstantlyHyperspaceOut(Ship *ship,Ship *mothership)
 {
@@ -1249,18 +1230,65 @@ void InstantlyHyperspaceOut(Ship *ship,Ship *mothership)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : catSpFleetAnyInHsState                            (inlined)
+    Description : CAT: TRUE when a ship of the jumping fleet (ShipCanMakeHyperspace) other than except is in the
+                  hyperspace effect state (the exe inlines this walk of the ship list in UpdateHyperspacingShip
+                  0x00517af0 and UpdateArrivingShip 0x00518170; HW1's NoneDoing / AllDoingExceptMe tested allied
+                  capital ships)
+----------------------------------------------------------------------------*/
+static bool32 catSpFleetAnyInHsState(udword state, Ship *except)
+{
+    Node *objnode;
+    Ship *ship;
+
+    for (objnode = universe.ShipList.head; objnode != NULL; objnode = objnode->next)
+    {
+        ship = (Ship *)listGetStructOfNode(objnode);
+        if ((ship != except) && ShipCanMakeHyperspace(ship) && (ship->shipSinglePlayerGameInfo->hsState == state))
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+// CAT: the same over the ships in the ether
+static bool32 catSpEtherAnyInHsState(udword state)
+{
+    Node *node;
+    Ship *ship;
+
+    for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = node->next)
+    {
+        ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+        if (ShipCanMakeHyperspace(ship) && (ship->shipSinglePlayerGameInfo->hsState == state))
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+// CAT: the sound handle of a failed jump's mothership effect (0x0089469c, -1 in .data): the exe stops it but no code
+//      of the exe starts it (HW1 started Ship_SinglePlayerHyperspace into it), so it stays -1
+static sdword catSpFailedJumpSoundHandle = SOUND_NOTINITED;
+
+/*-----------------------------------------------------------------------------
+    Name        : UpdateHyperspacingShip                            0x00517af0
+    Description : CAT: the exe's body: no hyperspace sounds (HW1 played Ship_SinglePlayerHyperspace / Ship_Hyperdrive),
+                  the fleet tests are the exe's (catSpFleetAnyInHsState: the player's capital ships and modules in
+                  range), the white-out starts with the mothership's collapse once the other ships are finished
+----------------------------------------------------------------------------*/
 bool32 UpdateHyperspacingShip(Ship *ship,bool32 midLevel)
 {
-    bool32 hyperspacedout = FALSE;
     ShipSinglePlayerGameInfo *shipSinglePlayerGameInfo = ship->shipSinglePlayerGameInfo;
-    static sdword hsSFXHandle = -1;
+    bool32 whiteOutWasOff;
 
     ship->autostabilizeship = FALSE;        // ship is doing something, don't want to autostabilize
     ship->shipidle = FALSE;
 
     shipSinglePlayerGameInfo->midlevelHyperspaceOut = midLevel;
-
-    dbgAssertOrIgnore(shipSinglePlayerGameInfo);
 
     if ((singlePlayerGameInfo.hyperspaceFails) && (!midLevel))
     {
@@ -1274,41 +1302,31 @@ bool32 UpdateHyperspacingShip(Ship *ship,bool32 midLevel)
                     shipSinglePlayerGameInfo->timeToHyperspace = universe.totaltimeelapsed + HYPERSPACE_ACCELERATE_TIME;
                     clRemoveShipFromSelection((SelectAnyCommand *)&selSelected,ship);
                     clRemoveShipFromSelection((SelectAnyCommand *)&selSelecting,ship);
-//                    hyperspacedout = TRUE;
-//                    shipSinglePlayerGameInfo->hsState = HS_FINISHED;
                     hsStart(ship, HYPERSPACE_SLICE_RATE, TRUE, hsShouldDisplayEffect(ship));
-                    if (ship == universe.curPlayerPtr->PlayerMothership)
-                    {
-                        hsSFXHandle = soundEvent(ship, Ship_SinglePlayerHyperspace);
-                    }
                 }
-                break;
+                return FALSE;
             case HS_SLICING_INTO:
-                if ( midLevel || (NoneDoing(HS_POPUP_INTO) && NoneDoing(HS_INACTIVE)) )
+                if (!catSpFleetAnyInHsState(HS_POPUP_INTO, NULL) && !catSpFleetAnyInHsState(HS_INACTIVE, NULL))
                 {
                     shipSinglePlayerGameInfo->hsState = HS_COLLAPSE_INTO;
                 }
-                break;
+                return FALSE;
             case HS_COLLAPSE_INTO:
-                if (hsSFXHandle != SOUND_NOTINITED)
+                if ((catSpFailedJumpSoundHandle != SOUND_NOTINITED) && (ship == universe.curPlayerPtr->PlayerMothership))
                 {
-                    if (ship == universe.curPlayerPtr->PlayerMothership)
-                    {
-                        soundEventStopSound(hsSFXHandle, 1);
-                        hsSFXHandle = SOUND_NOTINITED;
-                    }
+                    soundEventStopSound(catSpFailedJumpSoundHandle, 1);
+                    catSpFailedJumpSoundHandle = SOUND_NOTINITED;
                 }
                 hsUpdate(ship);
-                break;
+                return FALSE;
             case HS_FINISHED:
-                hyperspacedout = TRUE;
-                break;
+                return TRUE;
             default:
                 hsUpdate(ship);
-                break;
+                return FALSE;
         }
     }
-    else
+
     switch (shipSinglePlayerGameInfo->hsState)
     {
     case HS_INACTIVE:
@@ -1319,38 +1337,50 @@ bool32 UpdateHyperspacingShip(Ship *ship,bool32 midLevel)
             clRemoveShipFromSelection((SelectAnyCommand *)&selSelected,ship);
             clRemoveShipFromSelection((SelectAnyCommand *)&selSelecting,ship);
             hsStart(ship, HYPERSPACE_SLICE_RATE, TRUE, hsShouldDisplayEffect(ship));
-            if (!singlePlayerGame || (singlePlayerGame && (ship->playerowner != universe.curPlayerPtr)))
+        }
+        return FALSE;
+    case HS_SLICING_INTO:
+        if (!midLevel)
+        {
+            if (catSpFleetAnyInHsState(HS_POPUP_INTO, NULL) || catSpFleetAnyInHsState(HS_INACTIVE, NULL))
             {
-                soundEvent(ship, Ship_Hyperdrive);
+                return FALSE;
             }
         }
-        break;
-    case HS_SLICING_INTO:
-        if ( midLevel || (NoneDoing(HS_POPUP_INTO) && NoneDoing(HS_INACTIVE)) )
-        {
-            hsUpdate(ship);
-        }
-        break;
+        hsUpdate(ship);
+        return FALSE;
     case HS_COLLAPSE_INTO:
         if (ship->soundevent.hyperspaceHandle != SOUND_NOTINITED)
         {
             soundEventStopSound(ship->soundevent.hyperspaceHandle, 1);
             ship->soundevent.hyperspaceHandle = SOUND_NOTINITED;
         }
-        if ( (!midLevel) && (ship == universe.curPlayerPtr->PlayerMothership))
+        if ((!midLevel) && (ship == universe.curPlayerPtr->PlayerMothership))
         {
-            if (mrWhiteOut || AllDoingExceptMe(HS_FINISHED, ship))
+            // CAT: the exe clears the white-out first and sets it again once every other ship has finished
+            //      (0x00517dd5 ..)
+            whiteOutWasOff = !mrWhiteOut;
+            mrWhiteOut = FALSE;
+            if (whiteOutWasOff)
             {
-                mrWhiteOut = TRUE;
-                mrWhiteOutT = 1.0f - shipSinglePlayerGameInfo->clipt;
-                hsUpdate(ship);
+                Node *objnode;
+                Ship *other;
+
+                for (objnode = universe.ShipList.head; objnode != NULL; objnode = objnode->next)
+                {
+                    other = (Ship *)listGetStructOfNode(objnode);
+                    if (ShipCanMakeHyperspace(other) && (other != ship) &&
+                        (other->shipSinglePlayerGameInfo->hsState != HS_FINISHED))
+                    {
+                        return FALSE;
+                    }
+                }
             }
+            mrWhiteOut = TRUE;
+            mrWhiteOutT = 1.0f - shipSinglePlayerGameInfo->clipt;
         }
-        else
-        {
-            hsUpdate(ship);
-        }
-        break;
+        hsUpdate(ship);
+        return FALSE;
     case HS_FINISHED:
         //disappear ...
         shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_GONE;
@@ -1369,126 +1399,73 @@ bool32 UpdateHyperspacingShip(Ship *ship,bool32 midLevel)
                 AddShipToHyperspace(ship);
             }
         }
-        hyperspacedout = TRUE;
-        break;
+        return TRUE;
     default:
         hsUpdate(ship);
+        return FALSE;
     }
-
-    return hyperspacedout;
 }
 
-bool32 UpdateHyperspacingShips(void)
-{
-    Node *objnode;
-    Ship *ship;
-    bool32 shipsAllHyperspacedAway = TRUE;
-    bool32 result;
 
-    objnode = universe.ShipList.head;
-    while (objnode != NULL)
-    {
-        ship = (Ship *)listGetStructOfNode(objnode);
-        objnode = objnode->next;
-        dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
 
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) && !(ship->header.flags & SOF_Disabled))
-        {
-            if (ShipCanMakeHyperspace(ship))
-            {
-                result = UpdateHyperspacingShip(ship,FALSE);
-                if (singlePlayerGameInfo.hyperspaceFails)
-                {
-                    if (!result)
-                    {
-                        shipsAllHyperspacedAway = FALSE;
-                    }
-                }
-                else
-                {
-                    shipsAllHyperspacedAway = FALSE;
-                }
-            }
-        }
-    }
-
-    return shipsAllHyperspacedAway;
-}
-
+/*-----------------------------------------------------------------------------
+    Name        : OrientHyperspacingShips                           0x00517f30
+    Description : CAT: the player's capital ships and modules (cat_spShipCanHyperspace) stop idling (the mothership
+                  excepted); the capital ships but the mothership turn to its heading once in range, else fly to it or
+                  are flagged in range when near (a launching ship waits); the modules only stop idling
+----------------------------------------------------------------------------*/
 bool32 OrientHyperspacingShips(void)
 {
     Node *objnode;
     Ship *ship;
     vector mothershipheading;
     bool32 shipsoriented = TRUE;
+    bool32 shipready;
     Ship *mothership = universe.curPlayerPtr->PlayerMothership;
-    udword shipsNotInHyperspaceRange = 0;
-
-    dbgAssertOrIgnore(mothership != NULL);
+    CommandToDo *shipcommand;
 
     matGetVectFromMatrixCol3(mothershipheading,mothership->rotatable.rotinfo.coordsys);
 
-    objnode = universe.ShipList.head;
-    while (objnode != NULL)
+    for (objnode = universe.ShipList.head; objnode != NULL; objnode = objnode->next)
     {
         ship = (Ship *)listGetStructOfNode(objnode);
         dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
 
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) && !(ship->header.flags & SOF_Disabled))
+        if (!cat_spShipCanHyperspace(ship) || !catSpCapitalOrComponent(ship))
         {
-            if (ShipCanHyperspace(ship))
+            continue;
+        }
+        if (ship->staticinfo->shipclass != CLASS_Mothership)
+        {
+            ship->autostabilizeship = FALSE;        // ship is doing something, don't want to autostabilize
+            ship->shipidle = FALSE;
+        }
+        if ((ship->staticinfo->shipclass == CLASS_Mothership) || (ship->staticinfo->shipclass == CLASS_Component))
+        {
+            continue;
+        }
+        if (ship->shipOrDerelict.specialFlags & SPECIAL_SinglePlayerWithinHyperSpaceRange)
+        {
+            shipready = aitrackHeadingWithBank(ship,&mothershipheading,HYPERSPACE_HEADINGACCURACY,ship->staticinfo->shipOrDerelict.sinbank);
+            if(!shipready)
             {
-                ship->autostabilizeship = FALSE;        // ship is doing something, don't want to autostabilize
-                ship->shipidle = FALSE;
-
-                if (ship->shiptype != Mothership)
-                {
-                    if (ship->shipOrDerelict.specialFlags & SPECIAL_SinglePlayerWithinHyperSpaceRange)
-                    {
-                        //if (!(ship->shipOrDerelict.specialFlags & SPECIAL_SinglePlayerInParade))
-                        {
-                            sdword shipready=FALSE;
-                            shipready = aitrackHeadingWithBank(ship,&mothershipheading,HYPERSPACE_HEADINGACCURACY,ship->staticinfo->shipOrDerelict.sinbank);
-                            if(!shipready)
-                            {
-                                singlePlayerGameInfo.rollcallShipsRemaining++;  //add to count because we really aren't ready
-                                shipsNotInHyperspaceRange++;
-                            }
-                            shipsoriented &= shipready;
-
-                            //don't track zero velocity
-                            //if in parade...which is everyone...lets check though
-
-                            //aitrackSteadyShipDriftOnly(ship);
-                        }
-                    }
-                    else
-                    {
-                        shipsNotInHyperspaceRange++;
-                        if (aiuFindDistanceSquared(ship->obj.posinfo.position,mothership->obj.posinfo.position) < HYPERSPACE_RANGE)
-                        {
-                            CommandToDo *shipcommand = getShipAndItsCommand(&universe.mainCommandLayer,ship);
-                            if(shipcommand !=NULL)
-                            {
-                                if(shipcommand->ordertype.order == COMMAND_LAUNCH_SHIP)
-                                {
-                                    goto notreadyhscrud;
-                                }
-                            }
-                            bitSet(ship->shipOrDerelict.specialFlags,SPECIAL_SinglePlayerWithinHyperSpaceRange);
-notreadyhscrud:;
-                        }
-                        else
-                        {
-                            aishipFlyToShipAvoidingObjs(ship,mothership,AISHIP_PointInDirectionFlying|AISHIP_FirstPointInDirectionFlying|
-                                                                        AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured,0.0f);
-                        }
-                    }
-                }
+                singlePlayerGameInfo.rollcallShipsRemaining++;  //add to count because we really aren't ready
+            }
+            shipsoriented &= shipready;
+        }
+        else if (aiuFindDistanceSquared(ship->obj.posinfo.position,mothership->obj.posinfo.position) < HYPERSPACE_RANGE)
+        {
+            shipcommand = getShipAndItsCommand(&universe.mainCommandLayer,ship);
+            if ((shipcommand == NULL) || (shipcommand->ordertype.order != COMMAND_LAUNCH_SHIP))
+            {
+                bitSet(ship->shipOrDerelict.specialFlags,SPECIAL_SinglePlayerWithinHyperSpaceRange);
             }
         }
-
-        objnode = objnode->next;
+        else
+        {
+            aishipFlyToShipAvoidingObjs(ship,mothership,AISHIP_PointInDirectionFlying|AISHIP_FirstPointInDirectionFlying|
+                                                        AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured,0.0f);
+        }
     }
 
     return shipsoriented;
@@ -1548,38 +1525,20 @@ void cat_spGetHyperspaceModuleTypes(sdword *count, ShipType *types)
     }
 }
 
-void CalculateArrivingTimesForShips(void)
-{
-    InsideShip *insideShip;
-    Ship *ship;
-    Node *node = singlePlayerGameInfo.ShipsInHyperspace.head;
-    struct ShipSinglePlayerGameInfo *shipSinglePlayerGameInfo;
 
-    dbgAssertOrIgnore(node != NULL);
-    while (node != NULL)
-    {
-        insideShip = (InsideShip *)listGetStructOfNode(node);
-        ship = insideShip->ship;
-        shipSinglePlayerGameInfo = ship->shipSinglePlayerGameInfo;
-        dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
 
-        if ((ship->shiptype == Mothership) && (HYPERSPACE_MOTHERSHIP_ALWAYS_ARRIVES_FIRST))
-        {
-            shipSinglePlayerGameInfo->timeToDelayHyperspace = universe.totaltimeelapsed + HYPERSPACE_BASE_MOTHERSHIPARRIVETIME;
-        }
-        else
-        {
-            shipSinglePlayerGameInfo->timeToDelayHyperspace = universe.totaltimeelapsed + HYPERSPACE_BASE_ARRIVETIME + shipSinglePlayerGameInfo->timeToDelayHyperspace;
-        }
-
-        node = node->next;
-    }
-}
-
+/*-----------------------------------------------------------------------------
+    Name        : UpdateArrivingShip                                0x00518170
+    Description : CAT: the exe's body: in a multiplayer game the arrival point is clipped to the universe; the ship
+                  waits hidden (SOF_Hide) until it decelerates in; the mothership and a module whose host is itself
+                  arrive first (2 x BASE), the others after 3 x BASE + a random wait; the camera's motion cues restart
+                  with the mothership; no Ship_HyperdriveOff sound; the white-out runs down at 3 slice rates a tick; the
+                  arrived ship leaves the range flag too; the fleet tests are the exe's (ShipCanMakeHyperspace, a
+                  multiplayer module waits on its host's telegraph)
+----------------------------------------------------------------------------*/
 bool32 UpdateArrivingShip(Ship *ship,hvector *topoint,bool32 midLevel)
 {
     ShipSinglePlayerGameInfo *shipSinglePlayerGameInfo = ship->shipSinglePlayerGameInfo;
-    bool32 thisShipArrived = FALSE;
 
     dbgAssertOrIgnore(shipSinglePlayerGameInfo);
 
@@ -1590,71 +1549,72 @@ bool32 UpdateArrivingShip(Ship *ship,hvector *topoint,bool32 midLevel)
     {
         case SHIPHYPERSPACE_GONE:
             {
-                real32 forbehind;
-                real32 rightleft;
-                real32 updown;
                 vector tempvec;
                 vector createposition;
                 vector createvelocity;
+                real64 angle64;
                 real32 angle;
                 matrix rotzmat;
 
                 // calculate position based on forbehind, rightleft
-                forbehind = shipSinglePlayerGameInfo->forbehind;
-                rightleft = shipSinglePlayerGameInfo->rightleft;
-                updown = shipSinglePlayerGameInfo->updown;
-
-                vecSet(tempvec,forbehind,-rightleft,updown);
+                vecSet(tempvec,shipSinglePlayerGameInfo->forbehind,-shipSinglePlayerGameInfo->rightleft,
+                       shipSinglePlayerGameInfo->updown);
                 vecSet(createvelocity,0.0f,0.0f,0.0f);
 
-                angle = DEG_TO_RAD(topoint->w);
-
-                matMakeRotAboutZ(&rotzmat,(real32)cos(angle),(real32)sin(angle));
+                // CAT: x87 (0x00518455 ..): the angle is w times the float DEG_TO_RAD at 53 bits, the sine of that
+                //      product, the cosine of the angle stored as a float
+                angle64 = (real64)topoint->w * (real64)CAT_SP_DEG_TO_RAD;
+                angle = (real32)angle64;
+                matMakeRotAboutZ(&rotzmat,(real32)cos((real64)angle),(real32)sin(angle64));
                 matMultiplyMatByVec(&createposition,&rotzmat,&tempvec);
 
                 vecAddTo(createposition,*topoint);
+                if (!singlePlayerGame)
+                {
+                    // CAT: a multiplayer arrival stays inside the universe (0x005184d2 ..)
+                    if (createposition.x > smUniverseSizeX) createposition.x = smUniverseSizeX;
+                    if (createposition.x < -smUniverseSizeX) createposition.x = -smUniverseSizeX;
+                    if (createposition.y > smUniverseSizeY) createposition.y = smUniverseSizeY;
+                    if (createposition.y < -smUniverseSizeY) createposition.y = -smUniverseSizeY;
+                    if (createposition.z > smUniverseSizeZ) createposition.z = smUniverseSizeZ;
+                    if (createposition.z < -smUniverseSizeZ) createposition.z = -smUniverseSizeZ;
+                }
 
                 PutShipOutsideAt(ship,&createposition,&createvelocity,angle);
                 bitClear(ship->header.flags,SOF_Hyperspace);
 
                 shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_DECELERATE;
+                if (midLevel)
                 {
-                    if (midLevel)
+                    shipSinglePlayerGameInfo->timeToHyperspace = 0.0f;
+                }
+                else
+                {
+                    real64 waittime;
+
+                    if ((ship == universe.curPlayerPtr->PlayerMothership) ||
+                        ((ship->guidance.clampInfo != NULL) && (ship->guidance.clampInfo->host == (SpaceObjRotImpTarg *)ship)))
                     {
-                        shipSinglePlayerGameInfo->timeToHyperspace = 0.0f;
+                        waittime = (real64)HYPERSPACE_BASE_WAITTIME + (real64)HYPERSPACE_BASE_WAITTIME;
                     }
                     else
                     {
-                        real32 waittime;
-                        if (ship == universe.curPlayerPtr->PlayerMothership)
-                        {
-                            waittime = 2.0f * HYPERSPACE_BASE_WAITTIME;
-                        }
-                        else
-                        {
-                            waittime = 3.0f * HYPERSPACE_BASE_WAITTIME + frandom(HYPERSPACE_RANDOM_WAITTIME);
-                        }
-                        shipSinglePlayerGameInfo->timeToHyperspace = universe.totaltimeelapsed + waittime;
+                        // CAT: x87 (0x005185cc ..): RANDOM * 2^-32 times the whole draw, plus BASE * 3, one rounding
+                        waittime = (real64)HYPERSPACE_RANDOM_WAITTIME * (1.0 / 4294967296.0) *
+                                   (real64)gamerand() + (real64)HYPERSPACE_BASE_WAITTIME * 3.0;
                     }
+                    shipSinglePlayerGameInfo->timeToHyperspace = (real32)((real64)universe.totaltimeelapsed + waittime);
                 }
 
                 if ((ship == universe.curPlayerPtr->PlayerMothership) && (!midLevel))
                 {
-                    //FocusCommand focusone;
-                    //TransitionType trans;
-
-                    //focusone.numShips = 1;
-                    //focusone.ShipPtr[0] = ship;
-                    //trans = universe.mainCameraCommand.transition;
-                    //universe.mainCameraCommand.transition = CAMERA_SET;
-
-                    //dbgAssertOrIgnore(spSavedCameraYet);
-                    //ccFocus(&universe.mainCameraCommand, &focusone);
-                    //universe.mainCameraCommand.currentCameraStack->remembercam = spSavedCamera;
-
-                    //universe.mainCameraCommand.transition = trans;
                     ccFocusOnPlayersMothership(&universe.mainCameraCommand,0);
+                    if (catMotionCues)
+                    {
+                        cat_mcResetRequest(&catMotionCueState);     // CAT: the motion cues restart (0x00518639)
+                    }
                 }
+                bitSet(ship->header.flags, SOF_Hide);       // CAT: hidden until it decelerates in (0x00518649)
             }
             if (!midLevel)
             {
@@ -1668,16 +1628,15 @@ bool32 UpdateArrivingShip(Ship *ship,hvector *topoint,bool32 midLevel)
                 vecZeroVector(ship->obj.posinfo.velocity);
                 shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_DONE;
                 shipSinglePlayerGameInfo->timeToHyperspace = universe.totaltimeelapsed + HYPERSPACE_DECELERATE_TIME;
+                bitClear(ship->header.flags, SOF_Hide);     // CAT: shown (0x00518693)
                 hsStart(ship, HYPERSPACE_SLICE_RATE, FALSE, hsShouldDisplayEffect(ship));
-                if (!singlePlayerGame || (singlePlayerGame && (ship->playerowner != universe.curPlayerPtr)))
-                {
-                    soundEvent(ship, Ship_HyperdriveOff);
-                }
+                // CAT: no Ship_HyperdriveOff sound
             }
             break;
 
         case SHIPHYPERSPACE_DONE:
-            mrWhiteOutT -= 3.0f * HYPERSPACE_SLICE_RATE;
+            // CAT: x87 (0x005181b5): the rate times 3 at 53 bits, subtracted and stored once
+            mrWhiteOutT = (real32)((real64)mrWhiteOutT - (real64)HYPERSPACE_SLICE_RATE * 3.0);
             if (mrWhiteOutT < 0.0f)
             {
                 mrWhiteOut = FALSE;
@@ -1685,30 +1644,32 @@ bool32 UpdateArrivingShip(Ship *ship,hvector *topoint,bool32 midLevel)
             switch (shipSinglePlayerGameInfo->hsState)
             {
                 case HS_SLICING_OUTOF:
-                    if ( midLevel || (NoneDoingHS(HS_POPUP_OUTOF) && NoneDoingHS(HS_FINISHED)) )
+                    if (!midLevel && (catSpEtherAnyInHsState(HS_POPUP_OUTOF) || catSpEtherAnyInHsState(HS_FINISHED)))
                     {
-                        if(!singlePlayerGame)
-                        {
-                            CommandToDo *command = getShipAndItsCommand(&universe.mainCommandLayer,ship);
-                            if(command != NULL)
-                            {
-                                if(command->ordertype.order == COMMAND_MP_HYPERSPACING)
-                                {
-                                    //if its a capital ship (docked ships won't have this command)
-                                    if(universe.totaltimeelapsed - command->hyperSpaceingTime < TW_HYPERSPACE_TELEGRAPH_WAIT_TIME)
-                                    {
-                                        //ship hasn't waited long enough for incomming hs...
-                                        //so don't
-                                        goto noupdateonincomminghs;
-                                    }
-                                }
-                            }
-                        }
-                        hsUpdate(ship);
-    noupdateonincomminghs:;
+                        break;
                     }
+                    if(!singlePlayerGame)
+                    {
+                        // CAT: a module waits on its host's command (0x00518391 ..)
+                        Ship *commandShip = ship;
+                        CommandToDo *command;
+
+                        if ((ship->staticinfo->shipclass == CLASS_Component) && (ship->guidance.clampInfo != NULL) &&
+                            (ship->guidance.clampInfo->host != NULL))
+                        {
+                            commandShip = (Ship *)ship->guidance.clampInfo->host;
+                        }
+                        command = getShipAndItsCommand(&universe.mainCommandLayer,commandShip);
+                        if ((command != NULL) && (command->ordertype.order == COMMAND_MP_HYPERSPACING) &&
+                            (universe.totaltimeelapsed - command->hyperSpaceingTime < TW_HYPERSPACE_TELEGRAPH_WAIT_TIME))
+                        {
+                            //ship hasn't waited long enough for incomming hs...
+                            break;
+                        }
+                    }
+                    hsUpdate(ship);
                     break;
-                    
+
                 case HS_COLLAPSE_OUTOF:
                     if (ship->soundevent.hyperspaceHandle != SOUND_NOTINITED)
                     {
@@ -1717,77 +1678,55 @@ bool32 UpdateArrivingShip(Ship *ship,hvector *topoint,bool32 midLevel)
                     }
                     if ((!midLevel) && (ship == universe.curPlayerPtr->PlayerMothership))
                     {
-                        if (AllDoingExceptMe(HS_INACTIVE, ship))
+                        // CAT: the mothership waits until every other ship of the fleet is out of its effect
+                        Node *objnode;
+                        Ship *other;
+
+                        for (objnode = universe.ShipList.head; objnode != NULL; objnode = objnode->next)
                         {
-                            hsUpdate(ship);
-                        }
-                    }
-                    else
-                    {
-                        if(!singlePlayerGame)
-                        {
-                            if(gravwellIsShipStuckForHyperspaceing(ship))
+                            other = (Ship *)listGetStructOfNode(objnode);
+                            if (ShipCanMakeHyperspace(other) && (other != ship) &&
+                                (other->shipSinglePlayerGameInfo->hsState != HS_INACTIVE))
                             {
-                                //ship is stuck here because of a gravwell gen somewhere
-                                goto noupdateHSMP;
+                                return FALSE;
                             }
                         }
                         hsUpdate(ship);
-    noupdateHSMP:;
+                    }
+                    else
+                    {
+                        if(!singlePlayerGame && gravwellIsShipStuckForHyperspaceing(ship))
+                        {
+                            //ship is stuck here because of a gravwell gen somewhere
+                            break;
+                        }
+                        hsUpdate(ship);
                     }
                     break;
-                    
+
                 case HS_INACTIVE:
                     if (universe.totaltimeelapsed > shipSinglePlayerGameInfo->timeToHyperspace)
                     {
-                        thisShipArrived = TRUE;
+                        // CAT: the range flag goes with the hyperspacing one (0x0051840c: & 0xffdfff7f)
+                        bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_Hyperspacing|SPECIAL_SinglePlayerWithinHyperSpaceRange);
+                        return TRUE;
                     }
                     break;
-                    
+
                 default:
                     hsUpdate(ship);
                     break;
             }
+            break;
 
         default:
             break;
     }
 
-    if (thisShipArrived)
-    {
-        bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_Hyperspacing);
-    }
-
-    return thisShipArrived;
+    return FALSE;
 }
 
-bool32 UpdateArrivingShips(void)
-{
-    InsideShip *insideShip;
-    Ship *ship;
-    Node *node = singlePlayerGameInfo.ShipsInHyperspace.head;
-    bool32 allShipsArrived = TRUE;
-    hvector startpoint;
 
-    GetStartPointPlayer(&startpoint);
-
-    dbgAssertOrIgnore(node != NULL);
-    while (node != NULL)
-    {
-        insideShip = (InsideShip *)listGetStructOfNode(node);
-        ship = insideShip->ship;
-        dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
-
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr))
-        {
-            allShipsArrived &= UpdateArrivingShip(ship,&startpoint,FALSE);
-        }
-
-        node = node->next;
-    }
-
-    return allShipsArrived;
-}
 
 void GetShipsClampedToInHS(Ship *clampedto,GrowSelection *clampedships)
 {
@@ -1898,6 +1837,61 @@ bool32 ShipAlreadyHyperspaceOut(Ship *ship)
     return FALSE;
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_spPrepareShipHyperspaceOut                    0x00518880
+    Description : CAT: before a ship hyperspaces out mid-level, every object clamped to it lets go: a ramming
+                  frigate releases, a leech stops (RemoveShipsFromDoingStuff 0x25), a salvager detaches, anything but
+                  a module is unclamped. The walk restarts when the clamped list changed size, as the exe's does
+----------------------------------------------------------------------------*/
+static void cat_spPrepareShipHyperspaceOut(Ship *ship)
+{
+    ClampInfo *clampInfo = ship->guidance.clampInfo;
+    sdword index, count;
+    Ship *obj;
+    SelectCommand selectone;
+
+    if ((clampInfo == NULL) || (clampInfo->clampedObjs == NULL))
+    {
+        return;
+    }
+    index = 0;
+    for (;;)
+    {
+        count = clampInfo->clampedObjs->numShips;
+        if (index >= count)
+        {
+            return;
+        }
+        obj = clampInfo->clampedObjs->ShipPtr[index];
+        cat_rammingFrigateForceRelease(obj);
+        if (cat_shipIsLeech(obj))
+        {
+            selectone.numShips = 1;
+            selectone.ShipPtr[0] = obj;
+            RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone, 0x25);
+        }
+        if (cat_shipIsSalvager(obj))
+        {
+            cat_salvageDetach(obj);
+        }
+        if (obj->staticinfo->shipclass != CLASS_Component)
+        {
+            unClampObj((SpaceObjRotImpTargGuidance *)obj);
+        }
+        clampInfo = ship->guidance.clampInfo;
+        if (clampInfo == NULL)
+        {
+            return;
+        }
+        // CAT-FIX: the exe reads the list through the clamp info again without testing it (it is freed with the last
+        //      object); this tree stops when the list is gone
+        if (clampInfo->clampedObjs == NULL)
+        {
+            return;
+        }
+        index = (count == clampInfo->clampedObjs->numShips) ? (index + 1) : 0;
+    }
+}
 void spHyperspaceSelectionOut(SelectCommand *selection)
 {
     Ship *ship;
@@ -1924,6 +1918,7 @@ void spHyperspaceSelectionOut(SelectCommand *selection)
             }
             else
             {
+                cat_spPrepareShipHyperspaceOut(ship);      // CAT: what is clamped to it lets go (0x005189e4)
                 CalculateHyperspaceTimeForShip(ship,defactoMothership);
                 ship->shipSinglePlayerGameInfo->timeToHyperspace += spHyperspaceDelay;
                 if(ship->guidance.clampInfo != NULL)
@@ -2012,20 +2007,24 @@ void spHyperspaceSelectionOutStatic(SelectCommand *selection)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : singlePlayerInit                                  0x00518c50
+    Description : CAT: the warp records are cleared and Warp.script read (the warp start's mission, else mission 1:
+                  no mission sequence); the auto-launch setting to restore defaults to every class (0xF)
+----------------------------------------------------------------------------*/
 void singlePlayerInit(void)
 {
-    if (singlePlayerGame)
+    memset(catSpWarpLevels, 0, sizeof(catSpWarpLevels));
+    catSpWarpEnabled = FALSE;
+    catSpWarpLevelTo = 0;
+    scriptSet(NULL, "Warp.script", catSpWarpScriptTable);
+    if (catSpWarpEnabled)
     {
-        warpLevel = WarpToLevelEnabled();
-
-        if (warpLevel)
-        {
-            singlePlayerGameInfo.currentMission = warpLevel;
-        }
-        else
-        {
-            singlePlayerGameInfo.currentMission = missionSequence[singlePlayerCurrentMissionIndex];
-        }
+        singlePlayerGameInfo.currentMission = catSpWarpLevelTo;
+    }
+    else if (singlePlayerGame)
+    {
+        singlePlayerGameInfo.currentMission = MISSION_1_KHARAK_SYSTEM;
     }
 
     singlePlayerGameInfo.hyperspaceState = NO_HYPERSPACE;
@@ -2046,21 +2045,25 @@ void singlePlayerInit(void)
         objectiveStartup();
         kasInit();
     }
+    singlePlayerGameInfo.oldAutoLaunch = 0xf;               // CAT: 0x00518d2d
 
     HYPERSPACE_FARCLIPPLANESQR = HYPERSPACE_FARCLIPPLANE * HYPERSPACE_FARCLIPPLANE;
 
     HYPERSPACE_DECELERATE_DIST = 0.5f * HYPERSPACE_DECELERATION * HYPERSPACE_DECELERATE_TIME*HYPERSPACE_DECELERATE_TIME;
     HYPERSPACE_DECELERATE_INITIAL_VEL = HYPERSPACE_DECELERATION * HYPERSPACE_DECELERATE_TIME;
-    dbgAssertOrIgnore(HYPERSPACE_DECELERATE_DIST < HYPERSPACE_FARCLIPPLANE);
     HYPERSPACE_WHIPTOWARDSDIST = HYPERSPACE_FARCLIPPLANE - HYPERSPACE_DECELERATE_DIST;
-    dbgAssertOrIgnore(HYPERSPACE_DECELERATE_INITIAL_VEL < HYPERSPACE_WHIP_VELOCITY);
 }
 
 static udword spLockoutFlags = 0;
 
-void spMainScreen(void)
+/*-----------------------------------------------------------------------------
+    Name        : spMainScreen                                      0x00518d80
+    Description : CAT: the managers and menus close; the sensors manager too when closeSensors (every caller passes
+                  1 but kasfOpenSensors 0x00496bc0, which opens it next). No task bar to force down
+----------------------------------------------------------------------------*/
+void spMainScreen(bool32 closeSensors)
 {
-    if (smSensorsActive)
+    if (closeSensors && smSensorsActive)
     {
         smSensorsCloseForGood();
     }
@@ -2068,22 +2071,26 @@ void spMainScreen(void)
     rmCloseIfOpen();
     lmCloseIfOpen();
     feAllMenusDelete();                                     //make sure no menus stay up during NIS
-    // CAT: no task bar to force down (spMainScreen 0x00518d80 ends with feAllMenusDelete; M2-R8 kasf library)
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : spLockout                                         0x00518db0
+    Description : CAT: a lockout in force is lifted first; the deselect empties the selection (the ship totals
+                  refreshed), the main-region lockout also hides the mouse cursor. The exe inlines this body in
+                  spMainScreenAndLockout, cat_spMainScreenAndLockoutKeepSensors, spHyperspaceButtonPushed and
+                  singlePlayerGameUpdate
+----------------------------------------------------------------------------*/
 void spLockout(udword flags)
 {
-    spLockoutFlags = flags;
-//comment out the rest of this function to use NIS debugging keys
-#if NIS_PRINT_INFO
-    if (nisNoLockout)
+    if (spLockoutFlags != 0)
     {
-        return;
+        spUnlockout();
     }
-#endif
+    spLockoutFlags = flags;
     if (flags & SPLOCKOUT_DESELECT)
     {
-        selSelectNone();
+        selSelected.numShips = 0;
+        ioUpdateShipTotals();
     }
 
     smSensorsDisable = TRUE;
@@ -2091,6 +2098,7 @@ void spLockout(udword flags)
     if (flags & SPLOCKOUT_MR)
     {
         mrDisable();
+        mouseCursorHide();
     }
     if (flags & SPLOCKOUT_MOUSE)
     {
@@ -2100,7 +2108,7 @@ void spLockout(udword flags)
 
 void spMainScreenAndLockout(udword flags)
 {
-    spMainScreen();
+    spMainScreen(TRUE);
     spLockout(flags);
 }
 
@@ -2111,13 +2119,14 @@ void spMainScreenAndLockout(udword flags)
                   lockout is set. The exe's body is spMainScreenAndLockout 0x00518e10's without its first test;
                   this tree's spLockout does the lockout part (SinglePlayer.c's port aligns both, M2-R8 producer 4)
 ----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    Name        : cat_spMainScreenAndLockoutKeepSensors             0x00518e90
+    Description : CAT (M2-R8 kasf library): spMainScreenAndLockout without closing the sensors manager (the KAS
+                  letterbox's finish, cat_kasWideScreenInFinish 0x004973d0)
+----------------------------------------------------------------------------*/
 void cat_spMainScreenAndLockoutKeepSensors(udword flags)
 {
-    // CAT-TODO(stage 6 single player): the exe's lockout part (0x00518ea4 ..: spUnlockout first when locked, flag 2 also hides the cursor) is spMainScreenAndLockout 0x00518e10's; this tree's spLockout differs (audit: the hand-off had no tag)
-    cmCloseIfOpen();
-    rmCloseIfOpen();
-    lmCloseIfOpen();
-    feAllMenusDelete();
+    spMainScreen(FALSE);
     spLockout(flags);
 }
 
@@ -2131,47 +2140,62 @@ void cat_spFlagDeleteWhenMissionEnds(Ship *ship)
     bitSet(ship->obj.attributes, ATTRIBUTES_DeleteAfterHSOut);
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : spUnlockout                                       0x00518f00
+    Description : CAT: the sensors manager is enabled again and its 0x00a5b1b0 word cleared; the main region and the
+                  mouse cursor come back; the flags are cleared whole
+----------------------------------------------------------------------------*/
 void spUnlockout(void)
 {
-//comment out the rest of this function to use NIS debugging keys
     smSensorsDisable = FALSE;
+    smFleetIntel = FALSE;                                   // CAT: 0x00a5b1b0 (spUnlockout 0x00518f10)
     // CAT: no task bar lockout (the exe never writes tbDisable 0x00a6b254; spUnlockout 0x00518f00)
-    if (spLockoutFlags & SPLOCKOUT_DESELECT)
-    {
-        bitClear(spLockoutFlags,SPLOCKOUT_DESELECT);
-    }
     if (spLockoutFlags & SPLOCKOUT_MR)
     {
         mrEnable();
-        bitClear(spLockoutFlags,SPLOCKOUT_MR);
+        mouseCursorShow();
     }
     if (spLockoutFlags & SPLOCKOUT_MOUSE)
     {
         mouseEnable();
-        bitClear(spLockoutFlags,SPLOCKOUT_MOUSE);
     }
+    spLockoutFlags = 0;
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : spHyperspaceButtonPushed                          0x00518f50
+    Description : CAT: the exe's body: not while the Pause key's frame step is on; refused (a red command message)
+                  while a ship of the player's is still under construction; the hyperspace sensors status off; the
+                  missions of catSpMissionNextLevel (0x00894424) jump in the letterbox at once (5 s of real
+                  time); else the fleet docks, the jumping ships ready, the screens close, the player is locked out
+                  and the roll-call screen comes up with either Go Now (no ship of player 0 under fire) or Emergency
+                  Hyperspace disabled. GoK's end-of-mission resource collection (spCollectResourcesAtEndOfMission)
+                  is gone
+----------------------------------------------------------------------------*/
 void spHyperspaceButtonPushed(void)
 {
-    dbgAssertOrIgnore(singlePlayerGame);
+    SelectCommand *selectAll;
+    fescreen *screen;
+    featom *atom;
+    char *disabledButton;
+    Node *node;
+    Ship *ship;
 
-    if (!singlePlayerGameInfo.playerCanHyperspace && !hyperspaceOverride)
+    if ((!singlePlayerGameInfo.playerCanHyperspace && !hyperspaceOverride) || catUnivFrameStep)
     {
+        return;
+    }
+    if (cat_univPlayerHasFlaggedShip())
+    {
+        clCommandMessage(strGetString(strShipsStillUnderConstruction), 0xff0000ff);
         return;
     }
 
     hyperspaceOverride = FALSE;
-
     singlePlayerGameInfo.playerCanHyperspace = FALSE;
     smUpdateHyperspaceStatus(FALSE);
 
-    if (singlePlayerGameInfo.hyperspaceState != NO_HYPERSPACE)
-    {
-        return;
-    }
-
-    if (universe.curPlayerPtr->PlayerMothership == NULL)
+    if ((singlePlayerGameInfo.hyperspaceState != NO_HYPERSPACE) || (universe.curPlayerPtr->PlayerMothership == NULL))
     {
         return;
     }
@@ -2186,45 +2210,60 @@ void spHyperspaceButtonPushed(void)
     singlePlayerGameInfo.hyperspaceState = HYPERSPACE_WAITINGROLLCALL;
     singlePlayerGameInfo.oldAutoLaunch = universe.curPlayerPtr->autoLaunch;     // restore autolaunch flag after hyperspace
     clAutoLaunch(FALSE,universe.curPlayerIndex);
-    TellShipsToDockForHyperspace();
+
+    if (catSpMissionNextLevel[singlePlayerGameInfo.currentMission])
+    {
+        cat_kasWideScreenInHyperspace(90);
+        catSpWideScreenJumpTime = universe.realtimeelapsed + 5.0f;     // 0x00a6adb4 (0x0072bcb4 = 5.0)
+        return;
+    }
+
+    // HW1's TellShipsToDockForHyperspace, inlined (CAT: Fleet Command's line 0x200101f; no ship-type preparation)
+    selectAll = selectAllCurrentPlayersNonHyperspacingShips();
+    clCancelAllLaunchOrdersFromPlayer(universe.curPlayerPtr);
+    if (clDock(&universe.mainCommandLayer,selectAll,CAT_DOCK_STAY,NULL) > 0)
+    {
+        speechEventQueue(NULL, 0x200101f, 0, -1, 0, -1, -1, 5.0f, -1);
+    }
+    memFree(selectAll);
+
     TellHyperspacingShipsToReady();
     spMainScreenAndLockout(SPLOCKOUT_MR);
 
-    HyperspaceRollCallBegin(ghMainRegion,0,0,0);
+    // HW1's HyperspaceRollCallBegin, inlined
+    if (!spHyperspaceRollCallHandle)
+    {
+        feCallbackAddMultiple(spHyperspaceCallback);      //add in the callbacks
+        feDrawCallbackAddMultiple(spHyperspaceDrawCallback);
+#ifdef _WIN32
+        spHyperspaceRollCallHandle = feScreensLoad("FEMan\\Hyperspace_Roll_Call.fib");   //load in the screen
+#else
+        spHyperspaceRollCallHandle = feScreensLoad("FEMan/Hyperspace_Roll_Call.fib");   //load in the screen
+#endif
+    }
+    CalculateRollCall();
+    spHyperspaceRollCallScreen = feScreenStart(ghMainRegion, "HyperspaceRollCall");
 
-    if (spCollectResourcesAtEndOfMission) {
-        SelectCommand *playerFleet = selectAllPlayersShips(universe.curPlayerPtr);
-
-        // player must have a resource collector available
-        if (ShiptypeInSelection(playerFleet, ResourceCollector)) {
-            SelectCommand *shipsRemaining = shipLinkedListAsSelectCommand(&universe.ShipList, "remaining ships");
-
-            MakeShipsNotIncludeTheseShips(shipsRemaining, playerFleet);          // = enemy ships remaining
-            MakeShipsOnlyFollowConstraints(shipsRemaining, aiuIsShipDangerous);  // = offensive enemy ships remaining
-
-            // player must have eliminated all offensive enemy vessels to harvest automatically safely
-            if (shipsRemaining->numShips == 0) {
-                sdword resourcesLeft = NumberOfEasilyAccesibleRUs(NULL);
-
-                if (resourcesLeft > 0) {
-                    char *resources_collected_strings[] = {
-                        "Resources collected",
-                        "Ressources collect�es",
-                        "Ressourcen gesammelt",
-                        "Los recursos recaudados",
-                        "Le risorse raccolte",
-                    };
-
-                    universe.curPlayerPtr->resourceUnits += resourcesLeft;
-
-                    kasfLocationCard(5000, resources_collected_strings[strCurLanguage]);
-                }
+    // CAT: Go Now is disabled while a ship of player 0 was recently attacked or fired upon, else Emergency
+    //      Hyperspace (0x005190f2 ..)
+    screen = feScreenFind("HyperspaceRollCall");
+    if (screen != NULL)
+    {
+        disabledButton = "EmergencyHyperspace";
+        for (node = universe.ShipList.head; node != NULL; node = node->next)
+        {
+            ship = (Ship *)listGetStructOfNode(node);
+            if ((ship->playerowner->playerIndex == 0) && (ship->recentlyAttacked || ship->recentlyFiredUpon))
+            {
+                disabledButton = "GoNowHyperspace";
+                break;
             }
-
-            memFree(shipsRemaining);
         }
-
-        memFree(playerFleet);
+        atom = feAtomFindInScreen(screen, disabledButton);
+        if (atom != NULL)
+        {
+            bitSet(((regionhandle)atom->region)->status, RSF_RegionDisabled);
+        }
     }
 }
 
@@ -2235,17 +2274,11 @@ void spTaskBarHyperspaceCB(struct taskbutton *button, ubyte *userData)
 
 void singlePlayerPostInit(bool32 loadingSaveGame)
 {
-    if (!loadingSaveGame)
+    // CAT: Animatic01 before Mission01 (singlePlayerPostInit 0x005193d0: animBinkPlay(0, 1))
+    if (!loadingSaveGame && (singlePlayerGameInfo.currentMission == MISSION_1_KHARAK_SYSTEM))
     {
-        if (spGetCurrentMission() == MISSION_1_KHARAK_SYSTEM)
-        {
-            // doing this using relative missions probably doesn't make much
-            // sense but I'm doing it anyway for consistency
-            animAviPlay(spGetPreviousMission(), spGetCurrentMission());
-        }
+        animBinkPlay(0, 1);
     }
-    //hyperspacetbbutton = tbButtonCreate("Hyperspace",spTaskBarHyperspaceCB,(ubyte *)0x00,0);
-    //tbButtonListRefresh();
 }
 
 void singlePlayerClose(void)
@@ -2259,8 +2292,7 @@ void singlePlayerClose(void)
         spHyperspaceRollCallHandle = NULL;
     }
     smSensorWeirdness = FALSE;
-    // turns on Fleet command again, if it's been turned off
-    soundEventSetActorFlag(SPEECH_ACTOR_FLEET_COMMAND, TRUE);
+    // CAT: Fleet Command's actor flag is left alone (singlePlayerClose 0x005193f0)
 #if SP_DEBUGLEVEL2
     mrKASDebugDrawStates = FALSE;
     mrKASDebugDrawTimers = FALSE;
@@ -2272,128 +2304,70 @@ void singlePlayerClose(void)
 
 void singlePlayerSetMissionAttributes(char *directory,char *filename)
 {
-    singlePlayerGameInfo.onCompleteHyperspace = TRUE;     // default to TRUE
     singlePlayerGameInfo.onLoadPlayNIS = 0;
     singlePlayerGameInfo.onCompletePlayNIS = 0;
     singlePlayerGameInfo.resourceUnitsCollected = 0;
-    if (universe.players[0].race == R1)
-    {
-        universe.players[1].race = R2;              // default to enemy race
-    }
-    else
-    {
-        universe.players[1].race = R1;              // default to enemy race
-    }
+    // CAT: the player is the Somtaaw (race 0) and the enemy race 1 before the script's line
+    //      (singlePlayerSetMissionAttributes 0x00519440; HW1 picked the race the player's was not)
+    universe.players[0].race = R1;
+    singlePlayerGameInfo.onCompleteHyperspace = TRUE;     // default to TRUE
+    universe.players[1].race = R2;
     scriptSet(directory,filename,SinglePlayerScriptTable);
 
     //reset nebulae
     nebReset();
 }
 
-void singlePlayerLevelLoaded(void)
+
+
+
+
+
+
+
+
+/*-----------------------------------------------------------------------------
+    Name        : catSpEtherCleanup                                 (inlined)
+    Description : CAT: the ships in the ether leave its list (all of them, or the current player's allies): one still
+                  gone into it is freed when freeShips, any other returns to no hyperspace and out of range; after a
+                  failed jump the fleet's ships too (singlePlayerGameCleanup 0x00519510 and singlePlayerGameUpdate
+                  0x005197d0 inline these walks; HW1's CleanupHyperspacingShips)
+----------------------------------------------------------------------------*/
+static void catSpEtherCleanup(bool32 freeShips, bool32 allPlayers)
 {
-    // need to fix up the mission sequence index to match the currentMission
-    singlePlayerCurrentMissionIndex
-        = convertMissionToSequenceIndex(spGetCurrentMission());
-    
-    if (spGetCurrentMission() == MISSION_10_SUPER_NOVA_STATION)
-    {
-        Node *objnode;
-        Ship *ship;
-
-        objnode = universe.ShipList.head;
-        while (objnode != NULL)
-        {
-            ship = (Ship *)listGetStructOfNode(objnode);
-            objnode = objnode->next;
-            dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
-
-            if ((ship->playerowner->playerIndex == 1) && (ship->shiptype == Carrier))
-            {
-                bitSet(ship->shipOrDerelict.specialFlags2,SPECIAL_2_DontPlowThroughEnemyShips);
-            }
-        }
-    }
-}
-
-void CleanupDamageEffects(void)
-{
-    InsideShip* insideShip;
-    Ship* ship;
-    Node* node = singlePlayerGameInfo.ShipsInHyperspace.head;
-
-    while (node != NULL)
-    {
-        insideShip = (InsideShip*)listGetStructOfNode(node);
-        ship = insideShip->ship;
-        dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
-        node = node->next;
-
-        dmgForgetEffects(ship);
-    }
-}
-
-void CleanupHyperspacingShip(Ship *ship)
-{
-    dbgAssertOrIgnore(ship->shipSinglePlayerGameInfo);
-    ship->shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_NONE;
-}
-
-void CleanupHyperspacingShipsThatDidntHyperspace(void)
-{
-    Node *objnode;
+    Node *node, *nextnode;
     Ship *ship;
 
-    objnode = universe.ShipList.head;
-    while (objnode != NULL)
+    for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = nextnode)
     {
-        ship = (Ship *)listGetStructOfNode(objnode);
-        objnode = objnode->next;
-        dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
-
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) && !(ship->header.flags & SOF_Disabled))
+        ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+        nextnode = node->next;
+        if (allPlayers || allianceIsShipAlly(ship, universe.curPlayerPtr))
         {
-            if (ShipCanMakeHyperspace(ship))
-            {
-                CleanupHyperspacingShip(ship);
-            }
-        }
-    }
-}
-
-void CleanupHyperspacingShips(bool32 FreeShips,bool32 cleanupAllPlayersShips)
-{
-    InsideShip *insideShip;
-    Ship *ship;
-    Node *node = singlePlayerGameInfo.ShipsInHyperspace.head;
-    Node *deletenode;
-
-    while (node != NULL)
-    {
-        insideShip = (InsideShip *)listGetStructOfNode(node);
-        ship = insideShip->ship;
-        dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
-        deletenode = node;
-        node = node->next;
-
-        if (cleanupAllPlayersShips || allianceIsShipAlly(ship,universe.curPlayerPtr))
-        {
-            listDeleteNode(deletenode);     // put before so univFreeShipContents doesn't try to delete this twice
-            if ((FreeShips) && (ship->shipSinglePlayerGameInfo->shipHyperspaceState == SHIPHYPERSPACE_GONE))
+            listDeleteNode(node);     // put before so univFreeShipContents doesn't try to delete this twice
+            if (freeShips && (ship->shipSinglePlayerGameInfo->shipHyperspaceState == SHIPHYPERSPACE_GONE))
             {
                 univFreeShipContents(ship);
                 memFree(ship);
             }
             else
             {
-                CleanupHyperspacingShip(ship);
+                ship->shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_NONE;
+                bitClear(ship->shipOrDerelict.specialFlags, SPECIAL_SinglePlayerWithinHyperSpaceRange);
             }
         }
     }
-
     if (singlePlayerGameInfo.hyperspaceFails)
     {
-        CleanupHyperspacingShipsThatDidntHyperspace();
+        for (node = universe.ShipList.head; node != NULL; node = node->next)
+        {
+            ship = (Ship *)listGetStructOfNode(node);
+            if (ShipCanMakeHyperspace(ship))
+            {
+                ship->shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_NONE;
+                bitClear(ship->shipOrDerelict.specialFlags, SPECIAL_SinglePlayerWithinHyperSpaceRange);
+            }
+        }
     }
 }
 
@@ -2424,16 +2398,21 @@ void singlePlayerShipDied(Ship *ship)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : singlePlayerGameCleanup                           0x00519510
+    Description : CAT: the objectives are destroyed (objectiveDestroyAll), the ether cleaned with the exe's tests
+                  (the ships returning leave the range flag); after a jump the roll call goes, the camera's mode flag 7
+                  clears, the white-out, the black fade and the big-gun permission reset
+----------------------------------------------------------------------------*/
 void singlePlayerGameCleanup(void)
 {
     if (!singlePlayerGame)
     {
-        CleanupHyperspacingShips(TRUE,TRUE);
+        catSpEtherCleanup(TRUE, TRUE);
         return;
     }
 
-    // delete all objectives
-    objectiveShutdown();
+    objectiveDestroyAll();
 
     // remove ship lists, paths, volumes, etc.
     kasLabelledEntitiesDestroy();
@@ -2447,7 +2426,7 @@ void singlePlayerGameCleanup(void)
 
     spUnlockout();
 
-    CleanupHyperspacingShips(TRUE,TRUE);
+    catSpEtherCleanup(TRUE, TRUE);
 
     if (singlePlayerGameInfo.hyperspaceState != NO_HYPERSPACE)
     {
@@ -2465,19 +2444,31 @@ void singlePlayerGameCleanup(void)
         mrWhiteOut = FALSE;
         mrWhiteOutT = 0.0f;
     }
+    catSpLevelFade = 0.0f;                                  // CAT: 0x00a6ac70
+    catSpBigGunAllowed = TRUE;                              // CAT: 0x00894108
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : UpdateMidLevelHyperspacingShips                   0x00519700
+    Description : CAT: a ship that has hyperspaced out mid-level loses the references other ships hold to it
+                  (cat_univRemoveObjReferencesFromShips); the ships coming in mid-level arrive and leave the ether
+                  and the range flag. HW1 also wiped the ships flagged to be deleted after a jump here; the exe does it
+                  at the end of the player's jump (singlePlayerGameUpdate's white-out)
+----------------------------------------------------------------------------*/
 void UpdateMidLevelHyperspacingShips(void)
 {
-    bool32 addedShipToHyperspace = FALSE;
     sdword i;
+    Ship *ship;
+    Node *node;
+    Node *nextnode;
 
     // update any mid-level hyperspacing away ships
     for (i=0;i<singlePlayerGameInfo.ShipsToHyperspace.selection->numShips; )
     {
-        if (UpdateHyperspacingShip(singlePlayerGameInfo.ShipsToHyperspace.selection->ShipPtr[i],TRUE))
+        ship = singlePlayerGameInfo.ShipsToHyperspace.selection->ShipPtr[i];
+        if (UpdateHyperspacingShip(ship,TRUE))
         {
-            addedShipToHyperspace = TRUE;
+            cat_univRemoveObjReferencesFromShips((SpaceObj *)ship);
             growSelectRemoveShipIndex(&singlePlayerGameInfo.ShipsToHyperspace,i);   // deliberate don't increment i
         }
         else
@@ -2487,37 +2478,108 @@ void UpdateMidLevelHyperspacingShips(void)
     }
 
     // update any mid-level hyperspacing in ships
+    for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = nextnode)
     {
-        Node *node = singlePlayerGameInfo.ShipsInHyperspace.head;
-        Node *nextnode;
-        InsideShip *insideShip;
-        Ship *ship;
+        ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+        nextnode = node->next;
 
-        while (node != NULL)
+        if (ship->shipSinglePlayerGameInfo->midlevelHyperspaceIn &&
+            UpdateArrivingShip(ship,&ship->shipSinglePlayerGameInfo->midlevelHyperspaceTo,TRUE))
         {
-            insideShip = (InsideShip *)listGetStructOfNode(node);
-            ship = insideShip->ship;
-            dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
-            nextnode = node->next;
-
-            if ((ship->obj.attributes & ATTRIBUTES_DeleteAfterHSOut) && (ship->header.flags & SOF_Hyperspace))
-            {
-                ship->howDidIDie = DEATH_Left_Behind_At_Hyperspace;
-                univDeleteWipeInsideShipOutOfExistence(ship);   // will wipe out of ShipsInHyperspace list
-            }
-            else if (ship->shipSinglePlayerGameInfo->midlevelHyperspaceIn)
-            {
-                if (UpdateArrivingShip(ship,&ship->shipSinglePlayerGameInfo->midlevelHyperspaceTo,TRUE))
-                {
-                    ship->shipSinglePlayerGameInfo->midlevelHyperspaceIn = FALSE;
-                    CleanupHyperspacingShip(ship);
-                    listDeleteNode(node);
-                }
-            }
-
-            node = nextnode;
+            ship->shipSinglePlayerGameInfo->midlevelHyperspaceIn = FALSE;
+            ship->shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_NONE;
+            bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_SinglePlayerWithinHyperSpaceRange);
+            listDeleteNode(node);
         }
     }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_spLaunchDockedShipsOnArrival                  0x005191a0
+    Description : CAT: when a fleet is put at the start point at once (the missions of catSpMissionArrivesAtOnce), a
+                  ship's docked ships come out (unless it is a hive frigate, or auto-launch was off), fully upgraded,
+                  unlinked and healed, out of range, in the parade around it; in Mission04 also its dEcclesiams
+----------------------------------------------------------------------------*/
+static void cat_spLaunchDockedShipsOnArrival(Ship *host)
+{
+    vector zero = { 0.0f, 0.0f, 0.0f };
+    SelectCommand hostSelection, shipSelection;
+    GrowSelection hostGrow, shipGrow;
+    Node *node;
+    Ship *ship;
+
+    hostSelection.numShips = 1;
+    hostSelection.ShipPtr[0] = host;
+    hostGrow.selection = &hostSelection;
+    shipGrow.selection = &shipSelection;
+
+    if ((host->shipsInsideMe != NULL) && (host->shiptype != sHiveFrigate) && (host->shiptype != bHiveFrigate) &&
+        (singlePlayerGameInfo.oldAutoLaunch & 1))
+    {
+        while ((node = host->shipsInsideMe->insideList.head) != NULL)
+        {
+            ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+            shipSelection.numShips = 1;
+            shipSelection.ShipPtr[0] = ship;
+            dockRemoveShipFromInside(ship, host);
+            dockPutShipOutside(ship, host, &zero, 0, 1);
+            if (ship->staticinfo->UpgradeByDocking)
+            {
+                cat_shipApplyUpgrades(ship);
+            }
+            cat_acolyteLinkReset(ship);
+            cat_acvLinkReset(ship);
+            ship->targetable.health = ship->staticinfo->health.maxhealth;
+            bitClear(ship->shipOrDerelict.specialFlags, SPECIAL_SinglePlayerWithinHyperSpaceRange);
+            kasfForceParadeFormation(&hostGrow, &shipGrow);
+        }
+    }
+    if (singlePlayerGame && (singlePlayerGameInfo.currentMission == 4) && (host->shipsInsideMe != NULL))
+    {
+        node = host->shipsInsideMe->insideList.head;
+        while (node != NULL)
+        {
+            ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+            if (ship->shiptype != dEcclesiam)
+            {
+                node = node->next;
+                continue;
+            }
+            shipSelection.numShips = 1;
+            shipSelection.ShipPtr[0] = ship;
+            dockRemoveShipFromInside(ship, host);
+            dockPutShipOutside(ship, host, &zero, 0, 1);
+            if (ship->staticinfo->UpgradeByDocking)
+            {
+                cat_shipApplyUpgrades(ship);
+            }
+            cat_acolyteLinkReset(ship);
+            cat_acvLinkReset(ship);
+            bitClear(ship->shipOrDerelict.specialFlags, SPECIAL_SinglePlayerWithinHyperSpaceRange);
+            ship->targetable.health = ship->staticinfo->health.maxhealth;
+            kasfForceParadeFormation(&hostGrow, &shipGrow);
+            node = host->shipsInsideMe->insideList.head;
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_spForgetDamageEffects                         0x00519490
+    Description : CAT: a ship in the ether and every ship inside it, recursively, forget their damage effects (the
+                  end of the player's jump; HW1's CleanupDamageEffects did the ships in the ether only)
+----------------------------------------------------------------------------*/
+static void cat_spForgetDamageEffects(Ship *ship)
+{
+    Node *node;
+
+    if (ship->shipsInsideMe != NULL)
+    {
+        for (node = ship->shipsInsideMe->insideList.head; node != NULL; node = node->next)
+        {
+            cat_spForgetDamageEffects(((InsideShip *)listGetStructOfNode(node))->ship);
+        }
+    }
+    dmgForgetEffects(ship);
 }
 
 /*-----------------------------------------------------------------------------
@@ -2538,6 +2600,20 @@ static void catSpStartPoint(hvector *point)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : singlePlayerGameUpdate                            0x005197d0
+    Description : CAT: the exe's body. The NIS and nislet requests of the KAS scripts, the traders' screen; the jump:
+                  a catSpMissionNextLevel mission's fleet leaves into the ether 5 s after the button (the fade comes
+                  in meanwhile), else the roll call, Fleet Command's line, the turn and the jump (the ships left in
+                  the ether from before are wiped); the white-out plays the animatic (cur, cur + 1; mission 17 ends
+                  the game with the credits), then, once no movie plays, the ether's ships forget their damage
+                  effects, the ships flagged to be deleted after the jump go, and the next level loads (or its
+                  opening NIS plays in its staging level: state HYPERSPACE_FAILED, no case); the level's KAS script
+                  starts (HYPERSPACE_LOADDONE) and waits (HYPERSPACE_SHIPSARRIVING) for StartLevelByHyperspacingShips,
+                  then the fleet arrives (HYPERSPACE_CATSHIPSHYPERSPACINGIN: flown in, or put at the start point at
+                  once for the catSpMissionArrivesAtOnce missions, which wait for the black fade); a failed jump
+                  returns through case HYPERSPACE_CATFAILEDRETURN (reached only by falling through, as the exe's 10)
+----------------------------------------------------------------------------*/
 void singlePlayerGameUpdate(void)
 {
     // CAT: a KAS script asks for an NIS or a nislet through the globals G_PlayNis / G_PlayNislet (the hashed variable
@@ -2546,10 +2622,14 @@ void singlePlayerGameUpdate(void)
     CatKasVar *nisletVariable = cat_kasVarFind(0, cat_kasHashString("G_PlayNislet"));
     CatKasVar *tgui;
     sdword value;
-    static real32 hyperspaceStartTime;
     // CAT: the nislet's file names (0x00a67028 / 0x00a670c8)
     static char nisletFile[160];
     static char nisletScript[160];
+    Node *node, *nextnode;
+    Ship *ship;
+    SelectCommand selectone;
+    hvector startpoint;
+    bool32 allDone;
 
     // CAT: the black fade after a level load runs down at 0.5 a second of game time (0x00a6ac70; 0x0072bcb0 = 0.5)
     if (catSpLevelFade > 0.0f)
@@ -2571,8 +2651,6 @@ void singlePlayerGameUpdate(void)
         value = nisVariable->value;
         if (value != 0)
         {
-            hvector startpoint;
-
             catSpStartPoint(&startpoint);
             singlePlayerNisNumber = value;
             singlePlayerNISName = catSpNisNames[value][0];
@@ -2589,7 +2667,6 @@ void singlePlayerGameUpdate(void)
         value = nisletVariable->value;
         if (value != 0)
         {
-            hvector startpoint;
             char *name;
 
             catSpStartPoint(&startpoint);
@@ -2612,7 +2689,7 @@ void singlePlayerGameUpdate(void)
             singlePlayerStartNis(nisletFile, nisletScript, &startpoint, FALSE, FALSE);
             if (singlePlayerGameInfo.currentMission == 1)
             {                                           // CAT: Mission01's nislet precaches the ship textures
-                cat_trPrecacheShipTextures();
+                cat_trPrecacheShipTextures();           //      (0x00519a96, cat_trPrecacheShipTextures 0x00589910)
             }
         }
         cat_kasVarDestroyEntry(nisletVariable);
@@ -2629,11 +2706,10 @@ void singlePlayerGameUpdate(void)
     {
         if (singlePlayerGameInfo.hyperspaceState == HYPERSPACE_WAITINGROLLCALL)
         {
-            spAbortHyperspaceCB(NULL,NULL);
+            spAbortHyperspaceCB(NULL,NULL);                 // CAT: inlined by the exe (0x00519ac1 ..)
         }
         return;
     }
-
 
     // CAT: the traders' screen opens when the "Traders" FSM sets its PopUpGUI variable (scope hash "Traders")
     tgui = cat_kasVarFind(cat_kasHashString("Traders"), cat_kasHashString("PopUpGUI"));
@@ -2649,33 +2725,90 @@ void singlePlayerGameUpdate(void)
     switch (singlePlayerGameInfo.hyperspaceState)
     {
         case HYPERSPACE_WAITINGROLLCALL:
+            if (catSpMissionNextLevel[singlePlayerGameInfo.currentMission])
+            {
+                // CAT: the letterbox jump (0x00519bc0 ..): the fade comes in over the 5 s, then the ships left in the
+                //      ether are wiped, the small ships dock at once and every ship of the fleet goes into the ether
+                if (universe.realtimeelapsed <= catSpWideScreenJumpTime)
+                {
+                    catSpLevelFade = 1.0f - (catSpWideScreenJumpTime - universe.realtimeelapsed) / 5.0f;
+                    return;
+                }
+                for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = nextnode)
+                {
+                    ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+                    nextnode = node->next;
+                    ship->howDidIDie = DEATH_Left_Behind_At_Hyperspace;
+                    univDeleteWipeInsideShipOutOfExistence(ship);
+                }
+                {
+                    SelectCommand *selectAll = selectAllCurrentPlayersNonHyperspacingShips();
+
+                    clDock(&universe.mainCommandLayer, selectAll, CAT_DOCK_STAY_INSTANT, NULL);
+                    memFree(selectAll);
+                }
+                for (node = universe.ShipList.head; node != NULL; node = nextnode)
+                {
+                    ship = (Ship *)listGetStructOfNode(node);
+                    nextnode = node->next;
+                    // CAT: the exe sets the range flag on every ship of the list first (0x00519c5c)
+                    bitSet(ship->shipOrDerelict.specialFlags, SPECIAL_SinglePlayerWithinHyperSpaceRange);
+                    if (ShipCanMakeHyperspace(ship))
+                    {
+                        selectone.numShips = 1;
+                        selectone.ShipPtr[0] = ship;
+                        RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone, 0x27);
+                        aitrackForceSteadyShip(ship);
+                        if (ship != universe.curPlayerPtr->PlayerMothership)
+                        {
+                            GroupShipIntoMilitaryParade(&universe.mainCommandLayer, ship,
+                                                        universe.curPlayerPtr->PlayerMothership);
+                            bitSet(ship->shipOrDerelict.specialFlags, SPECIAL_SinglePlayerInParade);
+                        }
+                        clPresetShipsToPosition(&universe.mainCommandLayer);
+                        CalculateHyperspaceTimeForShip(ship, ship->playerowner->PlayerMothership);
+                        ship->shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_GONE;
+                        if ((ship->header.flags & SOF_Hyperspace) == 0)
+                        {
+                            univRemoveShipFromOutside(ship, FALSE);     // CAT: the exe's 0 (inlined InstantlyHyperspaceOut)
+                            AddShipToHyperspace(ship);
+                            ship->shipSinglePlayerGameInfo->midlevelHyperspaceOut = FALSE;
+                        }
+                    }
+                }
+                singlePlayerGameInfo.hyperspaceState = HYPERSPACE_WHITEOUT;
+                singlePlayerGameInfo.hyperspaceTimeStamp = (real32)((real64)HYPERSPACE_WHITEOUTTIME +
+                    (real64)universe.totaltimeelapsed + (real64)SPEECH_HYPERSPACE_DELAY);
+                mrWhiteOut = TRUE;
+                mrWhiteOutT = 1.0f;
+                spBinkPlay = TRUE;
+                speechEventStopAll(0.5f);
+                return;
+            }
             CalculateRollCall();
             OrientHyperspacingShips();
             if (singlePlayerGameInfo.rollcallShipsRemaining == 0)
             {
                 if (spHyperspaceRollCallScreen != NULL)
                 {
-                    feScreenDelete(spHyperspaceRollCallScreen);
+                    spGoNowHyperspaceCB(NULL, NULL);        // CAT: the roll call ends as Go Now does (0x00519d64)
                     spHyperspaceRollCallScreen = NULL;
                 }
-
-                //spHyperspaceCommence();   // moved code from this function to here
-//              singlePlayerGameInfo.hyperspaceState = HYPERSPACE_SHIPSLEAVING;
                 singlePlayerGameInfo.hyperspaceState = HYPERSPACE_WAITINGFORFLEETCOMMAND;
                 singlePlayerGameInfo.hyperspaceSubState = FOCUSING_ON_MOTHERSHIP;
-                singlePlayerGameInfo.hyperspaceTimeStamp = universe.totaltimeelapsed; // + HYPERSPACE_WAIT_FOR_MOTHERSHIPFOCUS_TIME;
-                speechEventFleet(STAT_F_Hyper_TakingOff, 0, universe.curPlayerIndex);
-                // this isn't the nicest way to do this, but it works.  I'd rather write a callback for this
-                hyperspaceStartTime = universe.totaltimeelapsed + SPEECH_HYPERSPACE_DELAY;
-//                soundEventStopTrack(SongNumber, SPEECH_HYPERSPACE_DELAY + 1.5f);
+                singlePlayerGameInfo.hyperspaceTimeStamp = universe.totaltimeelapsed;
+                // CAT: Fleet Command's line by its Cataclysm id (0x2001020; HW1 STAT_F_Hyper_TakingOff)
+                speechEventQueue(NULL, 0x2001020, 0, -1, 0, universe.curPlayerIndex, -1, 5.0f, -1);
+                catSpFleetCommandTime = universe.totaltimeelapsed + SPEECH_HYPERSPACE_DELAY;
+                return;
             }
             break;
 
         case HYPERSPACE_WAITINGFORFLEETCOMMAND:
-            // this isn't the nicest way to do this, but it works.  I'd rather write a callback for this
-            if (universe.totaltimeelapsed >= hyperspaceStartTime)
+            if (universe.totaltimeelapsed >= catSpFleetCommandTime)
             {
                 singlePlayerGameInfo.hyperspaceState = HYPERSPACE_SHIPSLEAVING;
+                return;
             }
             break;
 
@@ -2683,114 +2816,163 @@ void singlePlayerGameUpdate(void)
             if (singlePlayerGameInfo.hyperspaceSubState == FOCUSING_ON_MOTHERSHIP)
             {
                 bool32 shipsoriented = OrientHyperspacingShips();
-                if ((universe.totaltimeelapsed >= singlePlayerGameInfo.hyperspaceTimeStamp) && (shipsoriented))
+                Ship *mothership;
+
+                if ((universe.totaltimeelapsed < singlePlayerGameInfo.hyperspaceTimeStamp) || !shipsoriented)
                 {
-                    CalculateHyperspaceTimesForShips();
-                    singlePlayerGameInfo.hyperspaceSubState = LOCKED_FOCUS_FOR_HOP;
-                    tutGameMessage("Game_BeginHyperspace");
-//                    ccSetModeFlag(&universe.mainCameraCommand, CCMODE_FOCUS_CHANGES_NOTHING);
-//                    spSavedCameraYet = FALSE;
-                    if (!singlePlayerGameInfo.hyperspaceFails)
+                    return;
+                }
+                mothership = universe.curPlayerPtr->PlayerMothership;
+                for (node = universe.ShipList.head; node != NULL; node = node->next)
+                {
+                    ship = (Ship *)listGetStructOfNode(node);
+                    if (ShipCanMakeHyperspace(ship))
                     {
-                        soundEvent(universe.curPlayerPtr->PlayerMothership, Ship_SinglePlayerHyperspace);
-                        soundEventStopTrack(musicEventCurrentTrack(), 1.5f);
+                        CalculateHyperspaceTimeForShip(ship,mothership);
                     }
                 }
-
+                singlePlayerGameInfo.hyperspaceSubState = LOCKED_FOCUS_FOR_HOP;
+                // CAT: no "Game_BeginHyperspace" tutorial message and no Ship_SinglePlayerHyperspace sound
+                if (!singlePlayerGameInfo.hyperspaceFails)
+                {
+                    soundEventStopTrack(musicEventCurrentTrack(), 1.5f);
+                }
+                // CAT: the ships still in the ether from before are wiped (0x00519e9b ..)
+                for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = nextnode)
+                {
+                    ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+                    nextnode = node->next;
+                    ship->howDidIDie = DEATH_Left_Behind_At_Hyperspace;
+                    univDeleteWipeInsideShipOutOfExistence(ship);
+                }
+                return;
             }
-            else if (singlePlayerGameInfo.hyperspaceSubState == LOCKED_FOCUS_FOR_HOP)
+            if (singlePlayerGameInfo.hyperspaceSubState != LOCKED_FOCUS_FOR_HOP)
             {
-                if (UpdateHyperspacingShips())
+                return;
+            }
+            // CAT: HW1's UpdateHyperspacingShips, inlined with the exe's test: done when no ship of the fleet is left
+            //      outside (or, in a failed jump, when each one's effect has finished)
+            allDone = TRUE;
+            for (node = universe.ShipList.head; node != NULL; node = nextnode)
+            {
+                ship = (Ship *)listGetStructOfNode(node);
+                nextnode = node->next;
+                if (ShipCanMakeHyperspace(ship))
                 {
-                    if (singlePlayerGameInfo.hyperspaceFails)
+                    bool32 result = UpdateHyperspacingShip(ship,FALSE);
+
+                    if (!singlePlayerGameInfo.hyperspaceFails || !result)
                     {
-                        singlePlayerGameInfo.hyperspaceState = HYPERSPACE_FAILED;
-                        goto hyperspacefailed;
+                        allDone = FALSE;
                     }
-
-                    // all ships have hyperspaced out.
-                    spBinkPlay = TRUE;
-                    singlePlayerGameInfo.hyperspaceState = HYPERSPACE_WHITEOUT;
-                    singlePlayerGameInfo.hyperspaceTimeStamp = universe.totaltimeelapsed + HYPERSPACE_WHITEOUTTIME;
-
-                    speechEventStopAll(0.5f);
-
-                    // screen should fade out
-                    mrWhiteOut = TRUE;
-                    mrWhiteOutT = 1.0f;
-
-                    // save camera
-                    //if (!spSavedCameraYet)
-                    //{
-                    //    Ship* mo = universe.curPlayerPtr->PlayerMothership;
-//                        spSavedCamera = universe.mainCameraCommand.currentCameraStack->remembercam;
-  //                      vecSubFrom(spSavedCamera.eyeposition, mo->obj.posinfo.position);
-    //                    vecSubFrom(spSavedCamera.lookatpoint, mo->obj.posinfo.position);
-                        //spSavedCameraYet = TRUE;
-                    //}
                 }
             }
+            if (!allDone)
+            {
+                return;
+            }
+            if (!singlePlayerGameInfo.hyperspaceFails)
+            {
+                // all ships have hyperspaced out.
+                singlePlayerGameInfo.hyperspaceTimeStamp = universe.totaltimeelapsed + HYPERSPACE_WHITEOUTTIME;
+                spBinkPlay = TRUE;
+                singlePlayerGameInfo.hyperspaceState = HYPERSPACE_WHITEOUT;
+                speechEventStopAll(0.5f);
+                // screen should fade out
+                mrWhiteOut = TRUE;
+                mrWhiteOutT = 1.0f;
+                return;
+            }
+            // CAT: a failed jump falls through into the exe's case 10
+        case HYPERSPACE_CATFAILEDRETURN:
+            singlePlayerGameInfo.hyperspaceState = NO_HYPERSPACE;
+            catSpEtherCleanup(FALSE, FALSE);
+            spUnlockout();
+            //launch all necessary ships first
+            LaunchAllInternalShipsOfPlayerThatMustBeLaunched(universe.curPlayerPtr);
+            clAutoLaunch(singlePlayerGameInfo.oldAutoLaunch,universe.curPlayerIndex);
+            tutGameMessage("Game_HyperspaceFailed");
+            singlePlayerGameInfo.hyperspaceFails = FALSE;
             break;
 
         case HYPERSPACE_WHITEOUT:
-            if (universe.totaltimeelapsed >= singlePlayerGameInfo.hyperspaceTimeStamp)
+            if (universe.totaltimeelapsed < singlePlayerGameInfo.hyperspaceTimeStamp)
+            {
+                break;
+            }
+            if (spBinkPlay)
             {
                 // playback level transition animatic
-                if (spBinkPlay)
+                catSpLevelFade = 0.0f;
+                animBinkPlay(singlePlayerGameInfo.currentMission, singlePlayerGameInfo.currentMission + 1);
+                if (singlePlayerGameInfo.currentMission == MISSION_17)
                 {
-#if defined(HW_GAME_RAIDER_RETREAT)
-                    //no animatic between Missions 4 and 5 and thereafter
-                    if (spGetCurrentMission() < MISSION_4_GREAT_WASTELANDS_TRADERS)
-#endif
-                    {
-                        animAviPlay(spGetCurrentMission(), spGetNextMission());
-                    }
-                    
-// was: HW_COMPUTER_GAMING_WORLD_DEMO but the standard demo
-// had a short single player campaign surely? If not get rid of this
-#ifdef HW_GAME_DEMO
-                    if (spGetCurrentMission() == MISSION_2_OUTSKIRTS_OF_KHARAK_SYSTEM)
-                    {
-                        universe.quittime = universe.totaltimeelapsed;
-                        utyPlugScreens = TRUE;
-                    }
-#elif defined(HW_GAME_RAIDER_RETREAT)
-                    if (spGetCurrentMission() == MISSION_5B_TURANIC_RAIDER_PLANETOID)
-                    {
-                        universe.quittime = universe.totaltimeelapsed;
-                        utyPlugScreens = TRUE;
-                    }
-#else
-                    if (spGetCurrentMission() == MISSION_16_HIIGARA)
-                    {
-                        universe.quittime = universe.realtimeelapsed;     // CAT: quit times are real time (singlePlayerGameUpdate 0x005197d0; Cataclysm's last-mission test is stage 6)
-                        utyCreditsSequence = TRUE;
-                    }
-#endif
-                    spBinkPlay = FALSE;
-                    mrWhiteOut = FALSE;
+                    // CAT: Cataclysm's last mission ends the game with the credits (0x0051a10d)
+                    universe.quittime = universe.realtimeelapsed;
+                    utyCreditsSequence = TRUE;
                 }
-                else
+                spBinkPlay = FALSE;
+                mrWhiteOut = FALSE;
+                catSpLevelFade = 1.0f;
+                return;
+            }
+            if (aviIsPlaying)                               // CAT: binkDonePlaying 0x008b6d94
+            {
+                break;
+            }
+            spBinkPlay = FALSE;
+            // clear damage effects from ships (and the ships inside them: cat_spForgetDamageEffects)
+            for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = node->next)
+            {
+                cat_spForgetDamageEffects(((InsideShip *)listGetStructOfNode(node))->ship);
+            }
+            // CAT: the ships flagged to be deleted after the jump (attribute 0x40) go, the ones inside a ship are
+            //      taken out of it (0x0051a1a5 ..)
+            for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = nextnode)
+            {
+                ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+                nextnode = node->next;
+                if (ship->obj.attributes & ATTRIBUTES_DeleteAfterHSOut)
                 {
-#if 0   /* Bink...the VOICES...MAKE IT STOP!#@$1 */
-                    if (!binkDonePlaying)
+                    univDeleteWipeInsideShipOutOfExistence(ship);
+                }
+                if (ship->shipsInsideMe != NULL)
+                {
+                    Node *inside = ship->shipsInsideMe->insideList.head;
+
+                    while (inside != NULL)
                     {
-                        break;
+                        Ship *iship = ((InsideShip *)listGetStructOfNode(inside))->ship;
+
+                        inside = inside->next;
+                        if (iship->obj.attributes & ATTRIBUTES_DeleteAfterHSOut)
+                        {
+                            dockRemoveShipFromInside(iship, ship);
+                            inside = ship->shipsInsideMe->insideList.head;
+                        }
                     }
-#endif
-
-                    // clear damage effects from ships
-                    CleanupDamageEffects();
-
-                    // rebuild level now
-                    catSpLevelFromNisStop = FALSE;      // CAT: the next mission (0x00a6ac74 cleared, 0x00519...)
-                    singlePlayerGameLoadNewLevelFlag = TRUE;
-                    singlePlayerHyperspacingInto = TRUE;
-//                    singlePlayerGameInfo.hyperspaceState = HYPERSPACE_SHIPSARRIVING;
-                    singlePlayerGameInfo.hyperspaceState = HYPERSPACE_LOADDONE;
                 }
             }
-            break;
+            if (!catSpMissionStartsInNis[singlePlayerGameInfo.currentMission + 1])
+            {
+                // rebuild level now
+                catSpLevelFromNisStop = FALSE;
+                singlePlayerGameLoadNewLevelFlag = TRUE;
+                catSpFleetArriving = TRUE;                  // CAT: 0x00a6ad78
+                singlePlayerGameInfo.hyperspaceState = HYPERSPACE_LOADDONE;
+                catSpLevelFade = 1.0f;
+                return;
+            }
+            // CAT: the next mission is entered from its opening NIS, played in its staging level (0x0051a2a6 ..):
+            //      the state waits (no case) until singlePlayerNisStoppedCB loads the mission
+            singlePlayerNisNumber = catSpMissionNis[singlePlayerGameInfo.currentMission + 1];
+            singlePlayerNISName = catSpNisNames[singlePlayerNisNumber][0];
+            singlePlayerStartNis(catSpNisNames[singlePlayerNisNumber][0], catSpNisNames[singlePlayerNisNumber][1],
+                                 NULL, TRUE, FALSE);
+            singlePlayerGameInfo.hyperspaceState = HYPERSPACE_FAILED;
+            catSpLevelFade = 1.0f;
+            return;
 
         case HYPERSPACE_LOADDONE:
             // CAT: the level the fleet arrives in starts its KAS script here, before the fleet arrives (the mission
@@ -2800,7 +2982,6 @@ void singlePlayerGameUpdate(void)
             singlePlayerKasMissionStart(spGetCurrentMission());
             nisFullyScissored = TRUE;                               // 0x00a4cb58
             spMainScreenAndLockout(SPLOCKOUT_MR);
-            mouseCursorHide();
             if (singlePlayerGameInfo.currentMission == 1)
             {                                                       // Mission01 keeps the letterbox for its nislet
                 catSmHideViewport = TRUE;                           // 0x00a5b228
@@ -2822,9 +3003,6 @@ void singlePlayerGameUpdate(void)
             {
                 // CAT: the fleet arrives at the start point (singlePlayerGameUpdate 0x005197d0, its case 9)
                 bool32 allArrived;
-                hvector startpoint;
-                Node *node, *nextnode;
-                Ship *ship;
 
                 if (!catSpMissionArrivesAtOnce[singlePlayerGameInfo.currentMission])
                 {
@@ -2857,20 +3035,78 @@ void singlePlayerGameUpdate(void)
                         }
                     }
                 }
+                else if (!catSpArriveAtOnce)
+                {
+                    // CAT: the fleet is out; the arrival ends with the black fade
+                    allArrived = (catSpLevelFade <= 0.0f);
+                }
                 else
                 {
-                    // CAT-TODO(stage 6 single player): the missions of 0x00894470 put the fleet at the start point at once when catSpArriveAtOnce is set (0x00519f90 ..: PutShipOutsideAt with the ship's formation offset, the parade, cat_spLaunchDockedShipsOnArrival, the focus) and then wait for the black fade; this tree flies them in (UpdateArrivingShip)
+                    // CAT: the fleet is put at the start point at once (0x00519f90 ..), each ship at its offset from
+                    //      the mothership turned by the start point's angle, out of the ether and of hyperspace
                     catSpArriveAtOnce = FALSE;
-                    allArrived = TRUE;
-                    catSpStartPoint(&startpoint);
-                    for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = node->next)
+                    for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = nextnode)
                     {
                         ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+                        nextnode = node->next;
                         if (allianceIsShipAlly(ship, universe.curPlayerPtr))
                         {
-                            allArrived &= UpdateArrivingShip(ship, &startpoint, FALSE);
+                            ShipSinglePlayerGameInfo *ssinfo = ship->shipSinglePlayerGameInfo;
+                            vector offset, position, zero = { 0.0f, 0.0f, 0.0f };
+                            matrix rotz;
+                            real64 angle64;
+                            real32 angle;
+
+                            catSpStartPoint(&startpoint);
+                            vecSet(offset, ssinfo->forbehind, -ssinfo->rightleft, ssinfo->updown);
+                            angle64 = (real64)startpoint.w * (real64)CAT_SP_DEG_TO_RAD;
+                            angle = (real32)angle64;
+                            matMakeRotAboutZ(&rotz, (real32)cos((real64)angle), (real32)sin(angle64));
+                            matMultiplyMatByVec(&position, &rotz, &offset);
+                            position.x += startpoint.x;
+                            position.y += startpoint.y;
+                            position.z += startpoint.z;
+                            PutShipOutsideAt(ship, &position, &zero, angle);
+                            bitClear(ship->header.flags, SOF_Hyperspace);
+                            bitClear(ship->shipOrDerelict.specialFlags,
+                                     SPECIAL_Hyperspacing | SPECIAL_SinglePlayerWithinHyperSpaceRange);
+                            ssinfo->shipHyperspaceState = SHIPHYPERSPACE_NONE;
+                            // CAT-FIX: the exe deletes the list's head, which is this node unless a ship that is not
+                            //      the player's ally came first
+                            listDeleteNode(node);
                         }
                     }
+                    for (node = universe.ShipList.head; node != NULL; node = node->next)
+                    {
+                        ship = (Ship *)listGetStructOfNode(node);
+                        if ((ship->playerowner == &universe.players[0]) &&
+                            ((ship->shiptype == dEcclesiam) || !ship->shipOrDerelict.catDisabled))
+                        {
+                            selectone.numShips = 1;
+                            selectone.ShipPtr[0] = ship;
+                            RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone, 0x26);
+                            aitrackForceSteadyShip(ship);
+                            if (ship != universe.players[0].PlayerMothership)
+                            {
+                                GroupShipIntoMilitaryParade(&universe.mainCommandLayer, ship,
+                                                            universe.players[0].PlayerMothership);
+                                bitSet(ship->shipOrDerelict.specialFlags, SPECIAL_SinglePlayerInParade);
+                            }
+                            if (ship->shipsInsideMe != NULL)
+                            {
+                                cat_spLaunchDockedShipsOnArrival(ship);
+                            }
+                        }
+                    }
+                    clPresetShipsToPosition(&universe.mainCommandLayer);
+                    ccFocusOnPlayersMothership(&universe.mainCameraCommand,0);
+                    if (catMotionCues)
+                    {
+                        cat_mcResetRequest(&catMotionCueState);
+                    }
+                    catSpLevelFadeRestart = TRUE;
+                    catSpLevelFade = 1.0f;
+                    allArrived = FALSE;
                 }
 
                 if (allArrived)
@@ -2879,31 +3115,7 @@ void singlePlayerGameUpdate(void)
                     cat_kasVarFindOrCreate(0, cat_kasHashString("G_ShipsHaveArrived"))->value = 1;
                     catSpFleetArriving = FALSE;
                     singlePlayerGameInfo.hyperspaceState = NO_HYPERSPACE;
-                    for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = nextnode)
-                    {
-                        nextnode = node->next;
-                        ship = ((InsideShip *)listGetStructOfNode(node))->ship;
-                        if (allianceIsShipAlly(ship, universe.curPlayerPtr))
-                        {
-                            listDeleteNode(node);
-                            ship->shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_NONE;
-                            bitClear(ship->shipOrDerelict.specialFlags, SPECIAL_SinglePlayerWithinHyperSpaceRange);
-                        }
-                    }
-                    if (singlePlayerGameInfo.hyperspaceFails)
-                    {
-                        for (node = universe.ShipList.head; node != NULL; node = node->next)
-                        {
-                            ship = (Ship *)listGetStructOfNode(node);
-                            if (cat_spShipCanHyperspace(ship) &&
-                                (ship->staticinfo->shipIsCapital || (ship->staticinfo->shipclass == CLASS_Component)) &&
-                                bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_SinglePlayerWithinHyperSpaceRange))
-                            {
-                                ship->shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_NONE;
-                                bitClear(ship->shipOrDerelict.specialFlags, SPECIAL_SinglePlayerWithinHyperSpaceRange);
-                            }
-                        }
-                    }
+                    catSpEtherCleanup(FALSE, FALSE);
                     cat_soundEventLetterboxVolume(TRUE);
                     for (node = universe.ShipList.head; node != NULL; node = node->next)
                     {
@@ -2928,26 +3140,9 @@ void singlePlayerGameUpdate(void)
                 }
             }
             break;
-hyperspacefailed:
-        case HYPERSPACE_FAILED:
-            {
-                // all ships have arrived and are in starting position
-                singlePlayerGameInfo.hyperspaceState = NO_HYPERSPACE;
-                CleanupHyperspacingShips(FALSE,FALSE);
 
-                spUnlockout();
-
-                //launch all necessary ships first
-                LaunchAllInternalShipsOfPlayerThatMustBeLaunched(universe.curPlayerPtr);
-
-                clAutoLaunch(singlePlayerGameInfo.oldAutoLaunch,universe.curPlayerIndex);
-
-                tutGameMessage("Game_HyperspaceFailed");
-                singlePlayerGameInfo.hyperspaceFails = FALSE;
-            }
-            break;
-            
         default:
+            // HYPERSPACE_FAILED (the next mission's opening NIS plays) and NO_HYPERSPACE: no case in the exe
             break;
     }
 }
@@ -2961,7 +3156,7 @@ static void SetOnMissionCompleteInfo(char *directory,char *field,void *dataToFil
 
     sscanf(field,"%d %s",&info->onCompletePlayNIS,str);
 
-    if (strcmp(str,"NOHYPERSPACE") == 0)
+    if (strcasecmp(str,"NOHYPERSPACE") == 0)          // CAT: _stricmp 0x00676c90 (SetOnMissionCompleteInfo 0x0051ab50)
     {
         info->onCompleteHyperspace = FALSE;
     }
@@ -3439,6 +3634,13 @@ void singlePlayerKasMissionStart(MissionEnum mission)
     kasMissionStart(script->name, script->init, script->watch);
 }
 
+// HWI (M2-R8 singleplayer-tutorial): the mission's kas2c script is generated (M2-R9 part B generates missions 02 .. 17);
+//      render.c's GoK debugScreenshots mode moves to the next mission only then
+bool32 cat_spKasScriptGenerated(MissionEnum mission)
+{
+    return (mission >= MISSION_1_KHARAK_SYSTEM) && (mission <= MISSION_17) && (catKasScripts[mission - 1].init != NULL);
+}
+
 // CAT: 0x0051b230: the index of the script whose Watch function this is, -1 for none
 sdword WatchFunctionToMissionEnum(KASWatchFunction watchFunction)
 {
@@ -3786,201 +3988,145 @@ void FindShipsOfShipTypeOfPlayer(GrowSelection *growselect,ShipType shiptype,Pla
 
 #define MAXLINENEED 100
 
-sdword WarpToLevelEnabled(void)
+
+
+
+
+
+
+
+
+
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_spWarpToLevel                                 0x0051b9c0
+    Description : CAT: the warp start (Warp.script's WarpEnabled): the mission is LevelToWarpTo; an sMothership and
+                  the record's ships are created for player 0 at the origin in the parade around it (the first eight
+                  sCarriers kept); a module is clamped to the mothership, a carrier's support module
+                  (sCarrierSupport) to the first carrier with a support dock point free; a support module takes its
+                  host's next DPT_Support_EB point (turned round on every second one) and the research module types are
+                  activated; then player 0 gets the record's resources and technologies, every ship of the player goes
+                  into the ether, and the level loads with the fleet hyperspacing in (singlePlayerLoadNewLevel(0, 1)
+                  in HYPERSPACE_LOADDONE)
+----------------------------------------------------------------------------*/
+static void cat_spWarpToLevel(void)
 {
-    filehandle fh;
-    char line[MAXLINENEED];
-    char tempbuf[30];
-    sdword status;
-    sdword warpLevel;
+    CatSpWarpLevel *record;
+    Ship *carriers[8];
+    sdword numCarriers = 0;
+    vector origin = { 0.0f, 0.0f, 0.0f };
+    Ship *mothership, *ship, *host;
+    ShipType type;
+    sdword count, i, first, index;
+    DockStaticInfo *dockinfo;
+    matrix rotation, oldCoordsys;
+    vector xyz;
+    Node *node;
 
-    if (fileExists(WARP_FILENAME,0))
+    memset(carriers, 0, sizeof(carriers));
+    singlePlayerGameInfo.currentMission = catSpWarpLevelTo;
+    record = &catSpWarpLevels[catSpWarpLevelTo - 1];
+
+    mothership = univAddShip(sMothership, universe.players[0].race, &origin, &universe.players[0], 0);
+    gameStatsAddShip(mothership, 0);
+    unitCapCreateShip(mothership, &universe.players[0]);
+    universe.players[0].PlayerMothership = mothership;
+
+    for (type = 0; type < TOTAL_NUM_SHIPS; type++)
     {
-        fh = fileOpen(WARP_FILENAME,FF_TextMode);
-
-        status = fileLineRead(fh,line,MAXLINENEED);
-
-        fileClose(fh);
-
-        if (status == FR_EndOfFile)
+        for (count = 0; count < record->ships[type]; count++)
         {
-            return 0;
-        }
-
-        if (sscanf(line,"%s %d",tempbuf,&warpLevel) == 2)
-        {
-            if (strcasecmp("WarpTo",tempbuf) == 0)
+            ship = univAddShip(type, universe.players[0].race, &origin, &universe.players[0], 0);
+            gameStatsAddShip(ship, 0);
+            unitCapCreateShip(ship, &universe.players[0]);
+            GroupShipIntoMilitaryParade(&universe.mainCommandLayer, ship, universe.players[0].PlayerMothership);
+            if ((ship->shiptype == sCarrier) && (numCarriers < 8))
             {
-                if (warpLevel > 1)
+                carriers[numCarriers++] = ship;
+            }
+            if (ship->staticinfo->shipclass != CLASS_Component)
+            {
+                continue;
+            }
+            host = universe.players[0].PlayerMothership;
+            if (ship->shiptype == sCarrierSupport)
+            {
+                for (i = 0; i < numCarriers; i++)
                 {
-                    return warpLevel;
+                    dockinfo = carriers[i]->staticinfo->dockStaticInfo;
+                    if (carriers[i]->dockInfo->catNumBusyOfType[DPT_Support_EB] < (sbyte)dockinfo->numOfType[DPT_Support_EB])
+                    {
+                        break;
+                    }
+                }
+                // (the exe calls an empty debug function 0x006fe9a0 when every carrier is full, then takes the first)
+                host = (i < numCarriers) ? carriers[i] : ((numCarriers > 0) ? carriers[0] : host);
+            }
+            if ((ship->shiptype == sCarrierSupport) || (ship->shiptype == sMothershipSupport))
+            {
+                dockinfo = host->staticinfo->dockStaticInfo;
+                first = (sbyte)dockinfo->firstOfType[DPT_Support_EB];
+                if (first != -1)
+                {
+                    index = first;
+                    if (host->dockInfo->catNumBusyOfType[DPT_Support_EB] < (sbyte)dockinfo->numOfType[DPT_Support_EB])
+                    {
+                        index = host->dockInfo->catNumBusyOfType[DPT_Support_EB] + first;
+                        ship->dockvars.dockship = host;
+                        dockReserveDockPoint(ship, host, index);
+                    }
+                    matMultiplyMatByVec(&xyz, &host->rotatable.rotinfo.coordsys,
+                                        &dockinfo->dockstaticpoints[index].position);
+                    vecAdd(ship->obj.posinfo.position, host->obj.posinfo.position, xyz);
+                    if ((index - first) & 1)
+                    {
+                        matMakeRotAboutX(&rotation, (real32)cos(PI), (real32)sin(PI));
+                        oldCoordsys = ship->rotatable.rotinfo.coordsys;
+                        matMultiplyMatByMat(&ship->rotatable.rotinfo.coordsys, &oldCoordsys, &rotation);
+                    }
                 }
             }
-            else
-            {
-                return 0;
-            }
+            clampObjToObj((SpaceObjRotImpTargGuidance *)ship, (SpaceObjRotImpTargGuidance *)host);
+            cat_rmResearchModuleActivated(&universe.players[0], type, FALSE);
         }
     }
 
-    return 0;
-}
-
-void WarpFleetStrengthCB(char *directory,char *field,void *dataToFillIn)
-{
-    ShipType shiptype;
-    ShipRace shiprace;
-    char shiptypestr[50];
-    sdword num = 0;
-    ShipStaticInfo *shipstatic;
-
-    RemoveCommasFromString(field);
-
-    sscanf(field,"%s %d",shiptypestr,&num);
-
-    shiptype = StrToShipType(shiptypestr);
-    if (!(shiptype < TOTAL_NUM_SHIPS))
-    {
-        dbgFatalf(DBG_Loc,"Bad shiptype in %s",field);
-    }
-
-    if (num <= 0)
-    {
-        return;
-    }
-
-    if (shiptype > STD_LAST_SHIP)
-    {
-        shiprace = GetValidRaceForShipType(shiptype);
-    }
-    else
-    {
-        shiptype = GetAppropriateShipTypeForRace(shiptype,universe.players[0].race);
-        dbgAssertOrIgnore(shiptype != -1);
-        shiprace = universe.players[0].race;
-    }
-
-    shipstatic = GetShipStaticInfo(shiptype,shiprace);
-    dbgAssertOrIgnore(bitTest(shipstatic->common.infoFlags, IF_InfoLoaded));
-
-    spFleetStr += (GetStrengthOfShipStatic(shipstatic)*num);
-}
-
-void WarpPreLoadCB(char *directory,char *field,void *dataToFillIn)
-{
-    ShipType shiptype;
-    ShipRace shiprace;
-    char shiptypestr[50];
-    sdword num = 0;
-
-    RemoveCommasFromString(field);
-
-    sscanf(field,"%s %d",shiptypestr,&num);
-
-    shiptype = StrToShipType(shiptypestr);
-    if (!(shiptype < TOTAL_NUM_SHIPS))
-    {
-        dbgFatalf(DBG_Loc,"Bad shiptype in %s",field);
-    }
-
-    if (num <= 0)
-    {
-        return;
-    }
-
-    if (shiptype > STD_LAST_SHIP)
-    {
-        shiprace = GetValidRaceForShipType(shiptype);
-    }
-    else
-    {
-        shiptype = GetAppropriateShipTypeForRace(shiptype,universe.players[0].race);
-        dbgAssertOrIgnore(shiptype != -1);
-        shiprace = universe.players[0].race;
-    }
-
-    SetInfoNeededForShipAndRelatedStaticInfo(shiptype,shiprace,TRUE);
-}
-
-void WarpFleetRUStrengthCB(char *directory,char *field,void *dataToFillIn)
-{
-    sdword num = 0;
-
-    sscanf(field,"%d",&num);
-    spFleetStr += GetStrengthOfRUs(num);
-}
-
-void SetWarpFleetCB(char *directory,char *field,void *dataToFillIn)
-{
-    Ship *ship;
-    ShipType shiptype;
-    ShipRace shiprace;
-    char shiptypestr[50];
-    sdword num = 0;
-    sdword i;
-    vector zeroVector = { 0.0f, 0.0f, 0.0f };
-    Player *player = &universe.players[0];
-
-    RemoveCommasFromString(field);
-
-    sscanf(field,"%s %d",shiptypestr,&num);
-
-    shiptype = StrToShipType(shiptypestr);
-    if (!(shiptype < TOTAL_NUM_SHIPS))
-    {
-        dbgFatalf(DBG_Loc,"Bad shiptype in %s",field);
-    }
-
-    if (num <= 0)
-    {
-        return;
-    }
-
-    if (shiptype > STD_LAST_SHIP)
-    {
-        shiprace = GetValidRaceForShipType(shiptype);
-    }
-    else
-    {
-        shiptype = GetAppropriateShipTypeForRace(shiptype,universe.players[0].race);
-        dbgAssertOrIgnore(shiptype != -1);
-        shiprace = universe.players[0].race;
-    }
-
-    dbgAssertOrIgnore(universe.players[0].PlayerMothership);
-
-    for (i=0;i<num;i++)
-    {
-        ship = univAddShip(shiptype,shiprace,&zeroVector,&universe.players[0],0);
-        gameStatsAddShip(ship,0);
-        // Update ship totals for player
-        unitCapCreateShip(ship,player);
-
-        // CAT: no ResearchShip lab activation, Cataclysm has no research ship type (M2-R4 ships-b retire)
-
-        GroupShipIntoMilitaryParade(&universe.mainCommandLayer,ship,universe.players[0].PlayerMothership);
-    }
-}
-
-void WarpInFleet(hvector *startPoint)
-{
-    // Create Mothership
-    Ship *ship;
-    Player *player = &universe.players[0];
-
-    ship = univAddShip(Mothership,universe.players[0].race,(vector *)startPoint,&universe.players[0],0);
-    gameStatsAddShip(ship,0);
-    univRotateObjYaw(&ship->rotatable,DEG_TO_RAD(startPoint->w));
-
-    // Update ship totals for player
-    unitCapCreateShip(ship,player);
-
-    universe.players[0].PlayerMothership = ship;
-
-    // Now add rest of fleet in parade formation
-    scriptSet(NULL,WARP_FILENAME,WarpScriptTable);
-
     clPresetShipsToPosition(&universe.mainCommandLayer);
+    universeSwitchToPlayer(0);
+    universe.players[0].resourceUnits = record->resources;
+    cat_rmTechSetOr(universe.players[0].researchinfo.HasTechnology, universe.players[0].researchinfo.HasTechnology,
+                    record->tech);
+    cat_playerUpdateUpgradesFromResearch(&universe.players[0]);
+
+    node = universe.ShipList.head;
+    while (node != NULL)
+    {
+        Node *nextnode = node->next;
+        bool32 leaves;
+
+        ship = (Ship *)listGetStructOfNode(node);
+        if (ship->playerowner != universe.curPlayerPtr)
+        {
+            node = nextnode;
+            continue;
+        }
+        CalculateHyperspaceTimeForShip(ship, universe.curPlayerPtr->PlayerMothership);
+        ship->shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_GONE;
+        leaves = ((ship->header.flags & SOF_Hyperspace) == 0);
+        if (leaves)
+        {
+            univRemoveShipFromOutside(ship, FALSE);
+            AddShipToHyperspace(ship);
+            ship->shipSinglePlayerGameInfo->midlevelHyperspaceOut = FALSE;
+        }
+        cat_shipApplyUpgrades(ship);
+        // CAT-FIX: the exe walks from the list's head again (the ship has left it); a ship of the player already in
+        //      the ether (not in the list) would make it loop forever, so then the walk goes on with the next ship
+        node = leaves ? universe.ShipList.head : nextnode;
+    }
+    catSpLevelFromNisStop = FALSE;                          // 0x00a6ac74
+    singlePlayerGameInfo.hyperspaceState = HYPERSPACE_LOADDONE;
+    singlePlayerLoadNewLevel(0, 1);
 }
 
 /*-----------------------------------------------------------------------------
@@ -3992,78 +4138,7 @@ void WarpInFleet(hvector *startPoint)
     Outputs     : Allows the player to research certain topics
     Return      : void
 ----------------------------------------------------------------------------*/
-void singleHackResearchWarp(void)
-{
-    switch (warpLevel)
-    {
-        // no breaks and reverse mission order so that you inherit
-        // technology gains from previous levels
-        // FIXME: this doesn't play nicely with the mission sequence
-        // if that is altered
-        case MISSION_16_HIIGARA:
-        case MISSION_15_CHAPEL_PERILOUS:
-            PlayerAcquiredTechnology("HeavyGuns");
-        
-        case MISSION_14_BRIDGE_OF_SIGHS:
-            AllowPlayerToResearch("HeavyGuns");
-            PlayerAcquiredTechnology("CloakDefenseFighter");
-        
-        case MISSION_13_THE_KAROS_GRAVEYARD:
-            PlayerAcquiredTechnology("MissileWeapons");
-            AllowPlayerToResearch("CloakDefenseFighter");
-        
-        case MISSION_12_GALACTIC_CORE:
-            PlayerAcquiredTechnology("GravityWellGeneratorTech");
-        
-        case MISSION_11_TENHAUSER_GATE:
-            AllowPlayerToResearch("GravityWellGeneratorTech");
-            PlayerAcquiredTechnology("ProximityDetector");
-            PlayerAcquiredTechnology("RepairTech");
-        
-        case MISSION_10_SUPER_NOVA_STATION:
-            AllowPlayerToResearch("RepairTech");
-            AllowPlayerToResearch("MissileWeapons");
-        
-        case MISSION_9_SEA_OF_LOST_SOULS:
-            PlayerAcquiredTechnology("DDDFDFGFTech");
-            PlayerAcquiredTechnology("TargetingSystems");
-        
-        case MISSION_8_THE_CATHEDRAL_OF_KADESH:
-            AllowPlayerToResearch("TargetingSystems");
-        
-        case MISSION_7_THE_GARDENS_OF_KADESH:
-            AllowPlayerToResearch("DDDFDFGFTech");
-            PlayerAcquiredTechnology("MassDrive1Mt");
-            PlayerAcquiredTechnology("FireControl");
-            
-        case MISSION_6_DIAMOND_SHOALS:
-            PlayerAcquiredTechnology("PlasmaWeapons");
-            AllowPlayerToResearch("MassDrive1Mt");
-            AllowPlayerToResearch("FireControl");
-            
-        case MISSION_5_GREAT_WASTELANDS_REVENGE:
-        case MISSION_5B_TURANIC_RAIDER_PLANETOID:
-            AllowPlayerToResearch("PlasmaWeapons");
-            PlayerAcquiredTechnology("Chassis3");
-            PlayerAcquiredTechnology("IonWeapons");
-            
-        case MISSION_4_GREAT_WASTELANDS_TRADERS:
-            PlayerAcquiredTechnology("MassDrive100Kt");
-            AllowPlayerToResearch("Chassis3");
-            
-        case MISSION_3_RETURN_TO_KHARAK:
-            PlayerAcquiredTechnology("Chassis2");
-            PlayerAcquiredTechnology("MediumGuns");
-            
-        case MISSION_2_OUTSKIRTS_OF_KHARAK_SYSTEM:
-            PlayerAcquiredTechnology("Chassis1");
-            PlayerAcquiredTechnology("MassDrive10Kt");
-            
-        case MISSION_1_KHARAK_SYSTEM:
-            PlayerAcquiredTechnology("MassDrive1Kt");
-            AllowPlayerToResearch("Chassis1");
-    }
-}
+
 
 
 /*-----------------------------------------------------------------------------
@@ -4073,53 +4148,19 @@ void singleHackResearchWarp(void)
                   singlePlayerStartNis loads first (the mission number stays 1); the universe is shown when the NIS
                   ends (singlePlayerNisStoppedCB loads Mission01 and the fleet hyperspaces in)
 ----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    Name        : singlePlayerStartGame                             0x0051bdb0
+    Description : CAT (M2-R8 kas-runtime-mission01): a new single-player game starts in Mission01's opening NIS
+                  (nis\n01.nis, nis\n01.script) at the origin, played in the staging level Mission01_NIS01 that
+                  singlePlayerStartNis loads first (the mission number stays 1); the universe is shown when the NIS
+                  ends (singlePlayerNisStoppedCB loads Mission01 and the fleet hyperspaces in). M2-R8
+                  singleplayer-tutorial: the warp start (cat_spWarpToLevel) after tmTechInit / universeSwitchToPlayer
+----------------------------------------------------------------------------*/
 void singlePlayerStartGame(void)
 {
     hvector startPoint;
 
     universe.players[1].resourceUnits = 0;
-
-    if (warpLevel)
-    {
-        char *nis, *script;
-
-        // CAT-TODO(stage 6 single player): cat_spWarpToLevel 0x0051b9c0 (the exe's warp start, after tmTechInit / universeSwitchToPlayer); this tree keeps HW1's warp start
-        dbgAssertOrIgnore(spGetCurrentMission() == warpLevel);
-
-        universeSwitchToPlayer(0);
-
-        GetMissionsDirAndFile(spGetCurrentMission(), FALSE);
-
-        SetFleetModifier(spGetCurrentMission(), GetFleetStrengthWarpScript);
-        levelStartNext(spMissionsDir,spMissionsFile);
-
-        GetStartPointPlayer(&startPoint);
-        WarpInFleet(&startPoint);
-
-        singlePlayerLevelLoaded();
-
-        singleHackResearchWarp();
-
-        ccFocusOnPlayersMothership(&universe.mainCameraCommand,0);
-
-        soundEventPlayMusic(SongNumber);
-
-        singlePlayerKasMissionStart(spGetCurrentMission());
-
-        if (singlePlayerGameInfo.onLoadPlayNIS > 0)
-        {
-            hvector startpoint;
-
-            GetStartPointPlayer(&startpoint);
-            nis = catSpNisNames[singlePlayerGameInfo.onLoadPlayNIS][0];
-            script = catSpNisNames[singlePlayerGameInfo.onLoadPlayNIS][1];
-            singlePlayerNisNumber = singlePlayerGameInfo.onLoadPlayNIS;
-            singlePlayerNISName = nis;
-            singlePlayerStartNis(nis, script, &startpoint, FALSE, FALSE);
-        }
-
-        return;
-    }
 
     tmTechInit();
     spFleetModifier = 0.0f;                                 // 0x00a6ad84
@@ -4132,13 +4173,17 @@ void singlePlayerStartGame(void)
     {
         GetMissionsDirAndFile(spGetCurrentMission(), FALSE);
         levelInit(spMissionsDir,spMissionsFile);
-        singlePlayerLevelLoaded();
         GetStartPointPlayer(&startPoint);
         return;
     }
 #endif
 
     universeSwitchToPlayer(0);
+    if (catSpWarpEnabled)
+    {
+        cat_spWarpToLevel();
+        return;
+    }
     singlePlayerNisNumber = 1;
     singlePlayerNISName = catSpNisNames[1][0];
     startPoint.x = startPoint.y = startPoint.z = 0.0f;
@@ -4183,6 +4228,11 @@ void singlePlayerNextLevel(void)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : singlePlayerMissionCompleteCB                     0x0051be40
+    Description : CAT: the selection empties, the main screen stops rendering, the game quits at once (real time)
+                  into the credits
+----------------------------------------------------------------------------*/
 void singlePlayerMissionCompleteCB(void)
 {
     selSelected.numShips = 0;
@@ -4193,8 +4243,14 @@ void singlePlayerMissionCompleteCB(void)
     utyCreditsSequence = TRUE;
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : singlePlayerMissionFailedCB                       0x0051be70
+    Description : CAT: Fleet Command announces the failure (0x2001028, to player 0), player 0 is killed with nobody
+                  credited, and the win test runs (the quit follows in real time: CheckPlayerWin)
+----------------------------------------------------------------------------*/
 void singlePlayerMissionFailedCB(void)
 {
+    speechEventQueue(NULL, 0x2001028, -1, -1, 0, 0, -1, 5.0f, -1);
     univKillPlayer(0,PLAYERKILLED_LOSTMISSION,-1);   // CAT: nobody credited (singlePlayerMissionFailedCB 0x0051be8d pushes -1, 2, 0)
     CheckPlayerWin();
 }
@@ -4432,12 +4488,12 @@ void LoadSinglePlayerGame(void)
 /*=============================================================================
     CAT (M2-R6 mainrgn-popup): the single-player bits the popup menu reads
 =============================================================================*/
-// 0x00894108: the mothership's big gun may fire (data default 1; a KAS function at 0x0049ac30 clears it: stage 6).
+// 0x00894108: the mothership's big gun may fire (data default 1; kasfDisableBigGunFiring 0x0049ac30 clears it,
+//      singlePlayerGameCleanup 0x00519510 sets it again).
 //      Name chosen here
 bool32 catSpBigGunAllowed = TRUE;
 
-// 0x00894424: per mission, the hyperspace row says "next level" (1) or "hyperspace" (0) (cat_spMissionFlagValue)
-static const bool32 catSpMissionNextLevel[] = { 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0 };
+
 
 sdword cat_spPlayerCanHyperspace(void)                  // 0x005193b0
 {

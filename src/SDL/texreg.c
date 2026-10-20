@@ -2962,7 +2962,7 @@ void cat_trTextureMemorySet(sdword percent)
                     0x49 / 4, 0x3E / 6, 0x52 / 2. The materials walked are the mesh's local list for nPublic +
                     nLocal entries (the loaded mesh keeps both lists in one block). CAT-FIX: a type whose statics are
                     not loaded (no LOD) or a material whose textures were not registered is skipped (the exe would
-                    read through them). Its caller is singlePlayerGameUpdate 0x005197d0 (stage 6).
+                    read through them). Its caller is singlePlayerGameUpdate 0x005197d0 (Mission01's nislet, 0x00519a96).
 ----------------------------------------------------------------------------*/
 void cat_trPrecacheShipTextures(void)
 {

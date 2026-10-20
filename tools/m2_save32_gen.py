@@ -35,7 +35,8 @@ OUT = os.path.join(ROOT, "src", "Game", "SaveCat32Layouts.c")
 # the structs the loader converts, in the common translation unit (headers below)
 COMMON_HEADERS = ["SpaceObj.h", "Universe.h", "TitanInterfaceC.h", "CommandLayer.h", "CameraCommand.h", "Formation.h",
                   "Tactics.h", "SinglePlayer.h", "Blobs.h", "MeshAnim.h", "AIPlayer.h", "AITeam.h", "AIVar.h",
-                  "ConsMgr.h", "ResearchAPI.h", "Nebulae.h", "FOW.h", "Randy.h", "B-Spline.h", "Clouds.h"]
+                  "ConsMgr.h", "ResearchAPI.h", "Nebulae.h", "FOW.h", "Randy.h", "B-Spline.h", "Clouds.h",
+                  "KAS.h", "Objectives.h", "HS.h", "Ping.h"]
 COMMON_ROOTS = ["CaptainGameInfo", "Ship", "ClampInfo", "DamageLightStatic", "Gun", "DockInfo", "ShipsInsideMe",
                 "InsideShip", "ShipSinglePlayerGameInfo", "Asteroid", "Bullet", "Missile", "Derelict", "DustCloud",
                 "Nebula", "blob", "Universe", "CommandToDo", "MilitaryParadeCommand", "MilitarySlot", "CameraCommand",
@@ -43,7 +44,11 @@ COMMON_ROOTS = ["CaptainGameInfo", "Ship", "ClampInfo", "DamageLightStatic", "Gu
                 "AsteroidStaticInfo", "SinglePlayerGameInfo", "madanim", "splinecurve", "PlayerResearchInfo",
                 "shipsinprogress", "shipinprogress", "CatFOWGrid", "ResearchTopic", "AttackAtom", "DustCloudStaticInfo",
                 "cloudSystem", "Camera", "AIPlayer", "RequestShips", "TeamWaitingForTheseShips", "AITeamMove",
-                "nebChunk", "nebTendril"]
+                "nebChunk", "nebTendril",
+                # M2-R8 singleplayer-tutorial: a single-player save's mission tail (kasLoad 0x00491450, objectiveLoad
+                # 0x004d6960, LoadHyperspaceGates 0x00490510, pingLoad 0x004e9790)
+                "KasSelection", "LabelledPath", "LabelledVector", "LabelledVolume", "Objective", "FleetIntelligence",
+                "hsStaticGate", "ping"]
 OPTIONAL_ROOTS = {"shipsinprogress", "shipinprogress", "CatFOWGrid", "splinecurve"}
 
 SHIP_DIR = os.path.join(ROOT, "src", "Ships")

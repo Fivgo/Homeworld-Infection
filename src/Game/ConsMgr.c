@@ -1139,7 +1139,7 @@ void cmRemoveFactory(struct Ship *ship)
 static bool32 resourcesHaveBeenAboveBefore = TRUE;      // 0x00754b54
 
 // CAT: the exe's tutorial gates test bits of its own tutEnable word 0x00ba2e58 (as mainrgn.c's catMrTutEnabled): outside
-//      the tutorial everything is enabled. CAT-TODO(stage 6 tutorial): the exe's tutGameEnableFlags layout
+//      the tutorial everything is enabled (tutGameEnableFlags has the exe's layout since M2-R8 singleplayer-tutorial)
 static bool32 catCmTutEnabled(udword bit)
 {
     return (tutorial != TUTORIAL_ONLY) || ((*(udword *)&tutEnable & bit) != 0);
@@ -1849,7 +1849,7 @@ void cmClose(char *string, featom *atom)
     {
         catSmReopenAfterManager();
     }
-    // CAT-TODO(stage 6 tutorial): cat_tutButtonsRestoreAfterScreen (the tutorial's buttons come back)
+    cat_tutButtonsRestoreAfterScreen();      // CAT: the tutorial's buttons come back (cmClose 0x00455780)
 }
 
 
@@ -3486,7 +3486,7 @@ sdword cmConstructionBegin(regionhandle region, smemsize ID, udword event, udwor
     ExceededCapsFrames = 0.0f;
     ShipNumberExceeded = 0;
 
-    // CAT-TODO(stage 6 tutorial): cat_tutButtonsHideForScreen 0x005341f0 (the tutorial's buttons hide while the screen is open)
+    cat_tutButtonsHideForScreen();           // CAT: the tutorial's buttons hide while the screen is open (cmConstructionBegin 0x004586a6)
 
     return(status);
 }

@@ -416,6 +416,14 @@ static const SaveCat32Op ops_DustCloudStaticInfo[] = {
 const SaveCat32Layout saveCat32Layout_DustCloudStaticInfo = { "DustCloudStaticInfo", 0xc8, 0xd8, 4, ops_DustCloudStaticInfo };
 _Static_assert(sizeof(DustCloudStaticInfo) == 0xd8, "DustCloudStaticInfo: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
 
+static const SaveCat32Op ops_FleetIntelligence[] = {
+    { SC32_PTR, 0x0, 0x0, 4, 4, 4, 8, NULL },
+    { SC32_COPY, 0x10, 0x20, 0x2, 1, 0, 0, NULL },
+    { SC32_PTR, 0x14, 0x28, 4, 1, 4, 8, NULL },
+};
+const SaveCat32Layout saveCat32Layout_FleetIntelligence = { "FleetIntelligence", 0x18, 0x30, 3, ops_FleetIntelligence };
+_Static_assert(sizeof(FleetIntelligence) == 0x30, "FleetIntelligence: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
+
 static const SaveCat32Op ops_Gun[] = {
     { SC32_COPY, 0x0, 0x0, 0x84, 1, 0, 0, NULL },
     { SC32_PTR, 0x84, 0x88, 4, 1, 4, 8, NULL },
@@ -428,6 +436,35 @@ static const SaveCat32Op ops_InsideShip[] = {
 };
 const SaveCat32Layout saveCat32Layout_InsideShip = { "InsideShip", 0x14, 0x28, 1, ops_InsideShip };
 _Static_assert(sizeof(InsideShip) == 0x28, "InsideShip: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
+
+static const SaveCat32Op ops_KasSelection[] = {
+    { SC32_COPY, 0x0, 0x0, 0x4, 1, 0, 0, NULL },
+    { SC32_COPY, 0x4, 0x8, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x8, 0x10, 4, 1, 4, 8, NULL },
+};
+const SaveCat32Layout saveCat32Layout_KasSelection = { "KasSelection", 0xc, 0x18, 3, ops_KasSelection };
+_Static_assert(sizeof(KasSelection) == 0x18, "KasSelection: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
+
+static const SaveCat32Op ops_LabelledPath[] = {
+    { SC32_COPY, 0x0, 0x0, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x4, 0x8, 4, 1, 4, 8, NULL },
+};
+const SaveCat32Layout saveCat32Layout_LabelledPath = { "LabelledPath", 0x8, 0x10, 2, ops_LabelledPath };
+_Static_assert(sizeof(LabelledPath) == 0x10, "LabelledPath: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
+
+static const SaveCat32Op ops_LabelledVector[] = {
+    { SC32_COPY, 0x0, 0x0, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x4, 0x8, 4, 1, 4, 8, NULL },
+};
+const SaveCat32Layout saveCat32Layout_LabelledVector = { "LabelledVector", 0x8, 0x10, 2, ops_LabelledVector };
+_Static_assert(sizeof(LabelledVector) == 0x10, "LabelledVector: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
+
+static const SaveCat32Op ops_LabelledVolume[] = {
+    { SC32_COPY, 0x0, 0x0, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x4, 0x8, 4, 1, 4, 8, NULL },
+};
+const SaveCat32Layout saveCat32Layout_LabelledVolume = { "LabelledVolume", 0x8, 0x10, 2, ops_LabelledVolume };
+_Static_assert(sizeof(LabelledVolume) == 0x10, "LabelledVolume: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
 
 static const SaveCat32Op ops_MilitaryParadeCommand[] = {
     { SC32_PTR, 0x0, 0x0, 4, 1, 4, 8, NULL },
@@ -512,6 +549,14 @@ static const SaveCat32Op ops_Nebula[] = {
 };
 const SaveCat32Layout saveCat32Layout_Nebula = { "Nebula", 0x1a8, 0x220, 20, ops_Nebula };
 _Static_assert(sizeof(Nebula) == 0x220, "Nebula: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
+
+static const SaveCat32Op ops_Objective[] = {
+    { SC32_COPY, 0x0, 0x0, 0x21, 1, 0, 0, NULL },
+    { SC32_PTR, 0x24, 0x28, 4, 2, 4, 8, NULL },
+    { SC32_COPY, 0x2c, 0x38, 0x8, 1, 0, 0, NULL },
+};
+const SaveCat32Layout saveCat32Layout_Objective = { "Objective", 0x34, 0x40, 3, ops_Objective };
+_Static_assert(sizeof(Objective) == 0x40, "Objective: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
 
 static const SaveCat32Op ops_elem_common_researchlabs_0_cdfa53ad[] = {
     { SC32_COPY, 0x0, 0x0, 0x4, 1, 0, 0, NULL },
@@ -801,6 +846,14 @@ static const SaveCat32Op ops_cloudSystem[] = {
 const SaveCat32Layout saveCat32Layout_cloudSystem = { "cloudSystem", 0x24, 0x30, 3, ops_cloudSystem };
 _Static_assert(sizeof(cloudSystem) == 0x30, "cloudSystem: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
 
+static const SaveCat32Op ops_hsStaticGate[] = {
+    { SC32_COPY, 0x0, 0x0, 0x1c, 1, 0, 0, NULL },
+    { SC32_PTR, 0x1c, 0x20, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x20, 0x28, 0x10, 1, 0, 0, NULL },
+};
+const SaveCat32Layout saveCat32Layout_hsStaticGate = { "hsStaticGate", 0x30, 0x38, 3, ops_hsStaticGate };
+_Static_assert(sizeof(hsStaticGate) == 0x38, "hsStaticGate: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
+
 static const SaveCat32Op ops_madanim[] = {
     { SC32_PTR, 0x0, 0x0, 4, 1, 4, 8, NULL },
     { SC32_COPY, 0x4, 0x8, 0x24, 1, 0, 0, NULL },
@@ -838,6 +891,19 @@ static const SaveCat32Op ops_nebTendril[] = {
 };
 const SaveCat32Layout saveCat32Layout_nebTendril = { "nebTendril", 0xfc, 0x128, 6, ops_nebTendril };
 _Static_assert(sizeof(nebTendril) == 0x128, "nebTendril: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
+
+static const SaveCat32Op ops_ping[] = {
+    { SC32_PTR, 0x0, 0x0, 4, 4, 4, 8, NULL },
+    { SC32_COPY, 0x10, 0x20, 0x1c, 1, 0, 0, NULL },
+    { SC32_PTR, 0x2c, 0x40, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x30, 0x48, 0x14, 1, 0, 0, NULL },
+    { SC32_SEXT, 0x44, 0x60, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x48, 0x68, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x4c, 0x70, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x50, 0x78, 0x8, 1, 0, 0, NULL },
+};
+const SaveCat32Layout saveCat32Layout_ping = { "ping", 0x58, 0x80, 8, ops_ping };
+_Static_assert(sizeof(ping) == 0x80, "ping: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
 
 static const SaveCat32Op ops_shipinprogress[] = {
     { SC32_COPY, 0x0, 0x0, 0x20, 1, 0, 0, NULL },

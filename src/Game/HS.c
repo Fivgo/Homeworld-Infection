@@ -23,6 +23,7 @@ Copyright Relic Entertainment, Inc.  All rights reserved.
 #include "prim3d.h"
 #include "render.h"
 #include "SaveGame.h"
+#include "SaveCat32.h"     // CAT (M2-R8 singleplayer-tutorial): a cataclysm.exe save's mission tail
 #include "SinglePlayer.h"
 #include "UnivUpdate.h"
 
@@ -869,7 +870,7 @@ void hsStaticGateRender(hsStaticGate* gate)
     color c = colRGB(70, 90, 255);
 
 
-    if (singlePlayerHyperspacingInto)
+    if (catSpFleetArriving)                 // CAT: 0x00a6ad78 (hsStaticGateRender 0x00490243): no gate while the fleet arrives
     {
         return;
     }
@@ -1079,7 +1080,24 @@ void LoadHyperspaceGates(void)
         return;
     }
 
-    data = LoadStructureOfSize(size);
+    if (saveCat32Loading)
+    {
+        // CAT (M2-R8 singleplayer-tutorial): the exe's gates are 0x30-byte ILP32 records (LoadHyperspaceGates
+        //      0x00490510: size / 0x30 of them); converted, they are this tree's
+        SaveChunk *chunk = LoadNextChunk();
+        sdword count = size / 0x30;
+
+        chunk = saveCat32ChunkArray(chunk, NULL, 0, 0, SAVECAT32_LAYOUT(hsStaticGate), count);
+        VerifyChunk(chunk, BASIC_STRUCTURE, count * (sdword)sizeof(hsStaticGate));
+        size = count * (sdword)sizeof(hsStaticGate);
+        data = memAlloc(size, "loadedstructure", 0);
+        memcpy(data, chunkContents(chunk), size);
+        memFree(chunk);
+    }
+    else
+    {
+        data = LoadStructureOfSize(size);
+    }
     hsSetStaticData(size, data);
     hsFixStaticData(hsStaticData);
     memFree(data);

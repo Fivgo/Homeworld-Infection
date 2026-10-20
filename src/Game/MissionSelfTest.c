@@ -40,6 +40,16 @@
 #include "SinglePlayer.h"
 #include "Universe.h"
 #include "utility.h"
+#include "GamePick.h"
+#include "SaveGame.h"
+#include "StringSupport.h"
+#include "File.h"
+#include "Tutor.h"
+#include "UIControls.h"
+
+extern char SinglePlayerSavedGamesPath[];               // GamePick.c
+extern char CurrentMissionName[];                       // KAS.c
+extern KASWatchFunction CurrentMissionWatchFunction;    // KAS.c
 
 static sdword catMissionTestTicks = 0;          // > 0: /catMissionTest given
 static sdword catMissionTestTutorialTicks = 0;  // > 0: /catMissionTestTutorial given
@@ -502,12 +512,25 @@ static void catMtPlay(void)
 }
 
 /*-----------------------------------------------------------------------------
-    The tutorial's first screen (/catMissionTestTutorial): Tutorial1's KAS script starts (tutInitTutorial), its
-    Tutorial FSM reaches Lesson1 (state hash 0x00a883a1) and creates the lesson's two objectives (L1Dummy1, L1Dummy2), and
-    the first prompt shows: the lesson's narration's subtitle card on screen (the speech of the SpeechEvents FSM; this
-    test keeps speech on, on SDL's dummy audio driver)
+    The tutorial's first prompts (/catMissionTestTutorial): Tutorial1's KAS script starts (tutInitTutorial), its
+    Tutorial FSM reaches Lesson1 (state hash 0x00a883a1) and creates the lesson's two objectives (L1Dummy1, L1Dummy2),
+    the SpeechEvents FSM puts up the tutorial's Next, previous and quit buttons (Init_Tutorial1_SpeechEvents:
+    TutShowNextButton, TutShowPrevButton, TutShowQuitButton) and plays the lesson's first three prompts (subtitle cards
+    on screen, each a new text: "LESSON 01" (SubtitleSimulate), then the narration of speech events 0x80012d3 and
+    0x80012d4, the third with the objective list's pointer "ptr", cat_tutSetPointerTargetObj; this test keeps speech on,
+    on SDL's dummy audio driver). M2-R8 singleplayer-tutorial: then the Next button is clicked through its own region's
+    click callback (tutProcessNextButton with CM_ButtonClick, no input) and the Tutorial FSM must move to Lesson2
+    (0x00a883a2: Watch_Tutorial1_Tutorial counts the lesson up on TutNextButtonClicked)
 -----------------------------------------------------------------------------*/
-static sdword catMtTutLessonTick = -1, catMtTutObjTick = -1, catMtTutPromptTick = -1;
+#define CAT_MT_TUT_PROMPTS 3
+static sdword catMtTutLessonTick = -1, catMtTutObjTick = -1, catMtTutButtonsTick = -1, catMtTutLesson2Tick = -1;
+static sdword catMtTutPromptTick[CAT_MT_TUT_PROMPTS] = { -1, -1, -1 };
+static sdword catMtTutPrompts = 0;
+static char catMtTutLastPrompt[96] = "";
+static sdword catMtTutClickTick = -1;
+static bool32 catMtTutObjPointer = FALSE;
+extern sdword tutNextVisible, tutPrevVisible, catTutQuitVisible;    // Tutor.c
+extern buttonhandle tutNextRegion;
 
 static void catMtTutorialWatch(void)
 {
@@ -518,6 +541,11 @@ static void catMtTutorialWatch(void)
     {
         catMtTutLessonTick = (sdword)universe.univUpdateCounter;
         dbgMessagef("missiontest: tutorial Lesson1 tick=%u", (unsigned)universe.univUpdateCounter);
+    }
+    if ((catMtTutLesson2Tick < 0) && (catMtTutClickTick >= 0) && (team != NULL) && (team->kasStateName == 0x00a883a2))
+    {
+        catMtTutLesson2Tick = (sdword)universe.univUpdateCounter;
+        dbgMessagef("missiontest: tutorial Lesson2 tick=%u (after the Next button)", (unsigned)universe.univUpdateCounter);
     }
     for (i = 0; i < objectivesUsed; i++)
     {
@@ -531,18 +559,40 @@ static void catMtTutorialWatch(void)
         catMtTutObjTick = (sdword)universe.univUpdateCounter;
         dbgMessagef("missiontest: tutorial objectives tick=%u L1Dummy1 L1Dummy2", (unsigned)universe.univUpdateCounter);
     }
-    if ((catMtTutPromptTick < 0) && subAnyCardsOnScreen())
+    if ((catMtTutButtonsTick < 0) && tutNextVisible && tutPrevVisible && catTutQuitVisible)
+    {
+        catMtTutButtonsTick = (sdword)universe.univUpdateCounter;
+        dbgMessagef("missiontest: tutorial buttons tick=%u next prev quit", (unsigned)universe.univUpdateCounter);
+    }
+    if ((catMtTutPrompts < CAT_MT_TUT_PROMPTS) && subAnyCardsOnScreen())
     {
         for (r = 0; r < SUB_NumberRegions; r++)
         {
-            if ((subRegion[r].cardIndex > 0) && (subRegion[r].card != NULL) && (subRegion[r].card[0].text != NULL))
+            if ((subRegion[r].cardIndex > 0) && (subRegion[r].card != NULL) && (subRegion[r].card[0].text != NULL) &&
+                (strncmp(catMtTutLastPrompt, subRegion[r].card[0].text, sizeof(catMtTutLastPrompt) - 1) != 0))
             {
-                catMtTutPromptTick = (sdword)universe.univUpdateCounter;
-                dbgMessagef("missiontest: tutorial prompt tick=%u region=%d text='%.80s'", (unsigned)universe.univUpdateCounter,
-                            (int)r, subRegion[r].card[0].text);
+                strncpy(catMtTutLastPrompt, subRegion[r].card[0].text, sizeof(catMtTutLastPrompt) - 1);
+                catMtTutPromptTick[catMtTutPrompts] = (sdword)universe.univUpdateCounter;
+                catMtTutPrompts++;
+                dbgMessagef("missiontest: tutorial prompt %d tick=%u region=%d text='%.80s'", (int)catMtTutPrompts,
+                            (unsigned)universe.univUpdateCounter, (int)r, subRegion[r].card[0].text);
                 break;
             }
         }
+    }
+    // the third prompt points at the objective list (cat_tutSetPointerTargetObj "ptr")
+    if (!catMtTutObjPointer && (catMtTutPrompts >= 2) && tutPointerIsSet("ptr"))
+    {
+        catMtTutObjPointer = TRUE;
+        dbgMessagef("missiontest: tutorial objective pointer tick=%u", (unsigned)universe.univUpdateCounter);
+    }
+    // then the Next button is clicked through its region's own callback
+    if ((catMtTutClickTick < 0) && (catMtTutPrompts >= CAT_MT_TUT_PROMPTS) && catMtTutObjPointer && (tutNextRegion != NULL))
+    {
+        catMtTutClickTick = (sdword)universe.univUpdateCounter;
+        dbgMessagef("missiontest: event tick=%u tutorial: the Next button clicked (its click callback)",
+                    (unsigned)universe.univUpdateCounter);
+        tutNextRegion->processFunction((regionhandle)tutNextRegion, 0, CM_ButtonClick, 0);
     }
 }
 
@@ -576,12 +626,14 @@ void catMissionSelfTestTick(void)
     if (catMissionTestTutorialTicks > 0)
     {
         catMtTutorialWatch();
-        if ((catMtTutPromptTick >= 0) && (catMtTutObjTick >= 0) && (catMtTutLessonTick >= 0))
+        if ((catMtTutLesson2Tick >= 0) && (catMtTutObjTick >= 0) && (catMtTutLessonTick >= 0) && (catMtTutButtonsTick >= 0))
         {
             catMissionTestDone = TRUE;
-            dbgMessagef("missiontest: done ticks=%u tutorial kas=%d lesson1=%d objectives=%d prompt=%d result=PASS",
-                        (unsigned)universe.univUpdateCounter, (int)catMtKasStarted, (int)catMtTutLessonTick,
-                        (int)catMtTutObjTick, (int)catMtTutPromptTick);
+            dbgMessagef("missiontest: done ticks=%u tutorial kas=%d lesson1=%d objectives=%d buttons=%d prompts=%d/%d/%d "
+                        "pointer=%d next=%d lesson2=%d result=PASS", (unsigned)universe.univUpdateCounter,
+                        (int)catMtKasStarted, (int)catMtTutLessonTick, (int)catMtTutObjTick, (int)catMtTutButtonsTick,
+                        (int)catMtTutPromptTick[0], (int)catMtTutPromptTick[1], (int)catMtTutPromptTick[2],
+                        (int)catMtTutObjPointer, (int)catMtTutClickTick, (int)catMtTutLesson2Tick);
             oracleMissionStopAfterThisTick();
             return;
         }
@@ -637,9 +689,118 @@ void catMissionSelfTestTick(void)
         }
         else
         {
-            dbgMessagef("missiontest: done ticks=%u tutorial kas=%d lesson1=%d objectives=%d prompt=%d result=FAIL",
-                        (unsigned)universe.univUpdateCounter, (int)catMtKasStarted, (int)catMtTutLessonTick,
-                        (int)catMtTutObjTick, (int)catMtTutPromptTick);
+            dbgMessagef("missiontest: done ticks=%u tutorial kas=%d lesson1=%d objectives=%d buttons=%d prompts=%d "
+                        "pointer=%d next=%d lesson2=%d result=FAIL", (unsigned)universe.univUpdateCounter,
+                        (int)catMtKasStarted, (int)catMtTutLessonTick, (int)catMtTutObjTick, (int)catMtTutButtonsTick,
+                        (int)catMtTutPrompts, (int)catMtTutObjPointer, (int)catMtTutClickTick, (int)catMtTutLesson2Tick);
         }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    HWI-TEST (M2-R8 singleplayer-tutorial): the single-player save load (/catLoadGameTest <ticks>, /catLoadGameName
+    <name>, harness mode loadgame). Once the start-up has put up the main screen, SavedGames/SinglePlayer/<name> (a save
+    written by cataclysm.exe: the mode-A loader converts its ILP32 chunks, SaveCat32.c) is loaded as the front end's
+    Load Game does (gpLoadGivenGame: VerifySaveFile, gameEnd, utyLoadSinglePlayerGameGivenFilename), and the universe
+    runs <ticks> ticks on the mission run's virtual clock (the oracle stream written with /oracleDump). Lines:
+    "loadgametest: loaded ...", "loadgametest: status ..." every 256 ticks, "loadgametest: done ... result=PASS|FAIL".
+    PASS: the load verified and finished as a single-player game in the save's mission (Mission01 for "01 - Hiigara",
+    the KAS script's own save at the mission's start), with the player's mothership, the KAS mission running (its watch
+    function restored and its script teams' FSMs seen: "missiontest: fsm" lines) and the ticks run with the player
+    alive; the objectives loaded and present at the end are reported.
+-----------------------------------------------------------------------------*/
+static sdword catLoadGameTicks = 0;
+static char catLoadGameName[128] = "";
+static bool32 catLoadGameLoaded = FALSE, catLoadGameDone = FALSE;
+static sdword catLoadGameStartTick = -1;
+static sdword catLoadGameObjectives = 0;
+
+void catLoadGameSelfTestSet(char *string)
+{
+    catLoadGameTicks = (sdword)strtol(string, NULL, 10);
+    if (catLoadGameTicks <= 0)
+    {
+        catLoadGameTicks = 400;
+    }
+    oracleSetMission("2000000000");             // the virtual clock; the run stops itself (oracleMissionStopAfterThisTick)
+}
+
+void catLoadGameSelfTestNameSet(char *string)
+{
+    strncpy(catLoadGameName, string, sizeof(catLoadGameName) - 1);
+    catLoadGameName[sizeof(catLoadGameName) - 1] = '\0';
+}
+
+bool32 catLoadGameSelfTestRequested(void)
+{
+    return (catLoadGameTicks > 0);
+}
+
+void catLoadGameSelfTestStart(void)
+{
+    char filename[256];
+    sdword verify;
+    Node *node;
+    sdword ships = 0;
+
+    snprintf(filename, sizeof(filename), "%s%s", SinglePlayerSavedGamesPath, catLoadGameName);
+    verify = fileExists(filename, FF_UserSettingsPath) ? VerifySaveFile(filename) : -1;
+    dbgMessagef("loadgametest: load '%s' verify=%d", filename, (int)verify);
+    if (verify != VERIFYSAVEFILE_OK)
+    {
+        catLoadGameDone = TRUE;
+        dbgMessagef("loadgametest: done ticks=0 result=FAIL (the save did not verify)");
+        utyGameQuit(NULL, NULL);
+        return;
+    }
+    gpLoadSinglePlayerGame = TRUE;
+    gpLoadTutorial = FALSE;
+    gpLoadGivenGame(filename);
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        if (((Ship *)listGetStructOfNode(node))->playerowner == &universe.players[0])
+        {
+            ships++;
+        }
+    }
+    catLoadGameObjectives = objectivesUsed;
+    catLoadGameLoaded = singlePlayerGame && (universe.ShipList.num > 0);
+    dbgMessagef("loadgametest: loaded singlePlayer=%d mission=%d tick=%u ships=%u player0ships=%d objectives=%d kas='%s' "
+                "watch=%d level='%s' hyperspaceState=%d difficulty=%u", (int)singlePlayerGame,
+                (int)singlePlayerGameInfo.currentMission, (unsigned)universe.univUpdateCounter,
+                (unsigned)universe.ShipList.num, (int)ships, (int)objectivesUsed, CurrentMissionName,
+                (int)(CurrentMissionWatchFunction != NULL), CurrentLevelName, (int)singlePlayerGameInfo.hyperspaceState,
+                (unsigned)catSpDifficultySetting);
+}
+
+void catLoadGameSelfTestTick(void)
+{
+    if (catLoadGameDone || !catLoadGameLoaded)
+    {
+        return;
+    }
+    if (catLoadGameStartTick < 0)
+    {
+        catLoadGameStartTick = (sdword)universe.univUpdateCounter;
+    }
+    catMtWatchFsms();
+    catMtWatchObjectives();
+    if (((sdword)universe.univUpdateCounter - catLoadGameStartTick) % 256 == 0)
+    {
+        dbgMessagef("loadgametest: status tick=%u ships=%u objectives=%d hyperspaceState=%d", (unsigned)universe.univUpdateCounter,
+                    (unsigned)universe.ShipList.num, (int)objectivesUsed, (int)singlePlayerGameInfo.hyperspaceState);
+    }
+    if ((sdword)universe.univUpdateCounter - catLoadGameStartTick >= catLoadGameTicks)
+    {
+        bool32 pass = singlePlayerGame && (singlePlayerGameInfo.currentMission == MISSION_1_KHARAK_SYSTEM) &&
+                      (universe.players[0].playerState != PLAYER_DEAD) && (universe.players[0].PlayerMothership != NULL) &&
+                      (CurrentMissionWatchFunction != NULL) && (catMtTeamsSeen > 0);
+
+        catLoadGameDone = TRUE;
+        dbgMessagef("loadgametest: done ticks=%d from=%d to=%u mission=%d ships=%u objectives=%d/%d kasTeams=%d result=%s",
+                    (int)catLoadGameTicks, (int)catLoadGameStartTick, (unsigned)universe.univUpdateCounter,
+                    (int)singlePlayerGameInfo.currentMission, (unsigned)universe.ShipList.num,
+                    (int)catLoadGameObjectives, (int)objectivesUsed, (int)catMtTeamsSeen, pass ? "PASS" : "FAIL");
+        oracleMissionStopAfterThisTick();
     }
 }

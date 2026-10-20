@@ -218,7 +218,8 @@ void oracleMissionStopAfterThisTick(void)
 //      KAS script (the stream's start since M2-R4); the mission self-tests take the exe's NIS-first start
 bool32 oracleMissionDirectStart(void)
 {
-    return (oracleMissionTicks > 0) && !catMissionSelfTestRequested() && !catMissionSelfTestTutorialRequested();
+    return (oracleMissionTicks > 0) && !catMissionSelfTestRequested() && !catMissionSelfTestTutorialRequested() &&
+           !catLoadGameSelfTestRequested();
 }
 
 /*-----------------------------------------------------------------------------
@@ -945,6 +946,11 @@ bool32 oracleUnivUpdate(real32 phystimeelapsed)
     if ((catMissionSelfTestRequested() || catMissionSelfTestTutorialRequested()) && (universe.univUpdateCounter != before))
     {
         catMissionSelfTestTick();
+    }
+    // HWI-TEST (M2-R8 singleplayer-tutorial): the single-player save load's ticks (MissionSelfTest.c)
+    if (catLoadGameSelfTestRequested() && (universe.univUpdateCounter != before))
+    {
+        catLoadGameSelfTestTick();
     }
     // HWI-TEST (skirmish-start): the skirmish self-test's judgement the same way (LevelLoad.c catSkirmishSelfTestTick)
     if (catSkirmishSelfTestRequested() && (universe.univUpdateCounter != before))

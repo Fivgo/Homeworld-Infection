@@ -332,9 +332,9 @@ SelectCommand *selectMergeTwoSelections(SelectCommand *selection1, SelectCommand
 SelectCommand *selectMemDupSelection(SelectCommand *selection, char *str, udword memflag);
 #define selectDupSelection(sel)     selectMemDupSelection(sel, "selDup", 0)
 
-// CAT: HW1 also excluded its cryo-tray and probe types, which Cataclysm does not have. The exe's single-player hyperspace test is
-//      cat_spShipCanHyperspace 0x00517650; the macro's users (SinglePlayer.c) are stage 6.
-#define ShipCanHyperspace(ship) (isCapitalShip(ship))
+// CAT (M2-R8 singleplayer-tutorial): HW1's ShipCanHyperspace (a capital ship that is not a cryo tray or a probe) is
+//      gone: the exe's single-player hyperspace test is cat_spShipCanHyperspace 0x00517650 with the capital-or-module
+//      test of SinglePlayer.c (ShipCanMakeHyperspace)
 
 /*=============================================================================
     CAT: Cataclysm-only selection functions (exe ShipSelect.c block 0x00511870-0x00514210)

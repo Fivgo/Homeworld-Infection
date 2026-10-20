@@ -24,9 +24,13 @@
 #include "CommandLayer.h"
 #include "ConsMgr.h"
 #include "FOW.h"
+#include "HS.h"             // M2-R8 singleplayer-tutorial: hsStaticGate
+#include "KAS.h"            // M2-R8 singleplayer-tutorial: the KAS label entries
 #include "Formation.h"
 #include "MeshAnim.h"
 #include "Nebulae.h"
+#include "Objectives.h"     // M2-R8 singleplayer-tutorial: Objective, FleetIntelligence
+#include "Ping.h"           // M2-R8 singleplayer-tutorial: ping
 #include "Randy.h"
 #include "ResearchAPI.h"
 #include "SaveGame.h"
@@ -131,6 +135,14 @@ extern const SaveCat32Layout saveCat32Layout_TeamWaitingForTheseShips;
 extern const SaveCat32Layout saveCat32Layout_AITeamMove;
 extern const SaveCat32Layout saveCat32Layout_nebChunk;          // M2-R8 kas-runtime-mission01
 extern const SaveCat32Layout saveCat32Layout_nebTendril;
+extern const SaveCat32Layout saveCat32Layout_KasSelection;      // M2-R8 singleplayer-tutorial: the mission tail
+extern const SaveCat32Layout saveCat32Layout_LabelledPath;
+extern const SaveCat32Layout saveCat32Layout_LabelledVector;
+extern const SaveCat32Layout saveCat32Layout_LabelledVolume;
+extern const SaveCat32Layout saveCat32Layout_Objective;
+extern const SaveCat32Layout saveCat32Layout_FleetIntelligence;
+extern const SaveCat32Layout saveCat32Layout_hsStaticGate;
+extern const SaveCat32Layout saveCat32Layout_ping;
 extern const SaveCat32SpecLayout saveCat32SpecLayouts[];
 #endif
 

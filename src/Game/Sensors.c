@@ -155,7 +155,7 @@ real32 smFOWBlobUpdateTime = SM_FOWBlobUpdateTime;
 
 //global flag which says the sensors manager is active
 bool32 smSensorsActive = FALSE;
-// CAT (M2-R5 hud): 0x00a5b1ac, mines shown in the sensors manager (kasfShowMinesInSensors 0x00498490 sets it, stage 6;
+// CAT (M2-R5 hud): 0x00a5b1ac, mines shown in the sensors manager (kasfShowMinesInSensors 0x00498490 sets it;
 //      universeReset 0x0053df80 clears it); in mission 3 the band box takes no mine in the sensors manager without it
 //      (selRectDragFunction 0x005053a0). Name chosen here
 bool32 catSmShowMines = FALSE;
@@ -186,8 +186,8 @@ bool32 catSmViewUniverseExtents = FALSE;            // 0x00a5b1a0 (.bss)
 
 bool32 smSensorsDisable = FALSE;
 // CAT (M2-R6 managers, sensors): the sensors manager's new state words (names chosen here)
-bool32 catSmHideViewport = FALSE;   // 0x00a5b228: the viewport draws nothing (singlePlayerGameUpdate sets it at
-                                    //      mission 1's end, nisStart clears it; those writers are stage 6's)
+bool32 catSmHideViewport = FALSE;   // 0x00a5b228: the viewport draws nothing (singlePlayerGameUpdate sets it when
+                                    //      Mission01's script starts, nisStart clears it)
 bool32 catSmForceOpen = FALSE;      // 0x00a5b22c: kasfOpenSensors 0x00496bc0 opens it past the disable flag
 bool32 catSmReopen = FALSE;         // 0x00a5b230: a closing manager reopens it (catSmReopenAfterManager)
 Camera catSmSavedCamera;            // 0x00c0a7e0: the sensors camera saved by a closing manager
@@ -893,16 +893,7 @@ real32 smScrollFactorGet(real32 current, real32 range)
     }
     return(val);
 }
-/*
-real32 smEyeFactorGet(real32 current, real32 range)
-{
-    return(current / range);
-}
-real32 smLookFactorGet(real32 current, real32 range)
-{
-    return(current / range);
-}
-*/
+// CAT (M2-R8 singleplayer-tutorial): HW1's commented-out smEyeFactorGet / smLookFactorGet removed (the exe has neither)
 /*-----------------------------------------------------------------------------
     Name        : smZoomUpdate
     Description : Updates the zoom function while transitioning TO sensors manager.
@@ -997,127 +988,8 @@ void smSensorsCloseForGood(void)
     }
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : smClickedOnPlayer
-    Description : returns the a pointer to the player you right clicked on.  NULL otherwise/
-    Inputs      : none
-    Outputs     : player clicked on or NULL
-    Return      : void
-----------------------------------------------------------------------------*/
-sdword smClickedOnPlayer(rectangle *viewportRect)
-{
-    fonthandle oldfont;
-    rectangle  playerColorRect;
-    sdword     index;
-
-    oldfont = fontMakeCurrent(selGroupFont2);
-
-    playerColorRect.y1 = viewportRect->y1 - smPlayerListMarginY;
-    playerColorRect.y0 = playerColorRect.y1 - fontHeight(" ");
-    playerColorRect.x0 = viewportRect->x0 + smPlayerListMarginX;
-    playerColorRect.x1 = playerColorRect.x0 + fontHeight(" ");
-
-    //draw the list of player names/colors
-    for (index = universe.numPlayers - 1; index >= 0; index--)
-    {
-        if (universe.players[index].playerState==PLAYER_ALIVE)
-        {
-            playerColorRect.x1 = fontWidth(playerNames[index]) + fontHeight(" ")*2;
-            if ((mouseInRect(&playerColorRect)) && (index!=sigsPlayerIndex))
-            {
-                return (index);
-            }
-            playerColorRect.y0 -= smPlayerListMarginY + fontHeight(" ");//update the position
-            playerColorRect.y1 -= smPlayerListMarginY + fontHeight(" ");
-        }
-    }
-
-    fontMakeCurrent(oldfont);
-
-    return (-1);
-}
-
-
-/*-----------------------------------------------------------------------------
-    Name        : smPlayerNamesDraw
-    Description : Draw the names of the players in a multi-player game.
-    Inputs      : viewportRect - boundaries of the current viewport
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
-void smPlayerNamesDraw(rectangle *viewportRect)
-{
-    fonthandle oldfont;
-    sdword index;
-    rectangle playerColorRect;
-    color c;
-    char buffer[50];
-    sdword bounty;
-
-    oldfont = fontMakeCurrent(selGroupFont2);
-
-    playerColorRect.y1 = viewportRect->y1 - smPlayerListMarginY;
-    playerColorRect.y0 = playerColorRect.y1 - fontHeight(" ");
-    playerColorRect.x0 = viewportRect->x0 + smPlayerListMarginX;
-    playerColorRect.x1 = playerColorRect.x0 + fontHeight(" ");
-
-    //draw the list of player names/colors
-    for (index = universe.numPlayers - 1; index >= 0; index--)
-    {
-        if (universe.players[index].playerState==PLAYER_ALIVE)
-        {
-            sdword x;
-            bool32 playerhasdroppedOutOrQuit = playerHasDroppedOutOrQuit(index);
-
-            c = teColorSchemes[index].textureColor.base;
-            if (playerhasdroppedOutOrQuit)
-            {
-                c = HorseRaceDropoutColor;
-            }
-
-            primRectSolid2(&playerColorRect, c);                 //draw colored rectangle
-            x = playerColorRect.x1 + smPlayerListTextMargin;
-            fontPrint(x, //print the player name in a stock color
-                      playerColorRect.y0, playerhasdroppedOutOrQuit ? HorseRaceDropoutColor : smPlayerListTextColor, playerNames[index]);
-            x += fontWidth(playerNames[index])+fontWidth(" ");
-            if (index != sigsPlayerIndex)
-            {
-                if ((allianceArePlayersAllied(&universe.players[sigsPlayerIndex],&universe.players[index])) ||
-                    ((universe.players[sigsPlayerIndex].Allies!=0)&&(index == sigsPlayerIndex)))
-                {
-                    fontPrint(x,
-                              playerColorRect.y0, playerhasdroppedOutOrQuit ? HorseRaceDropoutColor : alliescolor, strGetString(strPlayersAllied));
-                }
-            }
-
-            x += fontWidth(strGetString(strPlayersAllied));
-            if((!singlePlayerGame) && (tpGameCreated.bountySize != MG_BountiesOff))
-            {
-                //draw bounty values
-                fontPrint(x,
-                          playerColorRect.y0, playerhasdroppedOutOrQuit ? HorseRaceDropoutColor : colWhite, "B: ");
-                bounty = getPlayerBountyRender(&universe.players[index]);
-                /*itoa(bounty,buffer,10);*/
-                sprintf(buffer, "%d", bounty);
-                x += fontWidth("B: ");
-
-                fontPrint(x, playerColorRect.y0, playerhasdroppedOutOrQuit ? HorseRaceDropoutColor : colWhite, buffer);
-
-                x += fontWidth(buffer) + fontWidth(" ");
-            }
-
-            if (playerhasdroppedOutOrQuit)
-            {
-                fontPrint(x,playerColorRect.y0, c, (playersReadyToGo[index] == PLAYER_QUIT) ? strGetString(strQuit) : strGetString(strDroppedOut));
-            }
-
-            playerColorRect.y0 -= smPlayerListMarginY + fontHeight(" ");//update the position
-            playerColorRect.y1 -= smPlayerListMarginY + fontHeight(" ");
-        }
-    }
-
-    fontMakeCurrent(oldfont);
-}
+// CAT (M2-R8 singleplayer-tutorial): HW1's smClickedOnPlayer and smPlayerNamesDraw (the multiplayer player list in the
+//      sensors manager) are gone: cataclysm.exe has neither, and nothing called them since the M2-R6 sensors port
 /*-----------------------------------------------------------------------------
     Name        : smHotkeyGroupsDraw
     Description : Draw the location of hotkey groups.

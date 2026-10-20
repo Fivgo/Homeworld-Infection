@@ -48,7 +48,9 @@ typedef enum
     HYPERSPACE_WHITEOUT,
     HYPERSPACE_LOADDONE,
     HYPERSPACE_SHIPSARRIVING,
-    HYPERSPACE_FAILED,
+    HYPERSPACE_FAILED,                  // CAT (M2-R8 singleplayer-tutorial): in Cataclysm the state while the next
+                                        //      mission's opening NIS plays in its staging level (singlePlayerGameUpdate
+                                        //      0x005197d0 sets it after the white-out; no case); a failed jump ends in 10
     // CAT (M2-R8 kas-runtime-mission01): two more states (singlePlayerGameUpdate 0x005197d0's switch has cases 9 and
     //      10; Ghidra's HW1 enum shows them as FAILED|PREWAIT and FAILED|WAITINGROLLCALL). A level is loaded in
     //      HYPERSPACE_SHIPSARRIVING and waits there (no case) until its KAS script calls StartLevelByHyperspacingShips
@@ -175,7 +177,6 @@ extern SinglePlayerGameInfo singlePlayerGameInfo;
 extern bool32 singlePlayerGameLoadNewLevelFlag;
 extern bool32 hyperspaceFails;
 extern regionhandle spHyperspaceRollCallScreen;     // 0x00a6ada0
-extern bool32 singlePlayerHyperspacingInto;
 extern bool32 spCollectResourcesAtEndOfMission;
 
 void spHyperspaceButtonPushed(void);
@@ -189,7 +190,6 @@ void spHyperspaceSelectionOut(SelectCommand *selection);
 void spHyperspaceSelectionInStatic(SelectCommand *selection,hvector *destination);
 void spHyperspaceSelectionOutStatic(SelectCommand *selection);
 
-void spResetMissionSequenceToBeginning(void);
 void singlePlayerInit(void);
 void singlePlayerPostInit(bool32 loadingSaveGame);
 void singlePlayerClose(void);
@@ -203,6 +203,7 @@ void singlePlayerGameUpdate(void);
 void singlePlayerLoadNewLevel(sdword nisLevel, sdword keepMission);
 void singlePlayerStartGame(void);
 void singlePlayerNextLevel(void);
+bool32 cat_spKasScriptGenerated(MissionEnum mission);  // HWI: the mission's kas2c script exists (part B: 02 .. 17)
 
 void singlePlayerShipDied(Ship *ship);
 
@@ -215,9 +216,7 @@ void singlePlayerCheckDebugKeys(sdword ID);
 
 void spSetCurrentMission(MissionEnum mission);
 
-MissionEnum spGetPreviousMission(void);
 MissionEnum spGetCurrentMission (void);
-MissionEnum spGetNextMission    (void);
 
 void GetMissionsDirAndFile(MissionEnum mission, bool32 nisLevel);     // CAT: 0x00517200 (+ the staging level)
 extern bool32 catHrMissionNisVariant;   // CAT: 0x00a6adac, the level being loaded is a NIS staging level (HorseRace.c)
@@ -226,7 +225,7 @@ extern bool32 catSpFleetArriving;           // CAT: 0x00a6ad78, a level's fleet 
 extern real32 catSpLevelFade;               // CAT: 0x00a6ac70, the black fade over a newly loaded level
 extern real32 catSpWhiteFlash;              // CAT: 0x00a75280, the white flash of Mission01's nislet
 
-void spMainScreen(void);
+void spMainScreen(bool32 closeSensors);   // CAT: 0x00518d80 (closeSensors: every caller but kasfOpenSensors passes 1)
 
 bool32 GetStartPointPlayer(hvector *startpoint);
 bool32 GetPointOfName(hvector *point,char *name);
@@ -239,7 +238,6 @@ ShipSinglePlayerGameInfo *spNewShipSinglePlayerGameInfo(void);
 #define SPLOCKOUT_DESELECT  4
 #define SPLOCKOUT_EVERYTHING    (SPLOCKOUT_MOUSE+SPLOCKOUT_MR+SPLOCKOUT_DESELECT)
 
-void spMainScreen(void);
 void spLockout(udword flags);
 void spMainScreenAndLockout(udword flags);
 void cat_spMainScreenAndLockoutKeepSensors(udword flags);       // CAT: 0x00518e90 (M2-R8 kasf library)
@@ -270,7 +268,6 @@ bool32 spFindCameraAttitude(vector *position);
 
 void UpdateMidLevelHyperspacingShips(void);
 
-void singlePlayerPreLoadCheck(void);
 
 //stores the current mission filename
 extern char CurrentLevelName[];
@@ -285,6 +282,10 @@ extern char spMissionsFile[];
 
 extern real32 spFleetModifier;
 extern real32 spDifficultyHealthModifier;     // CAT: 0x00894194 (cat_univSetShipMaxHealth 0x0053c4a0)
+void cat_spGetDifficultyModifiers(real32 *healthFactor, sdword *buildTimeDivisor, sdword *buildCostDivisor,
+                                  sdword difficulty);     // CAT: 0x00516f90
+struct tagfeatom;
+void cat_spGameDifficulty(char *name, struct tagfeatom *atom);   // CAT: 0x0051c140 ("SP_GameDifficulty")
 extern real32 spDifficultyHealthLoadFactor;   // CAT: 0x008941a4 (FixShip 0x00500950)
 
 extern real32 spHyperspaceDelay;

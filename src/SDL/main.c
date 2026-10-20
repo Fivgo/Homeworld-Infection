@@ -456,6 +456,22 @@ bool32 CatMissionTestTutorialSet(char *string)
     return TRUE;
 }
 
+// HWI-TEST (M2-R8 singleplayer-tutorial): /catLoadGameTest <ticks> /catLoadGameName <name> (MissionSelfTest.c: a
+//      single-player save loaded through the mode-A loader and run, headless); without sound and speech, as the mission test
+bool32 CatLoadGameTestSet(char *string)
+{
+    catLoadGameSelfTestSet(string);
+    enableSFX = FALSE;
+    enableSpeech = FALSE;
+    return TRUE;
+}
+
+bool32 CatLoadGameNameSet(char *string)
+{
+    catLoadGameSelfTestNameSet(string);
+    return TRUE;
+}
+
 bool32 CatSkirmishTestSet(char *string)
 {
     catSkirmishSelfTestSet(string);
@@ -1178,6 +1194,8 @@ commandoption commandOptions[] =
     entryFnParam("/catAiTest",          CatAiTestSet, " <ticks> - headless Mission01 run: the computer player (player 1) gets a scripted factory, RUs and fleet and fleet control with no input, logs aitest lines (teams, orders, moves, commands), exit after <ticks> ticks."),
     entryFnParam("/catBuildTest",       CatBuildTestSet, " <ticks> - headless Mission01 run: the construction manager builds a docking bay module, a destroyer (both built externally) and an acolyte at a scripted mothership with no input, logs buildtest lines, exit after <ticks> ticks."),
     entryFnParam("/catMissionTest",     CatMissionTestSet, " <ticks> - headless single-player game from Mission01's NIS-first start: the opening NIS, the KAS objectives with scripted events in place of input, logs missiontest lines, exit after the mission's end or <ticks> ticks."),
+    entryFnParam("/catLoadGameTest",    CatLoadGameTestSet, " <ticks> - headless load of the single-player save /catLoadGameName names (SavedGames/SinglePlayer), as the front end's Load Game, then <ticks> ticks; logs loadgametest lines, exit."),
+    entryFnParam("/catLoadGameName",    CatLoadGameNameSet, " <name> - the save /catLoadGameTest loads."),
     entryFnParam("/catMissionTestTutorial", CatMissionTestTutorialSet, " <ticks> - headless tutorial start: Tutorial1's KAS script runs until its first prompt shows, logs missiontest lines, exit."),
     entryFnParam("/catSkirmishTest",    CatSkirmishTestSet, " <ticks> - start a 2-player skirmish (Sect against a computer player) through the front end's own callbacks with no input, run <ticks> universe ticks on the virtual clock, judge the universe, log skirmishtest lines, exit."),
     entryFnParam("/catSkirmishMap",     CatSkirmishMapSet, " <name> - the map of /catSkirmishTest (a MultiPlayer directory name; default LiveFireExercise2)."),

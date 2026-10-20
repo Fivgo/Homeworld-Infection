@@ -2525,11 +2525,9 @@ void levelPreInit(char *directory,char *pickedMission)
         SetInfoNeededForShipAndRelatedStaticInfo(sSentinel,RACE_Sect,TRUE);
     }
 
-    if (singlePlayerGame)
-    {
-        singlePlayerPreLoadCheck();
-    }
-    else
+    // CAT (M2-R8 singleplayer-tutorial): no warp preload in a single-player game (levelPreInit 0x004a3230; HW1's
+    //      singlePlayerPreLoadCheck read the warp script's fleet)
+    if (!singlePlayerGame)
     {
         // CAT: only 0x00a447b0 is tested, for one static (tStandardFrigate's InfoNeeded bit; levelPreInit 0x004a3664)
         if (bitTest(tpGameCreated.flag,MG_CaptureCapitalShip) && needR2CapitalShip)

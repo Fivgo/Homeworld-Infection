@@ -2982,7 +2982,7 @@
   "class": "REWRITTEN",
   "confidence": "high",
   "change": "piePointModeOnOff(0, NULL)",
-  "note": "[review: M2-R5 hud] call site updated | [review: M2-R6 managers] re-review (R5 said call site only): pause/tutorial gates, sensors closed and reopened, the clicked-ship rules, the Beast screen file, sounds 0x12f/0x104; ported",
+  "note": "[review: M2-R5 hud] call site updated | [review: M2-R6 managers] re-review (R5 said call site only): pause/tutorial gates, sensors closed and reopened, the clicked-ship rules, the Beast screen file, sounds 0x12f/0x104; ported [review: M2-R8 singleplayer-tutorial] cat_tutButtonsHideForScreen at the end ported",
   "sample": "port-R6-managers"
  },
  "0x004589c0": {
@@ -5416,7 +5416,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] compared: same state changes, coordsys +0x98 and collision position +0xE0; cat_hsGateRectangle 0x0048f8b0 is hsRectangle with the colour fixed",
+  "note": "[review: M2-R5 render] compared: same state changes, coordsys +0x98 and collision position +0xE0; cat_hsGateRectangle 0x0048f8b0 is hsRectangle with the colour fixed [review: M2-R8 singleplayer-tutorial] its flag is 0x00a6ad78 (catSpFleetArriving; the tree read HW1's singlePlayerHyperspacingInto)",
   "sample": "port-R5-render"
  },
  "0x00490370": {
@@ -5668,14 +5668,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same [review: M2-R8 singleplayer-tutorial] the skill level is the single-player difficulty word 0x008941a0 (catSpDifficultySetting); the tree kept HW1's separate CurrentMissionSkillLevel (0)",
   "sample": "reread-R2"
  },
  "0x00493b90": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same [review: M2-R8 singleplayer-tutorial] as kasfMissionSkillSet: the difficulty word",
   "sample": "reread-R2"
  },
  "0x00493de0": {
@@ -6584,7 +6584,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "launch screen gains a Beast launch manager (.fib \"Beast_Launch_Manager\"), module slots (cat_lmFillInModuleSlots), tutorial button hiding and sensors close; HW1's glcFullscreen/ioDisable calls gone",
-  "note": "[review: M2-R6 managers] tutorial gate word 1 bit 0x100, single-player other players, sensors closed and remembered, the passed ship's owner and CatExempt20 tested, two carriers, Sect/Beast screens by race, no ship view/ioDisable/taskbar; ported",
+  "note": "[review: M2-R6 managers] tutorial gate word 1 bit 0x100, single-player other players, sensors closed and remembered, the passed ship's owner and CatExempt20 tested, two carriers, Sect/Beast screens by race, no ship view/ioDisable/taskbar; ported [review: M2-R8 singleplayer-tutorial] cat_tutButtonsHideForScreen at the end ported",
   "sample": "port-R6-managers"
  },
  "0x0049fc80": {
@@ -6619,7 +6619,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the previous level's fog layer and lens flare textures go after teReset; the need-capital-ship words start at 0; multiplayer captures test 0x00a447b0 for tStandardFrigate only",
-  "note": "[review: M2-R5 render] fog / lens flare part ported (LevelLoad.c); the other deltas are the level-load producers' [review: M2-R8 kas-runtime-mission01] the need words ported as the exe has them",
+  "note": "[review: M2-R5 render] fog / lens flare part ported (LevelLoad.c); the other deltas are the level-load producers' [review: M2-R8 kas-runtime-mission01] the need words ported as the exe has them [review: M2-R8 singleplayer-tutorial] HW1's warp preload call (singlePlayerPreLoadCheck) removed: the exe has none",
   "sample": "port-R5-render"
  },
  "0x004a4250": {
@@ -9351,7 +9351,7 @@
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "LoadAndFixAnomalyPing inlined (chunk copy, SpaceObjRegistryGetObj fixups, evaluate callback, selection fix)",
+  "note": "LoadAndFixAnomalyPing inlined (chunk copy, SpaceObjRegistryGetObj fixups, evaluate callback, selection fix) [review: M2-R8 singleplayer-tutorial] a cataclysm.exe save's 0x58-byte ping head converted, its user data widened (SaveCat32 tables)",
   "sample": "reread-R2"
  },
  "0x004e9850": {
@@ -10896,7 +10896,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "clCommandMessage colour (debug-build line)",
-  "note": "[review: M2-R5 hud] call site updated",
+  "note": "[review: M2-R5 hud] call site updated [review: M2-R8 singleplayer-tutorial] cat_spPrepareShipHyperspaceOut 0x00518880 before the times (the clamped objects let go) ported; the rest compared: as the tree",
   "sample": "port-R5-hud"
  },
  "0x00518af0": {
@@ -12064,21 +12064,21 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "pointer coordinates are scaled from 640x480 to the window (x * MAIN_WindowWidth / 640, y * MAIN_WindowHeight / 480); HW1 stores x, y as given",
-  "note": "tutPointerAllocate inlined",
+  "note": "tutPointerAllocate inlined [review: M2-R8 singleplayer-tutorial] the scaling now in the tree (it was not stored before); tutPointerAllocate inlined with _stricmp",
   "sample": "reread-R2"
  },
  "0x00530450": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "new 3rd parameter stored in the pointer (+0x28 of the 0x68-byte tutpointer, the field tutRemoveAllPointers now tests)",
-  "note": "tutPointerAllocate inlined; Ghidra shows __thiscall noise",
+  "note": "tutPointerAllocate inlined; Ghidra shows __thiscall noise [review: M2-R8 singleplayer-tutorial] the objective flag stored (+0x64)",
   "sample": "reread-R2"
  },
  "0x00530500": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "new 3rd parameter stored in the pointer (+0x28), as tutSetPointerTargetShip",
-  "note": "tutPointerAllocate inlined",
+  "note": "tutPointerAllocate inlined [review: M2-R8 singleplayer-tutorial] the objective flag stored (+0x64)",
   "sample": "reread-R2"
  },
  "0x005305b0": {
@@ -12120,14 +12120,14 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "new 3rd parameter stored in the pointer (+0x28); callers clean 12 bytes",
-  "note": "tutPointerAllocate inlined; volume NULL test as HW1",
+  "note": "tutPointerAllocate inlined; volume NULL test as HW1 [review: M2-R8 singleplayer-tutorial] the objective flag stored (+0x64)",
   "sample": "reread-R2"
  },
  "0x00530a20": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "a pointer is removed only when its new +0x28 field (set by the 3-argument pointer setters) is 0",
-  "note": "ship/rect reset as HW1",
+  "note": "ship/rect reset as HW1 [review: M2-R8 singleplayer-tutorial] ported: the objective pointers stay",
   "sample": "reread-R2"
  },
  "0x00530b10": {
@@ -12141,27 +12141,27 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "stops Cataclysm's Fleet Command actor bit 0x1000 (speechEventActorStop(0x1000, 0.1)); HW1 stopped SPEECH_ACTOR_FLEET_COMMAND 0x800",
-  "note": "[audit: M2-R5 sound] edited by the sound port (Tutor.c); compared with r6: the region deletes and the pointer loop as HW1",
+  "note": "[audit: M2-R5 sound] edited by the sound port (Tutor.c); compared with r6: the region deletes and the pointer loop as HW1 [review: M2-R8 singleplayer-tutorial] compared: as the tree",
   "sample": "audit-R5-sound"
  },
  "0x00532300": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the Prev button is its own region and atom (\"TutorialPrev\", x = MAIN_WindowWidth - 320) with new process/draw callbacks (cat_tutProcessPrevButton, cat_tutDrawPrevButtonFunction); HW1 sets tutPrevVisible and reuses the Back button (tutShowBackButton)",
-  "note": "teardown and root-region allocation inlined",
+  "note": "teardown and root-region allocation inlined [review: M2-R8 singleplayer-tutorial] ported: its own region and atom (width - 320, 128 x 32, the restart art)",
   "sample": "reread-R2"
  },
  "0x00532750": {
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "click accepted only when one of two new global flags is set (extra condition on the CM_ButtonClick test)",
-  "note": "event 0x100 test plus (DAT_008b9ecc"
+  "note": "event 0x100 test plus (DAT_008b9ecc [review: M2-R8 singleplayer-tutorial] ported: a click counts only while the main view or the sensors manager shows"
  },
  "0x00532a80": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same [review: M2-R8 singleplayer-tutorial] compared: same",
   "sample": "reread-R2"
  },
  "0x00533590": {
@@ -12763,7 +12763,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "adds calls cat_blastReset, cat_ioReset, cat_mcResetRequest, cat_mcSetMode, cat_playerUpgradesReset, cat_salvageResetGlobals (+8); uses fields HW1 never uses: cat_unknown_6500; universeReset: fowDestroy on each player's grid (Player+0x6500) is now ported; the motion cues restart in mode 1 with catMotionCues",
-  "note": "M2-R3 universe-mex: read: the player loop as universeClosePlayers; plus salvage/blast/fow/mc/io/shipPrint/time-compression/tutorial resets of unported subsystems (listed in Universe.c) | [review: M2-R5 hud] the resets added | [review: M2-R6 nis-fow-camera] universeReset: fowDestroy on each player's grid (Player+0x6500) is now ported; the motion cues restart in mode 1 with catMotionCues",
+  "note": "M2-R3 universe-mex: read: the player loop as universeClosePlayers; plus salvage/blast/fow/mc/io/shipPrint/time-compression/tutorial resets of unported subsystems (listed in Universe.c) | [review: M2-R5 hud] the resets added | [review: M2-R6 nis-fow-camera] universeReset: fowDestroy on each player's grid (Player+0x6500) is now ported; the motion cues restart in mode 1 with catMotionCues [review: M2-R8 singleplayer-tutorial] cat_tutPointerListReset at the end ported",
   "sample": "port-R6-nis-fow-camera"
  },
  "0x0053e0d0": {
@@ -14553,7 +14553,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "cat_moRender, cat_shipPrintDraw, cat_ioUpdateHover, cat_shipPrintDragUpdate after the tick text; no toLegendDraw / mrCommandMessageDraw",
-  "note": "[review: M2-R5 hud] the HUD hooks added (the rest of mrRegionDraw is M2-R6's) | [review: M2-R6 mainrgn-popup] the band box, the cycled formations/tactics, the popup menu and the game-stats screen drawn | [review: M2-R7 r6-leftovers] the point mode sets only the post-object callback (0x0056939a); HW1's per-frame reset of the three pie callbacks removed (it replaced the waypoint cursor)",
+  "note": "[review: M2-R5 hud] the HUD hooks added (the rest of mrRegionDraw is M2-R6's) | [review: M2-R6 mainrgn-popup] the band box, the cycled formations/tactics, the popup menu and the game-stats screen drawn | [review: M2-R7 r6-leftovers] the point mode sets only the post-object callback (0x0056939a); HW1's per-frame reset of the three pie callbacks removed (it replaced the waypoint cursor) [review: M2-R8 singleplayer-tutorial] the level's black fade (catSpLevelFade, not while an NIS plays) and Mission01's white flash (additive) ported",
   "sample": "port-R5-hud"
  },
  "0x00569f80": {
@@ -17159,7 +17159,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "tutorial bit 0x2000000, sounds 0x130/0x100, sensors reopened, no io/taskbar state; ported",
-  "note": "[review: M2-R6 managers] tutorial bit 0x2000000, sounds 0x130/0x100, sensors reopened, no io/taskbar state; ported",
+  "note": "[review: M2-R6 managers] tutorial bit 0x2000000, sounds 0x130/0x100, sensors reopened, no io/taskbar state; ported [review: M2-R8 singleplayer-tutorial] cat_tutButtonsRestoreAfterScreen at the end ported",
   "sample": "port-R6-managers"
  },
  "0x00455920": {
@@ -17362,7 +17362,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the shared close (render counter, tutorial bit 0x2000, sounds 0x130/0x100, regions, sensors reopened); ported",
-  "note": "[review: M2-R6 managers] the shared close (render counter, tutorial bit 0x2000, sounds 0x130/0x100, regions, sensors reopened); ported",
+  "note": "[review: M2-R6 managers] the shared close (render counter, tutorial bit 0x2000, sounds 0x130/0x100, regions, sensors reopened); ported [review: M2-R8 singleplayer-tutorial] cat_tutButtonsRestoreAfterScreen in the inlined close ported",
   "sample": "port-R6-managers"
  },
  "0x004f5100": {
@@ -17439,7 +17439,7 @@
   "class": "REWRITTEN",
   "confidence": "high",
   "change": "gates, the Beast screen, the race list, the lab buttons, sounds 0x12f/0x106, the default picture; ported",
-  "note": "[review: M2-R6 managers] gates, the Beast screen, the race list, the lab buttons, sounds 0x12f/0x106, the default picture; ported",
+  "note": "[review: M2-R6 managers] gates, the Beast screen, the race list, the lab buttons, sounds 0x12f/0x106, the default picture; ported [review: M2-R8 singleplayer-tutorial] cat_tutButtonsHideForScreen at the end ported",
   "sample": "port-R6-managers"
  },
  "0x004f76f0": {
@@ -17537,7 +17537,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "tutorial gate bit 0x100000 of word 2; the close inlined (factory-name region, sounds 0x130/0x100, svClose, sensors reopened 0x00a5b230 + camera copy, tutorial buttons); ported",
-  "note": "[review: M2-R6 managers] tutorial gate bit 0x100000 of word 2; the close inlined (factory-name region, sounds 0x130/0x100, svClose, sensors reopened 0x00a5b230 + camera copy, tutorial buttons); ported",
+  "note": "[review: M2-R6 managers] tutorial gate bit 0x100000 of word 2; the close inlined (factory-name region, sounds 0x130/0x100, svClose, sensors reopened 0x00a5b230 + camera copy, tutorial buttons); ported [review: M2-R8 singleplayer-tutorial] cat_tutButtonsRestoreAfterScreen in the inlined close ported (lmClose's shared tail)",
   "sample": "port-R6-managers"
  },
  "0x0049d4b0": {
@@ -17684,7 +17684,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the force-open flag 0x00a5b22c around smSensorsBegin wired (M2-R6 managers); the rest of the body not compared here",
-  "note": "[review: M2-R6 managers] the force-open flag 0x00a5b22c around smSensorsBegin wired (M2-R6 managers); the rest of the body not compared here",
+  "note": "[review: M2-R6 managers] the force-open flag 0x00a5b22c around smSensorsBegin wired (M2-R6 managers); the rest of the body not compared here [review: M2-R8 singleplayer-tutorial] spMainScreen(0) (the new argument)",
   "sample": "port-R6-managers"
  },
  "0x00420f50": {
@@ -18810,8 +18810,8 @@
  "0x00517af0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "UpdateHyperspacingShip: univRemoveShipFromOutside(ship, 1) (the rest of the body not compared here)",
-  "note": "[review: M2-R6 nis-fow-camera] UpdateHyperspacingShip: univRemoveShipFromOutside(ship, 1) (the rest of the body not compared here)",
+  "change": "no hyperspace sounds; the fleet tests on the player's capital ships and modules in range; the white-out cleared and set again once the others finished; univRemoveShipFromOutside(ship, 1)",
+  "note": "[review: M2-R6 nis-fow-camera] UpdateHyperspacingShip: univRemoveShipFromOutside(ship, 1) (the rest of the body not compared here) [review: M2-R8 singleplayer-tutorial] the whole body compared now: ported",
   "sample": "port-R6-nis-fow-camera"
  },
  "0x005180a0": {
@@ -19414,7 +19414,7 @@
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "[review: M2-R6 startup-keys] identical but GoK's spResetMissionSequenceToBeginning: CAT-TODO(stage 6 single player)"
+  "note": "[review: M2-R6 startup-keys] identical but GoK's spResetMissionSequenceToBeginning: CAT-TODO(stage 6 single player) [review: M2-R8 singleplayer-tutorial] GoK's spResetMissionSequenceToBeginning removed (singlePlayerInit starts at mission 1)"
  },
  "0x005ab150": {
   "class": "IDENTICAL",
@@ -21240,7 +21240,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "cat_ioObjectiveAdd replaces the task bar's list; the hyperspace objective is added last",
-  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported",
+  "note": "[review: M2-R8 kasf-library] compared with the exe body (decompile, disassembly where unclear): ported [review: M2-R8 singleplayer-tutorial] a cataclysm.exe save's objective (0x34) and fleet intelligence (0x18) records converted (SaveCat32 tables)",
   "sample": "port-R8-kasf-library"
  },
  "0x004d6530": {
@@ -22402,7 +22402,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "drops calls to soundEventSetActorFlag, tbButtonListRefresh (absent from Cataclysm)",
-  "note": "[review: M2-R8 kasf-library] no tbButtonListRefresh (the exe starts with kasClose)",
+  "note": "[review: M2-R8 kasf-library] no tbButtonListRefresh (the exe starts with kasClose) [review: M2-R8 singleplayer-tutorial] the soundEventSetActorFlag call the tree still had removed (the exe has none)",
   "sample": "port-R8-kasf-library"
  },
  "0x00532c90": {
@@ -22465,7 +22465,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "scope and watch index read back as saved; the difficulty modifier rescale; G_RecentlyLoaded = 1; rmEnableShip of the 6 saved types",
-  "note": "[review: M2-R8 kas-runtime-mission01] compared: ported; the difficulty rescale is a CAT-TODO(stage 6 single player)",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: ported; the difficulty rescale is a CAT-TODO(stage 6 single player) [review: M2-R8 singleplayer-tutorial] the difficulty rescale (0x008941a4 = health factor now over the saved one's, the modifiers from the current difficulty) and the label entries of a cataclysm.exe save (SaveCat32 tables) ported",
   "sample": "port-R8-kas-runtime-mission01"
  },
  "0x00490470": {
@@ -22479,7 +22479,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R8 kas-runtime-mission01] compared: the mirror of SaveHyperspaceGates (the only writer of the static gate table in the exe): identical",
+  "note": "[review: M2-R8 kas-runtime-mission01] compared: the mirror of SaveHyperspaceGates (the only writer of the static gate table in the exe): identical [review: M2-R8 singleplayer-tutorial] a cataclysm.exe save's 0x30-byte gates converted (SaveCat32 tables)",
   "sample": "port-R8-kas-runtime-mission01"
  },
  "0x004a07b0": {
@@ -22626,7 +22626,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "KAS globals G_PlayNis / G_PlayNislet / Traders.PopUpGUI; the black fade; HYPERSPACE_LOADDONE starts the mission's kas2c script (missions 1..17); states 7 (wait) and 9 (the fleet arrives, G_ShipsHaveArrived); the rest of the hyperspace flow",
-  "note": "[review: M2-R8 kas-runtime-mission01] the head, the load-done case and case 9 ported; the roll call, whiteout and case 10 are M2-R8 producer 4's (stage 6 single player)",
+  "note": "[review: M2-R8 kas-runtime-mission01] the head, the load-done case and case 9 ported; the roll call, whiteout and case 10 are M2-R8 producer 4's (stage 6 single player) [review: M2-R8 singleplayer-tutorial] the rest of the body ported: the letterbox jump of the catSpMissionNextLevel missions, the roll call ending through spGoNowHyperspaceCB, Fleet Command's 0x2001020, the ships left in the ether wiped, the inlined fleet tests, the white-out's animatic (cur, cur + 1; mission 17 credits), the ether's damage effects (cat_spForgetDamageEffects) and DeleteAfterHSOut ships, the next mission's level or its opening NIS (state 8), the at-once arrival (cat_spLaunchDockedShipsOnArrival), the failed jump as case 10",
   "sample": "port-R8-kas-runtime-mission01"
  },
  "0x0051b230": {
@@ -22654,7 +22654,7 @@
   "class": "REWRITTEN",
   "confidence": "high",
   "change": "a new game plays nis\\n01.nis in the staging level Mission01_NIS01 (NIS-first)",
-  "note": "[review: M2-R8 kas-runtime-mission01] ported (the warp start cat_spWarpToLevel is producer 4's)",
+  "note": "[review: M2-R8 kas-runtime-mission01] ported (the warp start cat_spWarpToLevel is producer 4's) [review: M2-R8 singleplayer-tutorial] the warp start (cat_spWarpToLevel after tmTechInit / universeSwitchToPlayer) ported",
   "sample": "port-R8-kas-runtime-mission01"
  },
  "0x004a3860": {
@@ -22670,5 +22670,467 @@
   "change": "",
   "note": "[review: M2-R8 kas-runtime-mission01] compared: identical (SOF_Dead 0x800 / SOF_Hide 0x8000, MiningBase = trMiningBase 100)",
   "sample": "port-R8-kas-runtime-mission01"
+ },
+ "0x00517320": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Fleet Command's abort line 0x4001021; no auto-launch restore; the roll-call screen deleted, the lockout lifted and playerCanHyperspace set again",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared with the exe body: ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x005173a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the letterbox (cat_kasWideScreenInHyperspace 90); the small ships dock at once (9); the class test (not the type), no door cleaning",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x005175b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same (selGroupFont2, white)",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00517600": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x005176e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the player's ships cat_spShipCanHyperspace takes; the ships that do not jump by themselves remain unless an emergency jump left them behind (catFlags18 0x40); the modules and the mothership are not counted",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00517770": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "a tResourceCollector is healed; the capital ships and modules launching keep their order (HW1 tested capital ships); reason 0x24",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00517870": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x005178a0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the random wait in the exe's x87 shape (the whole stream-10 draw times RANDOM * 2^-32 plus BASE, one rounding; HW1's frandom rounds the draw and each product)",
+  "note": "[review: M2-R8 singleplayer-tutorial] found modified (IDENTICAL before): ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00517a10": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the ship's four trails cut; the modules (cat_moduleIterFirst / Next) healed and refuelled with it in single player",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00517f30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the player's capital ships and modules (cat_spShipCanHyperspace); the mothership keeps idling, the modules only stop idling; the in-range flag unless launching",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00518170": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a multiplayer arrival clipped to the universe; the ship hidden until it decelerates; the mothership and a self-hosted module first; 3 x BASE + random; the motion cues restart; no Ship_HyperdriveOff; the white-out at 3 slice rates (x87); the range flag cleared on arrival; a multiplayer module waits on its host's command",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared (decompile and disassembly): ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x005186c0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x005187c0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00518850": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00518c50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the warp records cleared and Warp.script read through the exe's table (WarpEnabled, LevelToWarpTo, Level, Resources, Ships, Tech); mission 1 or the warp's (no mission sequence); oldAutoLaunch 0xF",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00518d80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a closeSensors argument (every caller 1 but kasfOpenSensors 0); no task bar",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: ported, the 11 callers pass the exe's argument",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00518db0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a lockout in force lifted first; the deselect empties selSelected and refreshes the totals; the main-region lockout hides the cursor",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00518e10": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls mouseCursorHide, spUnlockout",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: spMainScreen(1) + spLockout inlined: ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00518f00": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "smFleetIntel cleared; the cursor shown with the main region; the flags cleared whole",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00518f50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "not during the Pause key's frame step; refused with a red message while a ship is under construction; the catSpMissionNextLevel missions jump in the letterbox; Fleet Command's 0x200101f; the roll call with Go Now or Emergency Hyperspace disabled by whether a ship of player 0 is under fire; GoK's end-of-mission resource collection gone",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x005193d0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same as HW1 (animBinkPlay(0, 1) for mission 1); GoK's sequence call replaced",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00519440": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "player 0's race set to 0 and player 1's to 1 before the script (HW1 picked the race player 0 was not)",
+  "note": "[review: M2-R8 singleplayer-tutorial] found modified (IDENTICAL before): ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x005194d0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00519510": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "objectiveDestroyAll; the ether cleaned with the exe's tests (the returning ships leave the range flag); the black fade 0 and catSpBigGunAllowed 1 at the end",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00519700": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a ship that left loses the references to it (cat_univRemoveObjReferencesFromShips); an arrived ship leaves the range flag; no DeleteAfterHSOut wipe here",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x0051ab50": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "NOHYPERSPACE compared without case (_stricmp)",
+  "note": "[review: M2-R8 singleplayer-tutorial] found modified (IDENTICAL before): ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x0051be40": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "uses fields HW1 never uses: realtimeelapsed",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: as the tree",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x0051be70": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "Fleet Command announces the failure (0x2001028); univKillPlayer(0, 2, -1)",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x0052f600": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x0052f6d0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "a comma of the lesson's name becomes a space (on the caller's string; CAT-FIX: a copy)",
+  "note": "[review: M2-R8 singleplayer-tutorial] found modified (IDENTICAL before): ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x0052f750": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the previous, quit and next-text buttons' visible flags saved too (after Next; back after quit)",
+  "note": "[review: M2-R8 singleplayer-tutorial] found modified (IDENTICAL before): ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x0052f8b0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "adds calls regChildAlloc, regDrawFunctionSet, regRegionDelete, tutAllocateRootRegion; body 4.1x larger than the file's size ratio predicts, with more branches; fields +atom, flags, processFunction, rect (+1) -pointerType; globals +MAIN_WindowWidth",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: the saved buttons shown again (Next, previous, quit, back, next text), the clicks cleared, the pointers freed (cat_tutPointerListReset): ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x0052ff10": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00530120": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same (unscaled; the tree no longer goes through the scaled tutSetPointerTargetXY)",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x005301e0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same (unscaled)",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x005302b0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same (unscaled)",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00530380": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same (unscaled)",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x005309a0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the name compared without case (_stricmp)",
+  "note": "[review: M2-R8 singleplayer-tutorial] found modified (IDENTICAL before): ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00530a60": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00530b40": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the manager screen names compared without case (_stricmp)",
+  "note": "[review: M2-R8 singleplayer-tutorial] found modified (IDENTICAL before): ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00530c00": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00530c80": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same (the font by the window width; the box)",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00530f90": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same lines (the exe edits the string in place; GoK copies it first)",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00531070": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x005312b0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the pointers' colour (red a quarter, green the pulse, blue two thirds); the box's top under the NIS letterbox; an objective pointer drawn only in the sensors manager (not zooming, the option on, no letterbox) and its line starting at the objective list",
+  "note": "[review: M2-R8 singleplayer-tutorial] found modified (IDENTICAL before): ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00532010": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the next-lesson button at the right of the button row (width - 192, 128 x 32)",
+  "note": "[review: M2-R8 singleplayer-tutorial] found modified (IDENTICAL before): ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00532610": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00532820": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "drawn only with the main view or the sensors manager and a button row; in the row; the next-lesson art",
+  "note": "[review: M2-R8 singleplayer-tutorial] found modified (IDENTICAL before): ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00532ac0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same (the text box's left, the row)",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00532c40": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same (the previous flag cleared too)",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00532d80": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "always the restart art",
+  "note": "[review: M2-R8 singleplayer-tutorial] found modified (IDENTICAL before): ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00532df0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds strings \"Tut_NextLesson_Off\"; \"Tut_NextLesson_On\"; body 2.0x smaller than predicted",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: Cataclysm's image list (35 names): ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00533080": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x005330f0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00533140": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "adds strings \"Tut_NextLesson_Mouse\"; \"Tut_NextLesson_Off\"; \"Tut_NextLesson_On\"",
+  "note": "[review: M2-R8 singleplayer-tutorial] ported: and the pointer list reset",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00533190": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds strings \"Tut_NextLesson_Off\"; \"Tut_NextLesson_On\"; \"Tut_fr_NextLesson_On\" (+4); loops 1 -> 10",
+  "note": "[review: M2-R8 singleplayer-tutorial] ported: Cataclysm's five language lists of 35 images",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x005332c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls tmClearTechs; adds strings \"Tut_NextLesson_Mouse\"; \"Tut_NextLesson_Off\"; \"Tut_NextLesson_On\"",
+  "note": "[review: M2-R8 singleplayer-tutorial] ported: the previous, quit and next-text buttons hidden, tmClearTechs, CurrentMissionWatchFunction NULL",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00533630": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds strings \"GameRunning\"; \"KASFrame\"; body 2.0x smaller than predicted",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: the inlined tokenizer as GetNextCommaDelimitedToken; the flag table has Waypoint, WaypointIssue and ManagersLocked (tutGameEnableFlags in the exe's layout)",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00533790": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds strings \"GameRunning\"; \"KASFrame\"; params 2 -> 3 (prototype); loops 4 -> 7",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: as the tree (the tokenizer and BuildArrows inlined)",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x005339d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds strings \"GameRunning\"; \"KASFrame\"; body 2.3x smaller than predicted; constants 34 not in body",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: as the tree",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00533b30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds strings \"GameRunning\"; \"KASFrame\"; body 2.4x smaller than predicted; constants 34 not in body",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: as the tree",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00533d00": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00533e20": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "queued only in the tutorial (tutorial 1), every message while there is room (GoK queued in any single-player game and skipped duplicates)",
+  "note": "[review: M2-R8 singleplayer-tutorial] found modified (IDENTICAL before): ported",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x00533ff0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x005340a0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
+ },
+ "0x005340c0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared: same",
+  "sample": "port-R8-singleplayer-tutorial"
  }
 }
