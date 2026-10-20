@@ -716,8 +716,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "adds calls cat_mimicGetAvoidRadius, cat_salvageGetSalvagerInfo, cat_shipGetSpeedMultiplier, cat_shipIsCloakedFully, sub_53F9F0; drops calls to attackSimple, proximityCanPlayerSeeShip (absent from Cataclysm); adds strings \"\\nWarning: ship %s %s flying with no ...\"; fields +attack, needFix, next, objlink (+3) -HaveMoved, Master, ShipSpecifics, TargetPtr (+44); globals +singlePlayerGame; constants 19, 21 not in body; loops 2 -> 5; x87 shape of the avoidance: squared distance and maxdistconsider squared double, fsqrt of the double, double reciprocals for the normal and the 1/(dtc*scale) repulsion, the collision size of the second object added as a double, the obscured-point size and test in double, the pass-on-right dot stored float and the target square double, pass-right z added with one rounding, maxpossibledist and the formation / parade pads rounded once; the avoided object's collision size is the stored float of the collision distance, the ship's the double; the too-close test on the unrounded root",
-  "note": "[review: M2-R5 layout-dock] the SPECIAL_2_CatNoAvoidance (specialFlags2 0x40) skip of the exe added (0x00413e40) | [review: M2-R5 command-tactics] the escort speed limit (0x004149c6), the linking Acolyte/Mimic skip (0x00414cb9) and the force-field sphere Sentinel exceptions (0x0041546c) ported; open: the small-target pass skip on static+0x48 < 500 (0x00414c8a) and the Ship+0x608 / mission-type exceptions (0x00414e0e) | [review: M2-R7 oracle-rung-aiship] whole body read and ported (AIShip.c): single-player hyperspace-effect skip (0x0041468d), formation leader speed not for COMMAND_DOCK and for FORCEFIELD_SPHERE_FORMATION (0x004149e2), speed multiplier in the cap (0x00414ab2), mimic avoid radius for both ships (0x00414b28, 0x004152b5), no right of way for a docking fighter/corvette at a dock point (0x00414b59), the small-target pass skipped below originalCollSphereSize 500 (0x00414c8a), the link exception skips only the small pass, the Ship+0x608 / clamped-component / single-player FloatingCity-SlipgateNode and Ecclesiam-Mothership exceptions (0x00414e0e), no asteroid potshot (attackSimple) or Asteroid3 row bonus, parade padding by CLASS_Mothership without the R2 variant and without changing the ship pad, clamp info NULL test, cloak test cat_shipIsCloakedFully + cat_shipDetectedByPlayer, squared range test before the sqrt, no R1-mothership repulse flattening, pass-on-right from 30 m (900.0 at 0x0072a4cc); the salvager target compared as a pointer (the UBSan member-access-within-null at AIShip.c:1467 fixed faithfully) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component) | [review: M2-R9 oracle-rung-physics] the avoidance takes the avoided object's collision size first and stores it as a float, the ship's stays a double (0x0041558b push esi = avoidobj; R8 had them swapped); the 0.1 special case compares fsqrt's unrounded double (0x0041555b); the oracle dump's O / V fly hooks (HWI-ORACLE)",
-  "sample": "port-R9-oracle-rung-physics"
+  "note": "[review: M2-R5 layout-dock] the SPECIAL_2_CatNoAvoidance (specialFlags2 0x40) skip of the exe added (0x00413e40) | [review: M2-R5 command-tactics] the escort speed limit (0x004149c6), the linking Acolyte/Mimic skip (0x00414cb9) and the force-field sphere Sentinel exceptions (0x0041546c) ported; open: the small-target pass skip on static+0x48 < 500 (0x00414c8a) and the Ship+0x608 / mission-type exceptions (0x00414e0e) | [review: M2-R7 oracle-rung-aiship] whole body read and ported (AIShip.c): single-player hyperspace-effect skip (0x0041468d), formation leader speed not for COMMAND_DOCK and for FORCEFIELD_SPHERE_FORMATION (0x004149e2), speed multiplier in the cap (0x00414ab2), mimic avoid radius for both ships (0x00414b28, 0x004152b5), no right of way for a docking fighter/corvette at a dock point (0x00414b59), the small-target pass skipped below originalCollSphereSize 500 (0x00414c8a), the link exception skips only the small pass, the Ship+0x608 / clamped-component / single-player FloatingCity-SlipgateNode and Ecclesiam-Mothership exceptions (0x00414e0e), no asteroid potshot (attackSimple) or Asteroid3 row bonus, parade padding by CLASS_Mothership without the R2 variant and without changing the ship pad, clamp info NULL test, cloak test cat_shipIsCloakedFully + cat_shipDetectedByPlayer, squared range test before the sqrt, no R1-mothership repulse flattening, pass-on-right from 30 m (900.0 at 0x0072a4cc); the salvager target compared as a pointer (the UBSan member-access-within-null at AIShip.c:1467 fixed faithfully) | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component) | [review: M2-R9 oracle-rung-physics] the avoidance takes the avoided object's collision size first and stores it as a float, the ship's stays a double (0x0041558b push esi = avoidobj; R8 had them swapped); the 0.1 special case compares fsqrt's unrounded double (0x0041555b); the oracle dump's O / V fly hooks (HWI-ORACLE) | [review: M2-R10 oracle-rung-physics] velMult: tacticsGetShipsMaxVelocity's double times the stored multiplier, one rounding (0x00414ac9); ported",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x00416b80": {
   "class": "IDENTICAL",
@@ -834,9 +834,9 @@
  "0x0041a2c0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "returns the unrounded double on the FPU (not yet ported)",
-  "note": "same | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree) | [review: M2-R9 oracle-rung-physics] compared with the exe: returns the unrounded double (dz*dz + dy*dy) + dx*dx of the double differences on the FPU; not ported (about 70 callers): CAT-TODO(M2-R10 physics) at the function; aimProcessHyperspace's use ported locally",
-  "sample": "port-R9-oracle-rung-physics"
+  "change": "returns the unrounded double (dz*dz + dy*dy) + dx*dx on the FPU",
+  "note": "same | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree) | [review: M2-R9 oracle-rung-physics] compared with the exe: returns the unrounded double (dz*dz + dy*dy) + dx*dx of the double differences on the FPU; not ported (about 70 callers): CAT-TODO(M2-R10 physics) at the function; aimProcessHyperspace's use ported locally | [review: M2-R10 oracle-rung-physics] ported (double return; the CAT-TODO(M2-R10 physics) closed): its 35 exe call sites store it, compare it unrounded with a stored float or hand it to fsqrt; the C callers do the same through the double return, aitTeamIsFinishedMoving's range * range and aimProcessMoveTo's fsqrt written out",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x0041a530": {
   "class": "IDENTICAL",
@@ -1733,7 +1733,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "switches on the bullet's weapon word (Bullet +0x108: 2 WEAPON_ION and 8 WEAPON_BEASTINFECT go to collCheckBeamColl, 4 WEAPON_LASER is skipped); an enemy bullet crossing an active Sentinel field is drawn and deleted (cat_collLineSentinelFieldIntersect 0x0043abf0, cat_sentinelFieldBulletHit); DFG frigates act through cat_collBulletDFGFieldCheck 0x0043cd10 after the collision-sphere prefilter (no HW1 field-radius exemption); ships with bUseRayTriangleIntersectionForHitLocation move the hit onto the mesh (cat_meshLineIntersect 0x004b5910); univBulletCollidedWithTarget gets 1",
-  "note": "M2-R4 combat: ported except cat_sentinelFieldBulletHit (M2-R4 #4) and the mesh hit location (stage 3) | [review: M2-R5 render] the mesh hit location ported (cat_meshLineIntersect at LOD 0x00752c54 = 3; a line that misses the mesh does not hit)"
+  "note": "M2-R4 combat: ported except cat_sentinelFieldBulletHit (M2-R4 #4) and the mesh hit location (stage 3) | [review: M2-R5 render] the mesh hit location ported (cat_meshLineIntersect at LOD 0x00752c54 = 3; a line that misses the mesh does not hit) | [review: M2-R10 oracle-rung-physics] the sphere tests: v over the double differences (missile target: (dz*hz + dy*hy) + dx*hx; other targets: (dx*hx + dy*hy) + dz*hz), v*v stored as a float, dsqr on the FPU, the line tested when vsq - dsqr < traveldist^2 (no square root; HW1 v - sqrt(dsqr) < traveldist); the collOptimizeDist differences compared unrounded; ported (10-17 tick 2043: a bullet hit one tick early)",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x0043d330": {
   "class": "MODIFIED",
@@ -4986,8 +4987,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "speed multiplier per ship; a field Sentinel goes at its protected ship's speed; the escort limit (catProtectedSpeedLimit) caps the others",
-  "note": "[review: M2-R5 command-tactics] ported",
-  "sample": "port-R5-command-tactics"
+  "note": "[review: M2-R5 command-tactics] ported | [review: M2-R10 oracle-rung-physics] the protect branch stores the top speed before the multiplier, the other branch rounds the product once; ported",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x00483500": {
   "class": "IDENTICAL",
@@ -5243,7 +5244,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "no fuel test; a damaged ship fires and bursts more slowly (x1.25 below 3/4 health, x1.75 below 1/2, x2.5 below 1/4, x4 below 1/10; not the big gun or the Beast weapon); no tactics or formation burst modifiers; the burst state is mirrored in Ship+0x610; the passive-attack penalty is also checked after a burst",
-  "note": "M2-R4 combat: the map's IDENTICAL; the body is Cataclysm's and is ported (Gun.c)"
+  "note": "M2-R4 combat: the map's IDENTICAL; the body is Cataclysm's and is ported (Gun.c) | [review: M2-R10 oracle-rung-physics] x87 shapes ported: the health fraction's first compare unrounded, the fire time times the double factors, the elapsed times against the fire / burst / wait times unrounded, the passive-attack penalty draw as catFrandomBetweenD",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x0048a5e0": {
   "class": "MODIFIED",
@@ -9130,8 +9132,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "a drifting ship is not accelerated and may reach 1400; top speed times the speed multiplier; helpless or drifting ships keep their speed; no fuel; FOW grid update of fog-seeing ships; universe clamp in multiplayer; physUpdateObjPosVelShip: the FOW update (cat_shipAffectsFOW, cat_univShipFOWUpdate from the old to the new position) ported; x87 shape: (F/m)*t for x on the FPU; position x += t*v.x with one rounding; the rotation's w.x += (T/I)*t with one rounding; the angles double into fsin / fcos rounded once; the drift cap in double",
-  "note": "M2-R4 combat: ported; the FOW update is stage 3 | [review: M2-R6 nis-fow-camera] physUpdateObjPosVelShip: the FOW update (cat_shipAffectsFOW, cat_univShipFOWUpdate from the old to the new position) ported | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component) | [review: M2-R9 oracle-rung-physics] compared again with the exe (the rotation path: alpha, the rotation-speed cap, fsin / fcos at their fstp, the three matrix products): matches; an experiment with the x87 fsin / fcos gave a byte-identical replay",
-  "sample": "port-R9-oracle-rung-physics"
+  "note": "M2-R4 combat: ported; the FOW update is stage 3 | [review: M2-R6 nis-fow-camera] physUpdateObjPosVelShip: the FOW update (cat_shipAffectsFOW, cat_univShipFOWUpdate from the old to the new position) ported | [review: M2-R8 oracle-rung-physics] x87 shape ported (double intermediates at the 53-bit precision of the control word 0x027f, the exe's order of the sums, one rounding per stored component) | [review: M2-R9 oracle-rung-physics] compared again with the exe (the rotation path: alpha, the rotation-speed cap, fsin / fcos at their fstp, the three matrix products): matches; an experiment with the x87 fsin / fcos gave a byte-identical replay | [review: M2-R10 oracle-rung-physics] the top speed: tacticsGetShipsMaxVelocity's double times the stored multiplier, one rounding (0x004e4a05 .. 0x004e4a14); ported",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x004e5720": {
   "class": "MODIFIED",
@@ -11696,8 +11698,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "sphere formation 0.7 (0x0072bd10); kamikaze burst needs both flags; single-player limiter wins; no speed burst, fuel, velocity bonus table or probe speed",
-  "note": "ported",
-  "sample": "port-R4"
+  "note": "ported | [review: M2-R10 oracle-rung-physics] the product returned unrounded (double return; the CAT-TODO(M2-R10 physics) closed); its 16 call sites read: the stored speed multiplier times it rounded once (aishipFlyToPointAvoidingObjsFunc, physUpdateObjPosVelShip, the salvage flights, the trails), compared unrounded (aiuFindSlowestShipMaxSpeed, cat_kamikazeSteer), or stored first (GetShipsTravelVel's protect branch, ACVAttack)",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x0052a5f0": {
   "class": "MODIFIED",
@@ -13102,10 +13104,11 @@
   "sample": "port-R9-oracle-rung-physics"
  },
  "0x00545a80": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "M2-R4 univupdate: compared: frandombetween(*CRAZY*) on stream 10, vecCapVectorSloppy(maxrot)"
+  "change": "x87: each draw times the time step on the FPU, x and y stored, z added unrounded",
+  "note": "M2-R4 univupdate: compared: frandombetween(*CRAZY*) on stream 10, vecCapVectorSloppy(maxrot) | [review: M2-R10 oracle-rung-physics] compared with the exe body: ported. IDENTICAL found modified",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x00545b80": {
   "class": "MODIFIED",
@@ -13141,8 +13144,8 @@
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "calls the 7-argument ApplyDamageToTarget; ship parts take no blast damage",
-  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #3) | [review: M2-R9 missions-10-17] a ship part (SOF_CatShipPart 0x40000000) is rocked but takes no blast damage (test 0x100000 set and 0x40000000 clear at 0x00546157 / 0x005461a4); ported (the tree damaged parts: a dying host's blast reached the host again through its parts, Mission16's stack overflow)",
-  "sample": "port-R9-missions-10-17"
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #3) | [review: M2-R9 missions-10-17] a ship part (SOF_CatShipPart 0x40000000) is rocked but takes no blast damage (test 0x100000 set and 0x40000000 clear at 0x00546157 / 0x005461a4); ported (the tree damaged parts: a dying host's blast reached the host again through its parts, Mission16's stack overflow) | [review: M2-R10 oracle-rung-physics] the inlined ApplyExplosionRockToTarget in x87 shape (catFrandomBetweenD times the stored blast strength plus the torque, one rounding); ported (the blast strength itself not re-read)",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x00546250": {
   "class": "MODIFIED",
@@ -13161,13 +13164,15 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "new first argument (apply damage), big-gun shells, weapon-vs-armour damage, crystals immune to projectiles/plasma/missiles, Nomad moon vs its emitters, Sentinel fields, armour piercing for both heavy defenders, friendly fire always, float effect parameters, bullet-hit glow",
-  "note": "M2-R4 univupdate: ported except the weapon word/table (M2-R4 #3), cat_bigGunBulletExplodeAt and cat_sentinelFieldBulletHit (M2-R4 #4) and the 7-argument ApplyDamageToTarget | [review: M2-R5 render] the hit glow sets the render state through cat_rndObjectEffectsSetup (0x0054703a)"
+  "note": "M2-R4 univupdate: ported except the weapon word/table (M2-R4 #3), cat_bigGunBulletExplodeAt and cat_sentinelFieldBulletHit (M2-R4 #4) and the 7-argument ApplyDamageToTarget | [review: M2-R5 render] the hit glow sets the render state through cat_rndObjectEffectsSetup (0x0054703a) | [review: M2-R10 oracle-rung-physics] the inlined ApplyRockToTarget in x87 shape (the draw loaded whole, (hi - lo) * 2^-32 * draw + lo, times the mass, plus the torque, one rounding; catFrandomBetweenD) and the recoil's mass / time a double; ported (10-18 tick 1796: the bRecon 43 hit by the sMothership's guns)",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x00547080": {
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "new first argument, battleChatterFleetAttempt, 7-argument ApplyDamageToTarget",
-  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #3)"
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #3) | [review: M2-R10 oracle-rung-physics] the inlined ApplyRockToTarget and the recoil in x87 shape, as univBulletCollidedWithTarget; ported",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x005474d0": {
   "class": "MODIFIED",
@@ -16586,8 +16591,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "mimic test, cat_gunCanFire, Acolyte half-gun pick, fixed guns via cat_gunFixedGunAimedAtTarget, no trigger-happy edits",
-  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
-  "sample": "port-R4"
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers) | [review: M2-R10 oracle-rung-physics] compared: the gun-open test, the elapsed time against firetime on the FPU (ported), cat_gunCanFire with a third argument 1 (unread), the gun type switch: as the tree",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x005b22c0": {
   "class": "MODIFIED",
@@ -16621,8 +16626,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "bombing run only kAttackBomber/tAttackBomber and never at ships; KILL bullet speed via cat_gunGetBulletSpeed; break formation from the ship command; no R1-mothership case",
-  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
-  "sample": "port-R4"
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers) | [review: M2-R10 oracle-rung-physics] x87 shapes ported: the trajectory normalisation of STATE_KILL and STATE_WHIPSTRAFE1 (double (z*z + y*y) + x*x, the distance stored, 1.0f / it kept as a double), the KILL dot product, WHIPSTRAFE1's bulletRange * 0.7f and elapsed time, WHIPSTRAFE2's break angle kept a double into fsin / fcos, BREAK's squared distance and heading dot; the bombing run (k/tAttackBomber only) not ported (10-18 tick 1762: the bRecon 43's heading torque)",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x005b36d0": {
   "class": "MODIFIED",
@@ -18847,7 +18852,7 @@
  "_notes_r2": [
   "Tool fixes in `tools/delta_map.py` (M2-R2), for the systemic misses the R1 audit found:",
   "",
-  "- **Linker-folded callees.** `ICF_FOLDED` lists HW1 functions whose release code is identical to another's, so the linker kept one copy: `SpaceObjRegistryGetShip`/`GetTarget` \u2192 `SpaceObjRegistryGetObj`, `aimInterceptShipDied` \u2192 `aimCaptureShipDied`, `aimAdvancedAttackClose` \u2192 `aimCloseKamikaze`. A call to the folded name now matches the surviving one (`calls_folded` in the features). The tool also prints candidate folds it finds in the data, but does not apply them: the 4 it lists are inlined or reworked callees, not folds.",
+  "- **Linker-folded callees.** `ICF_FOLDED` lists HW1 functions whose release code is identical to another's, so the linker kept one copy: `SpaceObjRegistryGetShip`/`GetTarget` → `SpaceObjRegistryGetObj`, `aimInterceptShipDied` → `aimCaptureShipDied`, `aimAdvancedAttackClose` → `aimCloseKamikaze`. A call to the folded name now matches the surviving one (`calls_folded` in the features). The tool also prints candidate folds it finds in the data, but does not apply them: the 4 it lists are inlined or reworked callees, not folds.",
   "- **Callee interface changes.** A bound callee whose Cataclysm prototype has real parameter names and another parameter count than its HW1 definition (`timTimer*`, `clCommandMessage`, `spMainScreen`, `hsStaticInit`...), or that the binary map extended with `cat_argN` arguments counted from caller stack cleanup (`clFormation`, `RemoveShipsFromDoingStuff`, `ApplyDamageToTarget`, `tutSetPointerTargetAIVolume`...), makes each caller MODIFIED. Over-declared prototypes are skipped when every call site passes register or stack garbage in the extra slots (`feCurrentScreenDelete(unaff_EDI, unaff_ESI)`), and under-declared ones when the callee reads `in_EAX`/`in_stack_` (`kniTransGrowVertexLists`). `param_N` prototypes are not used, because a double or a by-value struct splits into several slots (`rgluLookAt` 9 -> 12); so `trTextureRegister`'s real 4th argument is still caught only by hand review.",
   "- **One-parameter ETG/particle callables** that take a pointer to their argument slot are MODIFIED (the old rule needed two or more HW1 parameters).",
   "- **KAS hash keys.** A function that calls `kasfScopeName` in HW1 and tests the `0x80000000` hash bit in Cataclysm is MODIFIED.",
@@ -19528,11 +19533,11 @@
   "sample": "port-R8-oracle-rung-physics"
  },
  "0x00413f10": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside)",
-  "sample": "port-R7-oracle-rung-aiship"
+  "change": "x87: the future x position stays on the FPU and the x difference is rounded once",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside) | [review: M2-R10 oracle-rung-physics] compared with the exe body: ported. IDENTICAL found modified",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x00414090": {
   "class": "IDENTICAL",
@@ -20056,8 +20061,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "adds calls cat_shipGetSpeedMultiplier",
-  "note": "[review: M2-R7 oracle-rung-aiship] whole body read and ported: the top speed times cat_shipGetSpeedMultiplier",
-  "sample": "port-R7-oracle-rung-aiship"
+  "note": "[review: M2-R7 oracle-rung-aiship] whole body read and ported: the top speed times cat_shipGetSpeedMultiplier | [review: M2-R10 oracle-rung-physics] the unrounded product compared with the stored minimum, stored when lower; ported",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x0041be90": {
   "class": "MODIFIED",
@@ -20918,7 +20923,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "range from the velocity times the speed multiplier, 900 or 1600 by CLASS_Mothership, computed in double then float; strict dist < rangesq; aitTeamIsInRange gone (inlined)",
-  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported"
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported | [review: M2-R10 oracle-rung-physics] compared: tacticsGetShipsMaxVelocity's double times the stored multiplier and aiuFindDistanceSquared's double compared with the stored rangesq, as the tree now computes them",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x00417e10": {
   "class": "REWRITTEN",
@@ -23498,11 +23504,11 @@
   "sample": "port-R9-recorder-leftovers"
  },
  "0x004082a0": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
-  "sample": "port-R9-recorder-leftovers"
+  "change": "x87: the double distance into fsqrt, compared unrounded",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same | [review: M2-R10 oracle-rung-physics] compared with the exe body: ported. IDENTICAL found modified",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x00409760": {
   "class": "IDENTICAL",
@@ -23981,11 +23987,11 @@
   "sample": "port-R9-recorder-leftovers"
  },
  "0x00417310": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same",
-  "sample": "port-R9-recorder-leftovers"
+  "change": "x87: range * range on the FPU against the double distance",
+  "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (the decompile; the disassembly for the field offsets against the tree's ILP32 layout, the constants and the callees): same | [review: M2-R10 oracle-rung-physics] compared with the exe body: ported. IDENTICAL found modified",
+  "sample": "port-R10-oracle-rung-physics"
  },
  "0x004173c0": {
   "class": "IDENTICAL",
@@ -24343,5 +24349,68 @@
   "change": "adds calls cat_ddDelete; drops calls to ddDeleteWindow (absent from Cataclysm)",
   "note": "[review: M2-R9 recorder-leftovers] compared with the exe body (decompile; disassembly for the offsets): same (platform: cat_ddDelete for the DirectDraw path)",
   "sample": "port-R9-recorder-leftovers"
+ },
+ "0x0043c2e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "in the source's own blob also skips the ships clamped to the source or to the target (a mothership's modules) and, for a clamped target, its host's other clamped ships; x87 length and blob-crossing test",
+  "note": "[review: M2-R10 oracle-rung-physics] compared with the exe body (0x0043c2e0 .. 0x0043c560): the same-blob loop's clamp skip (0x0043c333 .. 0x0043c367), the double length into fsqrt stored as a float, the blob test v > 0 and r*r - (d2 - v*v) > 0 on the FPU; ported (10-18 tick 1721: the sMothership 24's guns 3 and 6 now fire at the bRecon 41 as GOG's do). IDENTICAL found modified",
+  "sample": "port-R10-oracle-rung-physics"
+ },
+ "0x00439ef0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no rectangle information is a miss (-1.0, HW1 0.0); no early miss for a line pointing away from the centre; x87: the plane distances rounded once, the candidate coordinate compared unrounded",
+  "note": "[review: M2-R10 oracle-rung-physics] compared with the exe body: ported. IDENTICAL found modified",
+  "sample": "port-R10-oracle-rung-physics"
+ },
+ "0x00425d90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "bullets left out of the target lists; the all-ships, resource and derelict maxima take collspheresize (the big / small lists the original size)",
+  "note": "[review: M2-R10 oracle-rung-physics] compared with the exe body: ported. IDENTICAL found modified",
+  "sample": "port-R10-oracle-rung-physics"
+ },
+ "0x00426950": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a dead or blob-satisfied object's collision blob is cleared; x87 sphere volume (((r*r)*r) * 4.18879f, its reciprocal of the unrounded volume) and sort distance ((x*x + y*y) + z*z, one rounding)",
+  "note": "[review: M2-R10 oracle-rung-physics] compared with the exe body (the inlined flag pass, the object switch, the blob fields, the reallocation, the bullets and missiles by bobAddObjToSpecificBlob / the nearest blob): ported. IDENTICAL found modified",
+  "sample": "port-R10-oracle-rung-physics"
+ },
+ "0x00427460": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "x87: the sort-distance difference and the check radius, the squared distance against radius^2 * overlap, the new radius and volume, the densities compared on the FPU",
+  "note": "[review: M2-R10 oracle-rung-physics] compared with the exe body: ported; the final itemize pass as the tree. IDENTICAL found modified",
+  "sample": "port-R10-oracle-rung-physics"
+ },
+ "0x00426ff0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "x87 sort distance ((x*x + y*y) + z*z, one rounding)",
+  "note": "[review: M2-R10 oracle-rung-physics] compared with the exe body (the flags, the joined object list, the median, 1.0f / volume, the masses, RUs, the frees): the sort distance ported, the rest as the tree. IDENTICAL found modified",
+  "sample": "port-R10-oracle-rung-physics"
+ },
+ "0x00426dc0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "x87: the z extent stays on the FPU and the radius (larger extent * 0.5f + margin) is rounded once",
+  "note": "[review: M2-R10 oracle-rung-physics] compared with the exe body (the min / max loop compares the unrounded edge with the stored extreme, giving the tree's floats): the radius ported. IDENTICAL found modified",
+  "sample": "port-R10-oracle-rung-physics"
+ },
+ "0x00427b20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "bullets left out of the target lists",
+  "note": "[review: M2-R10 oracle-rung-physics] compared with the exe body: ported. IDENTICAL found modified",
+  "sample": "port-R10-oracle-rung-physics"
+ },
+ "0x004278e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "bullets left out of the target lists",
+  "note": "[review: M2-R10 oracle-rung-physics] compared with the exe body (the sub-blob recursion, the shift, the per-type lists, BTF_RecentDeath for ships and resources, the return after the find): the bullet exclusion ported, the rest as the tree. IDENTICAL found modified",
+  "sample": "port-R10-oracle-rung-physics"
  }
 }

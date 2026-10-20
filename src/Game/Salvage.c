@@ -996,13 +996,14 @@ static void cat_salvageSetDepotForAll(Ship *target, Ship *depot)
 static bool32 cat_salvageFlyToTarget(Ship *salvager, Ship *target)          // 0x004fa3a0
 {
     real32 speedmult = cat_shipGetSpeedMultiplier(salvager);
-    real32 maxvel = tacticsGetShipsMaxVelocity(salvager);
+    // CAT (M2-R10 oracle-rung-physics): the top speed times the stored multiplier, one rounding (0x004fa3c0 .. 0x004fa3cd)
+    real32 maxvel = (real32)(tacticsGetShipsMaxVelocity(salvager) * speedmult);
 
     if (MoveReachedDestinationVariable(salvager, &target->obj.posinfo.position, 6000.0f))
     {
         return TRUE;
     }
-    aishipFlyToPointAvoidingObjsFunc(salvager, &target->obj.posinfo.position, 0, maxvel * speedmult, NULL);
+    aishipFlyToPointAvoidingObjsFunc(salvager, &target->obj.posinfo.position, 0, maxvel, NULL);
     cat_salvageAlignToVelocity(salvager);
     return FALSE;
 }
@@ -1012,7 +1013,8 @@ static bool32 cat_salvageFlyToTarget(Ship *salvager, Ship *target)          // 0
 static bool32 cat_salvageApproachTarget(Ship *salvager, Ship *target)
 {
     real32 speedmult = cat_shipGetSpeedMultiplier(salvager);
-    real32 maxvel = tacticsGetShipsMaxVelocity(salvager);
+    // CAT (M2-R10 oracle-rung-physics): the top speed times the stored multiplier, one rounding (0x004fa43c .. 0x004fa449)
+    real32 maxvel = (real32)(tacticsGetShipsMaxVelocity(salvager) * speedmult);
     real32 arrival = 50.0f;
     sdword type, wanted, i, numDockPoints;
     sbyte index;
@@ -1021,7 +1023,7 @@ static bool32 cat_salvageApproachTarget(Ship *salvager, Ship *target)
 
     if (!MoveReachedDestinationVariable(salvager, &target->obj.posinfo.position, 6000.0f))
     {
-        aishipFlyToPointAvoidingObjsFunc(salvager, &target->obj.posinfo.position, 0, maxvel * speedmult, NULL);
+        aishipFlyToPointAvoidingObjsFunc(salvager, &target->obj.posinfo.position, 0, maxvel, NULL);
         cat_salvageAlignToVelocity(salvager);
         return FALSE;
     }

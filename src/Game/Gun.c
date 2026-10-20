@@ -283,35 +283,42 @@ bool32 gunCanShoot(Ship *ship, Gun *gun)
     GunStatic *gunstatic = gun->gunstatic;
     CommandToDo *command = getShipAndItsCommand(&universe.mainCommandLayer,ship);
     real32 firetime, healthFraction, compare;
+    double healthFractionD;
 
     // CAT: gunCanShoot 0x0048a2f0 (the delta map's IDENTICAL; the body is Cataclysm's): no fuel test; a damaged ship
     //      fires and bursts more slowly (x1.25 below 3/4 health, x1.75 below 1/2, x2.5 below 1/4, x4 below 1/10,
     //      except the big gun and the Beast weapon); no tactics or formation burst modifiers; the burst state is
     //      mirrored in Ship+0x610 (catBurstFiring); the passive-attack penalty is checked after a burst as well
-    healthFraction = ship->targetable.health / ship->staticinfo->health.maxhealth;
+    // CAT (M2-R10 oracle-rung-physics): the x87 shape (gunCanShoot 0x0048a2f0): the health fraction is stored as a
+    //      float but its first compare (with 0.1f) takes the unrounded quotient (0x0048a342 .. 0x0048a352, and
+    //      0x0048a47c .. 0x0048a48c); the fire time times the double 4.0 / 2.5 / 1.75 / 1.25 stays on the FPU and is
+    //      compared with the unrounded elapsed time (0x0048a3b0 .. 0x0048a3bf)
+    healthFractionD = (double)ship->targetable.health / ship->staticinfo->health.maxhealth;
+    healthFraction = (real32)healthFractionD;
     if (gunstatic->burstFireTime == 0.0f)  // this gun doesn't fire in bursts
     {
-        firetime = gunstatic->firetime;
+        double firetimeD = gunstatic->firetime;
+
         if ((gunstatic->gunsoundtype != GS_BeastWeapon) && (gunstatic->gunsoundtype != GS_BigGun))
         {
-            if (healthFraction < 0.1f)
+            if (healthFractionD < 0.1f)
             {
-                firetime = firetime * (real32)4.0;
+                firetimeD = firetimeD * 4.0;
             }
             else if (healthFraction < 0.25f)
             {
-                firetime = firetime * (real32)2.5;
+                firetimeD = firetimeD * 2.5;
             }
             else if (healthFraction < 0.5f)
             {
-                firetime = firetime * (real32)1.75;
+                firetimeD = firetimeD * 1.75;
             }
             else if (healthFraction < 0.75f)
             {
-                firetime = firetime * (real32)1.25;
+                firetimeD = firetimeD * 1.25;
             }
         }
-        return firetime < (universe.totaltimeelapsed - gun->lasttimefired);
+        return firetimeD < ((double)universe.totaltimeelapsed - gun->lasttimefired);
     }
 
     // this gun fires in bursts
@@ -319,7 +326,7 @@ bool32 gunCanShoot(Ship *ship, Gun *gun)
     {
         case GUNBURST_STATE_BURST:
             ship->catBurstFiring = TRUE;
-            if ((universe.totaltimeelapsed - gun->burstStartTime) <= gun->useBurstFireTime)
+            if (((double)universe.totaltimeelapsed - gun->burstStartTime) <= gun->useBurstFireTime)    // CAT: unrounded (0x0048a3f5)
             {
                 goto checkfiretime;
             }
@@ -329,7 +336,7 @@ bool32 gunCanShoot(Ship *ship, Gun *gun)
             // fall through to GUNBURST_STATE_COOLOFF
         case GUNBURST_STATE_COOLOFF:
             ship->catBurstFiring = FALSE;
-            if ((universe.totaltimeelapsed - gun->burstStartTime) <= gun->useBurstWaitTime)
+            if (((double)universe.totaltimeelapsed - gun->burstStartTime) <= gun->useBurstWaitTime)    // CAT: unrounded (0x0048a433)
             {
                 return FALSE;
             }
@@ -340,7 +347,7 @@ bool32 gunCanShoot(Ship *ship, Gun *gun)
             gun->burstState = GUNBURST_STATE_BURST;
             gun->useBurstFireTime = gunstatic->burstFireTime;
             gun->useBurstWaitTime = gunstatic->burstWaitTime;
-            if (healthFraction < 0.1f)
+            if (healthFractionD < 0.1f)
             {
                 gun->useBurstWaitTime = gunstatic->burstWaitTime * (real32)4.0;
             }
@@ -369,18 +376,23 @@ checkfiretime:
           (command->formation.formationtype == SPHERE_FORMATION)))
     {
         //ship is passive attacking, so lets limit its gun fire time
+        // CAT (M2-R10 oracle-rung-physics): the x87 shape (0x0048a530 .. 0x0048a599): the fire time and the elapsed time
+        //      are stored as floats, the elapsed time compared unrounded first; the draw (catFrandomBetweenD) plus the
+        //      stored fire time stays on the FPU against the stored elapsed time
+        double compareD = (double)universe.totaltimeelapsed - gun->lasttimefired;
+
         firetime = tacticsInfo.PassiveRetaliationFireTimeModifierLow + gunstatic->firetime;
-        compare = universe.totaltimeelapsed - gun->lasttimefired;
-        if ((firetime < compare) &&
-            ((tacticsInfo.PassiveRetaliationFireTimeModifierHi - tacticsInfo.PassiveRetaliationFireTimeModifierLow) *
-             (1.0f / 4294967296.0f) * (real32)gamerand() + tacticsInfo.PassiveRetaliationFireTimeModifierLow + firetime < compare))
+        compare = (real32)compareD;
+        if ((firetime < compareD) &&
+            (catFrandomBetweenD(tacticsInfo.PassiveRetaliationFireTimeModifierLow, tacticsInfo.PassiveRetaliationFireTimeModifierHi) +
+             firetime < compare))
         {
             //gun can now fire
             return TRUE;
         }
         return FALSE;
     }
-    return gunstatic->firetime < (universe.totaltimeelapsed - gun->lasttimefired);
+    return gunstatic->firetime < ((double)universe.totaltimeelapsed - gun->lasttimefired);   // CAT: unrounded (0x0048a5a8)
 }
 
 /*-----------------------------------------------------------------------------

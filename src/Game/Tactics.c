@@ -501,7 +501,7 @@ bool32 tacticsCheckGuardConditionsDuringAttack(CommandToDo *command)
     return FALSE;
 }
 
-real32 tacticsGetShipsMaxVelocity(Ship *ship)
+double tacticsGetShipsMaxVelocity(Ship *ship)
 {
     real32 speedmult = 1.0f;
     CommandToDo *command;
@@ -529,7 +529,9 @@ real32 tacticsGetShipsMaxVelocity(Ship *ship)
     {
         return ship->singlePlayerSpeedLimiter;      // deliberately override other considerations - we want this to be the final word
     }
-    return(speedmult * ship->staticinfo->common.maxvelocity);
+    // CAT (M2-R10 oracle-rung-physics): the product is returned unrounded (0x005294b2 fmul, ret): each caller rounds
+    //      where the exe stores (most multiply it by the stored speed multiplier first, cat_shipGetSpeedMultiplier)
+    return((double)speedmult * ship->staticinfo->common.maxvelocity);
 }
 
 

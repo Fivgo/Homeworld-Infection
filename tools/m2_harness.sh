@@ -200,6 +200,11 @@
 #                    number, collision position and coordsys, the distance, the normal and the three doubles of the
 #                    collision distance as raw words) and, with "all", 'B' (every live bullet in BulletList order: the
 #                    firing ship, its target, position, velocity)
+#                    M2-R10 oracle-rung-physics adds, per dumped ship: 'T <tick> <ship> state=.. target=.. cmd=..
+#                    [multi=..] madGun=..' (its attack state aistateattack, its attack target, the command's attack
+#                    targets and, for a ship with multiple targets, each gun's target; a ship number, o<objtype> or -)
+#                    and one 'G <tick> <ship> <gun> type=.. burst=.. last=.. heading=..' per gun (the gun type, its
+#                    burst state, lasttimefired and heading in ship space); read only, the stream is unchanged
 #                    tools/oracle/hwo_invert.py recovers a reference stream's per-ship words from an "all" dump
 #                    The square root (M2-R9 oracle-rung-physics, decision 70): the engine's fsqrt / fmathSqrt / catFsqrtD
 #                    are the exe's table square root (fsqrt 0x00472860, src/Game/FastMath.c) by default; pass

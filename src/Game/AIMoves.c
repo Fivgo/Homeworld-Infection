@@ -1337,7 +1337,8 @@ sdword aimProcessMoveTo(AITeam *team)
                 break;
             case DISTANCE_LIMITED:
                 current_location = selCentrePointComputeGeneral((MaxSelection *)team->shipList.selection, &avg_size);
-                if (fsqrt(aiuFindDistanceSquared(current_location, thisMove->params.moveTo.source)) > thisMove->params.moveTo.limiter)
+                // CAT (M2-R10 oracle-rung-physics): the double into fsqrt, compared unrounded (aimProcessMoveTo 0x00408388)
+                if (catFsqrtD(aiuFindDistanceSquared(current_location, thisMove->params.moveTo.source)) > thisMove->params.moveTo.limiter)
                 {
                     aiuWrapHalt(team->shipList.selection);
 //                    aiplayerLog((aiIndex,"Move To team reached distance destination"));

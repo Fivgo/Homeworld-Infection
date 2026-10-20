@@ -145,7 +145,8 @@ void tacticsShipDied(Ship *ship);
 
 real32 tacticsMaxDistToTarget(SelectCommand *selection,SpaceObjRotImpTarg *target);
 bool32 tacticsCheckGuardConditionsDuringAttack(struct CommandToDo *command);
-real32 tacticsGetShipsMaxVelocity(Ship *ship);
+// CAT (M2-R10 oracle-rung-physics): tacticsGetShipsMaxVelocity 0x00529450 returns its product unrounded on the FPU
+double tacticsGetShipsMaxVelocity(Ship *ship);
 
 void tacticsMakeShipsNotLookForOtherShips(SelectCommand *selection);
 

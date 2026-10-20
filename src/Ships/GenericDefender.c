@@ -253,7 +253,9 @@ static void cat_kamikazeSteer(Ship *ship, Ship *target, real32 range)    // 0x00
     {
         return;
     }
-    if (tacticsGetShipsMaxVelocity(ship) * cat_shipGetSpeedMultiplier(ship) <
+    // CAT (M2-R10 oracle-rung-physics): the ship's top speed is stored, the target's compared unrounded (0x005b172f ..
+    //      0x005b1757); the later test compares the unrounded product with the stored speed (0x005b1916)
+    if ((real32)(tacticsGetShipsMaxVelocity(ship) * cat_shipGetSpeedMultiplier(ship)) <
         tacticsGetShipsMaxVelocity(target) * cat_shipGetSpeedMultiplier(target))
     {
         return;

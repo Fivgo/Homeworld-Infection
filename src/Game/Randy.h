@@ -95,6 +95,17 @@ _Static_assert(sizeof(ranstream) == 0x14, "ranstream is 0x14 bytes in cataclysm.
 #define randombetween(a,b)  (randomG((b)-(a)+1) + (a))
 #define frandombetween(a,b) (frandom((b)-(a)  ) + (a))
 
+// CAT (M2-R10 oracle-rung-physics): the exe's inlined frandombetween at the FPU's 53-bit precision (e.g.
+//      univBulletCollidedWithTarget 0x00546cf4 .., ApplyCareenRotationDirectly 0x00545a8e ..): the draw of stream 10
+//      loaded whole (fild of the unsigned 32 bits), times (hi - lo) * 2^-32 (0x0072a4e0), plus lo, no rounding; the
+//      callers round where the exe stores (HW1's frandombetween rounds the draw, the products and the sum to floats)
+static inline double catFrandomBetweenD(real32 lo, real32 hi)
+{
+    udword draw = gamerand();
+
+    return (double)draw * (((double)hi - (double)lo) * (double)(1.0f / ((real32)UDWORD_Max))) + (double)lo;
+}
+
 
 void ranRandomize(sdword ranIndex);
 

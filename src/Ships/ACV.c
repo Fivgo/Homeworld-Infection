@@ -669,7 +669,7 @@ void ACVAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdist)            
         }
     }
     aishipFlyToPointAvoidingObjsFunc(ship, &target->obj.posinfo.position, 10,
-                                     cat_shipGetSpeedMultiplier(ship) * tacticsGetShipsMaxVelocity(ship), NULL);
+                                     cat_shipGetSpeedMultiplier(ship) * (real32)tacticsGetShipsMaxVelocity(ship), NULL);   // CAT: the top speed stored first (0x005aece5)
     ship->shipidle = FALSE;
 }
 

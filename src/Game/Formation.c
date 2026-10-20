@@ -1536,12 +1536,13 @@ real32 GetShipsTravelVel(SelectCommand *selection,real32 scalevel)
             fieldSentinel = TRUE;
             if ((ship->command != NULL) && (ship->command->protect != NULL) && (ship->command->protect->numShips > 0))
             {
-                testvel = cat_shipGetSpeedMultiplier(ship->command->protect->ShipPtr[0]) * tacticsGetShipsMaxVelocity(ship->command->protect->ShipPtr[0]);
+                // CAT (M2-R10 oracle-rung-physics): the top speed is stored before the multiplier (0x00483455)
+                testvel = cat_shipGetSpeedMultiplier(ship->command->protect->ShipPtr[0]) * (real32)tacticsGetShipsMaxVelocity(ship->command->protect->ShipPtr[0]);
             }
         }
         else
         {
-            testvel = tacticsGetShipsMaxVelocity(ship) * cat_shipGetSpeedMultiplier(ship);
+            testvel = (real32)(tacticsGetShipsMaxVelocity(ship) * cat_shipGetSpeedMultiplier(ship));   // CAT: one rounding (0x004834f0)
         }
 
         if (testvel < minvel)

@@ -227,12 +227,19 @@ vector aiuGenerateFlankCoordinates(vector center, vector origin, vector referenc
     Outputs     :
     Return      : the distance squared
 ----------------------------------------------------------------------------*/
-real32 aiuFindDistanceSquared(vector point1, vector point2)
+double aiuFindDistanceSquared(vector point1, vector point2)
 {
-    // CAT-TODO(M2-R10 physics): the exe (aiuFindDistanceSquared 0x0041a2c0) returns the unrounded double (dz*dz + dy*dy) + dx*dx of the double differences on the FPU; its ~70 callers store it (fstp dword), compare it or hand it to fsqrt as a double; this real32 return rounds the float sums (aimProcessHyperspace's use is ported locally; found by M2-R9 oracle-rung-physics, no rung divergence points at it yet)
-    vecSubFrom(point1, point2);
+    // CAT (M2-R10 oracle-rung-physics): the exe (aiuFindDistanceSquared 0x0041a2c0) returns the unrounded double
+    //      (dz*dz + dy*dy) + dx*dx of the double differences on the FPU (HW1 returned the float sums). Its 35 call
+    //      sites in the exe (and the callers in this file, into which the exe inlined it) store it as a float, compare it
+    //      unrounded or hand it to fsqrt as a double: the C callers do the same through the double return (a real32
+    //      assignment rounds once, a compare is made in double); aitTeamIsFinishedMoving's range * range and
+    //      aimProcessMoveTo's square root are written out at their sites
+    double dx = (double)point1.x - (double)point2.x;
+    double dy = (double)point1.y - (double)point2.y;
+    double dz = (double)point1.z - (double)point2.z;
 
-    return vecMagnitudeSquared(point1);
+    return (dz * dz + dy * dy) + dx * dx;
 }
 
 
@@ -1704,12 +1711,16 @@ real32 aiuFindSlowestShipMaxSpeed(SelectCommand *ships)
     for (i=0;i<ships->numShips;i++)
     {
         // CAT: the top speed carries the speed multiplier (cat_shipGetSpeedMultiplier 0x00514940; aiuFindSlowestShipMaxSpeed 0x0041bcf0)
-        tempmaxspeed = cat_shipGetSpeedMultiplier(ships->ShipPtr[i]);
-        tempmaxspeed = tacticsGetShipsMaxVelocity(ships->ShipPtr[i]) * tempmaxspeed;
+        // CAT (M2-R10 oracle-rung-physics): the unrounded product is compared and stored when lower (0x0041bd1f ..
+        //      0x0041bd31)
+        double maxspeedD;
 
-        if (tempmaxspeed < slowestmaxspeed)
+        tempmaxspeed = cat_shipGetSpeedMultiplier(ships->ShipPtr[i]);
+        maxspeedD = tacticsGetShipsMaxVelocity(ships->ShipPtr[i]) * tempmaxspeed;
+
+        if (maxspeedD < slowestmaxspeed)
         {
-            slowestmaxspeed = tempmaxspeed;
+            slowestmaxspeed = (real32)maxspeedD;
         }
     }
 

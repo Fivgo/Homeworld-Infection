@@ -126,7 +126,8 @@ vector aiuGenerateRandomStandoffPoint(vector center, real32 radius, vector origi
 vector aiuGenerateFlankCoordinates(vector center, vector origin, vector referencevec, real32 radius);
 
 //finds the square of the distance between two points
-real32 aiuFindDistanceSquared(vector point1, vector point2);
+// CAT (M2-R10 oracle-rung-physics): aiuFindDistanceSquared 0x0041a2c0 returns the unrounded double on the FPU
+double aiuFindDistanceSquared(vector point1, vector point2);
 
 //finds a point that is within a range of a given destination
 vector aiuFindRangeStandoffPoint(vector destination, vector location, real32 range);

@@ -1021,7 +1021,8 @@ bool32 aitTeamIsFinishedMoving(AITeam *team, vector destination, real32 range)
 
     current_location = selCentrePointComputeGeneral((MaxSelection *)team->shipList.selection, &avg_size);
 
-    if ((aiuFindDistanceSquared(current_location, destination) < (range*range)) ||
+    // CAT (M2-R10 oracle-rung-physics): range * range on the FPU against the double (aitTeamIsFinishedMoving 0x00417361)
+    if ((aiuFindDistanceSquared(current_location, destination) < ((double)range*range)) ||
         (vecIsZero(team->shipList.selection->ShipPtr[0]->moveTo)))
     {
         return TRUE;

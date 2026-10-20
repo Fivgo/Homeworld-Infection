@@ -427,12 +427,17 @@ void aishipGetTrajectory(Ship *ship,SpaceObjRotImpTarg *target,vector *trajector
 void aishipGetTrajectoryWithAngleCorrection(Ship *ship,SpaceObjRotImpTarg *target,vector *trajectory)
 {
     vector futurepos = ship->obj.posinfo.position;
+    double futurex;
 
-    futurepos.x += (ship->obj.posinfo.velocity.x * 0.25f);
+    // CAT (M2-R10 oracle-rung-physics): the x87 shape (aishipGetTrajectoryWithAngleCorrection 0x00413f10): the future
+    //      x stays on the FPU and the x difference is rounded once (0x00413f17 .. 0x00413f6d); y and z are stored first
+    futurex = (double)ship->obj.posinfo.velocity.x * 0.25f + futurepos.x;
     futurepos.y += (ship->obj.posinfo.velocity.y * 0.25f);
     futurepos.z += (ship->obj.posinfo.velocity.z * 0.25f);
 
-    vecSub(*trajectory,target->impactable.collInfo.collPosition,futurepos);
+    trajectory->x = (real32)((double)target->impactable.collInfo.collPosition.x - futurex);
+    trajectory->y = target->impactable.collInfo.collPosition.y - futurepos.y;
+    trajectory->z = target->impactable.collInfo.collPosition.z - futurepos.z;
 }
 
 #define STATE_POINT_IN_DIRECTION    1
@@ -1088,7 +1093,7 @@ startflying:
                 // CAT: the top speed carries the speed multiplier (cat_shipGetSpeedMultiplier 0x00514940;
                 //      0x00414ab2), as in physUpdateObjPosVelShip
                 real32 velMult = cat_shipGetSpeedMultiplier(ship);
-                velMult = tacticsGetShipsMaxVelocity(ship) * velMult;
+                velMult = (real32)(tacticsGetShipsMaxVelocity(ship) * velMult);     // CAT: one rounding (0x00414ac9)
                 vecCapVector(&targetVec,velMult);
             }
 

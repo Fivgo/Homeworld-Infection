@@ -254,9 +254,13 @@ void FillInCollisionBlobSpecificLists(blob *thisBlob)
     {
         spaceobj = blobObjects->SpaceObjPtr[i];
 
+        // CAT (M2-R10 oracle-rung-physics): FillInCollisionBlobSpecificLists 0x00425d90 also leaves bullets out of the
+        //      target lists, and the largest-sphere maxima of all ships, the resources and the derelicts take the
+        //      current collspheresize (StaticInfo +0x4C) where the big / small lists and their maxima take the original
+        //      size (+0x48)
         if (spaceobj->header.flags & SOF_Targetable)
         {
-            if(spaceobj->header.objtype != OBJ_MissileType)
+            if((spaceobj->header.objtype != OBJ_MissileType) && (spaceobj->header.objtype != OBJ_BulletType))
             {
                 real32 originalCollSphereSize = spaceobj->staticinfo->staticCollInfo.originalCollSphereSize;
                 if (originalCollSphereSize >= BIG_TARGET_SIZE)
@@ -290,7 +294,7 @@ void FillInCollisionBlobSpecificLists(blob *thisBlob)
                 }
 
                 thisBlob->blobShips->ShipPtr[numShips++] = (ShipPtr)spaceobj;
-                AssignIfBigger(thisBlob->blobMaxShipCollSphereSize, originalCollSphereSize)
+                AssignIfBigger(thisBlob->blobMaxShipCollSphereSize, spaceobj->staticinfo->staticCollInfo.collspheresize)
             }
                 break;
 
@@ -303,12 +307,12 @@ void FillInCollisionBlobSpecificLists(blob *thisBlob)
             case OBJ_GasType:
             case OBJ_DustType:
                 thisBlob->blobResources->ResourcePtr[numResources++] = (ResourcePtr)spaceobj;
-                AssignIfBigger(thisBlob->blobMaxResourceCollSphereSize, spaceobj->staticinfo->staticCollInfo.originalCollSphereSize)
+                AssignIfBigger(thisBlob->blobMaxResourceCollSphereSize, spaceobj->staticinfo->staticCollInfo.collspheresize)
                 break;
 
             case OBJ_DerelictType:
                 thisBlob->blobDerelicts->DerelictPtr[numDerelicts++] = (DerelictPtr)spaceobj;
-                AssignIfBigger(thisBlob->blobMaxDerelictCollSphereSize, spaceobj->staticinfo->staticCollInfo.originalCollSphereSize)
+                AssignIfBigger(thisBlob->blobMaxDerelictCollSphereSize, spaceobj->staticinfo->staticCollInfo.collspheresize)
                 break;
 
             case OBJ_MissileType:
@@ -884,6 +888,17 @@ void bobAllBlobsFlagObjects(LinkedList *list)
     Outputs     :
     Return      : The head of a list of blobs.
 ----------------------------------------------------------------------------*/
+// CAT (M2-R10 oracle-rung-physics): the exe's x87 shapes for a blob's sort distance and sphere volume
+//      (bobListCreate 0x00426950, bobBlobCombine 0x00426ff0, bobListUpdate 0x00427460): (x*x + y*y) + z*z rounded once;
+//      the volume is ((r*r)*r) * 4.18879f (0x0072a570) on the FPU, stored once, its reciprocal taken of the unrounded
+//      volume (HW1's sphereVolume rounds each float product)
+static real32 catBlobSortDistance(const vector *v)
+{
+    return (real32)(((double)v->x * v->x + (double)v->y * v->y) + (double)v->z * v->z);
+}
+
+static const real32 catBlobVolumeFactor = 4.18879032f;     // 0x0072a570 (4/3 pi)
+
 void bobListCreate(BlobProperties *blobProperties, LinkedList *list, udword playerIndex)
 {
     SpaceObj *spaceobj;
@@ -924,6 +939,9 @@ void bobListCreate(BlobProperties *blobProperties, LinkedList *list, udword play
         node = node->next;
         if (spaceobj->header.flags & (SOF_Dead | SOF_DontCreateBlob))
         {                                                   //don't process dead or satisfactory objects
+            // CAT (M2-R10 oracle-rung-physics): the exe also clears the object's collision blob (bobListCreate
+            //      0x00426a6f .. 0x00426bd2); bobUpdateExtraCollBobInfo sets it again for every object of a blob
+            spaceobj->collMyBlob = NULL;
             continue;
         }
         switch (spaceobj->header.objtype)
@@ -973,8 +991,12 @@ void bobListCreate(BlobProperties *blobProperties, LinkedList *list, udword play
         bitClear(newBlob->flags, BTF_FreeBlobObjects);
         newBlob->centre = spaceobj->posinfo.position;
         newBlob->radius = BlobPropertiesPtr->bobStartSphereSize;
-        newBlob->volume = sphereVolume(newBlob->radius);
-        newBlob->oneOverVolume = 1.0f / newBlob->volume;
+        {
+            double volumeD = (((double)newBlob->radius * newBlob->radius) * newBlob->radius) * catBlobVolumeFactor;
+
+            newBlob->volume = (real32)volumeD;                      // CAT: x87 (0x00426afa .. 0x00426b75)
+            newBlob->oneOverVolume = (real32)(1.0 / volumeD);
+        }
 
         newBlob->totalMass = mass;
 
@@ -999,7 +1021,7 @@ void bobListCreate(BlobProperties *blobProperties, LinkedList *list, udword play
         newBlob->blobObjects->SpaceObjPtr[0] = spaceobj;
         newBlob->subBlobs.num = BIT31;                  //flag the sub-blob list not yet created
 
-        newBlob->sortDistance = vecMagnitudeSquared(spaceobj->posinfo.position);
+        newBlob->sortDistance = catBlobSortDistance(&spaceobj->posinfo.position);     // CAT: x87 (0x00426b93 .. 0x00426bb7)
         newBlob->sqrtSortDistance = 0.0f;
 
         listAddNode(list, &newBlob->node, newBlob);
@@ -1148,7 +1170,19 @@ void bobObjectListMedian(vector *dest, real32 *destRadius, sdword nObjects, Spac
     dest->x = (minV.x + maxV.x) * 0.5f;
     dest->y = (minV.y + maxV.y) * 0.5f;
     dest->z = (minV.z + maxV.z) * 0.5f;
-    *destRadius = max(max(maxV.x - minV.x, maxV.y - minV.y), maxV.z - minV.z) * 0.5f + BlobPropertiesPtr->bobRadiusCombineMargin;
+    // CAT (M2-R10 oracle-rung-physics): the x87 shape (bobObjectListMedian 0x00426dc0, 0x00426f71 .. 0x00426fe8): the x
+    //      and y extents are stored as floats and the larger kept, the z extent stays on the FPU; the larger of the two
+    //      (z wins a tie) times 0.5f plus the margin is rounded once. The loop's min / max tests compare the unrounded
+    //      edge with the stored extreme, which gives the same floats as the tree's
+    {
+        real32 extentX = maxV.x - minV.x;
+        real32 extentY = maxV.y - minV.y;
+        real32 extentXY = (extentX > extentY) ? extentX : extentY;
+        double extentZ = (double)maxV.z - (double)minV.z;
+        double extent = (extentXY > extentZ) ? (double)extentXY : extentZ;
+
+        *destRadius = (real32)(extent * 0.5f + BlobPropertiesPtr->bobRadiusCombineMargin);
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -1209,7 +1243,7 @@ Node *bobBlobCombine(blob *thisBlob, blob *otherBlob, real32 newRadius, real32 n
     thisBlob->volume = newVolume;
     thisBlob->oneOverVolume = 1.0f / newVolume;
     thisBlob->totalMass = tempBlob.totalMass + otherBlob->totalMass;
-    thisBlob->sortDistance = vecMagnitudeSquared(thisBlob->centre);
+    thisBlob->sortDistance = catBlobSortDistance(&thisBlob->centre);      // CAT: x87 (0x0042715e .. 0x00427176)
     thisBlob->sqrtSortDistance = 0.0f;
     thisBlob->RUs = tempBlob.RUs + otherBlob->RUs;
     //delete otherBlob, and thisBlob becomes newBlob
@@ -1391,6 +1425,7 @@ void bobListUpdate(LinkedList *list)
     real32 bobBiggestRadius = BlobPropertiesPtr->bobBiggestRadius;
 
     real32 checkdist;
+    double checkdistD, distanceD;
 
     bobStatsInitialBlobs(list->num);
 
@@ -1422,18 +1457,27 @@ void bobListUpdate(LinkedList *list)
                 }
                 otherblobSortDistance = otherBlob->sqrtSortDistance;
 
-                checkdist = otherblobSortDistance - thisblobSortDistance;
+                // CAT (M2-R10 oracle-rung-physics): the x87 shape (bobListUpdate 0x00427460): the sort-distance
+                //      difference stays on the FPU against (biggest radius + radius) and the stored check radius
+                //      (0x0042750b .. 0x00427543); the squared distance of the stored differences and radius^2 * overlap
+                //      are compared unrounded (0x004275e3 .. 0x00427614); the new radius is the root plus both radii
+                //      times 0.5f, stored, its unrounded value times the stored one twice times 4.18879f the stored
+                //      volume (0x00427620 .. 0x00427646); the density (masses / volume) and the larger of the two blobs'
+                //      densities (this one's unrounded, the other's stored) are compared on the FPU (0x0042764a ..
+                //      0x004276a8)
+                checkdistD = (double)otherblobSortDistance - (double)thisblobSortDistance;
+                checkdist = (real32)checkdistD;
 
                 //a test for early aborting of this comparison process
-                if (checkdist > (thisBlob->radius + bobBiggestRadius))
+                if (checkdistD > ((double)bobBiggestRadius + thisBlob->radius))
                 {
                     bobStatsTrivialReject();
                     break;
                 }
 
                 radius = thisBlob->radius + otherBlob->radius;
-                checkradius = radius * bobSqrtOverlapFactor;
-                if (checkdist > checkradius)
+                checkradius = (real32)(((double)thisBlob->radius + otherBlob->radius) * bobSqrtOverlapFactor);   // CAT: 0x00427528 .. 0x00427536
+                if (checkdistD > checkradius)
                 {
                     goto nextnode;
                 }
@@ -1457,23 +1501,32 @@ void bobListUpdate(LinkedList *list)
                     goto nextnode;
                 }
 
-                distance = vecMagnitudeSquared(difference);
-                radius *= radius;                           //combined radii^2
+                distanceD = ((double)difference.z * difference.z + (double)difference.y * difference.y) +
+                            (double)difference.x * difference.x;
+                distance = (real32)distanceD;
 
-                if (distance <= (radius*bobOverlapFactor))
+                if (distanceD <= (((double)radius * radius) * bobOverlapFactor))
                 {                                           //if these blobs are sufficiently overlapping
                     //determine if the new sphere would match density criteria
-                    bobStatsCombine();
-                    newRadius = (((real32)fsqrt(distance)) + thisBlob->radius + otherBlob->radius) * 0.5f;
-                    newVolume = sphereVolume(newRadius);
-                    newDensity = (thisBlob->totalMass + otherBlob->totalMass) / newVolume;
+                    double newRadiusD, newDensityD, thisDensityD, maxDensityD;
+                    real32 otherDensity;
 
-                    if (newDensity > max(thisBlob->totalMass * thisBlob->oneOverVolume, otherBlob->totalMass * otherBlob->oneOverVolume))
+                    bobStatsCombine();
+                    newRadiusD = ((catFsqrtD(distanceD) + thisBlob->radius) + otherBlob->radius) * 0.5f;
+                    newRadius = (real32)newRadiusD;
+                    newVolume = (real32)(((newRadiusD * newRadius) * newRadius) * catBlobVolumeFactor);
+                    newDensityD = ((double)thisBlob->totalMass + otherBlob->totalMass) / newVolume;
+                    newDensity = (real32)newDensityD;
+                    thisDensityD = (double)thisBlob->oneOverVolume * thisBlob->totalMass;
+                    otherDensity = otherBlob->oneOverVolume * otherBlob->totalMass;
+                    maxDensityD = (thisDensityD > otherDensity) ? thisDensityD : (double)otherDensity;
+
+                    if (newDensityD > maxDensityD)
                     {                                       //if new sphere is denser than the greater of the two spheres
                         otherNode = bobBlobCombine(thisBlob, otherBlob, newRadius, newVolume);
                         nHits++;
                     }
-                    else if (newDensity > bobDensityHigh && newRadius < bobBiggestRadius)
+                    else if (newDensityD > bobDensityHigh && newRadius < bobBiggestRadius)
                     {                                       //if combination will increase density
                         otherNode = bobBlobCombine(thisBlob, otherBlob, newRadius, newVolume);
                         nHits++;
@@ -1639,7 +1692,8 @@ void bobObjectDied(SpaceObj *object,LinkedList *list)
 
                 if (object->header.flags & SOF_Targetable)
                 {
-                    if(object->header.objtype != OBJ_MissileType)
+                    // CAT (M2-R10 oracle-rung-physics): bobObjectDied 0x004278e0 leaves bullets out of the target lists
+                    if((object->header.objtype != OBJ_MissileType) && (object->header.objtype != OBJ_BulletType))
                     {
                         if (object->staticinfo->staticCollInfo.originalCollSphereSize >= BIG_TARGET_SIZE)
                         {
@@ -1808,7 +1862,8 @@ void AddObjToObjectListsOfBlob(SpaceObj *obj,blob *putInBlob)
 {
     if (obj->header.flags & SOF_Targetable)
     {
-        if(obj->header.objtype != OBJ_MissileType)
+        // CAT (M2-R10 oracle-rung-physics): AddObjToObjectListsOfBlob 0x00427b20 leaves bullets out of the target lists
+        if((obj->header.objtype != OBJ_MissileType) && (obj->header.objtype != OBJ_BulletType))
         {
             //don't add missiles to big/small target lists.
             if (obj->staticinfo->staticCollInfo.originalCollSphereSize >= BIG_TARGET_SIZE)

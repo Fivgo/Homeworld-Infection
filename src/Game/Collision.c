@@ -107,6 +107,7 @@ real32 RangeToTarget(Ship *ship,SpaceObjRotImpTarg *target,vector *trajectory)
 
     // CAT (M2-R8 oracle-rung-physics): the x87 shape (RangeToTarget 0x00439c30): (x*x + y*y) + z*z into fsqrt as a
     //      double, the sphere size subtracted on the FPU, one rounding at the return
+    // CAT-TODO(M3 oracle physics): the exe returns the difference UNROUNDED on the FPU (0x00439c64 fsub, 0x00439c7f ret, no store) and of its 25 exe call sites several use it unrounded (0x0041e487, 0x0044ba56, 0x0044bd97, 0x005aff45) where others store it first (0x00421ff1); this real32 return rounds it [audit: M2-R10 oracle-rung-physics]
     dist = catFsqrtD(((double)trajectory->x * trajectory->x + (double)trajectory->y * trajectory->y) +
                      (double)trajectory->z * trajectory->z);
     dist -= target->staticinfo->common.staticCollInfo.approxcollspheresize;
@@ -132,6 +133,7 @@ real32 RangeToTarget(Ship *ship,SpaceObjRotImpTarg *target,vector *trajectory)
 ----------------------------------------------------------------------------*/
 real32 RangeToTargetGivenDist(Ship *ship,SpaceObjRotImpTarg *target,real32 dist)
 {
+    // CAT-TODO(M3 oracle physics): RangeToTargetGivenDist 0x00439c80 returns dist - approxcollspheresize UNROUNDED on the FPU (0x00439c8b fsub, 0x00439ca3 ret, no store); of its 16 exe call sites GenericInterceptorAttack's WHIPSTRAFE1 compares it unrounded with bulletRange * 0.7f (0x005b2c6f) and STATE_KILL with bulletRange (0x005b3014); this real32 return rounds it [audit: M2-R10 oracle-rung-physics]
     dist -= target->staticinfo->common.staticCollInfo.approxcollspheresize;
 
     if (dist > 0.0f)
@@ -210,7 +212,7 @@ real32 collCheckRectLine(SpaceObjRotImp *obj1,vector *univpoint,vector *univdir,
     sdword quadrant[3];
     real32 maxT[3];
     real32 candidatePlane[3];
-    real32 coord;
+    double coord;
     real32 largestMaxT;
     sdword i;
     sdword whichPlane;
@@ -218,9 +220,11 @@ real32 collCheckRectLine(SpaceObjRotImp *obj1,vector *univpoint,vector *univdir,
 
     *collSide = -1;
 
+    // CAT (M2-R10 oracle-rung-physics): collCheckRectLine 0x00439ef0 returns -1.0 (a miss) for an object without
+    //      rectangle information (0x00439f08 .. 0x00439f18; HW1 returned 0.0, a hit)
     if (staticCollInfo->uplength == 0)
     {
-        return 0.0f;            // if no rectangle information present, assume collision
+        return -1.0f;
     }
 
     // axis aligned bounding box in object co-ordinates
@@ -266,11 +270,8 @@ real32 collCheckRectLine(SpaceObjRotImp *obj1,vector *univpoint,vector *univdir,
         return 0.0f;
     }
 
-    if (vecDotProduct(pointInWorld,*univdir) > 0.0f)
-    {
-        return -1.0f;
-    }
-
+    // CAT: no HW1 early miss for a line pointing away from the object's centre (pointInWorld . univdir > 0): the exe
+    //      goes straight on to the planes (0x00439ffd)
     matMultiplyVecByMat((vector *)dir,univdir,&obj1->rotatable.rotinfo.coordsys);
 
     // calculate distances to candidate planes
@@ -278,7 +279,8 @@ real32 collCheckRectLine(SpaceObjRotImp *obj1,vector *univpoint,vector *univdir,
     {
         if ((quadrant[i] != MIDDLE) && (dir[i] != 0.0f))
         {
-            maxT[i] = (candidatePlane[i]-origin[i]) / dir[i];
+            // CAT: the difference stays on the FPU, one rounding at the store (0x0043a030 .. 0x0043a03c)
+            maxT[i] = (real32)(((double)candidatePlane[i] - (double)origin[i]) / (double)dir[i]);
         }
         else
         {
@@ -315,7 +317,8 @@ real32 collCheckRectLine(SpaceObjRotImp *obj1,vector *univpoint,vector *univdir,
             continue;
         }
 
-        coord = origin[i] + largestMaxT * dir[i];
+        // CAT: largestMaxT * dir + origin unrounded on the FPU, compared with both bounds (0x0043a0b9 .. 0x0043a0d9)
+        coord = (double)largestMaxT * (double)dir[i] + (double)origin[i];
 
         if ((coord <= minB[i]) || (coord >= maxB[i]))
         {
@@ -1863,13 +1866,46 @@ nextobj1:
     Return      : TRUE if path is clear, FALSE if obscured
     todo: must check if target is closer than a "hit"
 ----------------------------------------------------------------------------*/
+// CAT (M2-R10 oracle-rung-physics): collCheckLineOfSight 0x0043c2e0. In the source's own blob (the target in it, or no
+//      target) the exe also skips every ship clamped to the source or to the target (a mothership's modules, which
+//      share its position and hull: 0x0043c333 .. 0x0043c367) and, when the target is itself a ship clamped to a host,
+//      every ship clamped to that host and the host itself; the other blobs' loop has no such skip. The x87 shape: the
+//      length is fsqrt of (dz*dz + dy*dy) + dx*dx over the double differences, stored as a float (0x0043c3dc ..
+//      0x0043c412); a blob is crossed when v = (dz*dir.z + dx*dir.x) + dy*dir.y and r*r - (((dz*dz + dy*dy) + dx*dx) -
+//      v*v) are both above 0, all on the FPU (0x0043c43d .. 0x0043c4af). Without the skip a sMothership's gimbal guns
+//      saw its own modules in the way and never fired (10-18 tick 1721: guns 3 and 6 at the bRecon 41)
+static bool32 cat_collLosSkipClamped(Ship *ship, Ship *source, Ship *target)
+{
+    SpaceObjRotImpTarg *host, *targethost;
+
+    if ((ship->header.objtype != OBJ_ShipType) || (ship->guidance.clampInfo == NULL))
+    {
+        return FALSE;
+    }
+    host = ship->guidance.clampInfo->host;
+    if ((host == (SpaceObjRotImpTarg *)source) || (host == (SpaceObjRotImpTarg *)target))
+    {
+        return TRUE;
+    }
+    // CAT-FIX: the exe reads the target unguarded here (0x0043c34e) and would fault on a NULL one; gunShoot, missileShoot
+    //      and the ramming frigate pass one [audit: M2-R10 oracle-rung-physics: marked CAT-FIX]
+    if ((target != NULL) && (target->header.objtype == OBJ_ShipType) && (target->guidance.clampInfo != NULL))
+    {
+        targethost = target->guidance.clampInfo->host;
+        if ((host == targethost) || ((SpaceObjRotImpTarg *)ship == targethost))
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 bool32 collCheckLineOfSight(Ship* source, Ship* target, vector* sourcePosition, vector* direction)
 {
     sdword i, collSide;
     real32 length;
     blob* thisBlob;
     Ship* ship;
-    vector distvec;
 
     if (target == NULL)
     {
@@ -1877,8 +1913,11 @@ bool32 collCheckLineOfSight(Ship* source, Ship* target, vector* sourcePosition, 
     }
     else
     {
-        vecSub(distvec, target->obj.posinfo.position, *sourcePosition);
-        length = fsqrt(vecMagnitudeSquared(distvec));
+        double dx = (double)target->obj.posinfo.position.x - (double)sourcePosition->x;
+        double dy = (double)target->obj.posinfo.position.y - (double)sourcePosition->y;
+        double dz = (double)target->obj.posinfo.position.z - (double)sourcePosition->z;
+
+        length = (real32)catFsqrtD((dz * dz + dy * dy) + dx * dx);
     }
 
     if (target == NULL || target->obj.collMyBlob == source->obj.collMyBlob)
@@ -1891,6 +1930,10 @@ bool32 collCheckLineOfSight(Ship* source, Ship* target, vector* sourcePosition, 
             if (ship == source || ship == target)
             {
                 //ignore source or target
+                continue;
+            }
+            if (cat_collLosSkipClamped(ship, source, target))
+            {
                 continue;
             }
 
@@ -1914,46 +1957,43 @@ bool32 collCheckLineOfSight(Ship* source, Ship* target, vector* sourcePosition, 
     {
         //los in universe
         Node* blobnode = universe.collBlobList.head;
-        vector distvector;
-        real32 distsquared, v, dsqr;
+        double dx, dy, dz, v, r;
 
         while (blobnode != NULL)
         {
             thisBlob = (blob*)listGetStructOfNode(blobnode);
             blobnode = blobnode->next;
 
-            vecSub(distvector, thisBlob->centre, *sourcePosition);
-            distsquared = vecMagnitudeSquared(distvector);
-            v = vecDotProduct(distvector, *direction);
-			if (v > 0)
-			{
-				dsqr = (thisBlob->radius * thisBlob->radius) - (distsquared - (v*v));
-				if (dsqr > 0)
-				{
-					//line intersects blob, check all ships
-					for (i = 0; i < thisBlob->blobShips->numShips; i++)
-					{
-						ship = thisBlob->blobShips->ShipPtr[i];
-						if (ship == source || ship == target)
-						{
-							//ignore source or target
-							continue;
-						}
+            dx = (double)thisBlob->centre.x - (double)sourcePosition->x;
+            dy = (double)thisBlob->centre.y - (double)sourcePosition->y;
+            dz = (double)thisBlob->centre.z - (double)sourcePosition->z;
+            v = (dz * direction->z + dx * direction->x) + dy * direction->y;
+            r = thisBlob->radius;
+            if ((v > 0.0) && ((r * r - (((dz * dz + dy * dy) + dx * dx) - v * v)) > 0.0))
+            {
+                //line intersects blob, check all ships
+                for (i = 0; i < thisBlob->blobShips->numShips; i++)
+                {
+                    ship = thisBlob->blobShips->ShipPtr[i];
+                    if (ship == source || ship == target)
+                    {
+                        //ignore source or target
+                        continue;
+                    }
 
-						if (!allianceIsShipAlly(ship, source->playerowner))
-						{
-							//only test with allied ships, self included
-							continue;
-						}
+                    if (!allianceIsShipAlly(ship, source->playerowner))
+                    {
+                        //only test with allied ships, self included
+                        continue;
+                    }
 
-						if (collCheckRectLine((SpaceObjRotImp*)ship, sourcePosition, direction, length, &collSide) != -1.0f)
-						{
-							//hit something of ours
-							return FALSE;
-						}
-					}
-				}
-			}
+                    if (collCheckRectLine((SpaceObjRotImp*)ship, sourcePosition, direction, length, &collSide) != -1.0f)
+                    {
+                        //hit something of ours
+                        return FALSE;
+                    }
+                }
+            }
         }
 
         //path is clear
@@ -2291,12 +2331,11 @@ void collCheckBulletTargetColl(blob *thisBlob)
     SpaceObjRotImpTarg *target;
     StaticInfo *targetstaticheader;
 
-    real32 distsquared;
-    vector distvector;
-    real32 v,d,dsqr;
     sdword collSide;
 
     real32 distcheck;
+    double distcheckD, dx, dy, dz, vD, dsqrD;
+    real32 vsq;
 
     bool32 deletebulletflag;
 
@@ -2346,26 +2385,32 @@ void collCheckBulletTargetColl(blob *thisBlob)
                     {
                     case OBJ_MissileType:
                         //do bullet/missle target collision with its target only!
-                         distcheck = bullet->target->obj.collOptimizeDist - bullet->obj.collOptimizeDist;
+                        // CAT (M2-R10 oracle-rung-physics): the x87 shape (collCheckBulletTargetColl 0x0043ce04 ..
+                        //      0x0043ceca): the |difference| and the sphere size plus the travel distance stay on the FPU;
+                        //      v = (dz*hz + dy*hy) + dx*hx over the double differences, v*v stored as a float, dsqr =
+                        //      size^2 - (((dz*dz + dy*dy) + dx*dx) - vsq) on the FPU, and the line is tested when vsq -
+                        //      dsqr < traveldist^2 (no square root: HW1 tested v - sqrt(dsqr) < traveldist)
+                        distcheckD = (double)bullet->target->obj.collOptimizeDist - (double)bullet->obj.collOptimizeDist;
 
-                        if (ABS(distcheck) > (bullet->target->staticinfo->common.staticCollInfo.collspheresize+bullet->traveldist))
+                        if (ABS(distcheckD) > ((double)bullet->target->staticinfo->common.staticCollInfo.collspheresize+(double)bullet->traveldist))
                         {
                             //trivially reject...
                             goto nominecollision;
                         }
-                        vecSub(distvector,bullet->target->impactable.collInfo.collPosition,bullet->obj.posinfo.position);
-                        distsquared = vecMagnitudeSquared(distvector);
-                        v = vecDotProduct(distvector,bullet->bulletheading);
+                        dx = (double)bullet->target->impactable.collInfo.collPosition.x - (double)bullet->obj.posinfo.position.x;
+                        dy = (double)bullet->target->impactable.collInfo.collPosition.y - (double)bullet->obj.posinfo.position.y;
+                        dz = (double)bullet->target->impactable.collInfo.collPosition.z - (double)bullet->obj.posinfo.position.z;
+                        vD = (dz * bullet->bulletheading.z + dy * bullet->bulletheading.y) + dx * bullet->bulletheading.x;
+                        vsq = (real32)(vD * vD);
 						//if (v > 0)
 						{
 
 							testcollsizesqr = bullet->target->staticinfo->common.staticCollInfo.collspheresizeSqr;
 
-							dsqr = testcollsizesqr - (distsquared - (v*v));
-							if (dsqr > 0)
+							dsqrD = testcollsizesqr - ((((dz * dz + dy * dy) + dx * dx)) - vsq);
+							if (dsqrD > 0.0)
 							{
-								d = fsqrt(dsqr);
-								if ((v-d) < bullet->traveldist)
+								if (((double)vsq - dsqrD) < (double)bullet->traveldist * bullet->traveldist)
 								{
 									if ((collideLineDist = collCheckRectLine((SpaceObjRotImp *)bullet->target,&bullet->obj.posinfo.position,&bullet->bulletheading,bullet->traveldist,&collSide)) >= 0.0f)
 									{
@@ -2398,12 +2443,13 @@ passagain:
 
                     // binary search targetindex such that
                     // (bullet->obj.collOptimizeDist - target->obj.collOptimizeDist) <= maxTargetCollSphereSize
+                    // CAT: the difference compared unrounded (0x0043cf6f .. 0x0043cf82)
                     bottom = 0;
                     top = numTargets-1;
                     while (top >= bottom)
                     {
                         targetindex = (bottom+top)>>1;
-                        if ((bullet->obj.collOptimizeDist - targetselection->TargetPtr[targetindex]->obj.collOptimizeDist) > maxTargetCollSphereSizePlusBulletTravelDist)
+                        if (((double)bullet->obj.collOptimizeDist - (double)targetselection->TargetPtr[targetindex]->obj.collOptimizeDist) > maxTargetCollSphereSizePlusBulletTravelDist)
                         {
                             // targetindex is too small
                             bottom = targetindex+1;
@@ -2435,9 +2481,11 @@ passagain:
             bulletwalks++;
 #endif
 
-                    distcheck = target->obj.collOptimizeDist - bullet->obj.collOptimizeDist;
+                    // CAT: the difference is stored as a float and compared unrounded (0x0043cfd7 .. 0x0043cff1)
+                    distcheckD = (double)target->obj.collOptimizeDist - (double)bullet->obj.collOptimizeDist;
+                    distcheck = (real32)distcheckD;
 
-                    if (distcheck > maxTargetCollSphereSizePlusBulletTravelDist)
+                    if (distcheckD > maxTargetCollSphereSizePlusBulletTravelDist)
                     {
                         goto nextpass;
                     }
@@ -2467,7 +2515,9 @@ passagain:
 
                     // CAT: no collision-sphere exemption for any type (HW1 exempted the DFG frigate and the defense
                     //      fighter): collCheckBulletTargetColl 0x0043cd90 tests every target against its sphere first
-                    if (ABS(distcheck) > (targetstaticheader->staticCollInfo.collspheresize+bullet->traveldist))
+                    // CAT: the stored |difference| against the sphere size plus the travel distance on the FPU (0x0043d05e ..
+                    //      0x0043d08a)
+                    if (ABS(distcheck) > ((double)targetstaticheader->staticCollInfo.collspheresize+(double)bullet->traveldist))
                     {
                         goto nexttarget;
                     }
@@ -2496,9 +2546,16 @@ passagain:
             bulletchecks++;
 #endif
 
-                    vecSub(distvector,target->impactable.collInfo.collPosition,bullet->obj.posinfo.position);
-                    distsquared = vecMagnitudeSquared(distvector);
-                    v = vecDotProduct(distvector,bullet->bulletheading);
+                    // CAT (M2-R10 oracle-rung-physics): the x87 shape (collCheckBulletTargetColl 0x0043d0c0 .. 0x0043d15b):
+                    //      v = (dx*hx + dy*hy) + dz*hz over the double differences, v*v stored as a float, dsqr = size^2 -
+                    //      (((dz*dz + dy*dy) + dx*dx) - vsq) on the FPU, and the line is tested when vsq - dsqr <
+                    //      traveldist^2: no square root (HW1 tested v - sqrt(dsqr) < traveldist, which let a bullet hit a
+                    //      tick early: 10-17 tick 2043, the bRecon 42's bullet at the sWorker 28)
+                    dx = (double)target->impactable.collInfo.collPosition.x - (double)bullet->obj.posinfo.position.x;
+                    dy = (double)target->impactable.collInfo.collPosition.y - (double)bullet->obj.posinfo.position.y;
+                    dz = (double)target->impactable.collInfo.collPosition.z - (double)bullet->obj.posinfo.position.z;
+                    vD = (dx * bullet->bulletheading.x + dy * bullet->bulletheading.y) + dz * bullet->bulletheading.z;
+                    vsq = (real32)(vD * vD);
 
                     // CAT: HW1's DFGFrigate test is cat_collBulletDFGFieldCheck above; HW1's DefenseFighter bullet report
                     //      is gone with the type (collCheckBulletTargetColl 0x0043cd90)
@@ -2508,11 +2565,10 @@ passagain:
 
 						testcollsizesqr = targetstaticheader->staticCollInfo.collspheresizeSqr;
 
-						dsqr = testcollsizesqr - (distsquared - (v*v));
-						if (dsqr > 0)
+						dsqrD = testcollsizesqr - ((((dz * dz + dy * dy) + dx * dx)) - vsq);
+						if (dsqrD > 0.0)
 						{
-							d = fsqrt(dsqr);
-							if ((v-d) < bullet->traveldist)
+							if (((double)vsq - dsqrD) < (double)bullet->traveldist * bullet->traveldist)
 							{
 								if ((collideLineDist = collCheckRectLine((SpaceObjRotImp *)target,&bullet->obj.posinfo.position,&bullet->bulletheading,bullet->traveldist,&collSide)) >= 0.0f)
 								{

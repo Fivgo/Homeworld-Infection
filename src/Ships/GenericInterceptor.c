@@ -258,7 +258,8 @@ bool32 GenericInterceptorCanFire(Ship *ship,SpaceObjRotImpTarg *target,vector *t
         }
     }
 
-    if ((universe.totaltimeelapsed - spec->lasttimefired) < interceptorstat->firetime)
+    // CAT: the elapsed time stays on the FPU (0x005b2183 .. 0x005b218f)
+    if (((double)universe.totaltimeelapsed - spec->lasttimefired) < interceptorstat->firetime)
     {
         return FALSE;   // if time since last shot fired is less than the gun firetime, don't shoot.
     }
@@ -516,6 +517,21 @@ void CalcRallyPoint(vector s, vector t, AttackBomberSpec *diveinfo)
     diveinfo->angle = -1.0f;
 }
 
+// CAT (M2-R10 oracle-rung-physics): the x87 shape of GenericInterceptorAttack 0x005b2620's trajectory normalisation
+//      (STATE_WHIPSTRAFE1 0x005b2bed .. 0x005b2c41, STATE_KILL 0x005b2eb1 .. 0x005b2f04): fsqrt of the double
+//      (z*z + y*y) + x*x, the distance stored as a float, 1.0f / that float kept as a double, one rounding per component
+static real32 catInterceptorNormalizeTrajectory(vector *trajectory)
+{
+    real32 dist = (real32)catFsqrtD(((double)trajectory->z * trajectory->z + (double)trajectory->y * trajectory->y) +
+                                    (double)trajectory->x * trajectory->x);
+    double inv = 1.0 / (double)dist;
+
+    trajectory->x = (real32)(inv * trajectory->x);
+    trajectory->y = (real32)(inv * trajectory->y);
+    trajectory->z = (real32)(inv * trajectory->z);
+    return dist;
+}
+
 void GenericInterceptorAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdist)
 {
     GenericInterceptorSpec *spec = (GenericInterceptorSpec *)ship->ShipSpecifics;
@@ -538,6 +554,7 @@ void GenericInterceptorAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdi
     AttackBomberSpec *diveinfo;
     real32 sintheta, costheta;
     TypeOfFormation formtype = NO_FORMATION;
+    double distsqD;
 
     if (target->header.objtype == OBJ_ShipType)
     {
@@ -683,12 +700,12 @@ void GenericInterceptorAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdi
 
             aishipGetTrajectoryWithAngleCorrection(ship,target,&trajectory);
 
-            dist = fsqrt(vecMagnitudeSquared(trajectory));
-            vecDivideByScalar(trajectory,dist,temp);
+            dist = catInterceptorNormalizeTrajectory(&trajectory);
 
             range = RangeToTargetGivenDist(ship,target,dist);
 
-            if (range < (shipstaticinfo->bulletRange[ship->tacticstype]*0.7f))
+            // CAT: bulletRange * 0.7f stays on the FPU (0x005b2c54 .. 0x005b2c6f)
+            if ((double)range < ((double)shipstaticinfo->bulletRange[ship->tacticstype]*0.7f))
             {
                 aishipFlyToPointAvoidingObjs(ship,&spec->aivec,AISHIP_FastAsPossible,WHIPSTRAFE_MINVELOCITY);
                 aitrackHeadingWithBank(ship,&trajectory,0.99999f /*interceptorstat->faceTargetAccuracy[targetIndex]*/,shipstaticinfo->shipOrDerelict.sinbank);
@@ -704,7 +721,8 @@ void GenericInterceptorAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdi
                 aishipFlyToPointAvoidingObjs(ship,&spec->aivec,AISHIP_FastAsPossible | AISHIP_PointInDirectionFlying,WHIPSTRAFE_MINVELOCITY);
             }
 
-            if ((MoveReachedDestinationVariable(ship,&spec->aivec,WHIPSTRAFE_REACHDESTINATIONRANGE) || ((universe.totaltimeelapsed - spec->aitimekill) > interceptorstat->maxAttackTime[ship->tacticstype][targetIndex])))
+            // CAT: the elapsed time stays on the FPU (0x005b2d16 .. 0x005b2d31)
+            if ((MoveReachedDestinationVariable(ship,&spec->aivec,WHIPSTRAFE_REACHDESTINATIONRANGE) || (((double)universe.totaltimeelapsed - spec->aitimekill) > interceptorstat->maxAttackTime[ship->tacticstype][targetIndex])))
             {
                 ship->aistateattack = STATE_WHIPSTRAFE2;
             }
@@ -731,10 +749,13 @@ void GenericInterceptorAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdi
                 vecNormalizeToLength(&tmpvec,interceptorstat->flyPastDist[ship->tacticstype][targetIndex]);
 
                 randeg = randombetween(FIGHTER_BREAK_ANGLE_MIN,FIGHTER_BREAK_ANGLE_MAX);
-                randegf = (real32) ((randeg & 1) ? randeg : -randeg);
-                randegf = DEG_TO_RAD(randegf);
+                randeg = (randeg & 1) ? randeg : -randeg;
+                // CAT: the angle randeg * RADIAN_PER_DEG stays a double into fsin / fcos (0x005b2e09 .. 0x005b2e22)
+                {
+                    double angle = (double)randeg * (double)RADIAN_PER_DEG;
 
-                matMakeRotAboutZ(&tmpmat,(real32)cos(randegf),(real32)sin(randegf));
+                    matMakeRotAboutZ(&tmpmat,(real32)cos(angle),(real32)sin(angle));
+                }
                 matMultiplyMatByVec(&spec->aivec,&tmpmat,&tmpvec);
 
                 vecAddTo(spec->aivec,target->obj.posinfo.position);
@@ -751,10 +772,12 @@ void GenericInterceptorAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdi
             else
                 aishipGetTrajectory(ship,target,&trajectory);
 
-            dist = fsqrt(vecMagnitudeSquared(trajectory));
-            vecDivideByScalar(trajectory,dist,temp);
+            dist = catInterceptorNormalizeTrajectory(&trajectory);
 
-            if (vecDotProduct(trajectory,target->obj.posinfo.velocity) < 0)     // never track a velocity of ship moving towards us,
+            // CAT: the dot product (z*vz + y*vy) + x*vx on the FPU; below 0 (or unordered) flies without the target's
+            //      velocity (0x005b2f08 .. 0x005b2f2e)
+            if (!((((double)trajectory.z * target->obj.posinfo.velocity.z + (double)trajectory.y * target->obj.posinfo.velocity.y) +
+                   (double)trajectory.x * target->obj.posinfo.velocity.x) >= 0.0))     // never track a velocity of ship moving towards us,
             {                                                               // because we don't want to back up or slow down.
                 aishipFlyToShipAvoidingObjs(ship,target,AISHIP_FastAsPossible,-shipstaticinfo->common.maxvelocity);
             }
@@ -917,7 +940,9 @@ void GenericInterceptorAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdi
             dbgMessagef("Ship %x STATE_BREAK",(udword)ship);
 #endif
             aishipGetTrajectory(ship,target,&trajectory);
-            dist = vecMagnitudeSquared(trajectory);
+            // CAT: the squared distance (z*z + y*y) + x*x stays on the FPU for the compare (0x005b348d .. 0x005b34e7)
+            distsqD = ((double)trajectory.z * trajectory.z + (double)trajectory.y * trajectory.y) +
+                      (double)trajectory.x * trajectory.x;
 
             curdistonly = TRUE;
             if(target->header.objtype == OBJ_ShipType)
@@ -928,11 +953,12 @@ void GenericInterceptorAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdi
                     curdistonly = FALSE;
                 }
             }
-            if ((dist > interceptorstat->maxFlyAwayDistSquared[ship->tacticstype][targetIndex]) || ((MoveReachedDestinationVariable(ship,&spec->aivec,INTERCEPTORBREAK_TOLERANCE) && curdistonly)) )
+            if ((distsqD > interceptorstat->maxFlyAwayDistSquared[ship->tacticstype][targetIndex]) || ((MoveReachedDestinationVariable(ship,&spec->aivec,INTERCEPTORBREAK_TOLERANCE) && curdistonly)) )
             {
 abortbreakafterall:
                 matGetVectFromMatrixCol3(tmpvec,ship->rotatable.rotinfo.coordsys);
-                if (vecDotProduct(trajectory,tmpvec) > 0.0f)
+                // CAT: (z*hz + y*hy) + x*hx on the FPU (0x005b35df .. 0x005b3619)
+                if ((((double)trajectory.z * tmpvec.z + (double)trajectory.y * tmpvec.y) + (double)trajectory.x * tmpvec.x) > 0.0)
                 {
                     flighttodo = FLIGHTMAN_DONOTHING;
                 }

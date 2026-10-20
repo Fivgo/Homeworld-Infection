@@ -859,6 +859,75 @@ static void oracleShipDumpFloats(const char *name, const real32 *f, udword n)
     }
 }
 
+// a target as the dump names it: a ship's number, or "o<objtype>" for any other object, or "-" for none
+static void oracleShipDumpTarget(const SpaceObjRotImpTarg *target)
+{
+    if (target == NULL)
+    {
+        fputc('-', oracleShipDumpFile);
+    }
+    else if (target->header.objtype == OBJ_ShipType)
+    {
+        fprintf(oracleShipDumpFile, "%u", (unsigned)((const Ship *)target)->shipID.shipNumber);
+    }
+    else
+    {
+        fprintf(oracleShipDumpFile, "o%d", (int)target->header.objtype);
+    }
+}
+
+// HWI-ORACLE (M2-R10 oracle-rung-physics): the 'T' and 'G' lines of one dumped ship (read only)
+static void oracleShipDumpAttack(udword tick, Ship *ship)
+{
+    sdword i;
+
+    fprintf(oracleShipDumpFile, "T %u %u state=%u target=", (unsigned)tick, (unsigned)ship->shipID.shipNumber,
+            (unsigned)ship->aistateattack);
+    oracleShipDumpTarget(ship->attackvars.attacktarget);
+    fputs(" cmd=", oracleShipDumpFile);
+    if ((ship->command != NULL) && (ship->command->attack != NULL))
+    {
+        for (i = 0; i < ship->command->attack->numTargets; i++)
+        {
+            if (i > 0)
+            {
+                fputc(',', oracleShipDumpFile);
+            }
+            oracleShipDumpTarget(ship->command->attack->TargetPtr[i]);
+        }
+    }
+    else
+    {
+        fputc('-', oracleShipDumpFile);
+    }
+    if (ship->attackvars.multipleAttackTargets != NULL)
+    {
+        fputs(" multi=", oracleShipDumpFile);
+        for (i = 0; i < ship->attackvars.multipleAttackTargets->numAttackTargets; i++)
+        {
+            if (i > 0)
+            {
+                fputc(',', oracleShipDumpFile);
+            }
+            oracleShipDumpTarget(ship->attackvars.multipleAttackTargets->TargetPtr[i]);
+        }
+    }
+    fprintf(oracleShipDumpFile, " madGun=%d\n", (int)ship->madGunStatus);
+    if (ship->gunInfo != NULL)
+    {
+        for (i = 0; i < ship->gunInfo->numGuns; i++)
+        {
+            Gun *gun = &ship->gunInfo->guns[i];
+
+            fprintf(oracleShipDumpFile, "G %u %u %d type=%d burst=%u", (unsigned)tick,
+                    (unsigned)ship->shipID.shipNumber, (int)i, (int)gun->gunstatic->guntype, (unsigned)gun->burstState);
+            oracleShipDumpFloats("last", &gun->lasttimefired, 1);
+            oracleShipDumpFloats("heading", &gun->gunheading.x, 3);
+            fputc('\n', oracleShipDumpFile);
+        }
+    }
+}
+
 static void oracleShipDumpTick(void)
 {
     Node *node;
@@ -893,6 +962,10 @@ static void oracleShipDumpTick(void)
         oracleShipDumpFloats("coordsys", cs, 9);
         oracleShipDumpFloats("health", &ship->targetable.health, 1);
         fputc('\n', oracleShipDumpFile);
+        // M2-R10 oracle-rung-physics: one 'T' line per dumped ship (its attack state: aistateattack, the attack
+        // target, the command's attack targets and, for a ship with multiple targets, each gun's) and one 'G' line
+        // per gun (its last fire time, burst state and heading in ship space)
+        oracleShipDumpAttack(tick, ship);
     }
     // with "all" (M2-R9 oracle-rung-physics): one 'B' line per live bullet in BulletList order (the 'bullets' hash's
     // order: positions only): the firing ship, its target and the bullet's position and velocity

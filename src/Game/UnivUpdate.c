@@ -3606,12 +3606,18 @@ void ApplyCareenRotationDirectly(Ship *ship)
 
     // apply three random torques, to ship,
 
-    a.x = frandombetween(YAWCRAZYLO,YAWCRAZYHI) * universe.phystimeelapsed; // * staticheader->oneOverMomentOfInertiaX;
-    a.y = frandombetween(PITCHCRAZYLO,PITCHCRAZYHI) * universe.phystimeelapsed; // * staticheader->oneOverMomentOfInertiaY;
-    a.z = frandombetween(ROLLCRAZYLO,ROLLCRAZYHI) * universe.phystimeelapsed; // * staticheader->oneOverMomentOfInertiaZ;
+    // CAT (M2-R10 oracle-rung-physics): the x87 shape (ApplyCareenRotationDirectly 0x00545a80): each draw times the
+    //      time step on the FPU, x and y stored, z added unrounded to the rotation speed
+    double az;
+
+    a.x = (real32)(catFrandomBetweenD(YAWCRAZYLO,YAWCRAZYHI) * universe.phystimeelapsed); // * staticheader->oneOverMomentOfInertiaX;
+    a.y = (real32)(catFrandomBetweenD(PITCHCRAZYLO,PITCHCRAZYHI) * universe.phystimeelapsed); // * staticheader->oneOverMomentOfInertiaY;
+    az = catFrandomBetweenD(ROLLCRAZYLO,ROLLCRAZYHI) * universe.phystimeelapsed; // * staticheader->oneOverMomentOfInertiaZ;
 
     // w = w + alpha*t
-    vecAddTo(ship->rotatable.rotinfo.rotspeed,a);
+    ship->rotatable.rotinfo.rotspeed.x += a.x;
+    ship->rotatable.rotinfo.rotspeed.y += a.y;
+    ship->rotatable.rotinfo.rotspeed.z = (real32)(az + ship->rotatable.rotinfo.rotspeed.z);
 
     // cap rotation speed
     vecCapVectorSloppy(&ship->rotatable.rotinfo.rotspeed,staticheader->maxrot);
@@ -3769,18 +3775,21 @@ void AddTargetToDeleteList(SpaceObjRotImpTarg *target,GunSoundType soundType,sdw
     }
 }
 
+// CAT (M2-R10 oracle-rung-physics): the x87 shape of the inlined rocks (MakeExplosionRockBumpables 0x005460c0 ..;
+//      univBulletCollidedWithTarget 0x00546cf4 .., univMissileCollidedWithTarget 0x00547166 ..): the draw, times the
+//      blast strength or the projectile mass, plus the torque, one rounding at the store (catFrandomBetweenD)
 void ApplyExplosionRockToTarget(SpaceObjRotImp *obj,real32 blaststrength)
 {
-    obj->rotatable.rotinfo.torque.x += frandombetween(YAWEXPLOSIONROCKLO,YAWEXPLOSIONROCKHI) * blaststrength;
-    obj->rotatable.rotinfo.torque.y += frandombetween(PITCHEXPLOSIONROCKLO,PITCHEXPLOSIONROCKHI) * blaststrength;
-    obj->rotatable.rotinfo.torque.z += frandombetween(ROLLEXPLOSIONROCKLO,ROLLEXPLOSIONROCKHI) * blaststrength;
+    obj->rotatable.rotinfo.torque.x = (real32)(catFrandomBetweenD(YAWEXPLOSIONROCKLO,YAWEXPLOSIONROCKHI) * blaststrength + obj->rotatable.rotinfo.torque.x);
+    obj->rotatable.rotinfo.torque.y = (real32)(catFrandomBetweenD(PITCHEXPLOSIONROCKLO,PITCHEXPLOSIONROCKHI) * blaststrength + obj->rotatable.rotinfo.torque.y);
+    obj->rotatable.rotinfo.torque.z = (real32)(catFrandomBetweenD(ROLLEXPLOSIONROCKLO,ROLLEXPLOSIONROCKHI) * blaststrength + obj->rotatable.rotinfo.torque.z);
 }
 
 void ApplyRockToTarget(SpaceObjRotImpTarg *target,real32 projectilemass)
 {
-    target->rotatable.rotinfo.torque.x += frandombetween(YAWROCKLO,YAWROCKHI) * projectilemass;
-    target->rotatable.rotinfo.torque.y += frandombetween(PITCHROCKLO,PITCHROCKHI) * projectilemass;
-    target->rotatable.rotinfo.torque.z += frandombetween(ROLLROCKLO,ROLLROCKHI) * projectilemass;
+    target->rotatable.rotinfo.torque.x = (real32)(catFrandomBetweenD(YAWROCKLO,YAWROCKHI) * projectilemass + target->rotatable.rotinfo.torque.x);
+    target->rotatable.rotinfo.torque.y = (real32)(catFrandomBetweenD(PITCHROCKLO,PITCHROCKHI) * projectilemass + target->rotatable.rotinfo.torque.y);
+    target->rotatable.rotinfo.torque.z = (real32)(catFrandomBetweenD(ROLLROCKLO,ROLLROCKHI) * projectilemass + target->rotatable.rotinfo.torque.z);
 }
 
 /*-----------------------------------------------------------------------------
@@ -4224,9 +4233,15 @@ void univBulletCollidedWithTarget(bool32 applyDamage,SpaceObjRotImpTarg *target,
                 goto nobulletmasstransfer;
             }
         }
-        massovertime = bullet->bulletmass / universe.phystimeelapsed;
-        recoil = bullet->obj.posinfo.velocity;
-        vecMultiplyByScalar(recoil,massovertime);
+        // CAT (M2-R10 oracle-rung-physics): mass / time stays a double, one rounding per component (0x00546ca5 ..)
+        {
+            double massovertimeD = (double)bullet->bulletmass / universe.phystimeelapsed;
+
+            recoil.x = (real32)(bullet->obj.posinfo.velocity.x * massovertimeD);
+            recoil.y = (real32)(bullet->obj.posinfo.velocity.y * massovertimeD);
+            recoil.z = (real32)(bullet->obj.posinfo.velocity.z * massovertimeD);
+            (void)massovertime;
+        }
         ApplyRockToTarget(target,bullet->bulletmass);
         physApplyForceVectorToObj(target,recoil);
     }
@@ -4441,9 +4456,15 @@ void univMissileCollidedWithTarget(bool32 applyDamage,SpaceObjRotImpTarg *target
     // if target isn't immobile, apply impact force from missile
     if (!targetstaticheader->immobile && !bitTest(target->header.flags, SOF_NotBumpable))
     {
-        massovertime = missilestaticinfo->common.mass / universe.phystimeelapsed;
-        recoil = missile->obj.posinfo.velocity;
-        vecMultiplyByScalar(recoil,massovertime);
+        // CAT (M2-R10 oracle-rung-physics): mass / time stays a double, one rounding per component (0x0054711d ..)
+        {
+            double massovertimeD = (double)missilestaticinfo->common.mass / universe.phystimeelapsed;
+
+            recoil.x = (real32)(missile->obj.posinfo.velocity.x * massovertimeD);
+            recoil.y = (real32)(missile->obj.posinfo.velocity.y * massovertimeD);
+            recoil.z = (real32)(missile->obj.posinfo.velocity.z * massovertimeD);
+            (void)massovertime;
+        }
         ApplyRockToTarget(target,missilestaticinfo->common.mass);
         physApplyForceVectorToObj(target,recoil);
     }
@@ -9438,7 +9459,10 @@ void cat_univShipDeferredUpdate(Ship *ship)
     }
     cat_univShipSelfRepair(ship);
     // CAT (M2-R4 combat): a burst that has run 0.1 s past its fire time ends (0x00544995: every gun but an ion beam in
-    //      its burst state)
+    //      its burst state). CAT (M2-R10 oracle-rung-physics): the x87 shape (0x005449ce .. 0x005449e9): the fire time
+    //      plus the DOUBLE 0.1 (0x0072a7a8) against the unrounded elapsed time; 0.9f + 0.1 stays below 1.0, so a
+    //      0.9 s burst ends on its 16th tick (the tree's float sum rounded to 1.0 and ended it a tick late: 10-18 tick
+    //      1854, the bRecon 43's gun one tick behind GOG's)
     if (ship->catBurstFiring && (ship->gunInfo != NULL))
     {
         sdword i;
@@ -9448,7 +9472,7 @@ void cat_univShipDeferredUpdate(Ship *ship)
         {
             gun = &ship->gunInfo->guns[i];
             if ((gun->catWeaponType != WEAPON_ION) && (gun->burstState == 1) &&
-                (gun->useBurstFireTime + (real32)0.1 < universe.totaltimeelapsed - gun->burstStartTime))
+                ((double)gun->useBurstFireTime + 0.1 < (double)universe.totaltimeelapsed - gun->burstStartTime))
             {
                 gun->burstState = 2;
                 ship->catBurstFiring = FALSE;
