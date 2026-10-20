@@ -1,6 +1,6 @@
 # Work cycle and resume point
 
-Last checkpoint: 2026-10-20 07:59
+Last checkpoint: 2026-10-20 08:49
 
 **Read this first when resuming.** It is the single source of truth for where the work stands.
 
@@ -466,28 +466,70 @@ Objectives.c / SinglePlayer.c / Tutor.c** (R7: 104 unread) + 2,365 cat-new (2,08
 `HWI-EXPERIMENT`. The harness has 28 modes (26 + `missiontest`, `loadgame`). 359 harness runs this round (runs.txt lines
 1390-1748): the producers' and auditors' 297, the integrate step's 62.
 
-### M2-R9 plan (stage 6 part B: missions 02-17; the rung's next item; stage 5 reduced to the recorder unless the user rules otherwise; M3's Linux play-test in parallel; details, sizing, the play-test brief and the exit test in docs/m2-r8-summary.md "Plan for M2-R9")
+### M2-R9: COMPLETE 2026-10-20 (the oracle's next rung: the exe's table `fsqrt` as the default, its CRT `qsort`, the collision blobs' and the flight's remaining x87 shape; stage 6 part B: missions 02-17 generated with per-mission self-tests, the sphere readers, the later missions' flows, the game's end, the warp start, the Tutorial1 lessons; the recorder's record side (stage 5 reduced); the test / tooling leftovers)
 
-**IN FLIGHT since 2026-10-19 22:55** from the user's terminal session 38027cce (Fable), run id `wf_c0cd6893-248`, launched on the user's word ("let's move onto the next step") after decision 70; relaunch after a cut-off = Workflow({scriptPath: cycle/workflows/m2-r9.js, resumeFromRunId: "wf_c0cd6893-248"}) from that session (same-session cache only; a new session relaunches without the id and the probe skips audited ports); the orchestrator must NOT launch it. `cycle/workflows/m2-r9.js` (48925e2 + 9e92b43, an Opus draft reviewed by the user's session: constants `FSQRT_DEFAULT 'table'` (the user's ruling 2026-10-19), `STAGE5 'recorder'`, `FOURTH_RECORDING null`, `ROUND_BASE 54dcbb2`; launched as written: stage 5 reduced to the recorder, no fourth recording). The other answers to docs/m2-r8-summary.md
-"What the user must decide" (the table `fsqrt` as the default: decision 70; stage 5's fate; the DLL's `CAT_SHIP_coordsys`
-0x98 edit before the fourth recording; M3's play-test now). Sizing: 1,936 kas2c mission functions not yet generated
-(about 566 KB; 16 missions, 298 FSMs) from `tools/m2_kas2c_gen.py --scripts` (its machine-code verification covers them),
-2 `CAT-TODO(M2-R9 part B)` sites, the per-mission screens and flows, a per-mission self-test like Mission01's; the rung's
-one item (M2-R9 physics: ticks 247 / 155, `hyperspaceCost`); stage 5's recorder record side (4 sites). Four producers in
-sequence + four auditors + integrate (9 agents):
+Summary, exit test and the M2-R10 plan: [docs/m2-r9-summary.md](../docs/m2-r9-summary.md). Workflow
+`cycle/workflows/m2-r9.js` (run id `wf_c0cd6893-248`, `ROUND_BASE 54dcbb2`, `FSQRT_DEFAULT 'table'`, `STAGE5 'recorder'`,
+`FOURTH_RECORDING null`), run from the user's terminal session 38027cce (Fable), not from the orchestrator; 9 agents (four
+ports in sequence: the rung, missions 02-09, missions 10-17, the recorder's record side + the test / tooling leftovers; four
+audits, each checkpointing its port: `64f49a9` 0.91, `307c3a5` 0.94, `9c1801f` 0.97, `9574c9b` 0.91, all PASS-WITH-FIXES;
+integrate). No producer was cut off. The R9 plan as launched is in docs/m2-r8-summary.md "Plan for M2-R9"; it replaced the
+table that stood here.
 
-| # | producer | scope | counts | done when |
-|---|---|---|---|---|
-| 1 | the oracle's next rung, physics | the coordsys after a hard turn / roll (`physUpdateObjPosVelShip`'s rotation for a rolling ship, `aitrackHeadingWithBankPitchFunc`'s intermediates), `protectShip` 0x004411c0, the avoidance's remaining compares, `hyperspaceCost`'s double return, the next `fsqrt` sites the dump points at; both archived recordings and the fourth one if it exists | about 10 bodies; the mission stream moves only if the fsqrt ruling lands | the 10-17 replay IDENTICAL beyond 247 (`ships_vel` at 247 = `(420767c8, 4300eec6, 429fe606)`), the 10-18 beyond 155 (v.z `4234afe1`), the next divergences owned; `ships_rot` compared once a fixed-DLL recording exists |
-| 2 | missions 02-09 | the generator for Mission02 .. 09, their `catKasScripts` rows, the "Mine" / "Slipgate" sphere readers, the flows they call (the at-once arrival, the roll call under fire, the animatics), a per-mission self-test (`/catMissionTest N`) | about 900 generated functions + the readers + the flows | each of 02-09 reaches its objectives in order headlessly, byte-identical pairs, ASan 0; the generator `--check` current |
-| 3 | missions 10-17 | the generator for Mission10 .. 17, the later missions' screens and the end game (mission 17's credits), the warp start under a test, a tutorial save's load, the remaining Tutorial1 lessons' leg | about 1,000 generated functions + the end-game flow | 10-17 as row 2; the game's end reached headlessly; the Tutorial1 leg through Lesson12 |
-| 4 | the recorder's record side (stage 5, reduced) and the test / tooling leftovers | the 4 `CAT-TODO(stage 5 recorder)` sites (a mode-B oracle: hwi-engine records, the GOG game plays back), the mission self-test's combat, a reproducible Tutorial1 stream, `Subtitle.c:1144`, the 123 stage-4 IDENTICAL bodies and the 271 unflagged map rows sampled | 4 + the test items | a recording hwi-engine wrote plays back in the GOG game with the DLL's stream IDENTICAL over its length; the tutorial leg a pair |
+**R9 exit test (the stage-6 exit): MET** (the integrate step, clean builds of `9574c9b` (`[270/270]`, 0 warnings), plain
+harness, silent, 102 runs `r9i-*` in five parallel chains + 3 bisect runs; `runs.txt` lines 2296-2400; ASan 0 in all 105):
+- **Mission01 headless**: pairs byte-identical, debug **`553845b65e87f3b5`** / release `ba8ee6e78597c175` (IDENTICAL to
+  each other), MISSION TEST PASS in both (perturb at 3000 `rng10`, flip at 4000); `/noInterp`, `/noNISInterp` and
+  `/oracleLibmSqrt` byte-identical to A; IDENTICAL to every producer's and audit's Mission01 run of the round; **against
+  R8's `0d2b76d565105a26`: `ships_pos` / `univcheck` from tick 0, `ships_rot` from tick 1, nothing else** (producer 1's
+  statement: the exe's `qsort` at `formationArrangeOptimum`'s ties) — **RE-BASELINED** (decision 44).
+- **The rung**: 10-17 IDENTICAL through 1921, first divergent **1922 `ships_vel`** (ship 41); 10-18 through 1720, **1721
+  `bullets`**; with `/oracleLibmSqrt` 177 / 118; the release replay equal to the debug on the simulation list; both
+  replays IDENTICAL in every field to the rung audit's and producer 4's (decision 49 updated).
+- **Missions 02-17**: 16 / 16 PASS with every objective (and Mission01 6/6), 15 pairs byte-identical, Mission06's pair
+  equal in every game field and different in `rng_all` only (decision 94); every stream IDENTICAL to producer 4's and the
+  audits'; **Mission17 ends the game** (`game end tick=15584`, `Credits-GameEnd.cred`); the Tutorial1 leg 12 / 12 as a
+  pair (`416f819eaa29e3e0`, 10,444 ticks); the warp start (level 10) a pair; "LESSON 11" loads (a pair).
+- **The recorder**: `grep` 0 for the recorder tag; `hwirec01` / `hwirec02` replay as pairs IDENTICAL to their record runs
+  and to the audit's playbacks; this build's own LFE2 recording replays IDENTICAL to its record run and to the producer's
+  (the save differs in stale pointer slots only, the `.pkts` in a header padding word in 1,200 packets: decision 95);
+  **mode B (the GOG playback) not run** (no `original/oracle/hwirec*-play-*`): the user's step with the commands in
+  docs/m2-r9-summary.md "What the user must decide" 4.
+- **Self-tests** all PASS (statics x2, meshes, textures, oracle, release SELFTEST PASS, etg, dock, command, render,
+  sound, hud, ui, fescreens 22/22, strings 1,705/1,705, keys, console tablerows=486, build pair, nisparse, toggle x3,
+  ai pair + 4,000-tick soak, skirmish LFE2 pair (91 ships) + Armed8, missiontest pair, loadgame pair, motion / nis dumps);
+  **sp** `--timeout 340` walks Mission01_NIS01 -> 01 -> 02 -> 03 -> 04_NIS02 -> 04 (39 screenshots) and stops on
+  `texreg.c (569)` `nPalettes < 8` (ASan 0; M2-R10 render, decision 90); **fe** Main_game_screen.
+- **Guard rails vs R8**: ai / soak / build / missiontest / loadgame / Armed8 moved exactly as producer 1 stated (the
+  table + the qsort), LFE2 at tick 0 by the Slipgate reader (producer 2); the **ai soak moved once more at tick 694
+  `ships_health`** by producer 3's ship-part blast fix (`MakeExplosionRockBumpables`), unstated by anyone and bisected by
+  this step (three extra builds + soaks); the `/noInterp` dumps re-baselined to `183681235a3fdc7b` / `13ca70eea998e5de`
+  (decision 46); the generators `--check` current; layout32 OK.
+- **Tags**: `grep -rn -E 'CAT-(TODO|PROVISIONAL)\([^)]*(M2-R[89]|stage 6)' src/` empty; 34 `CAT-TODO` lines, 25 owner
+  tags (stage 5 23: plain 8, multiplayer options 8, LAN 6, multiplayer 1; M2-R10 physics 2), 5 `CAT-PROVISIONAL`
+  (count with `/bin/grep`: the shell's ugrep wrapper skips `MultiplayerGame.c` as binary).
+- **UBSan kinds** (all non-fatal): the ETG / particle alignment kinds and `BTG.c` as in R8; new: `Select.c:1153` /
+  `1154` (sp + five mission tests), `FOW.c:296-437` (Mission17 only), the recorder's packet writes in `CommandNetwork.c` /
+  `Queue.c` (the record run); gone: `Subtitle.c:1144`.
 
-**R9 integrate (the stage-6 exit):** the R8 gates hold from a clean build (the stream re-baselined once if the fsqrt
-ruling lands, stated against `0d2b76d565105a26`'s content); every mission 01-17 reaches its objectives headlessly
-(byte-identical pairs); the rung beyond 247 / 155 or owned; no `CAT-TODO` naming M2-R8 or M2-R9; both generators `--check`
-current. Then M3 (the play-test sign-off, the one-hour 4K@144 soak, the Windows build); M3's Linux play-test of Mission01,
-a skirmish and the tutorial can start now (the brief in docs/m2-r8-summary.md "Plan for M2-R9").
+Delta map after the round: IDENTICAL 2,773 / MODIFIED 1,564 / REWRITTEN 83 (the same totals as R8 by coincidence: 12
+IDENTICAL rows found modified, 15 unflagged rows found IDENTICAL), 3,512 reviewed rows; stage 6 complete on the map:
+**the 2,085 kas2c mission functions all generated and defined** (decision 87). 34 lines carry `CAT-TODO` (R8: 38).
+
+**M2-R10 plan (a short round: the play path's leftovers), then M3** (docs/m2-r9-summary.md "Plan for M2-R10"; M3's Linux
+play-test of Mission01 .. 03, the tutorial and a skirmish can start now with `tools/play.sh`, the brief in the summary):
+
+| # | producer | scope | done when |
+|---|---|---|---|
+| 1 | the oracle's next rung, physics | 10-17 tick 1922 (ship 41's attack flight: the target lead / the turning ship's coordsys), 10-18 tick 1721 (the first bullets: `GenericInterceptorCanFire`, `cat_gunCanFire`, the attack AI's timing), `aiuFindDistanceSquared`'s and `tacticsGetShipsMaxVelocity`'s unrounded returns, the rest of Blobs.c; the mode-B result and the fourth recording if the user made them | the 10-17 replay IDENTICAL beyond 1922 and the 10-18 beyond 1721, or the next divergences localised and owned; a mode-B divergence localised |
+| 2 | the render stop, the animatics and the sp gate | `trTextureRegister` 0x00585760's colour block (`trColorsIndexAlloc`'s `nPalettes < 8`), `animBinkPlay` -> `animAviPlay` 0x00421860 at its 3 call sites (skipped by the headless tests), `Select.c:1153` / `1154`, `FOW.c:296-437`, Mission17's `memAllocFunctionA` / `is_final_tex` notes | the `sp` loop runs through Mission04 and on to its timeout with ASan 0; an animatic plays in an attended run; no `Select.c` / `FOW.c` report |
+| 3 | the tests and the oracle's leftovers | the mission self-test's combat, a deliberate-loss test for the failed-jump return, the mission runs on the virtual audio clock (Mission06's `rng_all`), the skirmish test's bigotry option, the `.pkts` header tail word, `scriptSetTweakableGlobals` and the 148 unflagged rows sampled | Mission06 pairs byte-identical in every field over 4 runs; the failed-jump flow reached; the 17 mission streams re-baselined once with the stated fields |
+
+**R10 integrate**: the R9 gates hold from a clean build (the mission streams moving only by producer 3's stated `rng_all`),
+the `sp` run through Mission04 and beyond with ASan 0, the rung beyond 1922 / 1721 or owned, no `CAT-TODO` naming M2-R9 or
+M2-R10, the generators `--check` current. **Then M3**: the play-test sign-off (the campaign from New Game as far as it goes,
+the tutorial, a skirmish, with `tools/play.sh`), the one-hour 4K@144 soak (no gamescope), the Windows 11 build, and the
+stage-5 remainder per decision 9 after M3.
 
 ### Decisions the user owns
 
@@ -505,7 +547,9 @@ a skirmish and the tutorial can start now (the brief in docs/m2-r8-summary.md "P
 7. ANSWERED [their 6]: clang-18 + lld-link first, mingw fallback. **Outcome: the DLL builds with clang-18 + lld-link;
    no mingw install is needed.**
 9. ANSWERED [their 7]: LAN interop with stock 1.01 is nice-to-have, not required. No effort is spent on it, and the
-   wire format is not broken gratuitously.
+   wire format is not broken gratuitously. **M2-R9: applied as "recorder"** (stage 5 reduced to the recorder's record
+   side, done: hwi-engine records in cataclysm.exe's own format, decision 95; the remaining 23 `CAT-TODO(stage 5 ...)`
+   sites stay deferred to after M3).
 11. ANSWERED 2026-10-10: **the faithfulness defaults already in the tree are accepted.**
     - The 22 dropped HW1 types stay dormant at ids 200-221 until M2-R4 #4 deletes them.
     - `kCloakGenerator`/`tCloakGenerator` use `DefaultShipHeader` where the exe has NULL.
@@ -575,7 +619,9 @@ a skirmish and the tutorial can start now (the brief in docs/m2-r8-summary.md "P
 23. **`fsqrt`.** The exe keeps HW1's table square root (`fsqrt` 0x00472860, `fmathInit` 0x004728c0); this tree maps
     `fsqrt` to `sqrtf` (GoK). Default: `sqrtf` stays. Switching changes every distance in the simulation and every
     oracle baseline, so it is yours to call; the reference recording will show it first. **M2-R8**: still `sqrtf`; with the table the 10-17
-    replay matches GOG through tick 246 (through 176 without it): decisions 56 / 70.
+    replay matches GOG through tick 246 (through 176 without it): decisions 56 / 70. **M2-R9: the table is the default**
+    (decision 70 answered and applied: `catFsqrtTable` TRUE, `/oracleLibmSqrt` the A/B switch); the rung reads 1922 / 1721
+    with it, 177 / 118 without.
 24. **Chosen names** where the exe's are unknown: `catRetreating` 0x1D0, `catObjReserved88[4]`, `catShipReserved5B0`,
     `catMissileReserved248[3]`, `catNavLightStatic` 0x634, `catDamageFactor`, `catMaxVelocity`;
     `CAT_SHIPFLAG_Launching` / `Bit7`; `CAT_ATTRIBUTES_DockBaysClosed` 0x400, `DockWithEnemies` 0x40000, `BlastHit`
@@ -636,7 +682,12 @@ a skirmish and the tutorial can start now (the brief in docs/m2-r8-summary.md "P
     `39a512d0465d73a6`), header build identity only. **M2-R8: the baseline is `0d2b76d565105a26`** (the integrate build;
     release `3dc687dbb95feab6`, the same content), which differs from `9f7416bb64fec98f` in exactly `rng0` (40 draws ahead
     from tick 0, the shuffle) and `ships_rot` (from tick 1, the rung's helpers); nothing else moved. The chain of the round's
-    hashes is in docs/m2-r8-summary.md.
+    hashes is in docs/m2-r8-summary.md. **M2-R9: the baseline is `553845b65e87f3b5`** (the integrate build; release
+    `ba8ee6e78597c175`, the same content), which differs from `0d2b76d565105a26` in exactly `ships_pos` / `univcheck` from
+    tick 0 and `ships_rot` from tick 1 (the exe's `qsort` at `formationArrangeOptimum`'s ties, producer 1); not by the table
+    (the `/oracleLibmSqrt` run is byte-identical: no ship flies), not by the 16 missions, the recorder or the leftovers; the
+    chain of the round's hashes (`1028375d20f15d75`, `be3e5030cebbea0b`, `dc2fb8ce71c0d26b`, `fd82fafbcd9011fc`: the same
+    content, the header's build identity only) is in docs/m2-r9-summary.md.
 45. **Cataclysm's 18 animatics are 30 fps**; GoK's player assumed 15 (every animatic played at half speed until R6).
 46. **Motion interpolation**: `objInterpolate` / `nisInterpolate` both 1 (`Cataclysm.cfg` rows, `/noInterp`,
     `/noNISInterp`, console rows, the Smooth motion checkbox added in code to `Video_Options` and the in-game `Video`
@@ -645,16 +696,26 @@ a skirmish and the tutorial can start now (the brief in docs/m2-r8-summary.md "P
     their last two; the render transforms are written into the simulation's fields for the draw and restored bit for
     bit (the spec asked for separate render fields); a switch's 0 persists into `Cataclysm.cfg` through the next
     `opOptionsSaveSettings` (a run-only override is M2-R7's follow-up). `tools/nis_smoothness.py` thresholds 0.05 /
-    0.01 px.
+    0.01 px. **M2-R9: untouched** (no motion-interpolation code changed); the `/noInterp` guard-rail dumps re-baselined
+    once to `183681235a3fdc7b` / `13ca70eea998e5de` (the table square root under every frame's flight and the exe's qsort
+    in the formations and the NIS's sorted paths: producer 1's stated physics); flags-on `428fff6c765ab81b` /
+    `6a4c1850799187ac`.
 47. **Oracle mode A's exclusions**: `ships_rot` (the DLL offset defect), `rng_all`, `fpcw`, `players` (the stock
     record / playback difference at tick 93; `rng6`'s at 161: the playback skips the AI). The comparison is the
-    simulation field list over ticks 1..9600.
+    simulation field list over ticks 1..9600. **M2-R9**: unchanged (`rng6` at 161, `players` at 93 / 272 in the 10-18
+    one); the rung's list is `rng10,rng6,ships_n,ships_misc,ships_pos,ships_vel,ships_health,missiles,bullets,derelicts,
+    resources,univcheck,dt,total,real` minus the exclusions (`real` too for 10-18).
 48. **The oracle DLL's `CAT_SHIP_coordsys` should be 0x98, not 0x80** (tools/oracle/dll/hook_sites.h); the DLL was not
-    run or rebuilt this round. A one-line edit before the user's next recording.
+    run or rebuilt this round. A one-line edit before the user's next recording. **M2-R9: still no fixed-DLL recording**
+    (`FOURTH_RECORDING null`); `ships_rot` stays excluded in every session (it diverges at tick 1); both open divergences
+    (1922: a turning ship's coordsys, 1721) would be helped by it: recommended before M2-R10's rung producer.
 49. **The x87 single rounding of `cat_clExternalBuildUpdate`**: MADE in M2-R7 (`clExternalBuildAdvance`: the increment
     in double, rounded once at the store, the clamp on the double sum); the tick-136 divergence is gone and the oracle's
     first divergence is now **tick 177 `ships_vel`** (ship 35's turn from tick 171: the table `fsqrt` / x87 vector helpers,
     M2-R8's first item, decision 56) in the 10-17 recording and tick 118 `ships_pos` / `ships_vel` in the 10-18 one.
+    **M2-R8**: 247 / 155 with the table switch. **M2-R9**: on the table default the first divergences are **1922 `ships_vel`**
+    (10-17, ship 41's attack flight) and **1721 `bullets`** (10-18, GOG fires 19 ticks earlier); 177 / 118 with
+    `/oracleLibmSqrt`; M2-R10 physics' first item (docs/m2-r9-summary.md "Oracle mode A").
 50. **Release vs debug replay** differ in stream 8 (battle chatter) from tick 1952 (a debug-only speech path);
     simulation fields identical. The oracle compares simulation fields only.
 51. **Latent 64-bit union aliasing** in `MCVSpec` and `P1StandardCorvetteSpec` (listed by `m2_save32_gen.py`): no owner
@@ -679,11 +740,14 @@ a skirmish and the tutorial can start now (the brief in docs/m2-r8-summary.md "P
     experiment came within -1 / +4 / -2 ulps). Recommendation: make it the default in M2-R8 (the mission baseline moves once). **M2-R8 result**: with the switch on
     the 10-17 replay is IDENTICAL through 246 (247 `ships_vel`, ship 40) and the 10-18 through 154 (155 `ships_vel`, ship 28);
     off: 177 / 118. The headless Mission01 baseline does not move with the table (measured). Still the user's: decision 70.
+    **M2-R9**: superseded by decision 70's answer: the table is the default, `/oracleTableFsqrt` is gone.
 57. **The Mission01 stream does not see the AI**: no fleet control without the KAS call (`CAT_HW1_MISSION_SCRIPTS 0`), so
     the four ports left the baseline's content unchanged; the `ai` self-test stream (`c6ff74db1a364512` in the R7 build; the
     first pass's `9d42fd414007fbe2` is the same content) is the AI's guard-rail. Default: no re-baseline with fleet control forced on; stage 6 moves the stream when it lands. **M2-R8**: stands;
     Mission01's generated script never calls `BuildControl` (the kasf that sets `giveComputerFleetControl`), its enemies are
     KAS teams, and the `/oracleMission` run keeps the direct start (decision 76); the stream moved by the shuffle only.
+    **M2-R9**: stands; the stream moved by the exe's qsort only (decision 44), not by the table or the rung's physics; the
+    ai streams (`cefa7bd984ff3f57` pair, the soak `4cd65bfa42cfa6c6`) are the AI's guard-rails.
 58. **`gunResetGimbleGuns` is uncalled** (GoK's gimbal reset left `aitrackSteadyShip*`; the exe has none). Default: keep.
 59. **Default move tactics**: Aggressive for the 26 creators the exe stores 2 for; Neutral for control / active resource
     (the exe's 1) and for the five creators the exe does not contain (no evidence).
@@ -693,6 +757,7 @@ a skirmish and the tutorial can start now (the brief in docs/m2-r8-summary.md "P
     alignment from tick 2) and its first simulation divergence is tick 118 `ships_pos` / `ships_vel`. **M2-R8**: the install's `oracle01` is now the
     10-19 recording (133 packets, 266 ticks, the unfixed DLL; not a reference); both older recordings replay from their
     archives (`--recording-as oracle01-r6` / `oracle01-r18`); the 10-19 session excludes `real` too (decision 80).
+    **M2-R9**: unchanged; the two archived recordings stay the rung's references (10-17: 1922; 10-18: 1721).
 61. **Chosen names** where the exe's are unknown: `CAT_SHIPFLAG_KasMines`, the AISkirmish statics / globals
     (`aisShipBeingBuilt`, `aisEnemyBigGun*`, `aisCrystalTarget`, `aisOwnBigGunShip`, `aisEnemyDFGNearMothership`,
     `aisLeastBuiltShip`, `aisFirstPlay`, `aiBuildingShip`, `aiSupportUnitsPending`, `aiCarrier1Ship` / `2Ship`,
@@ -737,7 +802,7 @@ a skirmish and the tutorial can start now (the brief in docs/m2-r8-summary.md "P
     `/oracleTableFsqrt` (`FastMath.c`, HWI-EXPERIMENT) compiled in and off. With the table the rung's reference reads 246
     (10-17) / 154 (10-18), without it 176 / 117, and the divergence at 177 is the square root itself. Recommendation: make
     the table the default in M2-R9 (`FSQRT_DEFAULT 'table'`, the switch inverted to `/oracleLibmSqrt`); the headless
-    Mission01 baseline does not move with it, the replay, ai, skirmish and mission-test streams do. **ANSWERED 2026-10-19: the table `fsqrt` is the engine default** ("keep the game relying on fsqrt, don't ditch core fundamentals"); M2-R9 producer 1 makes it the default and inverts the switch to `/oracleLibmSqrt` (`FSQRT_DEFAULT 'table'` in m2-r9.js).
+    Mission01 baseline does not move with it, the replay, ai, skirmish and mission-test streams do. **ANSWERED 2026-10-19: the table `fsqrt` is the engine default** ("keep the game relying on fsqrt, don't ditch core fundamentals"); M2-R9 producer 1 makes it the default and inverts the switch to `/oracleLibmSqrt` (`FSQRT_DEFAULT 'table'` in m2-r9.js). **M2-R9: APPLIED** (`64f49a9`): `catFsqrtTable` TRUE by default, `/oracleLibmSqrt` the A/B switch (HWI-EXPERIMENT), `/oracleTableFsqrt` gone; the rung 1922 / 1721 on the table, 177 / 118 without; every stream's move by the table alone measured once by producer 1 (the headless Mission01 stream and the replays do not move with the table; the ai / skirmish / build / missiontest / loadgame streams and the dumps do); the Mission01 baseline moved by the exe's qsort instead (decision 44).
 71. **The exe's x87 shape on the flight path** (the vector, matrix, heading, guidance, rotation, avoidance, formation,
     parade, collision and move-point helpers; `catFsqrtD`): the 53-bit intermediates and single roundings of the
     disassembly; libm `sin` / `cos` for `fsin` / `fcos`, `tanl` + `fma` for `fptan`. The motion / nis guard-rail dumps are
@@ -771,10 +836,16 @@ a skirmish and the tutorial can start now (the brief in docs/m2-r8-summary.md "P
     `catDriftAddY` / `catDriftAddX` / `catWrapExtent`.
 76. **The mission oracle run keeps the direct Mission01 start** (`/oracleMission` and the self-tests on it; `HWI-ORACLE`),
     no NIS and no KAS, so the baseline moved only by the shuffle and does not see the AI; `/catMissionTest` takes the
-    exe's NIS-first start and its stream (`becb49b579aba435`) is the mission's guard-rail. Default: keep both.
+    exe's NIS-first start and its stream (`becb49b579aba435`) is the mission's guard-rail. Default: keep both. **M2-R9**:
+    extended to every mission (`/catMissionTestMission N`, decision 86); the Mission01 self-test stream is
+    `cc7f22e7129b9471` (the integrate build, the same content as the producers'), moved against `becb49b579aba435` by the
+    table and the qsort as producer 1's section 8 states (the tick-0 fields, `ships_vel` 2, `univcheck` 39, ...).
 77. **The mission self-test's events**: the destroy objectives are met with the mission language's `ShipsDamage`, the recon
     with the launch and move orders, the jump with the hyperspace button's function; the player's combat is not simulated;
-    no sound and no speech. The Tutorial1 leg keeps speech on, so its stream is not a pair.
+    no sound and no speech. The Tutorial1 leg keeps speech on, so its stream is not a pair. **M2-R9**: stands for every
+    mission (a scripted player per mission in `MissionSelfTest.c`; the combat experiment deferred with its measurement:
+    M2-R10 test); the held objectives complete through `ObjectivesDestroyAll` (decision 86); the Tutorial1 leg IS a pair now
+    (the virtual audio clock, decision 93).
 78. **Single player**: no mission sequence (`currentMission` 1 .. 17); the KAS skill level is the difficulty word
     0x008941a0 (HW1's `CurrentMissionSkillLevel`, which doubled single-player damage, deleted); the warp start follows
     the install's `warp.script` (off); the exe's roll-call, hyperspace and arrival bodies with their `CAT-FIX`es; a
@@ -798,11 +869,90 @@ a skirmish and the tutorial can start now (the brief in docs/m2-r8-summary.md "P
     round on; `/oracleShipDump` and `tools/oracle/hwo_invert.py` are the permanent per-ship instrumentation. Chosen
     names: `catFsqrtD`, `catVecMagSqD` / `catVecScaleD`, `catAitrackTurn` / `catAitrackThrust`, `catGetCollSizeD`,
     `catResourceWrap` / `catResourceWrapAxis`, `Asteroid.catWrapExtent`, `CAT_ETG_CREATE_PARAMETERS`, `aisTargetTables` /
-    `catAisTargetTeam`, `oracleShipDump*`.
+    `catAisTargetTeam`, `oracleShipDump*`. **M2-R9**: decision 92 (modes `warpstart`, `missiontest --mission N`, `loadgame
+    --training --save-src`, `--record` / `--record-stop`; 29 modes; never edit the harness while a run is in flight).
+
+81. **The exe's `qsort` for every sort the exe makes** (`catQsort` / `catQsortShort` / `catQsortSwap`, `CatSort.c`: the
+    exe's CRT quicksort 0x00671060 at its 14 call sites); ties come out as in the exe; `Memory.c`'s debug sort and the
+    uncalled `selShipsInSelection` keep the C library's. The mission baseline moved by it (decision 44). Chosen names
+    also: `catBlobObjPosition`, `catBlobDistSqD`, `oracleShipDumpAvoid`, `oracleShipDumpFly`, the dump's 'O' / 'V fly' /
+    'B' lines.
+82. **The rung's reference numbers**: 1922 (10-17, ship 41's `v.z`) and 1721 (10-18, the first bullets) on the table; 177 /
+    118 with `/oracleLibmSqrt`; both M2-R10 physics' with `aiuFindDistanceSquared`'s and `tacticsGetShipsMaxVelocity`'s
+    unrounded returns (`CAT-TODO(M2-R10 physics)`) and the rest of Blobs.c.
+83. **The flight path's further x87 shape** (producer 1): the collision blobs by collision position, the blob attacking flag
+    (`shipisattacking` AND `catAttackStarted`), `ObjectsCollided` with the unrounded `1/t`, `collCheckBigShipSmallShipColl`'s
+    clamped-host test, `cat_dockFlyOutOfCone`, `cat_gunFixedGunAimedAtTarget`, `hyperspaceCost`'s double return at its five
+    callers, `protectShip` / `protectShipsAvg`; `catFmathSqrtDouble` returns 0.0 for a NaN as the exe's `test ah,0x40`.
+84. **The ai soak's `rng_all` is not reproducible under load** (the sound stream on the mixer thread's wall clock; the `ai`
+    mode does not silence it); the 400-tick ai pair is unaffected; the soak is judged on `result=PASS`, ASan 0, no fatal.
+    **The soak moved once more inside R9** at tick 694 `ships_health` (producer 3's ship-part blast fix: the first death),
+    bisected by the integrate step; no producer after the rung re-ran it: the next rounds' producers re-run the soak.
+85. **New non-fatal UBSan kinds**: `Select.c:1153` / `1154` signed overflow in `selCircleCompute` (sp and the Mission06 /
+    12 / 14 / 15 / 16 self-tests), `FOW.c:296-437` `-2147483648 - 2` in `fowActivateCube` / `fowDeactivateCube` / `fowCubeHasUnvisited`'s cell boxes (lines 296 / 349 / 435, from the W wrappers' world-to-cell conversion) (Mission17 only);
+    the recorder's packet writes in `CommandNetwork.c` / `Queue.c` (a record run); all M2-R10.
+86. **The mission self-test per mission**: `/catMissionTestMission N` (harness `--mode missiontest --mission N`, 2 .. 17)
+    enters mission N through the exe's warp start (`cat_spWarpToLevel` 0x0051b9c0 with Warp.script's level-N record; chosen
+    over chaining so each test depends on its own mission only); the tables `catMtMissions[]` and a scripted player per
+    mission (`MissionSelfTest.c`: the command layer, the managers, `ShipsDamage`; the roll call's enabled button through its
+    callback); PASS = level loaded, KAS started, fleet arrived, every objective created in the table's order and completed,
+    the jump begun, the next level loaded (Mission17: the game's end), no loss; the run ends 32 ticks after the next level
+    loads. The held objectives (Mission04 Destroy, 09 Protect, 11 DESTROY_BEAST / PROTECT_FACTORUM, 14 PROTECT_MOTHERSHIP /
+    CAPTURE_TAIIDAN) complete through the Hyperspace path's `ObjectivesDestroyAll` (their scripts have no other end); the
+    unreachable ones are left out (Mission06 Kill, 12 WorkerDock / WorkerReturn, 15 DefendMothership, 17 Research).
+    `/catMissionTestTrace` for a line per KAS message.
+87. **The generator covers the whole campaign**: `tools/m2_kas2c_gen.py` `DEFAULT_SCRIPTS` = Mission01 .. 17 + Tutorial1;
+    **2,085 bodies verified** against the machine code, 25,279 all-constant calls' arguments equal; 15 OVERRIDES addresses
+    (20 patches), each HAND-EDIT in the output and verified (Mission05's hashes, Mission08's dead `kasJump`, the folded
+    `kasfAssert` stub 0x0049ae30 at 13 sites, 0x0062dfe0's label); `src/Missions/meson.build` generated; Tutorial1.c's
+    Lesson12 line is the exe's localised table `LSTRING_008cd960[strCurLanguage]` (the earlier output dereferenced an exe
+    address: a justified deviation).
+88. **The "Mine" / "Slipgate" mission-sphere readers**: `cat_scriptSetMineCB` 0x004a3f20 and `cat_scriptSetSlipgateCB`
+    0x004a1020 (paired through `catSlipgatePending` 0x00c362dc); LiveFireExercise2 has 91 ships now (its stream moved once).
+89. **Port fixes found by the mission runs** (each at the exe's body): `kasfSpecialOn`'s return, `kasfVectorAdd` /
+    `kasfVectorCopy`, `AllowPlayerToResearch`'s -1 (CAT-FIX), `scriptStringToBool`'s digit characters, `tutGameSentMessage`,
+    `catKbFocus` / chase's local, `cat_bigGunProcessFireCommand`'s held effect, `MakeExplosionRockBumpables` spares
+    `SOF_CatShipPart`, `spHyperspaceSelectionOut`'s clamp host; HWI fixes: the tweak table's `CLASS_*` keys (every repair
+    rate had been 0 since M2-R4), `bobUpdateExtraCollBobInfo`'s GoK-only assertion, `cat_beastGetAttackStaticInfo`'s 64-bit
+    overlay, `dbgFatal`'s ASan trace.
+90. **The `sp` gate opened to every generated mission** and now stops in Mission04 on HW1's `texreg.c (569)` `nPalettes < 8`
+    (the exe's `trTextureRegister` 0x00585760 appends a ninth colour scheme without a bound): M2-R10 render; until then `sp`
+    is judged on the running universe, ASan 0 and the levels walked (01 -> 02 -> 03 -> 04_NIS02 -> 04).
+91. **The end of the game**: Mission17's `MissionCompleted` 0x00491c70 -> `singlePlayerMissionCompleteCB` 0x0051be40 ->
+    `utyGameQuitToMain` 0x005ab6b0's credits (`Credits-GameEnd.cred`), reached headlessly. `animBinkPlay` is GoK's stub (no
+    animatic plays); `animAviPlay` is 0x00421860's port: M2-R10 routes the calls, the headless tests skip them (default).
+92. **The harness** (decision 80 extended): modes `warpstart` (`--warp-level N`), `missiontest --mission N`, `loadgame
+    --training --save-src DIR`; `--record NAME` / `--record-stop N` (skirmish); 29 modes; switches `/catMissionTestMission`,
+    `/catMissionTestTrace`, `/catWarpStartTest`, `/catLoadGameTraining`, `/oracleRecord`, `/oracleRecordStop`,
+    `/oracleResave`, `/catVirtualAudio`, `/oracleLibmSqrt`. Never edit `tools/m2_harness.sh` while a run is in flight.
+    `hwo_compare.py` wants `--from-tick 1` between a record run and a playback. Count tags with `/bin/grep`.
+93. **The Tutorial1 leg on the virtual audio clock** (`/catVirtualAudio`, set by `/catMissionTestTutorial`: no device, no
+    stream thread; `soundVirtualAdvance` mixes 22,050 samples per second of task time in 256-sample blocks); the narration
+    takes its game-time length, the leg ends at 10,444 ticks, byte-identical run to run; the 12 lesson saves written and
+    "LESSON 11" loads. Names: `soundVirtualClock`, `soundVirtualAdvance`, `isoundstreamstep`. A normal run is unchanged.
+94. **Mission06's rare `rng_all`-only divergence** (the mixer thread's `RANDOM_SOUND` on the wall clock suspected): the
+    mission runs keep the wall-clock mixer this round and are judged on the simulation fields when `rng_all` alone differs
+    (the integrate's pair: 2081); M2-R10 adopts the virtual audio clock for them (every mission's `rng_all` moves once) or
+    the oracle excludes the sound streams.
+95. **The recorder's record side** (stage 5 reduced): the 4 sites closed at the exe's bodies; hwi-engine records skirmish /
+    multiplayer games in cataclysm.exe's format (the save at 0x10ad0027 through the SaveCat32 writer, the `.pkts` file);
+    `/oracleRecord <name>` / `/oracleRecordStop <tick>` follow the DLL's record mode (single player refused); a recording's
+    replay is IDENTICAL to its record run except `rng0` / `rng6` / `rng_all` (the computer player does not run in a
+    playback); the sync checksum's lag is 1 packet (GOG's real-time sessions: 8); `/oracleResave` for the writer's byte
+    check; two recordings of the same game differ in the save's stale pointer slots and the `.pkts` header's uninitialised
+    tail word (M2-R10). Names: `recordingStartSave`, `recPackDeleteFile` (HWI-FIX), `saveCat32*`, `madCat32ObjectFileOffset`,
+    `aitCat32SaveTeam`; tools `tools/formats/pkts_probe.py`, `tools/formats/recording_compare.py`. Only a recording's save
+    is written in the exe format; the recorder's files live in the user settings path.
+96. **Stage 5 deferred** (decision 9): a recorded game sends nothing for the external builds and the point / mimic / upgrade /
+    special-target orders (CommandWrap.c's `CAT-TODO(stage 5)`), in the record run and the replay alike;
+    `recPackRecordSaveHeader`'s HEAD header, `KeepAliveDropPlayerCB` (LAN) and `mgUnitCapsEnabled` (options) tagged.
+97. **`Subtitle.c:1144` closed** (CAT-FIX at `subTitlesUpdate` 0x005842f0: the location cards' actor 0x70 starts from
+    `STT_LocationCard`); the reviews of the 123 stage-4 IDENTICAL bodies, the 31-row sample (2 ported, 3 tagged, 15
+    IDENTICAL) and 42 notes on edited rows are in the map (`m2r9:recorder-leftovers`).
 
 ## M2-R6: COMPLETE 2026-10-18 (run from the user's terminal session 38027cce, not from the orchestrator)
 
-cycle/workflows/m2-r6.js finished in session 38027cce (Fable, Remote Control): the "## M2" subsection "M2-R6: COMPLETE" above has the exit test and the seven ports. **M2-R7 also finished in that session on 2026-10-19** (cycle/workflows/m2-r7.js, run id wf_b238b029-e72; its integrate step was cut off by the weekly limit on 2026-10-18 and resumed on 2026-10-19 after the skirmish-start merge; "M2-R7: COMPLETE" above, docs/m2-r7-summary.md). **M2-R8 also finished in that session on 2026-10-19** (cycle/workflows/m2-r8.js, run id wf_74bcf42e-330; "M2-R8: COMPLETE" above, docs/m2-r8-summary.md). The orchestrator must relaunch none of them; the M2-R9 script (cycle/workflows/m2-r9.js) is not yet written and waits for the user's answers (docs/m2-r8-summary.md "What the user must decide"). Merges to main are handled by the user.
+cycle/workflows/m2-r6.js finished in session 38027cce (Fable, Remote Control): the "## M2" subsection "M2-R6: COMPLETE" above has the exit test and the seven ports. **M2-R7 also finished in that session on 2026-10-19** (cycle/workflows/m2-r7.js, run id wf_b238b029-e72; its integrate step was cut off by the weekly limit on 2026-10-18 and resumed on 2026-10-19 after the skirmish-start merge; "M2-R7: COMPLETE" above, docs/m2-r7-summary.md). **M2-R8 also finished in that session on 2026-10-19** (cycle/workflows/m2-r8.js, run id wf_74bcf42e-330; "M2-R8: COMPLETE" above, docs/m2-r8-summary.md). **M2-R9 also finished in that session on 2026-10-20** (cycle/workflows/m2-r9.js, run id wf_c0cd6893-248; "M2-R9: COMPLETE" above, docs/m2-r9-summary.md). The orchestrator must relaunch none of them; the M2-R10 script is not yet written (docs/m2-r9-summary.md "Plan for M2-R10" and "What the user must decide"). Merges to main are handled by the user.
 
 ## Opus workflows in flight
 
