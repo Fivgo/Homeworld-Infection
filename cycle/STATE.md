@@ -1,6 +1,6 @@
 # Work cycle and resume point
 
-Last checkpoint: 2026-10-21 05:49
+Last checkpoint: 2026-10-21 06:52
 
 **Read this first when resuming.** It is the single source of truth for where the work stands.
 
@@ -574,7 +574,7 @@ ports, 4 MODIFIED rows found IDENTICAL), 3,569 reviewed rows (R9: 3,512); 212 MO
 (120 outside `TitanInterface.cpp`). 35 lines carry `CAT-TODO` (R9: 34: the two `M2-R10 physics` closed, three
 `M3 oracle physics` opened).
 
-**M3 plan** (docs/m2-r10-summary.md "Plan for M3"; the play-test can start now with `tools/play.sh`, the brief in the
+**M3 plan** (**superseded 2026-10-21 by the M3-R1 table below**: M2-R10's rows 1-3 carried, row 0 done once, row 4 sized by this round; docs/m2-r10-summary.md "Plan for M3"; the play-test can start now with `tools/play.sh`, the brief in the
 summary; first steps: the user plays Mission01 .. 04 with the two animatics attended, a Windows 11 producer is launched
 from the main checkout, the soak's `/frameLog` switch is written before the user's hour):
 
@@ -589,6 +589,80 @@ from the main checkout, the soak's `/frameLog` switch is written before the user
 
 **Then**: the stage-5 remainder per decision 9 after M3 (the 23 `CAT-TODO(stage 5 ...)` sites), or an M2-R11 physics round
 only if the user wants the rung before the play-test.
+
+### M3-R1: COMPLETE 2026-10-21 (the play-test fix round: the letterbox bars in front + the `letterboxBehind` setting, the team colours across the warp, FULL DETAIL = LOD 0 by default, the unfocused objects' jitter, the UI scale 200% at 4K / 150% at 1440p + the 4K window; presentation only, no simulation field moved)
+
+Summary, exit test, the five fences and the refreshed play-test brief: [docs/m3-r1-summary.md](../docs/m3-r1-summary.md).
+Workflow `cycle/workflows/m3-r1.js` (18281e2; run id `wf_42a468c8-942`, `ROUND_BASE ce4fab4`), launched 2026-10-20 21:19
+on the user's word from the user's terminal session 38027cce (Fable), not from the orchestrator, relaunched twice on
+10-21 (item 6 and the jitter recipe folded in; the main checkout's stale script copy); 11 agents (five ports in sequence
+with their audits, each checkpointing its port: letterbox-front `94599c8` 0.919, team-colours-warp `2b454b6` 0.91,
+full-detail `8410122` 0.913, motion-jitter `fdf35ee` 0.853, ui-scale `58df92d` 0.857, all PASS-WITH-FIXES; integrate).
+No producer was cut off. The user's answers: `cycle/answers/m3-r1-user.md` (Smooth motion unknown to the user; the
+skirmish Recon recipe).
+
+**M3-R1 exit test: MET** (the integrate step, clean builds of `58df92d` (`[273/273]`, 0 warnings: debug
+`dc2e8e09ba80f7cc`, release `194161675b97762a`, copied aside), plain harness, silent, 161 runs `m3r1i-*` in eight
+chains beside the user's load (load average 12-20: VS Code's ripgrep); `runs.txt` lines 3544-3704; ASan 0 in all):
+- **Mission01 headless**: pairs byte-identical, debug `1ae66610c3f02410` / release `234bcccfb948ab98` (IDENTICAL to each
+  other), MISSION TEST PASS in both (perturb at 3000 `rng10`, flip at 4000); `/noInterp`, `/noNISInterp`,
+  `/oracleLibmSqrt`, `letterboxBehind 1` (row and switch), `/lodBands`, `noLOD 0`, `/uiScale 200`, `uiScale 150` and
+  the three opt-outs together all byte-identical to A; **IDENTICAL in every one of the 21 fields to R10's
+  `5bd51234405ea0d8`** (decision 44 unchanged) and to every producer's and audit's Mission01 run of the round.
+- **The rung unchanged**: 10-17 IDENTICAL through 2822, first divergent **2823 `ships_vel`**; 10-18 through 2870, **2871
+  `ships_vel`**; with `/oracleLibmSqrt` 177 / 118; the release replay equal to the debug on every field but `rng_all`
+  (6377, as R10); both replays IDENTICAL in every field to `r10i-r17-a` / `r10i-r18-a`; the hwirec01 / hwirec02
+  playbacks IDENTICAL to R10's. **Mode B not run** (no `original/oracle/hwirec*-play-*`), no fourth recording (the
+  newest `oracle01-rec-*` is 20261019-143530; decision 48 open).
+- **Missions 01-17**: 17 / 17 PASS with every objective in order, all 17 pairs byte-identical, ASan 0 in all 34 runs;
+  **every stream IDENTICAL in every field to R10's `r10i-mN-a`** (the full-detail audit's `renderedLODs` guard and the
+  Beast-stun lightning kept on the exe's level: no `rng0` / `rng_all` move anywhere); the Tutorial1 leg, the lesson
+  load, the warp start, the failed-jump pair, loadgame, the skirmishes, build, ai and the 4,000-tick soak (20 fields;
+  `rng_all` exempt, decision 84) all IDENTICAL to R10's.
+- **The sp gate**: `sp --timeout 1200` at 1024x768 walks Mission01_NIS01 .. Mission12 (129 screenshots, running in Mission12 at the timeout; ASan 0, no leak, no fatal, 0 `Select.c` / `FOW.c` lines, 12 animatics skipped); `sp --timeout 1200` at **3840x2160** walks the same chain to Mission11 (121 screenshots; ASan 0, no leak); **fe**
+  Main_game_screen at 1024x768 and at 3840x2160 (`uiscale: ... scale 200% (auto, uiScale 0) logical 1920x1080`); no
+  `DEADLYSIGNAL` in either 4K run.
+- **Self-tests** all PASS (statics x2, meshes, textures, oracle + the release SELFTEST pair, etg, dock, command, render,
+  sound, hud, ui, fescreens 22 / 22 `options=35` (0 fescreen UBSan), strings 1,705 / 1,705, keys, console `tablerows=486
+  shown=34 set=27`, build pair, nisparse, **toggle x5** (`1/1`, `0/0`, `1/0`, `/letterboxBehind`, `/lodBands`: the new
+  `screen untouched` / `screen cancel`, `letterbox` and `fulldetail` checks PASS), **uiscale x9** (45 checks at 4K /
+  1440p / 1080p / 1024x768, the forced bounds, the cfg / switch overrides), missiontest pair, loadgame pair, warp pair,
+  tload pair, Tutorial1 pair 12 / 12, ai pair + soak, skirmish pair + Armed8; every quitting run rc 0 (fe / sp / the fe
+  captures at their timeouts by design); layout32 OK; the generators `--check` current.
+- **The dumps** (decision 46 updated, re-baselined with the producers' reasons): motion `/noInterp` `c503c869f0dc9cdb` / `3016280e9e0dd3c8`, flags-on `c0e411662fa2f527` / `428ef41479eb5749`, nis `/noInterp`
+  `86cb155acffc180e` / `196bab32d244f614`, flags-on `0307f3be2044c29c` / `a5de13a44b8d264f` (whole / crc-stripped; 1,431 / 1,440 frames;
+  all four EQUAL to producer 5's audited references); the opt-outs together (`letterboxBehind 1` + `/lodBands` + `/noInterp`) byte-equal
+  (`cmp`) to R10's `r10i-motion-noi` / `r10i-nis-noi` (`183681235a3fdc7b` / `13ca70eea998e5de`): against the default only the `crc=`
+  column differs (603 of 1,431 motion frames, 1,260 of 1,440 nis frames), no position column (decision 118).
+- **The five fences** rerun with numbers (the summary's tables): the letterbox bars (NIS n06 frame 1374: 109,568 /
+  109,568 bar pixels black; the old look 29,254 non-black, **bit for bit ce4fab4's frame** with `letterboxBehind 1` +
+  `/lodBands`; the fade frame 584 all 32,32,32 over the ship; Mission01's cutscenes (`m3r1i-lb-m1seg` / `-behind`, missiontest NIS-first, `--shot 747,789,1128 --shot-letterbox`: 6 frames each, n01 and the arrival nislet01 (`s1`); 3 differ between the settings: n01 tick 1128 242 pixels in the top bar, s1 tick 747 51,099 in the bottom bar (the hull), s1 tick 789 65,115 in the top bar, the default's bar rows 0 non-black in all three; the other 3 byte-identical: the report's numbers); Mission02's KAS letterbox
+  (`m3r1i-lb-m2-shot` / `-behind`, `--mission 2 --shot 25770-25840/2 --shot-letterbox`: 32 frames each, 0 differ between the settings; tick 25800 the top 51 rows 66,66,66 (52,134 of 52,224, the cursor's 90); tick 25840 bands 107 / 107; the streams IDENTICAL to R10's Mission02)); the team colours (7 / 7 checks PASS into Mission02 with the user's scheme and a red one; the Kuun-Lan's 24x24 region green-dominant (53 / 71 / 35, 93 / 118 / 32, 114 / 118 / 58) with the user's, red-dominant with the other; the streams IDENTICAL to R10's missiontest); FULL DETAIL (`lodtest` 164 ships at the ai scene all drawn 0 under the default, drawn = band with `/lodBands`, 25,169 vs 5,330 vertices; the 4K cost on an idle GPU, release, 164 ships: on
+  9.578 / 9.083 ms median, off 2.602 / 3.574 ms, 25,169 vs 4,726 vertices); the motion residual on the real clock at
+  144 Hz (the user's Recon B: `/noInterp` repeated 832 / 941 frames, jerk p95 1.488 px; flags on **0 / 941**, 0.008 px;
+  the NIS camera jerk p95 492 -> 5.8); the UI scale (the 4K front end box-downscaled 2x equals the 1080p frame to the bit at frames 400 and 800, the 4K HUD 0.9996+, the 1440p frame centre-sampled equals the 1707x960 frame to the bit, the 4K click hit / miss, the bottom row 2159 -> logical 1079, the forced-bounds fit `display size -> fullscreen desktop`, 45 / 45 checks in nine runs).
+- **Tags**: `CAT-(TODO|PROVISIONAL)\([^)]*M3-R1` empty; 37 `CAT-TODO` lines, 28 owner tags (stage 5 23, M3 oracle
+  physics 3, M3 soak 1, M3-R2 1), 4 `CAT-PROVISIONAL`; `HWI-FEATURE` motion-interp 484 / letterbox-setting 36 /
+  full-detail 178 / ui-scale 299 (decision 120).
+- **UBSan kinds** (all non-fatal): the same nine kinds as R10's, no new kind (the ETG opcode structs and `struct particle`, `BTG.c`'s
+  `short` / `udword` loads; 47 of 161 runs report nothing; fescreen 0 in all 161); ASan 0 and no unsuppressed leak in all 161.
+
+Delta map after the round: IDENTICAL 2,762 / MODIFIED 1,575 / REWRITTEN 83 (`rndDrawScissorBars` IDENTICAL -> MODIFIED;
+producer 5's four reclassifications reverted by its audit), 3,573 reviewed rows (R10: 3,569); 210 MODIFIED / REWRITTEN
+rows still unflagged (118 outside `TitanInterface.cpp`).
+
+**The plan for M3-R2 and the rest of M3** (docs/m3-r1-summary.md "Plan for M3-R2"; supersedes M2-R10's M3 plan table
+above; the play-test can start now with `tools/play.sh --rebuild`, the brief in the summary; Smooth motion must be ticked
+once: the play-home cfg still says `objInterpolate 0` / `nisInterpolate 0`):
+
+| # | step | scope | done when |
+|---|---|---|---|
+| 0 | **the user's next play-test** (now; the refreshed brief) | the six items re-checked (bars, colours across every jump, FULL DETAIL at the far zoom, the moving Recon with Smooth motion ON, the 4K UI at 200% and the window, the mouse at the edges), then M2-R10's items (the two animatics, the campaign, the tutorial, a skirmish and a recording); the questions of "What the user must decide" answered | a report per item; M3-R2 sized from it |
+| 1 | **the Windows 11 build** (producer; M2-R10's row 1 + uiscale.c's display bounds / fullscreen-desktop fit on Windows) | the two platform layers, the 30 harness modes, the LP64 save blob's format pin, the libm dependence measured first | release + debug on Windows 11 with 0 warnings; the self-tests PASS there once; the Mission01 stream, both replays and a mission stream IDENTICAL to Linux (or every difference localised to a libm call); a save and a recording cross-load |
+| 2 | **the one-hour 4K@144 soak, no gamescope** (producer + the user's hour; M2-R10's row 2 + this round's inputs) | `/frameLog` (HWI-TEST), the headless `sp` hour with the heap counters (O4's 1,587 / 1,898 blocks as the baseline), the task clock (`CAT-TODO(M3 soak)`), frame pacing at 4K (FULL DETAIL's ~10 ms frame), the `DEADLYSIGNAL` in a timeout-kill quit, then the attended hour at 3840x2160@144 (borderless by the fit rule) | no frame-rate drift over the attended hour; no growth heap in the headless hour or every growth attributed and fixed; the task clock at the exe's rate or its difference stated; ASan 0 |
+| 3 | **the oracle's rung** (M3 oracle physics; M2-R10's row 3, unchanged) | 10-17 2823 / 10-18 2871, the three `CAT-TODO(M3 oracle physics)`, the other `frandom` sites, Mission17's self-targeting KAS teams; mode B and the fourth recording if the user made them | the replays IDENTICAL beyond 2823 / 2871 or the next divergences localised and owned |
+| 4 | **M3-R2: the fix round** (sized from row 0's report) | already owned: the letter height if the user picks the exe's, the additive state after full bars if preferred, the BTG star size, the quit after a resolution change, FULL DETAIL's mesh submission and the effects cap if wanted, trails at LOD 0 if wanted, the sensors map's lines at 200% if wanted, the tutorial pointer if seen; plus every stop and difference the play-test reports | the play-test's stops fixed and re-played; every port IDENTICAL on the streams; the sign-off |
+| then | **stage 5** (decision 9) | the 23 `CAT-TODO(stage 5 ...)` sites | LAN interop nice-to-have; the wire format not broken |
 
 ### Decisions the user owns
 
@@ -746,7 +820,7 @@ only if the user wants the rung before the play-test.
     tick 0 and `ships_rot` from tick 1 (the exe's `qsort` at `formationArrangeOptimum`'s ties, producer 1); not by the table
     (the `/oracleLibmSqrt` run is byte-identical: no ship flies), not by the 16 missions, the recorder or the leftovers; the
     chain of the round's hashes (`1028375d20f15d75`, `be3e5030cebbea0b`, `dc2fb8ce71c0d26b`, `fd82fafbcd9011fc`: the same
-    content, the header's build identity only) is in docs/m2-r9-summary.md. **M2-R10: the content is unchanged** (the integrate's `5bd51234405ea0d8`, release `a44d585d71233c4a`, IDENTICAL in every field to `553845b65e87f3b5`: no ship flies in the headless Mission01 run, the flight / combat ports do not reach it); every other guard rail re-baselined in docs/m2-r10-summary.md.
+    content, the header's build identity only) is in docs/m2-r9-summary.md. **M2-R10: the content is unchanged** (the integrate's `5bd51234405ea0d8`, release `a44d585d71233c4a`, IDENTICAL in every field to `553845b65e87f3b5`: no ship flies in the headless Mission01 run, the flight / combat ports do not reach it); every other guard rail re-baselined in docs/m2-r10-summary.md. **M3-R1: the content is unchanged** (the integrate's `1ae66610c3f02410`, release `234bcccfb948ab98`, IDENTICAL in every field to `5bd51234405ea0d8`; presentation only: no simulation field of any stream of the round moved; decision 119).
 45. **Cataclysm's 18 animatics are 30 fps**; GoK's player assumed 15 (every animatic played at half speed until R6).
 46. **Motion interpolation**: `objInterpolate` / `nisInterpolate` both 1 (`Cataclysm.cfg` rows, `/noInterp`,
     `/noNISInterp`, console rows, the Smooth motion checkbox added in code to `Video_Options` and the in-game `Video`
@@ -758,7 +832,7 @@ only if the user wants the rung before the play-test.
     0.01 px. **M2-R9: untouched** (no motion-interpolation code changed); the `/noInterp` guard-rail dumps re-baselined
     once to `183681235a3fdc7b` / `13ca70eea998e5de` (the table square root under every frame's flight and the exe's qsort
     in the formations and the NIS's sorted paths: producer 1's stated physics); flags-on `428fff6c765ab81b` /
-    `6a4c1850799187ac`.
+    `6a4c1850799187ac`. **M3-R1: re-baselined** (decision 118): the default dumps are now motion `/noInterp` `c503c869f0dc9cdb` / flags-on `c0e411662fa2f527`, nis `/noInterp` `86cb155acffc180e` / flags-on `0307f3be2044c29c` (crc-stripped `3016280e9e0dd3c8` / `428ef41479eb5749` / `196bab32d244f614` / `a5de13a44b8d264f`): the `crc=` column moved for the bars in front (producer 1, the nis pair: the sRecon's two passes through the bottom bar) and for the LOD-0 meshes (producer 3, all four), the nis flags-on dump's positions for the NIS task's alpha fix (producer 4, fix 1); the opt-outs `letterboxBehind 1` + `/lodBands` + `/noInterp` reproduce `183681235a3fdc7b` / `13ca70eea998e5de` byte for byte (`cmp` against `r10i-motion-noi` / `r10i-nis-noi`); no position column of a `/noInterp` dump moved in the round (the crc-stripped `3016280e9e0dd3c8` / `196bab32d244f614` are R10's).
 47. **Oracle mode A's exclusions**: `ships_rot` (the DLL offset defect), `rng_all`, `fpcw`, `players` (the stock
     record / playback difference at tick 93; `rng6`'s at 161: the playback skips the AI). The comparison is the
     simulation field list over ticks 1..9600. **M2-R9**: unchanged (`rng6` at 161, `players` at 93 / 272 in the 10-18
@@ -984,7 +1058,7 @@ only if the user wants the rung before the play-test.
     --training --save-src DIR`; `--record NAME` / `--record-stop N` (skirmish); 29 modes; switches `/catMissionTestMission`,
     `/catMissionTestTrace`, `/catWarpStartTest`, `/catLoadGameTraining`, `/oracleRecord`, `/oracleRecordStop`,
     `/oracleResave`, `/catVirtualAudio`, `/oracleLibmSqrt`. Never edit `tools/m2_harness.sh` while a run is in flight.
-    `hwo_compare.py` wants `--from-tick 1` between a record run and a playback. Count tags with `/bin/grep`. **M2-R10**: `--fail-jump` (missiontest, with `--mission N`), `--skirmish-bigotry N`, the `animatics:` summary line; switches `/catMissionTestFailJump`, `/catSkirmishBigotry`; still 29 modes (decision 110).
+    `hwo_compare.py` wants `--from-tick 1` between a record run and a playback. Count tags with `/bin/grep`. **M2-R10**: `--fail-jump` (missiontest, with `--mission N`), `--skirmish-bigotry N`, the `animatics:` summary line; switches `/catMissionTestFailJump`, `/catSkirmishBigotry`; still 29 modes (decision 110). **M3-R1**: mode `uiscale` (30 modes), the flags `--shot`, `--shot-letterbox`, `--res`, `--cfg`, `--player-colours`, `--teamcolour`, `--lodtest`, `--lodstats`, `--scene`, `--real-clock`, the capture / colour / LOD / scene / UI-scale switches and tools (decision 117).
 93. **The Tutorial1 leg on the virtual audio clock** (`/catVirtualAudio`, set by `/catMissionTestTutorial`: no device, no
     stream thread; `soundVirtualAdvance` mixes 22,050 samples per second of task time in 256-sample blocks); the narration
     takes its game-time length, the leg ends at 10,444 ticks, byte-identical run to run; the 12 lesson saves written and
@@ -1034,7 +1108,7 @@ only if the user wants the rung before the play-test.
     slot reset at the last usage) and `trTextureDelete` 0x005854c0 (the colour-info list freed) ported;
     `trColorsIndexAlloc`'s ninth scheme is a `CAT-FIX` (palette 0 and a warning: the exe and the earlier release build
     wrote past the 64-byte block). The `sp` gate walks Mission01 .. 09 in 900 s (this step: Mission01 .. 12 in 1,200 s, 127 screenshots).
-    `trTextureRegister`'s name case (the exe uppercases, GoK does not) stays until a texture is found registered twice.
+    `trTextureRegister`'s name case (the exe uppercases, GoK does not) stays until a texture is found registered twice. **M3-R1**: `trRegistryRefresh` 0x00587a50 lists only pending entries as the exe (decision 112): a loaded texture is never shrunk or reloaded at a level change (the team colours across the warp; 473 fewer file loads over Mission01 + Mission02); the colour-info leak O4 now 1,587 / 1,898 live blocks (the soak's baseline).
 102. **The animatics routed** (decision 91 applied): every caller of 0x00421860 (`singlePlayerPostInit`,
     `singlePlayerGameUpdate`'s ONE call at 0x0051a01a, `utyVideoPlay`, which no `.fib` binds, and `kasfMissionCompleted`)
     reaches `animAviPlay`; a headless run (the virtual clock or `/debugScreenshots`: `animHeadlessSkip`) skips the
@@ -1097,13 +1171,165 @@ only if the user wants the rung before the play-test.
     rows outside `TitanInterface.cpp` remain. The harness (decision 92 extended): `--fail-jump`, `--skirmish-bigotry N`,
     the `animatics:` summary line; switches `/catMissionTestFailJump`, `/catSkirmishBigotry`; still 29 modes.
 
+111. **The letterbox bars in front** (M3-R1 producer 1, item 1): the cause was the M2-R6 port of `cat_popupMenuDraw`
+    0x004ee120, which restored the depth test to TRUE where the exe passes the never-written word 0x00a57628 (0: the
+    depth test stays off for the rest of the frame, so `rndDrawScissorBars` 0x0057a410's late bars cover the scene); one
+    line (`CAT`). **The exe never clips the 3D view** (`rndScissorEnabled` is the GL DLL's `glIsEnabled`, FALSE every
+    frame there too). `rndDrawScissorBars`: the fading bars blend normally (`CAT`) and the additive state is restored
+    (`CAT-FIX`: the exe's full-bars branch restores `ebx`, the top bar's GL y, and leaves additive blending ON for the
+    subtitles / cursor drawn after the bars: the user's call whether to keep the exe's look, the audit's O1). **Setting
+    `letterboxBehind`** (`HWI-FEATURE(letterbox-setting)`): `Cataclysm.cfg` row `letterboxBehind 0|1`, default 0 (the
+    bars in front); the run-only switch `/letterboxBehind`; the console row (HWI row id 0x1002); no Options control
+    (the task asked for none). With it the M2 look is back bit for bit (this step: the frame at NIS n06 dump frame 1374
+    EQUAL to ce4fab4's with `letterboxBehind 1` and `/lodBands`, differ=0). The letter height stays GoK's
+    `NIS_LetterHeight` (277 rows at 3840x2160; the exe's `(H - W*20/37)/2` gives 42): the user's question; a one-line
+    change if the exe's is chosen (owner M3-R2).
+112. **The team colours across the warp** (producer 2, item 2): the "warp" was the jump from the opening cutscene's
+    staging level into Mission01; the registry and the scheme were right on both sides, but the tree's
+    `trRegistryRefresh` kept HW1's loop listing the already-LOADED textures, so `trCramRAMComputeAndScale` 0x00589a50
+    halved them to the 6 MB budget (TextureDetail 50) and `trPreLoadedTextureScale` 0x00586bd0 reloaded them with a stale
+    listing-flags word (no team bit): 240 textures of the Kuun-Lan, its modules, the Worker and the Recon came back
+    untinted. **The exe lists only PENDING entries** (`trRegistryRefresh` 0x00587a50: `test al,4; je; test al,1; je
+    0x00588246` at 0x00587d1c / 0x00587d24): a loaded texture is never shrunk or reloaded at a level change; ported as
+    `CAT` (the audit replaced the producer's `CAT-FIX`); loaded textures keep their size and palettes into the next level
+    (473 fewer file loads over Mission01 + Mission02). No setting. HWI-TEST `/catTeamColourTest`, `/catTeamColourTicks N`
+    (harness `--teamcolour`, `--player-colours BASE/STRIPE`; `teamcolour:` lines; texreg.c `catTrPaletteTeamFlags[]`):
+    34 / 34 checks PASS over the whole `sp` chain with the user's scheme (30 FAIL without the fix). Heap input for the
+    M3 soak: the "dupe trcolorinfo list" leak (O4, one 64-byte block per texture reload, the exe alike) is 1,587 live
+    blocks at Mission09 and 1,898 at Mission12_NIS07 with the gate (2,437 / 3,308 before it). No stream or dump moved.
+113. **FULL DETAIL = LOD 0 always, default ON** (producer 3, item 3; the user's rule). The exe's FULL DETAIL
+    (`opNoLODVal` 0x00a4cc34) has one reader outside the options code, `rndMainViewRenderFunction` 0x005764e0 at
+    0x00576c03: it ends the frame-time detail passes after pass 0; `lodLevelGet` 0x004a4d70 never reads it and still drops
+    small / far objects to levels 1..5 by the size-on-screen bands from the DetailQuality radio (the user's "noLOD 1,
+    models still change" is the exe's behaviour); the detail slider is a frame-rate floor, greyed while FULL DETAIL is
+    on. `HWI-FEATURE(full-detail)`: `cat_lodDrawLevel` / `cat_lodDrawLevelGet` (LOD.c) give the level DRAWN (0 under
+    FULL DETAIL when the table has a mesh at 0) while `currentLOD` keeps the exe's level for every non-draw reader
+    (`renderedLODs`, guarded by the audit to the exe's mesh path: KAS `RenderedShips` / `RenderedDerelicts`,
+    `aitCheckAmIBeingWatched`; the effect levels; the droid runtime; the trail style; the ACV link bolts; the ship
+    lightning width; the selection and status bars; the Beast-stun edge lightning, stream 0). **Default ON**: `noLOD 1`
+    (the exe's own row and FULL DETAIL checkbox; the high preset 1, the low 0); the run-only switch `/lodBands`; the
+    console row `noLOD` (HWI row id 0x1003). HWI-TEST `/catLodTest <tick>[:far][:fleet]` (harness `--lodtest`),
+    `/catLodStats <from>-<to>[:fleet]` (`--lodstats`). **The effects cap is not lifted** (Relic's per-effect limits
+    applied in the universe update; the high preset already 256): M3-R2 if the user wants it. **The 4K cost** (release,
+    offscreen, idle GPU, 164 ships): ~10 ms median / ~15 ms p99 on (25,169 vertices) against ~3 ms off (4,726), vertex
+    submission (the same at 1024x768): owner M3-R2 (high-refresh-4k). Trails at the LOD-0 style would move `rng_all`:
+    the user's call. The default motion / nis dumps move in `crc=` only (the LOD-0 meshes), the streams not at all.
+114. **The unfocused objects' jitter** (producer 4, item 4): the user's 2026-10-20 play-test ran with Smooth motion OFF
+    (`original/play-home/.homeworld/Cataclysm.cfg` rows 107-108 `objInterpolate 0` / `nisInterpolate 0`, written
+    2026-10-20 20:09; the user did not know the checkbox existed: cycle/answers/m3-r1-user.md). Two write paths: the
+    M2-R6 builds of 2026-10-18 persisted `/noInterp` (the user's four 10-18 sessions), and a live bug: the Smooth motion
+    checkbox, a copy of OP_NoLOD whose `.fib` flags carry FAF_CallOnDelete, ran `opSmoothMotion` at the screen's deletion
+    too (Cancel did not cancel; an untouched Video screen closed with Accept under `/noInterp` wrote 0): fixed, only a
+    click sets the flags (the toggle test's new `screen untouched` / `screen cancel` checks). **Three real-clock residuals
+    fixed** (`HWI-FEATURE(motion-interp)`, no setting): (1) the render task runs before the universe task, so one frame a
+    tick had alpha above 1 and was drawn at the tick: `MI_ALPHA_MAX` 2, the frame drawn at its own time (exactly 1
+    unchanged; the NIS curves at the render time); (2) GoK's 4 ms task clock with a millisecond remainder gave alpha
+    steps 0.100 / 0.117 / 0.133: `taskClockSample` / `taskSubTickRender` read SDL's performance counter (the exe's QPC /
+    240 task clock itself stays `CAT-TODO(M3 soak)`); (3) the dock latch: a ship clamped during a tick jumped to its
+    clamp point and stood eight frames: `MiEntry.clamped`, the newly clamped child keeps its own blend for that tick.
+    The user's Recon B on the real clock at 144 Hz: repeated frames 41 / 933 -> 0, jerk p95 0.143 -> 0.010 px (`/noInterp`
+    825 / 933, 1.49 px); the NIS camera jerk p95 39.99 -> 5.58 (this step's rerun: B 0 / 941, 0.008; NIS O9 0.322,
+    camera 5.811). Ruled out with numbers: alpha drops, objects the capture misses, teleport false positives, the camera,
+    draws outside the bracket (one tutorial-pointer case owned by M3-R2), frame pacing (the M3 soak's). The measurement:
+    `/catMotionScene` (harness `--scene recon|follow:H:D:TICKS`: the user's recipe on LiveFireExercise2 plus a crossing
+    ship, a formation, a docking Worker, a harvesting Worker, the mothership's clamped module, an asteroid, a derelict),
+    `/catMotionRealClock` (`--real-clock FPS`), `tools/nis_smoothness.py` `--span` / `--offscreen` / `--world` /
+    `--objects` / `--jerk` and its clock line. Defaults unchanged (both flags on; the switches run-only). No stream moved;
+    the `/noInterp` dumps and the flags-on motion dump EQUAL; the flags-on nis dump moved by fix 1 (160 of 1,440
+    frames, one a tick from tick 432: the NIS task's phase).
+115. **The UI scale** (producer 5, item 5; the user's rule): the exe has one size (MAIN_WindowWidth / Height are the
+    client size and the render size; its 2D path normalises by them: at 3840x2160 the 640x480 front end is a sixth of
+    the screen); the front end centres on `(MAIN - 640) / 2` (`feAllScreensReposition` 0x00474ae0), the HUD anchors on
+    the edges. `HWI-FEATURE(ui-scale)` (src/SDL/uiscale.c / .h): three sizes: the window REQUEST (the cfg's
+    `screenWidth` / `screenHeight`, kept in uiscale.c), the PHYSICAL size (the drawable: `MAIN_WindowWidthActual` /
+    `HeightActual`: the GL viewport, every scissor box and read-back, the 3D projection's aspect, the stars and point
+    sizes) and the LOGICAL size (physical / scale, rounded: `MAIN_WindowWidth` / `Height` once the window exists: every
+    2D layout and draw, the mouse, picking). **`uiScale` 0 = auto** (200% at a physical height >= 2160, 150% at >= 1440,
+    100% below), 100 .. 400 fixed, capped at a 640x480 logical screen (1024x768 at 200 -> 160%); logical = round(physical
+    / scale) with the exact per-axis factor in the projection and the mouse (2560x1440 -> 1707x960); a window pixel maps
+    to the logical pixel its centre falls in; nearest filtering at every scale (at 2.0 an exact pixel-doubling); the 2D
+    line widths and the pie plate's lines / stipple follow the scale; the 3D view is the physical size's. Surfaces: the
+    cfg row `uiScale`, the run-only switch `/uiScale N`, the console row (HWI row id 0x1004, `CAT_CON_HWI_ROWS` 5), the
+    Video-options control "UI SCALE" AUTO / 100% / 150% / 200% (`OP_UiScale` radio buttons copied from OP_Effects on
+    Video_Options and the in-game Video screen; applied at once at a front-end Accept, at the next start from a game;
+    the audit placed its atoms at their 640x480 coordinates after the screen is centred and relaid the mode switch out at
+    the request). HWI-TEST `/catUiScaleTest` (harness `--mode uiscale`, 45 checks: the scale and logical size, the fit
+    over nine desktops and the display choice, the mouse at the bottom row / corner / outside, a scripted click at the
+    OPTIONS button's centre and one logical pixel right of it, the control's buttons, a real ACCEPT applying 200%, the
+    row / switch / console); `tools/ui_scale_compare.py` (`--preset fe|hud`, `--region`, `--tol`, `--sample area|centre`).
+    Fence: the 4K front end box-downscaled 2x equals the 1080p frame to the bit; the 4K HUD matches 0.9996+; the 1440p
+    frame centre-sampled equals the 1707x960 frame to the bit; 1024x768 unchanged. `CAT-TODO(M3-R2)`: `btgConvertStar`'s
+    background-star size (the exe's a fixed share of the screen, GoK's a fixed pixel size). No stream or dump moved.
+116. **The window at 4K** (producer 5, item 6; `HWI-FIX`): the exe's windowed mode makes the client size plus the frame
+    at the screen's origin (`WinMain` 0x005631f0), so a desktop-sized request is partly off-screen there too; the fit
+    (`uiScaleWindowFit`): a windowed request of the display's size or larger -> SDL fullscreen-desktop on the display
+    chosen by the request's size (borderless, above the panel); larger than the usable bounds but smaller than the
+    display -> shrunk to the usable bounds keeping the aspect; else as requested; `/noBorder` = the exe's WS_POPUP
+    (`CAT`); `mousePositionSet` 0x0056e8d0's clamp ported (`CAT`); the poll clamps to the logical screen, so the physical
+    bottom row lands on the logical bottom row (the user's item 6: the mouse could not reach the bottom ~200 rows under
+    COSMIC's title bar + panel). `/testUsableBounds WxH[@DWxDH]` forces the bounds in a harness run (`window:` summary
+    line). Open: GoK's `mainDestroyWindow` clears `mainActuallyQuit`, so the next quit's first SDL_QUIT after a
+    resolution change is ignored (owner M3-R2); an intermittent `AddressSanitizer:DEADLYSIGNAL` in the quit path after
+    a timeout kill of a 4K `sp` run (once in four in the ui-scale round; none in this step's two; owner M3 soak).
+117. **The harness** (decision 92 extended; `tools/m2_harness.sh`, 30 modes): mode `uiscale`; flags `--shot SPEC`
+    (`/catShot`: `<prefix>.<tick>.<frame>.ppm`, `.s<N>.` after a level load), `--shot-letterbox` (`/catShotLetterbox`),
+    `--res WxH`, `--cfg 'KEY VALUE'`, `--player-colours BASE/STRIPE`, `--teamcolour`, `--lodtest SPEC`, `--lodstats SPEC`,
+    `--scene SPEC`, `--real-clock FPS`; switches `/catShotFile`, `/catNisScissorOut <tick>:<s>`, `/catTeamColourTest`,
+    `/catTeamColourTicks`, `/catLodTest`, `/catLodStats`, `/catMotionScene`, `/catMotionRealClock`, `/catUiScaleTest`,
+    `/testUsableBounds`, `/letterboxBehind`, `/lodBands`, `/uiScale`; the summary lines `window:`, `uiscale:`,
+    `teamcolour:`, `lodtest:`, `lodstats:`, `scene:`; tools `ppm_region.py` (info, stats, probe, diff, down2, bands),
+    `ui_scale_compare.py`, `nis_smoothness.py`'s scene options. Never edit the harness while a run is in flight; count
+    tags with `/bin/grep`; GPU measurements on an idle GPU only (nvidia-smi before and after; the CPU load stated:
+    this step 12-20 from the user's ripgrep); `tools/play.sh`'s header documents every setting of this round.
+118. **The guard-rail dumps re-baselined** (decision 46 updated; the integrate's `m3r1i-motion-*` / `-nis-*`): the references are
+    now motion `/noInterp` `c503c869f0dc9cdb` (crc-stripped `3016280e9e0dd3c8`), motion flags-on `c0e411662fa2f527` (`428ef41479eb5749`),
+    nis `/noInterp` `86cb155acffc180e` (`196bab32d244f614`), nis flags-on `0307f3be2044c29c` (`a5de13a44b8d264f`), every one EQUAL to
+    producer 5's audited hashes, with the producers' stated reasons: producer 1 moved the two nis dumps' `crc=` column only (the
+    bars drawn in front: the sRecon's two passes through the bottom bar, 279 / 277 of 1,440 frames), producer 3 moved every dump's
+    `crc=` column only (the ships drawn with their LOD-0 meshes: motion 603 / 605 of 1,431 frames, nis 1,260 / 1,267 of 1,440),
+    producer 4 moved the nis flags-on dump's positions and crc (fix 1: the NIS task's alpha past 1 in the frame whose pass runs the
+    next NIS tick; 160 of 1,440 frame lines); producers 2 and 5 moved nothing. The three opt-outs together (`--cfg 'letterboxBehind 1'
+    -- /lodBands /noInterp`) reproduce R10's `/noInterp` dumps byte for byte (`183681235a3fdc7b` / `13ca70eea998e5de`: `cmp` equal to
+    `r10i-motion-noi` / `r10i-nis-noi`; against the default only the `crc=` column differs, 603 of 1,431 and 1,260 of 1,440 frames):
+    the old picture is still there under the settings. No position column of any `/noInterp` dump moved in the round (the
+    crc-stripped hashes are R10's). The rule stands: a dump moves only with a stated reason, and the next round's integrate checks
+    these four and the opt-out pair.
+119. **Decision 44 unchanged, the rung unchanged** (the integrate step, from clean builds of `58df92d`): the headless
+    Mission01 stream `1ae66610c3f02410` (release `234bcccfb948ab98`) is IDENTICAL in all 21 fields over ticks 0-6000 to
+    R10's `5bd51234405ea0d8` / `a44d585d71233c4a` (and to R9's `553845b65e87f3b5`), with `/noInterp`, `/noNISInterp`,
+    `/oracleLibmSqrt`, `letterboxBehind 1` (row and switch), `/lodBands`, `noLOD 0`, `/uiScale 200`, `uiScale 150` and the
+    three opt-outs together all byte-identical to A; `mission_test.sh` PASS in both builds. The oracle's rung: 10-17
+    first divergent **2823** `ships_vel` and 10-18 **2871** `ships_vel` (177 / 118 with `/oracleLibmSqrt`; the release
+    replay equal to the debug on every field but `rng_all` at 6377), both replays IDENTICAL in every field to
+    `r10i-r17-a` / `r10i-r18-a`; mode B still not run (no `original/oracle/hwirec*-play-*`); no fourth recording (the
+    newest `oracle01-rec-*` is 20261019-143530; decision 48 open). **Presentation only** held: no simulation field of any
+    oracle stream of the round moved (the 17 missions, the guard rails and the replays IDENTICAL to R10's).
+120. **Tags and the delta map after M3-R1**: no `CAT-TODO` / `CAT-PROVISIONAL` names M3-R1; 37 lines carry `CAT-TODO`
+    (R10: 35), 28 owner tags (26): stage 5 23 (plain 8, multiplayer options 8, LAN 6, multiplayer 1), M3 oracle physics
+    3, **M3 soak 1** (utility.c's task clock, producer 4), **M3-R2 1** (BTG.c's star size, producer 5); 4
+    `CAT-PROVISIONAL`; `HWI-FEATURE(motion-interp)` 484 (441), `HWI-FEATURE(letterbox-setting)` 36,
+    `HWI-FEATURE(full-detail)` 178, `HWI-FEATURE(ui-scale)` 299; `CAT-FIX` 195 (194), `HWI-TEST` 222 (143), `HWI-FIX` 53
+    (27). The delta map: IDENTICAL 2,762 / MODIFIED 1,575 / REWRITTEN 83 (`rndDrawScissorBars` found modified), 3,573
+    reviewed rows; 210 MODIFIED / REWRITTEN rows unflagged (118 outside `TitanInterface.cpp`); review notes `[review:
+    M3-R1 <port>]` 40 (letterbox-front 6, team-colours-warp 11, full-detail 5, motion-jitter 1, ui-scale 17) + 9
+    `[audit: M3-R1 <port>]` notes. Round size: 66 files, +7,891 / −217 (`src/` 44 files, +4,080 / −95; new
+    `src/SDL/uiscale.c`, `src/Game/TeamColourTest.c`, `src/Game/UiScaleTest.c`; `[273/273]`).
+121. **The exit-test rules carried into M3-R2** (this step): every port and audit on the plain harness from a clean build;
+    every stream judged with `hwo_compare.py` over the 21 fields (never by sha256 across builds: the header carries the
+    build identity); the dumps compared whole and `crc=`-stripped, a crc-only move stated as a render change with its
+    frame count and reason, a non-crc move stated as a render-timing change (fix 1's 160 frames); the five fences'
+    numbers quoted from the harness's lines; GPU measurements only on an idle GPU with nvidia-smi before and after and
+    the CPU load stated (`claude-ping` once if the user's game holds the GPU; `claude-gpu-done` after the last one); the
+    user's answers in `cycle/answers/<round>-user.md`, read again before each report; the "USER:" questions of a report
+    quoted verbatim in the summary.
+
 ## M2-R6: COMPLETE 2026-10-18 (run from the user's terminal session 38027cce, not from the orchestrator)
 
 cycle/workflows/m2-r6.js finished in session 38027cce (Fable, Remote Control): the "## M2" subsection "M2-R6: COMPLETE" above has the exit test and the seven ports. **M2-R7 also finished in that session on 2026-10-19** (cycle/workflows/m2-r7.js, run id wf_b238b029-e72; its integrate step was cut off by the weekly limit on 2026-10-18 and resumed on 2026-10-19 after the skirmish-start merge; "M2-R7: COMPLETE" above, docs/m2-r7-summary.md). **M2-R8 also finished in that session on 2026-10-19** (cycle/workflows/m2-r8.js, run id wf_74bcf42e-330; "M2-R8: COMPLETE" above, docs/m2-r8-summary.md). **M2-R9 also finished in that session on 2026-10-20** (cycle/workflows/m2-r9.js, run id wf_c0cd6893-248; "M2-R9: COMPLETE" above, docs/m2-r9-summary.md). **M2-R10 also finished in that session on 2026-10-20** (cycle/workflows/m2-r10.js, run id wf_dd85ad7e-70e; "M2-R10: COMPLETE" above, docs/m2-r10-summary.md). The orchestrator must relaunch none of them. Merges to main are handled by the user.
 
-## M3-R1: IN FLIGHT since 2026-10-20 21:19 (the play-test fix round; run from the user's terminal session 38027cce, never the orchestrator)
+## M3-R1: COMPLETE 2026-10-21 (the play-test fix round; run from the user's terminal session 38027cce, never the orchestrator)
 
-cycle/workflows/m3-r1.js (18281e2; `ROUND_BASE ce4fab4`, the R10 baseline 5bd51234405ea0d8 / release a44d585d71233c4a), run id `wf_42a468c8-942`, launched on the user's word ("we need to fix bugs before we get further from the mark"). Five Opus ports in sequence, each with its auditor, then the Fable integrate: letterbox-front (+ the opt-in `letterboxBehind` setting), team-colours-warp, full-detail (LOD 0 always, default on), motion-jitter (the user's play-test ran with Smooth motion OFF: the cfg's objInterpolate 0 / nisInterpolate 0 are unexplained, producer 4's first question), ui-scale (2.0 at >= 2160 lines, 1.5 at >= 1440). The user's answers for producer 4 live in `cycle/answers/m3-r1-user.md` (95e011d; the user adds jitter examples there through the launching session). Relaunched twice on 2026-10-21 (resumeFromRunId, same run id) within the first half hour: once to fold in the user's SIXTH report (the mouse cannot reach the bottom ~200 rows at 4K: a 3840x2160 window with fullScreen 0 sits under COSMIC's title bar + panel; producer 5's item (4), script 335af38) and the user's jitter recipe (a skirmish, the camera at the zenith of a focused Recon, an adjacent Recon ordered 500 m forward), and once more because the first relaunch read the MAIN checkout's stale script copy (LESSON: the Workflow scriptPath is the main checkout's file; fast-forward main to m2 BEFORE every launch or relaunch). Presentation only: no simulation field of any oracle stream may move. If cut off: `Workflow({scriptPath: cycle/workflows/m3-r1.js, resumeFromRunId: 'wf_42a468c8-942'})` from that session; in a fresh session relaunch the script (audited ports are skipped by the probe).
+cycle/workflows/m3-r1.js (18281e2; run id `wf_42a468c8-942`, `ROUND_BASE ce4fab4`) finished in session 38027cce (Fable): the "## M2" subsection "M3-R1: COMPLETE" above has the exit test, the five ports and the plan for M3-R2; docs/m3-r1-summary.md the full report and the refreshed play-test brief. Relaunched twice on 2026-10-21 within its first half hour (item 6 and the jitter recipe folded in; the main checkout's stale script copy: LESSON kept: the Workflow scriptPath is the main checkout's file; fast-forward main to m2 BEFORE every launch or relaunch). The orchestrator must relaunch nothing. Merges to main are handled by the user. Next: the user's play-test with docs/m3-r1-summary.md's brief (Smooth motion ticked once), then M3-R2 (the Windows 11 build + the one-hour 4K@144 soak + the oracle's rung + the fix items), a new script `cycle/workflows/m3-r2.js` written from the play-test report.
 
 ## Opus workflows in flight
 
