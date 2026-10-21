@@ -39,7 +39,7 @@ The exe imports only SDL2.dll (shipped) and Windows' own DLLs: OPENGL32, KERNEL3
    self-tests use it as a variable name.
 4. **The LLP64 save table.** The only struct pinned by the save converter whose layout changes under LLP64 is
    **CaptainGameInfo**: its wchar_t is 2 bytes and its unsigned long 4, so it is 616 B on Windows against 896 B on
-   Linux. All 118 other layouts are the same. `tools/m2_save32_gen.py --win64` writes
+   Linux. The other 117 of the 119 layouts are the same; the second one that differs is its playerInfo element. `tools/m2_save32_gen.py --win64` writes
    `src/Game/SaveCat32Layouts_win64.c` from llvm-mingw clang's record layouts. Those fields become plain copies there,
    because the exe's ILP32 layout already has 2-byte wchar_t and 4-byte long. src/Game/meson.build picks the file by
    host system. The generator treats clang 23's `(anonymous union)::` scope prefix as equal to clang 18's name, and
