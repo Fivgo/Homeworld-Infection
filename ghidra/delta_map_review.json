@@ -9453,7 +9453,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M3-R1 letterbox-front] compared: the region list drawn from the last entry down, the frame counter: HW1's body, as the tree",
   "sample": "reread-R2"
  },
  "0x004f0d40": {
@@ -14563,7 +14563,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "cat_moRender, cat_shipPrintDraw, cat_ioUpdateHover, cat_shipPrintDragUpdate after the tick text; no toLegendDraw / mrCommandMessageDraw",
-  "note": "[review: M2-R5 hud] the HUD hooks added (the rest of mrRegionDraw is M2-R6's) | [review: M2-R6 mainrgn-popup] the band box, the cycled formations/tactics, the popup menu and the game-stats screen drawn | [review: M2-R7 r6-leftovers] the point mode sets only the post-object callback (0x0056939a); HW1's per-frame reset of the three pie callbacks removed (it replaced the waypoint cursor) [review: M2-R8 singleplayer-tutorial] the level's black fade (catSpLevelFade, not while an NIS plays) and Mission01's white flash (additive) ported",
+  "note": "[review: M2-R5 hud] the HUD hooks added (the rest of mrRegionDraw is M2-R6's) | [review: M2-R6 mainrgn-popup] the band box, the cycled formations/tactics, the popup menu and the game-stats screen drawn | [review: M2-R7 r6-leftovers] the point mode sets only the post-object callback (0x0056939a); HW1's per-frame reset of the three pie callbacks removed (it replaced the waypoint cursor) [review: M2-R8 singleplayer-tutorial] the level's black fade (catSpLevelFade, not while an NIS plays) and Mission01's white flash (additive) ported | [review: M3-R1 letterbox-front] compared the letterbox part: the scissor box under nisIsRunning && nisFullyScissored && rndScissorEnabled at 0x005693bc / 0x00569eb3 (dead in the exe as in the tree: the flag is always FALSE), with the exe's inline letter height (H - W*20/37)/2 against the tree's NIS_LetterHeight; cat_popupMenuDraw 0x004ee120 is the last depth call of the frame's main region (its 0x00a57628 argument, never written, leaves the depth test off: the port fixed in PopupMenu.c)",
   "sample": "port-R5-hud"
  },
  "0x00569f80": {
@@ -14814,14 +14814,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset) | [review: M3-R1 letterbox-front] compared: flat shading, alpha test and blend off, identity matrices, lighting / texture off, glDisable(GL_DEPTH_TEST) (0xb71): as the tree",
   "sample": "port-R5-render"
  },
  "0x0056fd90": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset) | [review: M3-R1 letterbox-front] compared: smooth shading, glEnable(GL_DEPTH_TEST), lighting / texture on, matrices popped: as the tree",
   "sample": "port-R5-render"
  },
  "0x0056fdf0": {
@@ -15217,17 +15217,17 @@
   "sample": "port-R5-render"
  },
  "0x0057a410": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "[review: M2-R5 render] same letterbox bars (grey 0.5 while fading)",
+  "change": "the fading bars forced to normal blending and the additive state restored; GL_QUADS; the letter height (H - W*20/37)/2 inline",
+  "note": "[review: M2-R5 render] same letterbox bars (grey 0.5 while fading) | [review: M3-R1 letterbox-front] compared: Cataclysm's bars are GL_QUADS (HW1 / GoK SDL: triangles, the same rectangles) and the letter height is computed inline as (H - W*20/37)/2 (GoK's NIS_LetterHeight takes 2.39:1 above an aspect of 1.5); the fade branch turns additive blending off (rndAdditiveBlending 0x00a75d80, glBlendFunc 0x302/0x303) and puts it back at the end (0x0057a8c8, flag 0x00a75ef0 & 2), while the full branch restores ebx, which it loaded with the bar's GL y as float bits at 0x0057a4ba (nonzero: additive blending left on) [audit: M3-R1 letterbox-front: was \"an uninitialised ebx\"]: MODIFIED. Ported the fade branch's blend (CAT) and the restore of the state it found (CAT-FIX); the depth state is untouched as in the exe",
   "sample": "port-R5-render"
  },
  "0x0057a910": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "no mouseSelectCursorSetting; the front end's saved cursor (feShouldSaveMouseCursor, cat_mouseSaveCursorUnder / RestoreCursorUnder) skips the clear; shameless plug; screenshot from a flag; trNoPalResizePool after mainReinitRGL",
-  "note": "[review: M2-R5 render] render half as the tree; the front-end / mouse parts are a CAT-TODO(M2-R6 front end and mouse) in render.c | [review: M2-R6 mainrgn-popup] the mouse part ported: mouseSetCursorSetting only (no mouseSelectCursorSetting); the cursor save/restore is decision 28 | [review: M2-R7 r6-leftovers] the shameless plug drawn after the mouse while universePause (0x00a6c5b4) or the Pause flag (0x00a6ed74) is set (0x0057ab78)",
+  "note": "[review: M2-R5 render] render half as the tree; the front-end / mouse parts are a CAT-TODO(M2-R6 front end and mouse) in render.c | [review: M2-R6 mainrgn-popup] the mouse part ported: mouseSetCursorSetting only (no mouseSelectCursorSetting); the cursor save/restore is decision 28 | [review: M2-R7 r6-leftovers] the shameless plug drawn after the mouse while universePause (0x00a6c5b4) or the Pause flag (0x00a6ed74) is set (0x0057ab78) | [review: M3-R1 letterbox-front] compared the letterbox part: rndScissorEnabled = glIsEnabled(GL_SCISSOR_TEST) after the clear (0x0057aa1a), rndDrawScissorBars after regFunctionsDraw (0x0057aa6f), glDisable(GL_SCISSOR_TEST) after (0x0057aa77): as the tree; the flag is FALSE every frame in the exe too (the GL DLL's glIsEnabled returns the state the previous frame's glDisable left). The tree adds catShotFrameEnd (HWI-TEST) before the motion test's frame end",
   "sample": "port-R5-render"
  },
  "0x0057ad80": {

@@ -26,6 +26,17 @@ void catMotionTestDumpSet(char *string);    // /catMotionDump <file>: the per-fr
 void catMotionTestFpsSet(char *string);     // /catMotionFps <fps>: the virtual frame rate (default 144)
 void catMotionTestShotSet(char *string);    // /catMotionShot <frame>: that frame of the window saved as <dump>.<frame>.ppm
 
+// HWI-TEST (M3-R1 letterbox-front): the any-mode frame capture: /catShot <spec> saves the listed frames (the physical
+//      framebuffer read back before the flip, top row first) as <prefix>.<tick>.<frame>.ppm; <spec> is a comma list of
+//      <tick>[:<frame>] or <from>-<to>[/<step>][:<frame>] (universe ticks; <frame> = the n-th frame drawn in that tick,
+//      default 0); /catShotFile <prefix> (default "shot" in the settings path); /catShotLetterbox: only the frames with
+//      the NIS / KAS letterbox up. One "catshot:" log line per file
+void catShotSet(char *string);              // /catShot <spec>
+void catShotFileSet(char *string);          // /catShotFile <prefix>
+void catShotLetterboxSet(void);             // /catShotLetterbox
+void catShotFrameEnd(void);                 // end of the frame, before the flip (render.c rndRenderTask)
+void catNisScissorOutSet(char *string);     // /catNisScissorOut <tick>:<seconds>: the nis mode's letterbox fades out there
+
 extern bool32 catToggleSelfTest;            // /catToggleTest: the Smooth motion checkbox, the options file, the console
 void catToggleRunSelfTest(void);
 

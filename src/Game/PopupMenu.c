@@ -1960,7 +1960,10 @@ void cat_popupMenuDraw(void)
         }
     }
     fontMakeCurrent(oldFont);
-    cat_rndDepthTestEnable(TRUE);
+    // CAT: the exe passes 0x00a57628, a .bss word nothing writes (cat_popupMenuDraw 0x004ee120, 0x004ee5bd): the depth
+    //      test stays off for the rest of the frame, so the NIS / KAS letterbox bars rndRenderTask draws after the
+    //      regions (rndDrawScissorBars 0x0057a410) cover the scene (M3-R1 letterbox-front; the M2-R6 port passed TRUE)
+    cat_rndDepthTestEnable(letterboxBehind);        // HWI-FEATURE(letterbox-setting): 1 = the old look, the bars depth-tested behind near ships
 }
 
 bool32 cat_popupMenuClickIfTarget(void)                                                    // 0x004ee5d0

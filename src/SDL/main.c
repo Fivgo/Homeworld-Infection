@@ -584,6 +584,36 @@ bool32 NoNISInterpSet(char *string)                 // HWI-FEATURE(motion-interp
     miSwitchOff(FALSE, TRUE);                       // HWI-FEATURE(motion-interp)
     return TRUE;                                    // HWI-FEATURE(motion-interp)
 }                                                   // HWI-FEATURE(motion-interp)
+// HWI-FEATURE(letterbox-setting): /letterboxBehind: the old look (the letterbox bars depth-tested behind near ships) for
+//      this run only; after the options file (read before ProcessCommandLine), run-only as /noInterp: the saves keep the
+//      file's letterboxBehind row (render.c rndLetterboxFileValues)
+bool32 LetterboxBehindSet(char *string)             // HWI-FEATURE(letterbox-setting)
+{                                                   // HWI-FEATURE(letterbox-setting)
+    rndLetterboxBehindSwitch();                     // HWI-FEATURE(letterbox-setting)
+    return TRUE;                                    // HWI-FEATURE(letterbox-setting)
+}                                                   // HWI-FEATURE(letterbox-setting)
+// HWI-TEST (M3-R1 letterbox-front): /catShot <spec>, /catShotFile <prefix>, /catShotLetterbox (MotionTest.c catShotFrameEnd:
+//      the any-mode frame capture of the harness's --shot)
+bool32 CatShotSet(char *string)
+{
+    catShotSet(string);
+    return TRUE;
+}
+bool32 CatShotFileSet(char *string)
+{
+    catShotFileSet(string);
+    return TRUE;
+}
+bool32 CatShotLetterboxSet(char *string)
+{
+    catShotLetterboxSet();
+    return TRUE;
+}
+bool32 CatNisScissorOutSet(char *string)
+{
+    catNisScissorOutSet(string);
+    return TRUE;
+}
 bool32 CatMotionTestSet(char *string)               // HWI-FEATURE(motion-interp)
 {                                                   // HWI-FEATURE(motion-interp)
     catMotionTestSet(string);                       // HWI-FEATURE(motion-interp)
@@ -1306,12 +1336,17 @@ commandoption commandOptions[] =
     entryFnParam("/catUiTest",          CatUiTestSet, " <ticks> - headless Mission01 run: the player's fleet selected, the popup menu opened, every cat_ui* command run once, the game-stats screen shown, logs uitest lines and quits."),
     entryFn("/noInterp",                NoInterpSet, " - render-time motion interpolation off (objects, camera and NIS; the Smooth motion option)."),   // HWI-FEATURE(motion-interp)
     entryFn("/noNISInterp",             NoNISInterpSet, " - render-time interpolation of NIS cutscenes off (gameplay interpolation stays)."),   // HWI-FEATURE(motion-interp)
+    entryFn("/letterboxBehind",         LetterboxBehindSet, " - this run only: the cutscene letterbox bars drawn behind ships near the camera (the old look; the options file's letterboxBehind row keeps its value)."),   // HWI-FEATURE(letterbox-setting)
     entryFnParam("/catMotionTest",      CatMotionTestSet, " <ticks> - headless Mission01 run at the virtual frame rate (/catMotionFps, default 144): a focused, a crossing, a receding and a resting ship, per-frame screen positions to /catMotionDump, exit after <ticks> ticks."),   // HWI-FEATURE(motion-interp)
     entryFnParam("/catNisMotionTest",   CatNisMotionTestSet, " <nis>[:<from>:<to>] - headless Mission01 start, then nis\\<nis>.nis plays at the virtual frame rate; the frames between NIS times <from> and <to> go to /catMotionDump, then exit."),   // HWI-FEATURE(motion-interp)
     entryVr("/catToggleTest",           catToggleSelfTest, TRUE, " - the Smooth motion checkbox clicked, cancelled and accepted, its options-file rows read back, its console rows set, then exit."),   // HWI-FEATURE(motion-interp)
     entryFnParam("/catMotionDump",      CatMotionDumpSet, " <file> - the per-frame dump of /catMotionTest and /catNisMotionTest."),   // HWI-FEATURE(motion-interp)
     entryFnParam("/catMotionShot",      CatMotionShotSet, " <frame> - /catMotionTest, /catNisMotionTest: save that frame of the window as <dump>.<frame>.ppm."),   // HWI-FEATURE(motion-interp)
     entryFnParam("/catMotionFps",       CatMotionFpsSet, " <fps> - the virtual frame rate of /catMotionTest and /catNisMotionTest (default 144)."),   // HWI-FEATURE(motion-interp)
+    entryFnParam("/catShot",            CatShotSet, " <spec> - save frames as PPM (the physical framebuffer before the flip, top row first): <spec> = comma list of <tick>[:<frame>] or <from>-<to>[/<step>][:<frame>] (universe ticks, the n-th frame of the tick)."),   // HWI-TEST
+    entryFnParam("/catShotFile",        CatShotFileSet, " <prefix> - /catShot's files are <prefix>.<tick>.<frame>.ppm (default shot in the settings path)."),   // HWI-TEST
+    entryFn("/catShotLetterbox",        CatShotLetterboxSet, " - /catShot: only the frames with the NIS / KAS letterbox up."),   // HWI-TEST
+    entryFnParam("/catNisScissorOut",   CatNisScissorOutSet, " <tick>:<seconds> - /catNisMotionTest: the letterbox fades out from that universe tick as an NIS's ScissorOut event does (a capture of the fade; not for baselines)."),   // HWI-TEST
     entryFnParam("/catRenderTest",      CatRenderTestSet, " <frames> - headless Mission01 run through the Cataclysm object-list renderer with a lens flare source and a fog layer, logs the render counts, exit after <frames> ticks."),
     // CAT: port diagnostic, not a Cataclysm option (SpeechEvent.c catSoundRunSelfTest, M2-R5 sound) [audit: own comment]
     entryVr("/catSoundTest",        catSoundSelfTest, TRUE, " - decode a stream of Music4Cat.wxd, SectSpeech.vce and BeastSpeech.vce into the audio device, look up the 88 battle-chatter events, then exit."),

@@ -359,6 +359,23 @@
 #   --fps N          motion / nis mode: the virtual frame rate (default 144)
 #   --perturb T      oracle or mission mode: one extra gamerand() before tick T (/oracleSelfTestPerturb; tests the compare tool)
 #   --hwo            any other mode: also write the oracle stream to <run>/run.hwo (/oracleDump)
+#   --shot SPEC      any mode (M3-R1 letterbox-front): /catShot SPEC /catShotFile <run>/shot: frames saved as
+#                    <run>/shot.<tick>.<frame>.ppm, the PHYSICAL framebuffer (SDL_GL_GetDrawableSize) read back before the
+#                    flip after everything is drawn (bars, subtitles, cursor), binary P6, top row first; SPEC is a comma
+#                    list of <tick>[:<frame>] or <from>-<to>[/<step>][:<frame>] (universe ticks; <frame> the n-th frame
+#                    drawn in that tick, default 0; at most 4096 files a run); the spec applies to every level of the
+#                    run: after a level load restarts the tick counter the files are <run>/shot.s<N>.<tick>.<frame>.ppm
+#                    (N = 1, 2, .. the level's segment); one "catshot: tick=.. frame=.. segment=N size=WxH ui=WxH
+#                    letterbox=full|fade=F|none letterboxBehind=0|1 file=.." log line per file; the summary counts them.
+#                    Pixels: tools/ppm_region.py (info, stats, probe, diff, down2, bands). The nis mode's fade capture:
+#                    "-- /catNisScissorOut <tick>:<seconds>" starts the letterbox fade-out at that tick as an NIS's
+#                    ScissorOut event does (a measurement only: never a dump baseline)
+#   --shot-letterbox with --shot: /catShotLetterbox, only the frames with the NIS / KAS letterbox up (full or fading)
+#   --res WxH        any mode (M3-R1): appends "screenWidth W" / "screenHeight H" to the run's fresh home Cataclysm.cfg
+#                    (never the template); without it every run is 1024x768
+#   --cfg 'KEY VALUE' any mode (M3-R1), repeatable: appends the row to the run's fresh home Cataclysm.cfg (never the
+#                    template), e.g. --cfg 'letterboxBehind 1' (the old letterbox look, HWI-FEATURE(letterbox-setting));
+#                    the options file is read before the command line, so a switch after -- still wins
 #   --timeout N      seconds (default 60)
 #   --driver D       offscreen (default; falls back to dummy if the offscreen driver cannot set a video mode) | dummy
 #   --data DIR       HW_Data dir to use instead of the harness data dir. ONLY for isolation runs of one item while
@@ -430,6 +447,7 @@ oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=30
 conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0; mtmission=1; savename="01 - Hiigara"; ldticks=400
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""; skticks=600; skmap=LiveFireExercise2
 warplevel=10; savesrc=""; training=0; recordname=""; recordstop=""; skbigotry=""; failjump=0
+shotspec=""; shotlb=0; res=""; cfgrows=()
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -470,6 +488,10 @@ while [[ $# -gt 0 ]]; do
 		--skirmish-bigotry) skbigotry=$2; shift ;;
 		--perturb) perturb=$2; shift ;;
 		--hwo) hwo=1 ;;
+		--shot) shotspec=$2; shift ;;
+		--shot-letterbox) shotlb=1 ;;
+		--res) res=$2; shift ;;
+		--cfg) cfgrows+=("$2"); shift ;;
 		--) shift; extra=("$@"); break ;;
 		*) echo "m2_harness: unknown option $1" >&2; exit 2 ;;
 	esac
@@ -482,6 +504,12 @@ out="$HARNESS/runs/$label"
 rm -rf -- "$out"; mkdir -p "$out/settings"
 options_template
 cp -r "$HARNESS/home-template" "$out/home"
+# M3-R1: --res / --cfg rows appended to this run's own copy of the options file (the template stays as it is)
+if [[ -n "$res" ]]; then
+	[[ "$res" =~ ^([0-9]+)x([0-9]+)$ ]] || { echo "m2_harness: --res wants WxH" >&2; exit 2; }
+	printf 'screenWidth    %s\nscreenHeight    %s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" >> "$out/home/.homeworld/Cataclysm.cfg"
+fi
+for row in "${cfgrows[@]}"; do printf '%s\n' "$row" >> "$out/home/.homeworld/Cataclysm.cfg"; done
 
 args=(/window /nodebugInt /logFileLoads /settingspath "$out/settings")
 # a release binary (tools/build.sh --release, the build oracle runs use) has no /logFileLoads switch and rejects it
@@ -627,6 +655,10 @@ if [[ -n "$recordname" ]]; then
 	args+=(/oracleRecord "$recordname")
 	[[ -n "$recordstop" ]] && args+=(/oracleRecordStop "$recordstop")
 fi
+if [[ -n "$shotspec" ]]; then
+	args+=(/catShot "$shotspec" /catShotFile "$out/shot")
+	[[ $shotlb -eq 1 ]] && args+=(/catShotLetterbox)
+fi
 args+=("${extra[@]}")
 
 run_once() {
@@ -763,6 +795,8 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == keys ]] && echo "keystest: $(grep -h 'keystest: ' "$L" | grep -v 'keystest: FAIL' | sed 's/^.*keystest: //' | paste -sd';'); FAIL lines: $(grep -c 'keystest: FAIL' "$L")"
 	[[ "$mode" == sound ]] && echo "soundtest: $(grep -h 'soundtest: ' "$L" | sed 's/^.*soundtest: //' | paste -sd';'); UBSan reports in fquant.c/fqcodec.c: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c 'fquant\.c\|fqcodec\.c'); PATCH reports: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c "struct PATCH")"
 	[[ "$mode" == etg ]] && echo "etg: $(grep -c . "$out/etg.list" 2>/dev/null) listed; $(grep -h 'etgtest: etgStartup done\|etgtest: self-test done\|etgtest: created\|etgtest: effect self-test done' "$L" | sed 's/^.*etgtest: //' | paste -sd';')"
+	[[ -n "$shotspec" ]] && echo "catshot: $(grep -c 'catshot: tick=' "$L") files ($(grep -h 'catshot: tick=' "$L" | head -n 1 | sed 's/^.*catshot: //; s/ file=.*//') ..); FAIL lines: $(grep -c 'catshot: FAIL' "$L")"
+	[[ -n "$res$(printf '%s' "${cfgrows[@]}")" ]] && echo "options rows added: $(tail -n $(( ${#cfgrows[@]} + $([[ -n "$res" ]] && echo 2 || echo 0) )) "$out/home/.homeworld/Cataclysm.cfg" | paste -sd';')"
 	echo "animatics: $(grep -c 'animatic: skipped (headless)' "$L") skipped (headless): $(grep -h 'animatic: skipped (headless)' "$L" | sed 's/^.*file=//' | paste -sd',')"
 	echo "engine glows:$(grep -c -i 'engineglows' "$out/FileLoads.log" 2>/dev/null) mesh/mex loads from misc\\EngineGlows in FileLoads.log"
 	echo "UBSan report kinds (count, site):"; echo "$ubsan_kinds"

@@ -1,4 +1,4 @@
-<!-- done: tool, Game a-f, Game g-m, Game n-s, Game t-z, Ships, other, review, write-up, reread:AIAttackMan-AIHandler, reread:AIMoves, reread:AIOrders-AIVar, reread:Alliance-BTG, reread:Camera-ColPick, reread:CommandLayer-Dock, reread:ETG, reread:fastmath-HS, reread:KAS-KASFunc, reread:Key-MEX, reread:MultiplayerGame-NetCheck, reread:NIS-Options, reread:Particle, reread:Physics-ResearchGUI, reread:SaveGame, reread:ScenPick-SinglePlayer, reread:SoundEvent-StringSupport, reread:Tactical-TradeMgr, reread:Tutor-Universe, reread:UnivUpdate-Ships, reread:bink-Light, reread:main-Queue, reread:render-Titan, reread:TitanInterface-utility, audit-reclass-R2, toolfix-R2, m2r3:closeout-review, m2r3:closeout-audit, m2r3:etg-particles-review, m2r3:etg-particles-audit, m2r3:selection-review, m2r4:univupdate-review, m2r4:univupdate-audit, command, m2r4:command-audit, m2r4:combat-review, m2r4:combat-audit, m2r4:ships-b, port-R4-rest-oracle, m2r5:layout-dock, m2r5:command-tactics, m2r5:render, m2r5:sound, m2r5:sound-audit, m2r5:hud, m2r5:hud-audit, m2r6:mainrgn-popup, m2r6:frontend, m2r6:startup-keys, m2r6:managers, m2r6:nis-fow-camera, m2r6:integrate, m2r7:oracle-rung-aiship, m2r7:ai-orders-moves, m2r7:ai-player-skirmish, m2r7:r6-leftovers, m2r7:integrate, m2r7:skirmish-start, m2r8:oracle-rung-physics, m2r8:kasf-library, m2r8:kas-runtime-mission01, m2r8:singleplayer-tutorial, m2r9:oracle-rung-physics, m2r9:missions-02-09, m2r9:missions-10-17, m2r9:recorder-leftovers, m2r10:oracle-rung-physics, m2r10:render-animatics-sp, m2r10:tests-leftovers -->
+<!-- done: tool, Game a-f, Game g-m, Game n-s, Game t-z, Ships, other, review, write-up, reread:AIAttackMan-AIHandler, reread:AIMoves, reread:AIOrders-AIVar, reread:Alliance-BTG, reread:Camera-ColPick, reread:CommandLayer-Dock, reread:ETG, reread:fastmath-HS, reread:KAS-KASFunc, reread:Key-MEX, reread:MultiplayerGame-NetCheck, reread:NIS-Options, reread:Particle, reread:Physics-ResearchGUI, reread:SaveGame, reread:ScenPick-SinglePlayer, reread:SoundEvent-StringSupport, reread:Tactical-TradeMgr, reread:Tutor-Universe, reread:UnivUpdate-Ships, reread:bink-Light, reread:main-Queue, reread:render-Titan, reread:TitanInterface-utility, audit-reclass-R2, toolfix-R2, m2r3:closeout-review, m2r3:closeout-audit, m2r3:etg-particles-review, m2r3:etg-particles-audit, m2r3:selection-review, m2r4:univupdate-review, m2r4:univupdate-audit, command, m2r4:command-audit, m2r4:combat-review, m2r4:combat-audit, m2r4:ships-b, port-R4-rest-oracle, m2r5:layout-dock, m2r5:command-tactics, m2r5:render, m2r5:sound, m2r5:sound-audit, m2r5:hud, m2r5:hud-audit, m2r6:mainrgn-popup, m2r6:frontend, m2r6:startup-keys, m2r6:managers, m2r6:nis-fow-camera, m2r6:integrate, m2r7:oracle-rung-aiship, m2r7:ai-orders-moves, m2r7:ai-player-skirmish, m2r7:r6-leftovers, m2r7:integrate, m2r7:skirmish-start, m2r8:oracle-rung-physics, m2r8:kasf-library, m2r8:kas-runtime-mission01, m2r8:singleplayer-tutorial, m2r9:oracle-rung-physics, m2r9:missions-02-09, m2r9:missions-10-17, m2r9:recorder-leftovers, m2r10:oracle-rung-physics, m2r10:render-animatics-sp, m2r10:tests-leftovers, m3r1:letterbox-front -->
 # M2-R1 function deltas: Cataclysm vs Homeworld 1
 
 Round M2-R1, item 3 of `cycle/M2_BRIEF.md`. For every function the binary map matched to Homeworld 1 (class `hw1:<File>`, plus CET's `hw1_equivalent` entries, the rule behind the 4,426 HW1 matches of docs/binary-map.md round 5), this compares the decompiled Cataclysm body (`ghidra/exports/cataclysm_gog_r6`, since M2-R4; r5 before) with Relic's original source (gardens-of-kadesh root commit `ad1bb82`) and classifies it IDENTICAL, MODIFIED or REWRITTEN. Per-function data: `ghidra/delta_map.json`. Tool: `tools/delta_map.py`. Hand-review verdicts: `ghidra/delta_map_review.json`.
@@ -7,13 +7,13 @@ Round M2-R1, item 3 of `cycle/M2_BRIEF.md`. For every function the binary map ma
 
 | | functions | share | Cataclysm bytes | share of bytes |
 |---|---:|---:|---:|---:|
-| IDENTICAL | 2,763 | 62.5% | 490,853 | 39.6% |
-| MODIFIED | 1,574 | 35.6% | 732,139 | 59.1% |
+| IDENTICAL | 2,762 | 62.5% | 489,579 | 39.5% |
+| MODIFIED | 1,575 | 35.6% | 733,413 | 59.2% |
 | REWRITTEN | 83 | 1.9% | 15,855 | 1.3% |
 | **classified** | **4,420** | | **1,238,847** | |
 | not classified (no HW1 body found) | 6 | | 4,137 | |
 
-Estimated true split, correcting each automatic (class, confidence) bucket by its hand-review agreement (class-level agreement where a bucket has fewer than 5 reviewed functions); reviewed functions count with their reviewed class: IDENTICAL 2,689 functions / 478,572 bytes (38.6% of bytes), MODIFIED 1,653 / 744,961 (60.1%), REWRITTEN 78 / 15,315 (1.2%).
+Estimated true split, correcting each automatic (class, confidence) bucket by its hand-review agreement (class-level agreement where a bucket has fewer than 5 reviewed functions); reviewed functions count with their reviewed class: IDENTICAL 2,688 functions / 477,298 bytes (38.5% of bytes), MODIFIED 1,654 / 746,235 (60.2%), REWRITTEN 78 / 15,315 (1.2%).
 
 ## Key findings
 
@@ -61,11 +61,11 @@ Totals after M2-R2 (re-read, audit reclassifications, tool fixes), against M2-R1
 
 | class | M2-R1 functions | M2-R2 functions | M2-R1 bytes | M2-R2 bytes | M2-R2 share of bytes |
 |---|---:|---:|---:|---:|---:|
-| IDENTICAL | 3,357 | 2,763 | 658,389 | 490,853 | 39.6% |
-| MODIFIED | 983 | 1,574 | 569,953 | 732,139 | 59.1% |
+| IDENTICAL | 3,357 | 2,762 | 658,389 | 489,579 | 39.5% |
+| MODIFIED | 983 | 1,575 | 569,953 | 733,413 | 59.2% |
 | REWRITTEN | 80 | 83 | 10,505 | 15,855 | 1.3% |
 
-**New IDENTICAL agreement estimate.** 2,763 functions are IDENTICAL now: 2,124 by hand review and 639 by the tool alone. Applying each automatic bucket's review agreement to the unread ones, about 542 of those 639 (84.8%) are expected to be truly identical, so about 2,666 of all 2,763 IDENTICAL functions (96.5%) are, against M2-R1's 80% audit estimate. The unread ones sit in the automatic IDENTICAL/high and /medium buckets, which have only 28 and 123 reviewed functions, so this is a rough figure.
+**New IDENTICAL agreement estimate.** 2,762 functions are IDENTICAL now: 2,123 by hand review and 639 by the tool alone. Applying each automatic bucket's review agreement to the unread ones, about 542 of those 639 (84.8%) are expected to be truly identical, so about 2,665 of all 2,762 IDENTICAL functions (96.5%) are, against M2-R1's 80% audit estimate. The unread ones sit in the automatic IDENTICAL/high and /medium buckets, which have only 28 and 123 reviewed functions, so this is a rough figure.
 
 ## Hand review and calibration
 
@@ -91,7 +91,7 @@ Per automatic bucket (functions in the bucket, reviewed, reviewed class agreeing
 | REWRITTEN | medium | 36 | 7,172 | 7 | 3 (42.9%) |
 | REWRITTEN | low | 2 | 297 | 2 | 0 (0.0%) |
 
-Confidence per class (after review): IDENTICAL 2,052 high / 711 medium / 0 low; MODIFIED 1,318 high / 197 medium / 59 low; REWRITTEN 72 high / 10 medium / 1 low.
+Confidence per class (after review): IDENTICAL 2,051 high / 711 medium / 0 low; MODIFIED 1,319 high / 197 medium / 59 low; REWRITTEN 72 high / 10 medium / 1 low.
 
 ## Per HW1 source file
 
@@ -283,7 +283,7 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | StandardDestroyer.c | 1 | 0 | 1 | 0 | 0 | 121 | 0 | 1 | 0 |
 | StandardFrigate.c | 1 | 1 | 0 | 0 | 68 | 0 | 0 | 1 | 0 |
 
-### other (654 functions, 247,348 bytes, 39.3% of bytes IDENTICAL)
+### other (654 functions, 247,348 bytes, 38.8% of bytes IDENTICAL)
 
 | file | matched | identical | modified | rewritten | bytes identical | bytes modified | bytes rewritten | rev | unres |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -307,7 +307,7 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | prim2d.c | 26 | 25 | 1 | 0 | 7,673 | 425 | 0 | 26 | 0 |
 | prim3d.c | 12 | 12 | 0 | 0 | 3,409 | 0 | 0 | 12 | 0 |
 | Queue.c | 8 | 8 | 0 | 0 | 446 | 0 | 0 | 3 | 0 |
-| render.c | 32 | 23 | 9 | 0 | 6,615 | 9,254 | 0 | 32 | 0 |
+| render.c | 32 | 22 | 10 | 0 | 5,341 | 10,528 | 0 | 32 | 0 |
 | rglu.c | 3 | 3 | 0 | 0 | 976 | 0 | 0 | 3 | 0 |
 | rinit.c | 3 | 1 | 2 | 0 | 40 | 653 | 0 | 3 | 0 |
 | rinit.cpp | 5 | 4 | 1 | 0 | 236 | 1,822 | 0 | 5 | 0 |

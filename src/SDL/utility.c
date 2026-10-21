@@ -807,6 +807,8 @@ scriptEntry utyOptionsList[] =
     //      Smooth motion checkbox writes both, a hand edit can set them one by one
     {"objInterpolate",                 scriptSetUdwordCB, &objInterpolate},     // HWI-FEATURE(motion-interp)
     {"nisInterpolate",                 scriptSetUdwordCB, &nisInterpolate},     // HWI-FEATURE(motion-interp)
+    // HWI-FEATURE(letterbox-setting): 0 (default) the exe's letterbox bars in front of the scene, 1 the old look
+    {"letterboxBehind",                scriptSetUdwordCB, &letterboxBehind},    // HWI-FEATURE(letterbox-setting)
     {"TimeCompressionFactor",          scriptSetUbyteCB,  &turboTimeCompressionFactor},
 
     END_SCRIPT_ENTRY
@@ -960,6 +962,7 @@ void utyOptionsFileWrite(void)
     sdword index;
     catUtyOptionsStagedWordsGet();
     miOptionsFileValues(TRUE);                      // HWI-FEATURE(motion-interp): a switch's run-only flags stay out of the file
+    rndLetterboxFileValues(TRUE);                   // HWI-FEATURE(letterbox-setting): /letterboxBehind stays out of the file
     for (index = 0; utyOptionsList[index].name != NULL; index++)
     {
         if (utyOptionsList[index].setVarCB == scriptSetUbyteCB) {
@@ -984,6 +987,7 @@ void utyOptionsFileWrite(void)
         }
     }
     miOptionsFileValues(FALSE);                     // HWI-FEATURE(motion-interp): the run's flags back
+    rndLetterboxFileValues(FALSE);                  // HWI-FEATURE(letterbox-setting): the run's value back
     
     fileClose(cfgFile);
 }

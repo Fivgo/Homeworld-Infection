@@ -51,6 +51,7 @@
 #include "CameraCommand.h"
 #include "Debug.h"
 #include "glinc.h"
+#include <SDL2/SDL.h>
 #include "Globals.h"
 #include "Console.h"
 #include "FEFlow.h"
@@ -607,8 +608,32 @@ static void mtNisTick(void)
     Hooks:
 =============================================================================*/
 
+// HWI-TEST (M3-R1 letterbox-front): /catNisScissorOut <tick>:<seconds>: in the nis mode, at that universe tick the
+//      letterbox starts to fade out as an NIS's ScissorOut event does (nisScissorOut: nisScissorFadeOut, the fade
+//      time from 0), so a fade frame with a ship in the bars can be captured; a measurement run only (never a baseline)
+static sdword mtScissorOutTick = -1;
+static real32 mtScissorOutSeconds = 1.0f;
+
+void catNisScissorOutSet(char *string)
+{
+    char *colon;
+
+    mtScissorOutTick = (sdword)strtol(string, &colon, 10);
+    if (*colon == ':')
+    {
+        mtScissorOutSeconds = (real32)strtod(colon + 1, NULL);
+    }
+}
+
 void catMotionTestTick(void)
 {
+    if (mtMode == MT_MODE_NIS && (sdword)universe.univUpdateCounter == mtScissorOutTick)
+    {
+        dbgMessagef("motiontest: scissor out tick=%d seconds=%.3f fullyScissored=%d", mtScissorOutTick,
+                    (double)mtScissorOutSeconds, (int)nisFullyScissored);
+        nisScissorFadeOut = mtScissorOutSeconds;
+        nisScissorFadeTime = 0.0f;
+    }
     if (mtMode == MT_MODE_MOTION)
     {
         mtMotionTick();
@@ -714,6 +739,195 @@ void catMotionTestFrameEnd(void)
     }
     mtSampled = FALSE;
     mtFrame++;
+}
+
+/*=============================================================================
+    HWI-TEST (M3-R1 letterbox-front): the any-mode frame capture (/catShot).
+    Reads the physical framebuffer (SDL_GL_GetDrawableSize, not the UI size)
+    back before the flip, after everything of the frame is drawn (the bars,
+    the subtitles, the cursor), and writes a binary PPM, top row first. A
+    read-back changes no GL state that is drawn with (GL_PACK_ALIGNMENT only)
+    and nothing runs when no shot is due.
+=============================================================================*/
+#define SHOT_MAX_ITEMS      64
+#define SHOT_MAX_FILES      4096
+
+typedef struct
+{
+    udword from, to, step, frame;
+}
+shotitem;
+
+static shotitem shotItem[SHOT_MAX_ITEMS];
+static sdword shotItems = 0;
+static char shotPrefix[1024] = "";
+static bool32 shotLetterboxOnly = FALSE;
+static udword shotFiles = 0;
+static udword shotLastTick = 0xffffffff;
+static udword shotSegment = 0;                      // the universe tick counter restarted (a level load): 1, 2, ..
+static udword shotFrameInTick = 0;
+static ubyte *shotPixels = NULL;
+static size_t shotPixelsSize = 0;
+
+void catShotSet(char *string)
+{
+    char *p = string, *end;
+
+    while (*p != '\0' && shotItems < SHOT_MAX_ITEMS)
+    {
+        shotitem *item = &shotItem[shotItems];
+
+        item->from = item->to = (udword)strtoul(p, &end, 10);
+        item->step = 1;
+        item->frame = 0;
+        if (end == p)
+        {
+            break;
+        }
+        p = end;
+        if (*p == '-')
+        {
+            item->to = (udword)strtoul(p + 1, &end, 10);
+            p = end;
+            if (*p == '/')
+            {
+                item->step = (udword)strtoul(p + 1, &end, 10);
+                p = end;
+                if (item->step == 0)
+                {
+                    item->step = 1;
+                }
+            }
+        }
+        if (*p == ':')
+        {
+            item->frame = (udword)strtoul(p + 1, &end, 10);
+            p = end;
+        }
+        shotItems++;
+        while (*p == ',' || *p == ' ')
+        {
+            p++;
+        }
+    }
+}
+
+void catShotFileSet(char *string)
+{
+    strncpy(shotPrefix, string, sizeof(shotPrefix) - 1);
+    shotPrefix[sizeof(shotPrefix) - 1] = '\0';
+}
+
+void catShotLetterboxSet(void)
+{
+    shotLetterboxOnly = TRUE;
+}
+
+static bool32 shotDue(udword tick, udword frame)
+{
+    sdword i;
+
+    for (i = 0; i < shotItems; i++)
+    {
+        if (tick >= shotItem[i].from && tick <= shotItem[i].to && (tick - shotItem[i].from) % shotItem[i].step == 0 &&
+            frame == shotItem[i].frame)
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+void catShotFrameEnd(void)
+{
+    udword tick = universe.univUpdateCounter;
+    int w = 0, h = 0;
+    size_t size;
+    char name[1200], state[48];
+    FILE *f;
+    sdword row;
+    extern SDL_Window *sdlwindow;
+
+    if (shotItems == 0)
+    {
+        return;
+    }
+    if (tick != shotLastTick)
+    {
+        if (shotLastTick != 0xffffffff && tick < shotLastTick)
+        {
+            shotSegment++;                          // a new level: its ticks count from 0 again
+        }
+        shotLastTick = tick;
+        shotFrameInTick = 0;
+    }
+    else
+    {
+        shotFrameInTick++;
+    }
+    if (!shotDue(tick, shotFrameInTick) || shotFiles >= SHOT_MAX_FILES)
+    {
+        return;
+    }
+    if (nisFullyScissored)
+    {
+        snprintf(state, sizeof(state), "full");
+    }
+    else if (nisScissorFade != 0.0f)
+    {
+        snprintf(state, sizeof(state), "fade=%.4f", (double)nisScissorFade);
+    }
+    else
+    {
+        snprintf(state, sizeof(state), "none");
+    }
+    if (shotLetterboxOnly && !nisFullyScissored && nisScissorFade == 0.0f)
+    {
+        return;
+    }
+    if (sdlwindow != NULL)
+    {
+        SDL_GL_GetDrawableSize(sdlwindow, &w, &h);
+    }
+    if (w <= 0 || h <= 0)
+    {
+        w = MAIN_WindowWidth;
+        h = MAIN_WindowHeight;
+    }
+    size = (size_t)w * (size_t)h * 3;
+    if (shotPixelsSize < size)
+    {
+        free(shotPixels);
+        shotPixels = malloc(size);
+        shotPixelsSize = (shotPixels != NULL) ? size : 0;
+    }
+    if (shotPixels == NULL)
+    {
+        return;
+    }
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, shotPixels);
+    snprintf(name, sizeof(name), "%s", (shotPrefix[0] != '\0') ? shotPrefix : filePathPrepend("shot", FF_UserSettingsPath));
+    if (shotSegment > 0)
+    {                                               // after a level load: <prefix>.s<segment>.<tick>.<frame>.ppm
+        snprintf(name + strlen(name), sizeof(name) - strlen(name), ".s%u", (unsigned)shotSegment);
+    }
+    snprintf(name + strlen(name), sizeof(name) - strlen(name), ".%u.%u.ppm", (unsigned)tick, (unsigned)shotFrameInTick);
+    if ((f = fopen(name, "wb")) == NULL)
+    {
+        dbgMessagef("catshot: FAIL cannot write %s", name);
+        return;
+    }
+    fprintf(f, "P6\n%d %d\n255\n", w, h);
+    for (row = h - 1; row >= 0; row--)
+    {
+        fwrite(shotPixels + (size_t)row * (size_t)w * 3, 1, (size_t)w * 3, f);
+    }
+    fclose(f);
+    shotFiles++;
+    dbgMessagef("catshot: tick=%u frame=%u segment=%u size=%dx%d ui=%dx%d letterbox=%s letterboxBehind=%d file=%s", (unsigned)tick,
+                (unsigned)shotFrameInTick, (unsigned)shotSegment, w, h, (int)MAIN_WindowWidth, (int)MAIN_WindowHeight, state,
+                (int)letterboxBehind, name);
 }
 
 /*=============================================================================
@@ -868,12 +1082,90 @@ static void mtToggleConsole(char *name, char *argument, bool32 *flag, bool32 exp
     mtToggleCheck(*flag == expect, what);
 }
 
+// HWI-FEATURE(letterbox-setting) (M3-R1 letterbox-front): the options file's letterboxBehind rows: how many, and the
+//      value of the last one (-1: none)
+static sdword mtLetterboxFileRow(sdword *count)
+{
+    char path[PATH_MAX], line[256];
+    FILE *f;
+    sdword value = -1;
+    int v;
+
+    *count = 0;
+    snprintf(path, sizeof(path), "%s", filePathPrepend("Cataclysm.cfg", FF_UserSettingsPath));
+    f = fopen(path, "r");
+    if (f != NULL)
+    {
+        while (fgets(line, sizeof(line), f) != NULL)
+        {
+            if (sscanf(line, "letterboxBehind %d", &v) == 1)
+            {
+                (*count)++;
+                value = v;
+            }
+        }
+        fclose(f);
+    }
+    return value;
+}
+
+// HWI-FEATURE(letterbox-setting): the letterboxBehind setting's surfaces: the options-file row written and read back at
+//      0 and 1, the switch run-only (/letterboxBehind: the saves keep the file's value), the console row; the start
+//      state back at the end. "toggletest: letterbox ..." lines; the failures count into the done line
+static void mtToggleLetterbox(bool32 start)          // start: letterboxBehind before the Smooth motion checks, whose
+{                                                   // read-backs parse the whole options file again
+    bool32 switched = rndLetterboxSwitchStands(), file = rndLetterboxFileValue();
+    sdword count, value, i;
+    char what[128];
+
+    value = mtLetterboxFileRow(&count);             // the start-up's / this test's earlier saves
+    dbgMessagef("toggletest: letterbox start letterboxBehind=%d switch=%d file=%d saved row=%d rows=%d", (int)start,
+                (int)switched, (int)file, (int)value, (int)count);
+    mtToggleCheck(count == 1 && value == (sdword)file, "letterbox: the saves wrote the options file's letterboxBehind");
+    mtToggleCheck(!switched || (start == TRUE && file == FALSE), "letterbox: the switch sets 1 over the harness file's 0");
+    rndLetterboxSwitchEnd();                        // the round trip on the option itself
+    mtToggleCheck(letterboxBehind == file && !rndLetterboxSwitchStands(), "letterbox: the switch ends at the file's value");
+    for (i = 1; i >= 0; i--)
+    {
+        letterboxBehind = (bool32)i;
+        opOptionsSaveSettings();                    // Accept's save: writes Cataclysm.cfg
+        value = mtLetterboxFileRow(&count);
+        letterboxBehind = !i;                       // scrambled: the file must set it back
+        catUtyOptionsFileReadBack();
+        dbgMessagef("toggletest: letterbox accept-%d row=%d rows=%d read back letterboxBehind=%d", (int)i, (int)value,
+                    (int)count, (int)letterboxBehind);
+        snprintf(what, sizeof(what), "letterbox: Cataclysm.cfg has letterboxBehind %d and reads it back", (int)i);
+        mtToggleCheck(count == 1 && value == i && letterboxBehind == (bool32)i, what);
+    }
+    mtToggleConsole("letterboxBehind", "1", &letterboxBehind, TRUE);
+    mtToggleConsole("letterboxBehind", "0", &letterboxBehind, FALSE);
+    rndLetterboxBehindSwitch();                     // the switch, run-only: the save keeps the file's 0
+    opOptionsSaveSettings();
+    value = mtLetterboxFileRow(&count);
+    dbgMessagef("toggletest: letterbox switch run-only letterboxBehind=%d row=%d rows=%d", (int)letterboxBehind,
+                (int)value, (int)count);
+    mtToggleCheck(letterboxBehind == TRUE && count == 1 && value == 0, "letterbox: the switch is run-only");
+    rndLetterboxSwitchEnd();
+    letterboxBehind = file;                         // as the start-up left it
+    if (switched)
+    {
+        rndLetterboxBehindSwitch();
+    }
+    opOptionsSaveSettings();
+    value = mtLetterboxFileRow(&count);
+    dbgMessagef("toggletest: letterbox end letterboxBehind=%d switch=%d row=%d", (int)letterboxBehind,
+                (int)rndLetterboxSwitchStands(), (int)value);
+    mtToggleCheck(letterboxBehind == start && rndLetterboxSwitchStands() == switched && count == 1 &&
+                  value == (sdword)file, "letterbox: the start-up's state and file row back");
+}
+
 void catToggleRunSelfTest(void)
 {
     bool32 startObj = objInterpolate, startNis = nisInterpolate;
     bool32 switched = miSwitchStands(), fileObj, fileNis;
     featom *box, *label;
     sdword rows;
+    bool32 startLetterbox = letterboxBehind;        // HWI-FEATURE(letterbox-setting)
 
     miOptionsFileValues(TRUE);                      // M2-R7 r6-leftovers: the values the options file keeps
     fileObj = objInterpolate;
@@ -933,6 +1225,7 @@ void catToggleRunSelfTest(void)
         dbgMessagef("toggletest: run-only final save rows=%d", (int)rows);
         mtToggleCheck(rows == 2, "the final save keeps the options file's values");
     }
+    mtToggleLetterbox(startLetterbox);              // HWI-FEATURE(letterbox-setting)
     dbgMessagef("toggletest: done start=%d/%d fails=%d result=%s", (int)startObj, (int)startNis, (int)mtToggleFails,
                 (mtToggleFails == 0) ? "PASS" : "FAIL");
 }

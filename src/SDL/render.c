@@ -223,6 +223,10 @@ bool32 rndAdditiveBlending   = FALSE;
 bool32 rndLightingEnabled    = TRUE;
 bool32 rndNormalization      = FALSE;
 bool32 rndScissorEnabled     = FALSE;
+bool32 letterboxBehind       = FALSE;                // HWI-FEATURE(letterbox-setting): default 0, the exe's bars in front
+static bool32 rndLbSwitched  = FALSE;                // HWI-FEATURE(letterbox-setting): /letterboxBehind stands for this run
+static bool32 rndLbFileValue = FALSE;                // HWI-FEATURE(letterbox-setting): the options file's value under it
+static bool32 rndLbRunValue  = FALSE;                // HWI-FEATURE(letterbox-setting): the run's value while the file is written
 bool32 rndTextureEnabled     = FALSE;
 
 //data for billboard geometry
@@ -4982,6 +4986,53 @@ void rndDrawOnScreenDebugInfo(void)
 #endif
 
 /*-----------------------------------------------------------------------------
+    Name        : rndLetterboxBehindSwitch .. rndLetterboxFileValues
+    Description : HWI-FEATURE(letterbox-setting): the /letterboxBehind switch is run-only, as /noInterp
+                    (MotionInterp.c miSwitchOff): the start-up's opOptionsSaveSettings and every Accept write the
+                    options file's own value, so a one-off comparison run never changes the saved option
+----------------------------------------------------------------------------*/
+void rndLetterboxBehindSwitch(void)                 // HWI-FEATURE(letterbox-setting)
+{
+    if (!rndLbSwitched)
+    {
+        rndLbFileValue = letterboxBehind;
+        rndLbSwitched = TRUE;
+    }
+    letterboxBehind = TRUE;
+}
+void rndLetterboxSwitchEnd(void)                    // HWI-FEATURE(letterbox-setting)
+{
+    if (rndLbSwitched)
+    {
+        letterboxBehind = rndLbFileValue;
+        rndLbSwitched = FALSE;
+    }
+}
+bool32 rndLetterboxSwitchStands(void)               // HWI-FEATURE(letterbox-setting)
+{
+    return rndLbSwitched;
+}
+bool32 rndLetterboxFileValue(void)                  // HWI-FEATURE(letterbox-setting)
+{
+    return rndLbSwitched ? rndLbFileValue : letterboxBehind;
+}
+void rndLetterboxFileValues(bool32 begin)           // HWI-FEATURE(letterbox-setting)
+{
+    if (begin)
+    {
+        rndLbRunValue = letterboxBehind;
+        if (rndLbSwitched)
+        {
+            letterboxBehind = rndLbFileValue;
+        }
+    }
+    else
+    {
+        letterboxBehind = rndLbRunValue;
+    }
+}
+
+/*-----------------------------------------------------------------------------
     Name        : rndDrawScissorBars
     Description : Draw the scissor window bars top and bottom for when
                     scissoring is only partial or not supported.
@@ -4993,6 +5044,7 @@ void rndDrawScissorBars(bool32 scissorEnabled)
 {
     sdword y;
     real32 GLy, oneGLy;
+    sdword oldAdditive = rndAdditiveBlending;
 
     if (nisScissorFade == 0.0f && !scissorEnabled)
     {
@@ -5029,6 +5081,13 @@ void rndDrawScissorBars(bool32 scissorEnabled)
         glVertex2f(primScreenToGLX(MAIN_WindowWidth), oneGLy);
         glEnd();
 
+        // CAT: the fading bars blend normally: the exe turns additive blending off for them and back after
+        //      (rndDrawScissorBars 0x0057a410: 0x0057a6ee .. 0x0057a703 and 0x0057a8c8 ..; the main overlay leaves it on,
+        //      cat_moRender 0x004aafb0), else the black at alpha = fade adds nothing and the bars stay grey
+        if (!letterboxBehind)                       // HWI-FEATURE(letterbox-setting): 1 keeps the M2 frames
+        {
+            oldAdditive = rndAdditiveBlends(FALSE);
+        }
         glEnable(GL_BLEND);
         glColor4f(0.0f, 0.0f, 0.0f, nisScissorFade);
     }
@@ -5052,6 +5111,11 @@ void rndDrawScissorBars(bool32 scissorEnabled)
     glVertex2f(primScreenToGLX(MAIN_WindowWidth), oneGLy);
     glEnd();
     glDisable(GL_BLEND);
+    // CAT-FIX: the exe's full-bars branch restores a wrong value into rndAdditiveBlending at 0x0057a8c8: ebx, loaded at
+    //      0x0057a4ba with the bar's GL y (float bits, nonzero), so the exe leaves additive blending on after the full
+    //      bars; the port puts back the state it found (the fade branch's restore) [audit: M3-R1 letterbox-front: ebx is
+    //      set, not uninitialised]
+    rndAdditiveBlends(oldAdditive);
 }
 
 /*-----------------------------------------------------------------------------
@@ -5315,6 +5379,7 @@ DEFINE_TASK(rndRenderTask)
         }
 #endif
 #endif
+        catShotFrameEnd();                                  // HWI-TEST (M3-R1 letterbox-front): /catShot, the any-mode capture
         catMotionTestFrameEnd();                            // HWI-FEATURE(motion-interp) measurement: the frame's dump line + CRC
 
         //demo-specific update code

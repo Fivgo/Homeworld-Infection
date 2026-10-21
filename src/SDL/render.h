@@ -102,6 +102,15 @@ extern bool32 rndNormalization;
 extern bool32 rndTakeScreenshot;
 extern udword rndLightingEnabled;
 extern bool32 rndScissorEnabled;
+// HWI-FEATURE(letterbox-setting): letterboxBehind 0|1 (Cataclysm.cfg row, console row; default 0 = the exe's bars in
+//      front). 1 brings back the M2 look: the depth test left on after the popup menu, so the letterbox bars draw
+//      behind geometry near the camera. /letterboxBehind sets it for one run only (the options file keeps its value)
+extern bool32 letterboxBehind;                                              // HWI-FEATURE(letterbox-setting)
+void rndLetterboxBehindSwitch(void);                                        // HWI-FEATURE(letterbox-setting): /letterboxBehind
+void rndLetterboxSwitchEnd(void);                                           // HWI-FEATURE(letterbox-setting): the file's value back, no switch
+bool32 rndLetterboxSwitchStands(void);                                      // HWI-FEATURE(letterbox-setting)
+bool32 rndLetterboxFileValue(void);                                         // HWI-FEATURE(letterbox-setting): the value the options file keeps
+void rndLetterboxFileValues(bool32 begin);                                  // HWI-FEATURE(letterbox-setting): around utyOptionsFileWrite
 extern GLfloat rndClearColor[4];
 
 #if RND_POLY_STATS

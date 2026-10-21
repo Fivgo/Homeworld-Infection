@@ -20,6 +20,14 @@
 # checkbox on Options -> Video (front end and the Escape menu), or with the console (tilde key): objInterpolate 0|1,
 # nisInterpolate 0|1. Note: the switches /noInterp and /noNISInterp set the same flags, and saving options while
 # they are off writes 0 into Cataclysm.cfg (the run-only override is an M2-R7 follow-up): re-enable with the checkbox.
+#
+# Cutscene letterbox (M3-R1, HWI-FEATURE(letterbox-setting)): the black bars of an NIS and of a mission's letterbox
+# are drawn IN FRONT of the scene by default (as cataclysm.exe draws them: a ship flying into a bar is hidden). The old
+# look of the M2 builds (the bars behind ships close to the camera) is an opt-in setting:
+#   Cataclysm.cfg row   letterboxBehind 0|1   (default 0 = bars in front; edit <home>/.homeworld/Cataclysm.cfg)
+#   console row         letterboxBehind 0|1   (the developer console's; as in cataclysm.exe no key opens that console,
+#                       so for play the Cataclysm.cfg row is the way; a value set there is saved with the options)
+#   switch              -- /letterboxBehind   (this run only: the options file keeps its own letterboxBehind row)
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 build=release; bin=""; data="$root/original/scratch-m2/m2r2-harness/data"; home="$root/original/play-home"; drv=x11; rebuild=0
@@ -32,7 +40,7 @@ while [[ $# -gt 0 ]]; do
 		--driver) drv="$2"; shift 2 ;;
 		--rebuild) rebuild=1; shift ;;
 		--) shift; break ;;
-		-h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+		-h|--help) sed -n '2,/^set -euo/p' "$0" | sed '$d'; exit 0 ;;
 		*) echo "play.sh: unknown option $1 (engine switches go after --)" >&2; exit 2 ;;
 	esac
 done
