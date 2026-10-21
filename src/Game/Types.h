@@ -22,6 +22,12 @@
     #endif
 #endif
 
+#ifdef _WIN32
+// HWI-FIX(win64): glibc's float fsqrt(double) (C23), which the Linux build reaches through <math.h>, for the files
+// that call fsqrt without FastMath.h's macro; defined in FastMath.c (the parentheses keep that macro out)
+float (fsqrt)(double x);
+#endif
+
 /*-----------------------------------------------------------------------------
     Warning turn ons:
 -----------------------------------------------------------------------------*/

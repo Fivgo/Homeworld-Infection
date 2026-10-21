@@ -926,7 +926,10 @@ static void catUtyOptionsStagedWordsGet(void)
 ----------------------------------------------------------------------------*/
 void utyOptionsFileRead(void)
 {
-#ifdef _WINDOWS
+#ifdef _WIN32
+    // HWI-FIX(win64): the options file lives in %APPDATA%\Homeworld-Infection (GoK's dead _WINDOWS branch read
+    //      %APPDATA%/.homeworld; meson defines _WIN32, not _WINDOWS), where utyGameSystemsPreInit puts the user
+    //      settings path the file is written to
     char *home_dir = getenv("APPDATA");
 #else
     char *home_dir = getenv("HOME");
@@ -936,7 +939,11 @@ void utyOptionsFileRead(void)
     if (home_dir)
     {
         strcpy(ch_buf, home_dir);
+#ifdef _WIN32
+        strcat(ch_buf, "/" HWI_WIN_CONFIGDIR "/");
+#else
         strcat(ch_buf, "/" CONFIGDIR "/");
+#endif
     }
     else
     {
@@ -4003,10 +4010,20 @@ char* utyGameSystemsPreInit(void)
 	if (fileUserSettingsPath[0] == '\0')
 	{
 #ifdef _WIN32
+		// HWI-FIX(win64): %APPDATA%\Homeworld-Infection holds the options file, keys.cfg, the saved games and the
+		//      screenshots: a GOG install under Program Files is not writable by a 64-bit program (no UAC file
+		//      virtualisation), and GoK's choice, the game folder, would also mix them with the GOG game's own
+		char *appData = getenv("APPDATA");
+
+		if (appData != NULL && appData[0] != '\0')
+		{
+			snprintf(filePathTempBuffer, PATH_MAX, "%s\\" HWI_WIN_CONFIGDIR, appData);
+			fileMakeDirectory(filePathTempBuffer);
+			fileUserSettingsPathSet(filePathTempBuffer);
+		}
 		// Use the same directory as the Homeworld data (similar to the
 		// functionality in the original Homeworld).
-
-		if (fileHomeworldDataPath[0] != '\0')
+		else if (fileHomeworldDataPath[0] != '\0')
 		{
 			fileUserSettingsPathSet(fileHomeworldDataPath);
 		}

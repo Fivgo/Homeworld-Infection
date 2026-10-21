@@ -36,4 +36,8 @@
 
 #endif
 
+// HWI-FIX(win64): the Windows build's settings folder under %APPDATA% (utility.c: the options file, keys.cfg, the
+//      saved games and the screenshots)
+#define HWI_WIN_CONFIGDIR "Homeworld-Infection"
+
 #endif

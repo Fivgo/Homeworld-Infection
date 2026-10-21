@@ -106,3 +106,45 @@ double catFmathSqrtDouble(double f)
     hi = catFsqrtTab[m >> CAT_MANT_SHIFTS] | ((e + CAT_EXP_BIAS) << CAT_EXP_SHIFTS);
     return catDoubleFromHiLo(hi, lo);
 }
+
+#ifdef _WIN32
+/*-----------------------------------------------------------------------------
+    Name        : fsqrt (Windows only)
+    Description : HWI-FIX(win64): glibc 2.35's C23 narrowing function float fsqrt(double), the square root correctly
+                  rounded to float. The Linux build calls it from the files that do not include FastMath.h (whose
+                  fsqrt macro is the table square root), through <math.h>'s declaration (_GNU_SOURCE); UCRT has no
+                  such function. Every such caller passes a float, for which (float)sqrt(x) is already exact (a
+                  double holds 2 x 24 + 2 bits); a double argument halfway between two floats after the double
+                  rounding is settled by the sign of r * r - x, so the result equals glibc's for any argument.
+                  Declared for those callers in Types.h; the parentheses keep FastMath.h's macro out.
+    Inputs      : x
+    Outputs     :
+    Return      : sqrt(x) rounded to the nearest float
+----------------------------------------------------------------------------*/
+float (fsqrt)(double x)
+{
+    double r = sqrt(x);
+    float f = (float)r;
+
+    if (isfinite(r) && r > 0.0 && (double)f != r)
+    {
+        float other = (r > (double)f) ? nextafterf(f, INFINITY) : nextafterf(f, 0.0f);
+        double lo = ((double)f < (double)other) ? (double)f : (double)other;
+        double hi = ((double)f < (double)other) ? (double)other : (double)f;
+
+        if (r - lo == hi - r)
+        {
+            double e = fma(r, r, -x);       // > 0: the true root is below r; < 0: above; 0: r is exact (ties-to-even)
+            if (e > 0.0)
+            {
+                f = (float)lo;
+            }
+            else if (e < 0.0)
+            {
+                f = (float)hi;
+            }
+        }
+    }
+    return f;
+}
+#endif

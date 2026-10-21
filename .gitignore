@@ -21,3 +21,5 @@ ghidra/proposals/qwen/.worker.lock
 *.pyc
 # Claude Code worktrees (round branches live here until merged)
 .claude/
+# Release packages (tools/release_win64.sh)
+dist/

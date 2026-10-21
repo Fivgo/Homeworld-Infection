@@ -72,6 +72,9 @@
 #include "NomadMoon.h"
 #include "TradeMgr.h"
 #include "TeamColourTest.h"   // HWI-TEST (M3-R1 team-colours-warp): the team-colour checks and the longer run
+#ifdef _WIN32
+#undef near     // HWI-FIX(win64): <windows.h> (through SDL) defines near as an empty macro; the self-tests use it as a name
+#endif
 // M2-R10 tests-leftovers: the KAS dispatcher by name (KASFuncTable.h; not included: its CatKasFunction meets
 //      SinglePlayer.h's), the developer console's KAS call that the failed-jump test takes
 sdword cat_kasCallFunctionByName(char *name, void **args);     // 0x0045b9a0

@@ -117,7 +117,6 @@ src_game = files('AIAttackMan.c',
                  'ResearchGUI.c',
                  'Salvage.c',
                  'SaveCat32.c',
-                 'SaveCat32Layouts.c',
                  'SaveGame.c',
                  'ScenPick.c',
                  'Scroller.c',
@@ -164,5 +163,13 @@ src_game = files('AIAttackMan.c',
 
 # CAT: GoK's generated ETG wrappers (wrapped_functions.h from functions.h/wrap.h/wrap_types.h) are gone: Cataclysm's
 #      ETG callables take one argument-array pointer (ETG.h etgcallable), docs/m2-r3-etg-particles.md
+
+# HWI-FIX(win64): the save converter's tables name the native struct offsets, which differ on Windows x86-64 (LLP64:
+# CaptainGameInfo's wchar_t and unsigned long fields); tools/m2_save32_gen.py writes both files
+if host_machine.system() == 'windows'
+	src_game += files('SaveCat32Layouts_win64.c')
+else
+	src_game += files('SaveCat32Layouts.c')
+endif
 
 inc_src_game = include_directories('.')
