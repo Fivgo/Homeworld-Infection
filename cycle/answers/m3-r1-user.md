@@ -19,3 +19,24 @@ and /noInterp), report Recon B's per-frame screen-space displacement and repeate
 case of the item; the six object kinds of the task come after it. The monitor's refresh rate is not confirmed by the
 user (the machine's 4K monitor is the 144 Hz target of docs/features/high-refresh-4k.md). Check this file again before
 writing the report: the user may add more cases.
+
+## After M3-R1 (the user's second play-test, 2026-10-21 morning, release build eb5f7e3 at 3840x2160)
+- **The camera jitter is FIXED** with Smooth motion on: "okay that worked a lot better this time. I would mark the camera
+  issue as fixed." (The 07:43 session had run with the flag off again: no options visit, the cfg rows still 0; the
+  launching session set objInterpolate 1 / nisInterpolate 1 in original/play-home/.homeworld/Cataclysm.cfg by hand,
+  backup Cataclysm.cfg.bak-20261021. Lesson for M3-R2: log the flags at start-up and show them on screen.)
+- **NEW: a one-frame flicker in an in-game cutscene** (the NIS with the close-up of the Kuun-Lan): "an odd 1-frame
+  flicker where all objects were missing including the black bars. I think I can only see the backdrop during that
+  frame. It's infrequent." Detection idea: the nis dumps carry a crc per frame; scan the Mission01 NISes at 144 Hz for a
+  single-frame outlier (a frame whose pixel diff to both neighbours is huge) and capture it; candidates: the NIS camera-cut
+  handling in the render-time path (bsCurveEvalAtBeforeJump, alpha_nis at a cut), the letterbox / scissor state at an NIS
+  event tick, an early return in the main-region draw (mrDisabled / nisCameraCutTime at mainrgn.c:1913), a frame drawn
+  before the regions (the backdrop only).
+- **NEW: the hyperspace gate is not to scale** for the Kith ship warping in during the in-game cutscene (Mission02's):
+  "It was more frigate sized then mothership sized." Lead: HS.c sizes the gate from the ship's staticCollInfo (the core
+  hull of a modular ship, not the assembly).
+- **NEW: parts of the arriving ship pop in after the hyperspace exit**: "some of the back half parts of the ship
+  flickered into existence after the hyperspace was complete ... I would ensure that all the parts necessary for the
+  scene are loaded and then let the exit hyperspace animation play out." USER RULE: every part present before the
+  animation starts, then one clip reveal over the whole assembly. Lead: the modules are clamped ships; hsContinue has a
+  clamped-ship path; check when the exe creates / shows the modules for a ship arriving by hyperspace.
