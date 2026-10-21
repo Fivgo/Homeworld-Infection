@@ -20,6 +20,7 @@ src_sdl = files(
     'soundlow.c',
     'sstream.c',
     'texreg.c',
+    'uiscale.c',
     'utility.c',
 )
 

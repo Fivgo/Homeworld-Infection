@@ -50,6 +50,7 @@
 #include "ShipNames.h"
 #include "ResearchAPI.h"
 #include "ResearchGUI.h"     // HWI-TEST: the build self-test opens the research screen
+#include "uiscale.h"         // HWI-FEATURE(ui-scale): glScissor in physical pixels
 
 /*=============================================================================
     Definitions:
@@ -2927,7 +2928,7 @@ void cmTotalRUsDraw(featom *atom, regionhandle region)
     primRectSolid2(&rect, CM_BackgroundColor);
 
     glEnable(GL_SCISSOR_TEST);
-    glScissor(rect.x0, MAIN_WindowHeight - rect.y1, rect.x1 - rect.x0, rect.y1 - rect.y0);
+    uiScaleScissor(rect.x0, MAIN_WindowHeight - rect.y1, rect.x1 - rect.x0, rect.y1 - rect.y0);   // HWI-FEATURE(ui-scale): physical pixels
     glClear(GL_DEPTH_BUFFER_BIT);
     glDisable(GL_SCISSOR_TEST);
 
@@ -3135,7 +3136,7 @@ void cmNumberRUsDraw(featom *atom, regionhandle region)
     primRectSolid2(&rect, CM_BackgroundColor);
 
     glEnable(GL_SCISSOR_TEST);
-    glScissor(rect.x0, MAIN_WindowHeight - rect.y1, rect.x1 - rect.x0, rect.y1 - rect.y0);
+    uiScaleScissor(rect.x0, MAIN_WindowHeight - rect.y1, rect.x1 - rect.x0, rect.y1 - rect.y0);   // HWI-FEATURE(ui-scale): physical pixels
     glClear(GL_DEPTH_BUFFER_BIT);
     glDisable(GL_SCISSOR_TEST);
 
@@ -3175,7 +3176,7 @@ void cmTotalShipsDraw(featom *atom, regionhandle region)
     primRectSolid2(&rect, CM_BackgroundColor);
 
     glEnable(GL_SCISSOR_TEST);
-    glScissor(rect.x0, MAIN_WindowHeight - rect.y1, rect.x1 - rect.x0, rect.y1 - rect.y0);
+    uiScaleScissor(rect.x0, MAIN_WindowHeight - rect.y1, rect.x1 - rect.x0, rect.y1 - rect.y0);   // HWI-FEATURE(ui-scale): physical pixels
     glClear(GL_DEPTH_BUFFER_BIT);
     glDisable(GL_SCISSOR_TEST);
 

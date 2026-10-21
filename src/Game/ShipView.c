@@ -38,6 +38,7 @@
 #include "Tweak.h"
 #include "Universe.h"
 #include "Task.h"
+#include "uiscale.h"         // HWI-FEATURE(ui-scale): glScissor in physical pixels
 
 
 /*=============================================================================
@@ -443,7 +444,7 @@ void svShipViewRender(featom* atom, regionhandle region)
 
     glEnable(GL_SCISSOR_TEST);
     glGetIntegerv(GL_SCISSOR_BOX, box);
-    glScissor(drawRect.x0, MAIN_WindowHeight - drawRect.y1, width, height);
+    uiScaleScissor(drawRect.x0, MAIN_WindowHeight - drawRect.y1, width, height);    // HWI-FEATURE(ui-scale): physical pixels (GoK scaled the viewport above, not the scissor)
     glClear(GL_DEPTH_BUFFER_BIT);
     glDisable(GL_SCISSOR_TEST);
 

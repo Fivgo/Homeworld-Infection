@@ -101,6 +101,7 @@
 #include "Universe.h"
 #include "UnivUpdate.h"
 #include "utility.h"
+#include "uiscale.h"         // HWI-FEATURE(ui-scale): the logical / physical sizes, the window fit
 #ifdef HW_ENABLE_GLES
 #include "SDL_syswm.h"
 #endif
@@ -893,6 +894,10 @@ bool32 setupPixelFormat()
 	static Uint32 lastDepth  = 0;
 	static bool32   lastFull   = FALSE;
 	int MSAA = 0;
+    extern bool32 showBorder;                               // HWI-FIX: /noBorder (main.c)
+    sdword reqW = MAIN_WindowWidth, reqH = MAIN_WindowHeight;   // HWI-FEATURE(ui-scale): the window request
+    sdword createW = MAIN_WindowWidth, createH = MAIN_WindowHeight;  // HWI-FIX: the size created (the fit)
+    sdword createX = SDL_WINDOWPOS_UNDEFINED, createY = SDL_WINDOWPOS_UNDEFINED;   // HWI-FIX: on the display it fits
 #ifdef HW_ENABLE_GLES
     SDL_SysWMinfo info;
     EGLint num_config = 1;
@@ -906,9 +911,12 @@ bool32 setupPixelFormat()
     EGLSurface new_surface = EGL_NO_SURFACE;
 #endif
 
+    // HWI-FEATURE(ui-scale): once the window exists MAIN_Window* hold its logical size; the request is the window's own
+    (void)uiScaleWindowCurrent(&reqW, &reqH);               // HWI-FEATURE(ui-scale)
+
     // don't bother doing anything if nothing's actually changed
-	if(lastWidth  == MAIN_WindowWidth
-    && lastHeight == MAIN_WindowHeight
+	if(lastWidth  == (Uint32)reqW                           // HWI-FEATURE(ui-scale): the request, not MAIN_Window*
+    && lastHeight == (Uint32)reqH                           // HWI-FEATURE(ui-scale)
     && lastDepth  == MAIN_WindowDepth
     && lastFull   == fullScreen)
     {
@@ -946,6 +954,11 @@ bool32 setupPixelFormat()
 #ifndef __EMSCRIPTEN__
     if (/* main */ fullScreen)
         flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+    // HWI-FIX (M3-R1 ui-scale, the user's item 6): a windowed request as large as the desktop is fitted to it
+    //      (uiscale.c uiScaleWindowFit: the display's size -> fullscreen desktop; larger than the usable bounds ->
+    //      shrunk, aspect kept); the exe's windowed mode puts the requested client size at the screen's origin
+    //      whatever the desktop (WinMain 0x005631f0)
+    uiScaleWindowFit(reqW, reqH, fullScreen, showBorder, (udword *)&flags, &createW, &createH, &createX, &createY);    // HWI-FIX
 #else
     flags |= SDL_WINDOW_RESIZABLE;
 #endif
@@ -1014,16 +1027,16 @@ bool32 setupPixelFormat()
 	    SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, MSAA );
 	}
 
-	while (!(sdlwindow=SDL_CreateWindow(CAT_RND_WINDOW_TITLE, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-		MAIN_WindowWidth, MAIN_WindowHeight, flags)))
+	while (!(sdlwindow=SDL_CreateWindow(CAT_RND_WINDOW_TITLE, createX, createY,     // HWI-FIX
+		createW, createH, flags)))                          // HWI-FIX: the fitted size (= the request but at the desktop's limits)
 	{
         if (MSAA < 2)
         {
             SDL_GL_SetAttribute( SDL_GL_MULTISAMPLEBUFFERS, 0 );
             SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, 0 );
 
-            if (!(sdlwindow=SDL_CreateWindow(CAT_RND_WINDOW_TITLE, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                MAIN_WindowWidth, MAIN_WindowHeight, flags)))
+            if (!(sdlwindow=SDL_CreateWindow(CAT_RND_WINDOW_TITLE, createX, createY,     // HWI-FIX
+                createW, createH, flags)))                  // HWI-FIX
             {
             fprintf (stderr, "Couldn't set video mode: %s\n", SDL_GetError ());
             //exit (1);
@@ -1041,6 +1054,8 @@ bool32 setupPixelFormat()
 
     if(!(glcontext = SDL_GL_CreateContext(sdlwindow)))
         return FALSE;
+
+    uiScaleWindowPlace(sdlwindow);                          // HWI-FIX: a shrunk window less its borders, in the usable bounds
 #endif
 
     SDL_GL_SetSwapInterval(1);
@@ -1051,11 +1066,13 @@ bool32 setupPixelFormat()
 
     // query actual resolution we render into (e.g. in fullscreen desktop mode it may be different from requested)
     SDL_GL_GetDrawableSize(sdlwindow, &MAIN_WindowWidthActual, &MAIN_WindowHeightActual);
+    // HWI-FEATURE(ui-scale): the drawable is the physical size; MAIN_Window* become the logical size physical / scale
+    uiScaleWindowCreated(sdlwindow, reqW, reqH);            // HWI-FEATURE(ui-scale)
     printf("UI resolution: %dx%d\n", MAIN_WindowWidth, MAIN_WindowHeight);
     printf("Render resolution: %dx%d\n", MAIN_WindowWidthActual, MAIN_WindowHeightActual);
 
-	lastWidth  = MAIN_WindowWidth;
-	lastHeight = MAIN_WindowHeight;
+	lastWidth  = (Uint32)reqW;                              // HWI-FEATURE(ui-scale): the request
+	lastHeight = (Uint32)reqH;                              // HWI-FEATURE(ui-scale)
 	lastDepth  = MAIN_WindowDepth;
 	lastFull   = fullScreen;
 
@@ -1214,6 +1231,10 @@ sdword rndInit(rndinitdata *initData)
     rndPreObjectCallback = rndPostObjectCallback = NULL;    //no render callbacks yet
 
     rndAspectRatio = (GLfloat)initData->width / (GLfloat)initData->height;
+    if (MAIN_WindowWidthActual > 0 && MAIN_WindowHeightActual > 0)  // HWI-FEATURE(ui-scale): the 3D projection's aspect is
+    {                                                               // HWI-FEATURE(ui-scale): the physical size's (the
+        rndAspectRatio = (GLfloat)MAIN_WindowWidthActual / (GLfloat)MAIN_WindowHeightActual;   // HWI-FEATURE(ui-scale):
+    }                                                               // HWI-FEATURE(ui-scale): logical one is rounded)
 
     rndFrameCount = 0;
 
@@ -1381,7 +1402,7 @@ void rndBackgroundRender(real32 radius, Camera* camera, bool32 bDrawStars)
             glEnable(GL_BLEND);
             //additively blend only if background are enabled
             rndAdditiveBlends(showBackgrounds);
-            if (pointSize && (MAIN_WindowWidth > 1024))
+            if (pointSize && (MAIN_WindowWidthActual > 1024))   // HWI-FEATURE(ui-scale): points are physical pixels
             {
                 glPointSize(1.2f);
             }
@@ -1409,7 +1430,7 @@ void rndBackgroundRender(real32 radius, Camera* camera, bool32 bDrawStars)
 
         if (blends && pointSize)
         {
-            switch (MAIN_WindowWidth)
+            switch (MAIN_WindowWidthActual)                     // HWI-FEATURE(ui-scale): the physical width (100%: the same)
             {
             case 640:
             case 800:
@@ -7139,7 +7160,7 @@ static void catLodStatsFrameEnd(void)
                     "size=%dx%d", (int)catLodStatsCount, (double)catLodStatsMs[catLodStatsCount / 2],
                     (double)catLodStatsMs[p99], (double)catLodStatsMs[catLodStatsCount - 1],
                     (double)catLodStatsVertList[catLodStatsCount / 2], (double)catLodStatsVertList[catLodStatsCount - 1],
-                    (int)opNoLODVal, (int)MAIN_WindowWidth, (int)MAIN_WindowHeight);
+                    (int)opNoLODVal, (int)MAIN_WindowWidthActual, (int)MAIN_WindowHeightActual);   // HWI-FEATURE(ui-scale): the physical size (the cost)
     }
 }
 

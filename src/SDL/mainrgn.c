@@ -90,6 +90,7 @@
 #include "Universe.h"
 #include "UnivUpdate.h"
 #include "utility.h"
+#include "uiscale.h"         // HWI-FEATURE(ui-scale): glScissor in physical pixels
 
 #ifdef _WIN32
     #include <windows.h>
@@ -5449,7 +5450,7 @@ void mrRegionDraw(regionhandle reg)
         if (nisIsRunning && nisFullyScissored && rndScissorEnabled)
         {
             glEnable(GL_SCISSOR_TEST);
-            glScissor(0, NIS_LetterHeight, MAIN_WindowWidth, MAIN_WindowHeight - NIS_LetterHeight * 2);
+            uiScaleScissor(0, NIS_LetterHeight, MAIN_WindowWidth, MAIN_WindowHeight - NIS_LetterHeight * 2);   // HWI-FEATURE(ui-scale): the logical box in physical pixels
         }
         if (mrClearRenderEverything)
         {
@@ -5501,7 +5502,7 @@ void mrRegionDraw(regionhandle reg)
     if (nisIsRunning && nisFullyScissored && rndScissorEnabled)
     {
         glEnable(GL_SCISSOR_TEST);
-        glScissor(0, NIS_LetterHeight, MAIN_WindowWidth, MAIN_WindowHeight - NIS_LetterHeight * 2);
+        uiScaleScissor(0, NIS_LetterHeight, MAIN_WindowWidth, MAIN_WindowHeight - NIS_LetterHeight * 2);   // HWI-FEATURE(ui-scale)
     }
     if (nisCaptureCamera)
     {

@@ -49,6 +49,7 @@
 #include "UIControls.h"
 #include "Universe.h"
 #include "Vector.h"
+#include "uiscale.h"         // HWI-FEATURE(ui-scale): glScissor in physical pixels
 
 #ifdef _WIN32
     #include <windows.h>
@@ -771,7 +772,7 @@ void tmNumberRUsDraw(featom *atom, regionhandle region)
     primRectSolid2(&rect, colRGB(0, 0, 0));
 
     glEnable(GL_SCISSOR_TEST);
-    glScissor(rect.x0, MAIN_WindowHeight - rect.y1, rect.x1 - rect.x0, rect.y1 - rect.y0);
+    uiScaleScissor(rect.x0, MAIN_WindowHeight - rect.y1, rect.x1 - rect.x0, rect.y1 - rect.y0);   // HWI-FEATURE(ui-scale): physical pixels
     glClear(GL_DEPTH_BUFFER_BIT);
     glDisable(GL_SCISSOR_TEST);
 

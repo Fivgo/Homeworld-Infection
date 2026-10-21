@@ -13,7 +13,8 @@
 #             first use with TutorialNeeded 0 and PlayIntros 0 (edit .homeworld/Cataclysm.cfg there to change).
 #   driver    SDL video driver, default x11 (XWayland on COSMIC); --driver wayland to try SDL's native backend
 #   switches  everything after -- goes to the engine, e.g. /noInterp (smooth motion off for an A/B run),
-#             /noNISInterp (cutscene interpolation off only), /window, /fullscreen, /1600 (1600x1200), /noBorder
+#             /noNISInterp (cutscene interpolation off only), /window, /fullscreen, /1600 (1600x1200), /noBorder,
+#             /uiScale N (the UI scale for this run, see below)
 # Logs: <home>/logs/play-<timestamp>.log (stdout+stderr). Exit code = the engine's.
 #
 # Smooth motion (docs/features/motion-interpolation.md): ON by default. It is the SMOOTH MOTION checkbox on
@@ -45,6 +46,24 @@
 # (the M2 builds lost them when the opening cutscene's level gave way to Mission01). No setting. To have the play log
 # record them, add the test switch -- /catTeamColourTest: "teamcolour: check ... result=PASS|FAIL" lines after each
 # level's load and at its 64th tick in <home>/logs/play-*.log (read only: it changes nothing in the game).
+#
+# UI scale (M3-R1, HWI-FEATURE(ui-scale)): everything drawn in 2D (the front end, the HUD and task bar, the fonts, the
+# cursor, the subtitles, the letterbox bars, the managers, the menus, the console) is drawn at a UI scale; the 3D view
+# keeps the window's full resolution. AUTO by default: 200% when the window is 2160 rows or taller (4K), 150% at 1440 or
+# more (2K), 100% below; the front end's 640x480 art then shows at 2x (4K) or 1.5x (2K) instead of small in the middle.
+#   Cataclysm.cfg row   uiScale 0|100|150|200   (0 = auto, the default; any 100 .. 400 works in the file)
+#   Options -> Video    UI SCALE: AUTO / 100% / 150% / 200% (the front end's Video screen and the Escape menu's); Accept
+#                       in the front end applies it at once; in a game it is saved and applies at the next start
+#   console row         uiScale N   (the developer console's; as in cataclysm.exe no key opens that console)
+#   switch              -- /uiScale N   (this run only: the options file keeps its own uiScale row)
+#
+# The window at 4K (M3-R1, HWI-FIX; the mouse that could not reach the bottom ~200 rows): a WINDOWED request as large as
+# the desktop (Cataclysm.cfg fullScreen 0 with screenWidth / screenHeight the display's size, or /window) now opens as a
+# borderless window covering the display (SDL fullscreen-desktop), so no title bar or panel hides its bottom rows; a
+# windowed request larger than the desktop's usable area (less the panels) but smaller than the display is shrunk to fit
+# it, aspect kept. A smaller window stays as requested. /fullscreen is unchanged (fullscreen-desktop), /noBorder makes
+# the window borderless. The log's "window: requested WxH, usable WxH (display N: WxH), created WxH (...)" line and the
+# "uiscale: physical .. logical .." line say what was made.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 build=release; bin=""; data="$root/original/scratch-m2/m2r2-harness/data"; home="$root/original/play-home"; drv=x11; rebuild=0

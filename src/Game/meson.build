@@ -155,6 +155,7 @@ src_game = files('AIAttackMan.c',
                  'Twiddle.c',
                  'Types.c',
                  'UIControls.c',
+                 'UiScaleTest.c',         # HWI-TEST (M3-R1 ui-scale): /catUiScaleTest
                  'Undo.c',
                  'Universe.c',
                  'UnivUpdate.c',

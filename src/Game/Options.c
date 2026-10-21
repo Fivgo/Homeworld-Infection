@@ -41,6 +41,7 @@
 #include "UIControls.h"
 #include "utility.h"
 #include "MotionInterp.h"    // HWI-FEATURE(motion-interp): the Smooth motion checkbox
+#include "uiscale.h"         // HWI-FEATURE(ui-scale): the UI SCALE radio buttons; the window request
 
 #ifdef _MSC_VER
     #define strcasecmp _stricmp
@@ -1127,8 +1128,11 @@ bool32 opResResSupported(opres* res)
 
 bool32 opResChanged(void)
 {
-    if (opSaveMAIN_WindowWidth  != MAIN_WindowWidth ||
-        opSaveMAIN_WindowHeight != MAIN_WindowHeight ||
+    sdword requestW, requestH;                      // HWI-FEATURE(ui-scale): MAIN_Window* hold the logical size; the
+                                                    //      list's sizes are window requests
+    uiScaleWindowRequestGet(&requestW, &requestH);  // HWI-FEATURE(ui-scale)
+    if (opSaveMAIN_WindowWidth  != requestW ||      // HWI-FEATURE(ui-scale)
+        opSaveMAIN_WindowHeight != requestH ||      // HWI-FEATURE(ui-scale)
         opSaveMAIN_WindowDepth  != MAIN_WindowDepth)
     {
         return TRUE;
@@ -1278,6 +1282,11 @@ void opOptionsAcceptHelper(char* name, featom* atom, char* linkName)
         }
     }
 
+    // HWI-FEATURE(ui-scale): a changed UI scale takes effect in the front end now, before the next screen's regions are
+    //      made (the reflow of a resolution change: uiscale.c uiScaleApply); in game, as the exe allows no render switch
+    //      there (the return below), it is saved and takes effect at the next start
+    uiScaleUpdate();                                // HWI-FEATURE(ui-scale)
+
     opOptionsEndHelper(linkName);
 
     if (gameIsRunning)
@@ -1310,8 +1319,7 @@ void opOptionsAcceptHelper(char* name, featom* atom, char* linkName)
             mainSaveRender();
             opGLCStop();
 
-            MAIN_WindowWidth  = opSaveMAIN_WindowWidth;
-            MAIN_WindowHeight = opSaveMAIN_WindowHeight;
+            uiScaleWindowRequest(opSaveMAIN_WindowWidth, opSaveMAIN_WindowHeight);   // HWI-FEATURE(ui-scale): the new request
             MAIN_WindowDepth  = opSaveMAIN_WindowDepth;
 
             if (mainLoadGL(rnd->data))
@@ -1472,6 +1480,7 @@ void opRestoreSavedSettings(void)
     objInterpolate = opSaveObjInterpolate;          // HWI-FEATURE(motion-interp): the Smooth motion checkbox's flags
     nisInterpolate = opSaveNisInterpolate;          // HWI-FEATURE(motion-interp)
     miSwitchStateRestore();                         // HWI-FEATURE(motion-interp): and a switch's run-only override
+    uiScaleStateRestore();                          // HWI-FEATURE(ui-scale)
     opNumEffects = opSaveNumEffects;
     etgHistoryScalar = opNumEffects + etgHistoryScalarMin;
     for (i = 0; catOpSavedWords[i] != NULL; i++)
@@ -1772,10 +1781,10 @@ void opOptionsSaveSettings(void)
     opSaveObjInterpolate = objInterpolate;          // HWI-FEATURE(motion-interp): the Smooth motion checkbox's flags
     opSaveNisInterpolate = nisInterpolate;          // HWI-FEATURE(motion-interp)
     miSwitchStateSave();                            // HWI-FEATURE(motion-interp): and a switch's run-only override
+    uiScaleStateSave();                             // HWI-FEATURE(ui-scale): the UI SCALE buttons' value and /uiScale's state
     opSaveNumEffects = opNumEffects;
 
-    opSaveMAIN_WindowWidth  = MAIN_WindowWidth;
-    opSaveMAIN_WindowHeight = MAIN_WindowHeight;
+    uiScaleWindowRequestGet(&opSaveMAIN_WindowWidth, &opSaveMAIN_WindowHeight);   // HWI-FEATURE(ui-scale): the request
     opSaveMAIN_WindowDepth  = MAIN_WindowDepth;
 
     opRenderListLoad();
@@ -2564,6 +2573,140 @@ void opSmoothMotionAtomsAdd(fibfileheader *header)                      // HWI-F
         }                                                               // HWI-FEATURE(motion-interp)
     }                                                                   // HWI-FEATURE(motion-interp)
 }                                                                       // HWI-FEATURE(motion-interp)
+
+/*-----------------------------------------------------------------------------
+    HWI-FEATURE(ui-scale): not in the exe. The "UI SCALE" radio buttons (AUTO, 100%,
+    150%, 200%) on the front end's Video_Options and the in-game Video screen,
+    added in code as the Smooth motion checkbox is (the .fib files are game data):
+    copies of the screen's own OP_Effects radio button and of its "HIGH" label,
+    plus a title. A click sets uiScale (0 = by the window height) and ends a
+    /uiScale switch's run-only state (the user's choice is saved as it is);
+    Accept saves it (Cataclysm.cfg uiScale) and, in the front end, applies it at
+    once (opOptionsAcceptHelper: uiScaleUpdate); Cancel restores it.
+----------------------------------------------------------------------------*/
+void opUiScale(char* name, featom* atom)                                // HWI-FEATURE(ui-scale)
+{                                                                       // HWI-FEATURE(ui-scale)
+    if (FEFIRSTCALL(atom))                                              // HWI-FEATURE(ui-scale)
+    {                                                                   // HWI-FEATURE(ui-scale)
+        feRadioButtonSet(name, uiScale);                                // HWI-FEATURE(ui-scale): no button for another value
+    }                                                                   // HWI-FEATURE(ui-scale)
+    else if (!FELASTCALL(atom))                                         // HWI-FEATURE(ui-scale): a click
+    {                                                                   // HWI-FEATURE(ui-scale)
+        uiScaleSwitchEnd();                                             // HWI-FEATURE(ui-scale)
+        uiScale = (sdword)(smemsize)atom->pData;                        // HWI-FEATURE(ui-scale)
+    }                                                                   // HWI-FEATURE(ui-scale)
+}                                                                       // HWI-FEATURE(ui-scale)
+
+#define OP_UISCALE_BUTTONS  4                                           // HWI-FEATURE(ui-scale)
+#define OP_UISCALE_ATOMS    (1 + 2 * OP_UISCALE_BUTTONS)                // HWI-FEATURE(ui-scale): the title, a button and a label each
+static featom *opUiScaleBlocks[OP_SMOOTH_BLOCKS];                       // HWI-FEATURE(ui-scale): kept, never freed
+static sdword opUiScaleNumBlocks = 0;                                   // HWI-FEATURE(ui-scale)
+static char opUiScaleName[] = "OP_UiScale";                             // HWI-FEATURE(ui-scale)
+static char opUiScaleTitle[] = "UI SCALE";                              // HWI-FEATURE(ui-scale)
+static char *opUiScaleText[OP_UISCALE_BUTTONS] = { "AUTO", "100%", "150%", "200%" };   // HWI-FEATURE(ui-scale)
+static sdword opUiScaleValue[OP_UISCALE_BUTTONS] = { UI_SCALE_AUTO, 100, 150, 200 };   // HWI-FEATURE(ui-scale)
+
+// the title at (titleX, titleY) and the four buttons in two rows of two from (x, y) (columns dx, rows dy apart), each
+// label 20 to the right of its button as the screens' own radio labels
+static void opUiScaleAddToScreen(fescreen *screen, sword titleX, sword titleY, sword x, sword y, sword dx, sword dy)  // HWI-FEATURE(ui-scale)
+{                                                                       // HWI-FEATURE(ui-scale)
+    featom *atoms, *radio = NULL, *label = NULL, *atom;                 // HWI-FEATURE(ui-scale)
+    sdword i, n = screen->nAtoms;                                       // HWI-FEATURE(ui-scale)
+    sword ox, oy;                                                       // HWI-FEATURE(ui-scale): the screen's centring
+                                                                        // HWI-FEATURE(ui-scale)
+    for (i = 0; i < n; i++)                                             // HWI-FEATURE(ui-scale)
+    {                                                                   // HWI-FEATURE(ui-scale)
+        if (screen->atoms[i].name != NULL && strcmp(screen->atoms[i].name, opUiScaleName) == 0)   // HWI-FEATURE(ui-scale)
+        {                                                               // HWI-FEATURE(ui-scale)
+            return;                                                     // HWI-FEATURE(ui-scale): already there
+        }                                                               // HWI-FEATURE(ui-scale)
+        if (radio == NULL && screen->atoms[i].type == FA_RadioButton && screen->atoms[i].name != NULL &&   // HWI-FEATURE(ui-scale)
+            strcmp(screen->atoms[i].name, "OP_Effects") == 0)           // HWI-FEATURE(ui-scale)
+        {                                                               // HWI-FEATURE(ui-scale)
+            radio = &screen->atoms[i];                                  // HWI-FEATURE(ui-scale)
+        }                                                               // HWI-FEATURE(ui-scale)
+        if (label == NULL && screen->atoms[i].type == FA_StaticText && screen->atoms[i].pData != NULL &&   // HWI-FEATURE(ui-scale)
+            strcmp((char *)screen->atoms[i].pData, "HIGH") == 0)        // HWI-FEATURE(ui-scale)
+        {                                                               // HWI-FEATURE(ui-scale)
+            label = &screen->atoms[i];                                  // HWI-FEATURE(ui-scale)
+        }                                                               // HWI-FEATURE(ui-scale)
+    }                                                                   // HWI-FEATURE(ui-scale)
+    if (radio == NULL || label == NULL || opUiScaleNumBlocks >= OP_SMOOTH_BLOCKS ||   // HWI-FEATURE(ui-scale)
+        (atoms = malloc((n + OP_UISCALE_ATOMS) * sizeof(featom))) == NULL)   // HWI-FEATURE(ui-scale): not the game's pools
+    {                                                                   // HWI-FEATURE(ui-scale)
+        return;                                                         // HWI-FEATURE(ui-scale)
+    }                                                                   // HWI-FEATURE(ui-scale)
+    // [audit: M3-R1 ui-scale] the loader has already centred the screen's own atoms (feScreensImageLoad: x =
+    //      feResRepositionCentredX(loadedX), the exe's centring): the copies take the same offset (the copied radio
+    //      button's x - loadedX), or they sat at their 640x480 coordinates outside the panel until a relayout
+    ox = (sword)(radio->x - radio->loadedX);                            // HWI-FEATURE(ui-scale)
+    oy = (sword)(radio->y - radio->loadedY);                            // HWI-FEATURE(ui-scale)
+    memcpy(atoms, screen->atoms, n * sizeof(featom));                   // HWI-FEATURE(ui-scale)
+    atom = &atoms[n];                                                   // HWI-FEATURE(ui-scale): the title
+    *atom = *label;                                                     // HWI-FEATURE(ui-scale)
+    atom->pData = (ubyte *)opUiScaleTitle;                              // HWI-FEATURE(ui-scale)
+    atom->region = NULL;                                                // HWI-FEATURE(ui-scale)
+    atom->loadedX = titleX;                                             // HWI-FEATURE(ui-scale)
+    atom->loadedY = titleY;                                             // HWI-FEATURE(ui-scale)
+    atom->x = (sword)(titleX + ox);                                     // HWI-FEATURE(ui-scale)
+    atom->y = (sword)(titleY + oy);                                     // HWI-FEATURE(ui-scale)
+    atom->width = atom->loadedWidth = 64;                               // HWI-FEATURE(ui-scale)
+    for (i = 0; i < OP_UISCALE_BUTTONS; i++)                            // HWI-FEATURE(ui-scale)
+    {                                                                   // HWI-FEATURE(ui-scale)
+        sword bx = (sword)(x + (i % 2) * dx), by = (sword)(y + (i / 2) * dy);   // HWI-FEATURE(ui-scale)
+                                                                        // HWI-FEATURE(ui-scale)
+        atom = &atoms[n + 1 + i * 2];                                   // HWI-FEATURE(ui-scale): the button
+        *atom = *radio;                                                 // HWI-FEATURE(ui-scale)
+        atom->name = opUiScaleName;                                     // HWI-FEATURE(ui-scale)
+        if (i > 0)                                                      // HWI-FEATURE(ui-scale): one first call (the
+        {                                                               // HWI-FEATURE(ui-scale): copied HIGH button's
+            atom->flags &= ~FAF_CallOnCreate;                           // HWI-FEATURE(ui-scale): FAF_CallOnCreate) sets all four
+        }                                                               // HWI-FEATURE(ui-scale)
+        atom->status = 0;                                               // HWI-FEATURE(ui-scale)
+        atom->region = NULL;                                            // HWI-FEATURE(ui-scale)
+        atom->pData = (ubyte *)(smemsize)opUiScaleValue[i];             // HWI-FEATURE(ui-scale): the radio value, as the files' raw pData
+        atom->loadedX = bx;                                             // HWI-FEATURE(ui-scale)
+        atom->loadedY = by;                                             // HWI-FEATURE(ui-scale)
+        atom->x = (sword)(bx + ox);                                     // HWI-FEATURE(ui-scale): centred as the screen [audit]
+        atom->y = (sword)(by + oy);                                     // HWI-FEATURE(ui-scale)
+        atom->width = atom->loadedWidth = 46;                           // HWI-FEATURE(ui-scale): OP_Effects' HIGH button's width
+        atom->tabstop = 0;                                              // HWI-FEATURE(ui-scale): not in the screen's tab order
+        atom = &atoms[n + 2 + i * 2];                                   // HWI-FEATURE(ui-scale): its label
+        *atom = *label;                                                 // HWI-FEATURE(ui-scale)
+        atom->pData = (ubyte *)opUiScaleText[i];                        // HWI-FEATURE(ui-scale)
+        atom->region = NULL;                                            // HWI-FEATURE(ui-scale)
+        atom->loadedX = (sword)(bx + 20);                               // HWI-FEATURE(ui-scale)
+        atom->loadedY = (sword)(by + 2);                                // HWI-FEATURE(ui-scale)
+        atom->x = (sword)(bx + 20 + ox);                                // HWI-FEATURE(ui-scale): centred as the screen [audit]
+        atom->y = (sword)(by + 2 + oy);                                 // HWI-FEATURE(ui-scale)
+        atom->width = atom->loadedWidth = 34;                           // HWI-FEATURE(ui-scale)
+    }                                                                   // HWI-FEATURE(ui-scale)
+    screen->atoms = atoms;                                              // HWI-FEATURE(ui-scale)
+    screen->nAtoms = (uword)(n + OP_UISCALE_ATOMS);                     // HWI-FEATURE(ui-scale)
+    opUiScaleBlocks[opUiScaleNumBlocks++] = atoms;                      // HWI-FEATURE(ui-scale)
+}                                                                       // HWI-FEATURE(ui-scale)
+
+// called for every loaded .fib (FEFlow.c feScreensImageLoad), after the Smooth motion checkbox: the front end's
+// Video_Options (the title at 500,290 and the buttons at 500 / 560, rows 307 / 325: in the right-hand column under SMOOTH
+// MOTION, above the ACCEPT button) and the in-game Video screen (the title at 373,64, the buttons at 379 / 459, rows
+// 81 / 99: right of IN GAME BRIGHTNESS, above EFFECTS)
+void opUiScaleAtomsAdd(fibfileheader *header)                           // HWI-FEATURE(ui-scale)
+{                                                                       // HWI-FEATURE(ui-scale)
+    fescreen *screen = (fescreen *)((ubyte *)header + FIB_ScreensOffset);   // HWI-FEATURE(ui-scale)
+    sdword i;                                                           // HWI-FEATURE(ui-scale)
+                                                                        // HWI-FEATURE(ui-scale)
+    for (i = 0; i < header->nScreens; i++, screen++)                    // HWI-FEATURE(ui-scale)
+    {                                                                   // HWI-FEATURE(ui-scale)
+        if (strcmp(screen->name, "Video_Options") == 0)                 // HWI-FEATURE(ui-scale)
+        {                                                               // HWI-FEATURE(ui-scale)
+            opUiScaleAddToScreen(screen, 500, 290, 500, 307, 60, 18);   // HWI-FEATURE(ui-scale)
+        }                                                               // HWI-FEATURE(ui-scale)
+        else if (strcmp(screen->name, "Video") == 0)                    // HWI-FEATURE(ui-scale)
+        {                                                               // HWI-FEATURE(ui-scale)
+            opUiScaleAddToScreen(screen, 373, 64, 379, 81, 80, 18);     // HWI-FEATURE(ui-scale)
+        }                                                               // HWI-FEATURE(ui-scale)
+    }                                                                   // HWI-FEATURE(ui-scale)
+}                                                                       // HWI-FEATURE(ui-scale)
 
 void opDetailThreshold(char* name, featom* atom)
 {

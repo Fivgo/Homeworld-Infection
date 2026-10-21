@@ -1428,7 +1428,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] the corners at +-width/2, height/2 pixels and the centre; GoK's 640/480 scaling and texture coordinates belong to its vertex-array star quads",
+  "note": "[review: M2-R5 render] the corners at +-width/2, height/2 pixels and the centre; GoK's 640/480 scaling and texture coordinates belong to its vertex-array star quads | [review: M3-R1 ui-scale] compared (decompile 0x00428c20): the half sizes are the star's width and height times the double 0.5 at 0x0072a480 (HW1's real64 / 2.0), with no resolution term; the tree (GoK) multiplies them by 640 / W and 480 / H (a fixed pixel size): MODIFIED, not ported this round (it moves every frame with a BTG star): CAT-TODO(M3-R2) in BTG.c. HWI-FEATURE(ui-scale): the tree's term takes the physical size (MAIN_WindowWidthActual), so the 3D view's background is the same at any UI scale (equal at 100%) | [audit: M3-R1 ui-scale] reclassified MODIFIED -> IDENTICAL: the exe's body equals HW1's (Game/btg.c:776: width / 2.0, no resolution term): IDENTICAL; the 640 / W term is GoK's tree (the CAT-TODO(M3-R2) in BTG.c)",
   "sample": "port-R5-render"
  },
  "0x00428d10": {
@@ -4210,7 +4210,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R6 frontend] compared with r6: same",
+  "note": "[review: M2-R6 frontend] compared with r6: same | [review: M3-R1 ui-scale] relied on (not edited): the 640x480 screens centred by (MAIN_WindowWidth - 640) / 2 and (MAIN_WindowHeight - 480) / 2 (decompile 0x00474ae0): as the tree (feResRepositionCentredX / Y); with the UI scale MAIN_Window* are the logical size, so the exe's centring holds at it",
   "sample": "port-R6-frontend"
  },
  "0x00474d00": {
@@ -14738,7 +14738,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R6 mainrgn-popup] compared with r6: same as HW1 (clamp to the client rect, SetCursorPos); the SDL tree warps the SDL cursor",
+  "note": "[review: M2-R6 mainrgn-popup] compared with r6: same as HW1 (clamp to the client rect, SetCursorPos); the SDL tree warps the SDL cursor | [review: M3-R1 ui-scale] compared (decompile 0x0056e8d0): utyClientRectGet, x and y clamped to 0 .. width - 1 / height - 1, the position stored, SetCursorPos(x + x0, y + y0); the tree (GoK) had the clamp commented out and warps with SDL: MODIFIED. Ported the clamp (CAT) against the logical screen (the exe's client rectangle is MAIN_WindowWidth x MAIN_WindowHeight); the warp converts the logical position to SDL's window coordinates (HWI-FEATURE(ui-scale), uiscale.c uiScaleLogicalToMouse) | [audit: M3-R1 ui-scale] reclassified MODIFIED -> IDENTICAL: the exe's body equals HW1's with MOUSE_CURSOR_CLAMP (Win32/mouse.c:457; the R6 review said so): IDENTICAL; the clamp GoK commented out is a tree difference, now ported back (CAT)",
   "sample": "port-R6-mainrgn-popup"
  },
  "0x0056e940": {
@@ -14814,14 +14814,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset) | [review: M3-R1 letterbox-front] compared: flat shading, alpha test and blend off, identity matrices, lighting / texture off, glDisable(GL_DEPTH_TEST) (0xb71): as the tree",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset) | [review: M3-R1 letterbox-front] compared: flat shading, alpha test and blend off, identity matrices, lighting / texture off, glDisable(GL_DEPTH_TEST) (0xb71): as the tree | [review: M3-R1 ui-scale] HWI-FEATURE(ui-scale) adds glLineWidth(scale) only at a UI scale other than 100% (a 2D line one logical pixel wide); the exe's body unchanged, IDENTICAL stands",
   "sample": "port-R5-render"
  },
  "0x0056fd90": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset) | [review: M3-R1 letterbox-front] compared: smooth shading, glEnable(GL_DEPTH_TEST), lighting / texture on, matrices popped: as the tree",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset) | [review: M3-R1 letterbox-front] compared: smooth shading, glEnable(GL_DEPTH_TEST), lighting / texture on, matrices popped: as the tree | [review: M3-R1 ui-scale] HWI-FEATURE(ui-scale) adds glLineWidth(1) only at a UI scale other than 100% (the 3D scene's lines physical); IDENTICAL stands",
   "sample": "port-R5-render"
  },
  "0x0056fdf0": {
@@ -14835,7 +14835,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset) | [review: M3-R1 ui-scale] compared (decompile): glPushAttrib(GL_LINE_BIT), glLineWidth(thickness), the vertices through the 0.325 pixel centre, glPopAttrib, and the glcompat branch (cat_glcActive): the tree (GoK) reads and restores the width instead of the attribute stack (the same effect) and has no glcompat branch / no 0.325 offset (decisions 28 / 29); IDENTICAL stands. HWI-FEATURE(ui-scale): the width is thickness * scale (uiScaleLineWidth, the identity at 100%)",
   "sample": "port-R5-render"
  },
  "0x00570010": {
@@ -14877,7 +14877,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset) | [review: M3-R1 ui-scale] compared (decompile): glPushAttrib(GL_LINE_BIT), glLineWidth(thickness), the vertices through the 0.325 pixel centre, glPopAttrib, and the glcompat branch (cat_glcActive): the tree (GoK) reads and restores the width instead of the attribute stack (the same effect) and has no glcompat branch / no 0.325 offset (decisions 28 / 29); IDENTICAL stands. HWI-FEATURE(ui-scale): the width is thickness * scale (uiScaleLineWidth, the identity at 100%)",
   "sample": "port-R5-render"
  },
  "0x00570c30": {
@@ -14905,7 +14905,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset) | [review: M3-R1 ui-scale] compared (decompile): glPushAttrib(GL_LINE_BIT), glLineWidth(thickness), the vertices through the 0.325 pixel centre, glPopAttrib, and the glcompat branch (cat_glcActive): the tree (GoK) reads and restores the width instead of the attribute stack (the same effect) and has no glcompat branch / no 0.325 offset (decisions 28 / 29); IDENTICAL stands. HWI-FEATURE(ui-scale): the width is thickness * scale (uiScaleLineWidth, the identity at 100%)",
   "sample": "port-R5-render"
  },
  "0x005711b0": {
@@ -14926,14 +14926,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset) | [review: M3-R1 ui-scale] compared (decompile): glPushAttrib(GL_LINE_BIT), glLineWidth(thickness), the vertices through the 0.325 pixel centre, glPopAttrib, and the glcompat branch (cat_glcActive): the tree (GoK) reads and restores the width instead of the attribute stack (the same effect) and has no glcompat branch / no 0.325 offset (decisions 28 / 29); IDENTICAL stands. HWI-FEATURE(ui-scale): the width is thickness * scale (uiScaleLineWidth, the identity at 100%)",
   "sample": "port-R5-render"
  },
  "0x00571500": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset) | [review: M3-R1 ui-scale] compared (decompile): glPushAttrib(GL_LINE_BIT), glLineWidth(thickness), the vertices through the 0.325 pixel centre, glPopAttrib, and the glcompat branch (cat_glcActive): the tree (GoK) reads and restores the width instead of the attribute stack (the same effect) and has no glcompat branch / no 0.325 offset (decisions 28 / 29); IDENTICAL stands. HWI-FEATURE(ui-scale): the width is thickness * scale (uiScaleLineWidth, the identity at 100%)",
   "sample": "port-R5-render"
  },
  "0x00571580": {
@@ -14961,7 +14961,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] same drawing (GoK's GL backend aside)",
+  "note": "[review: M2-R5 render] same drawing (GoK's GL backend aside) | [review: M3-R1 ui-scale] compared (decompile 0x005718b0): glPushAttrib(GL_LINE_BIT), glLineWidth(thickness), the segments through the 0.325 pixel centre: as the tree (GoK reads and restores the width; decisions 28 / 29); IDENTICAL stands. HWI-FEATURE(ui-scale): the width is thickness * scale (uiScaleLineWidth) [audit: the producer's edit had no note]",
   "sample": "port-R5-render"
  },
  "0x00571be0": {
@@ -15101,7 +15101,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "PIXELFORMATDESCRIPTOR initialiser written field by field",
+  "note": "PIXELFORMATDESCRIPTOR initialiser written field by field | [review: M3-R1 ui-scale] compared (decompile 0x00574550): the exe's body is the Win32 PIXELFORMATDESCRIPTOR set-up (its window is made in WinMain 0x005631f0); the tree's is GoK's SDL window and context creation (decision 28); IDENTICAL stands. HWI-FIX: the window fit (uiscale.c uiScaleWindowFit / uiScaleWindowPlace); HWI-FEATURE(ui-scale): the request kept, the logical size set (uiScaleWindowCreated) [audit: the producer's edit had no note]",
   "sample": "MODIFIED/medium"
  },
  "0x00574680": {
@@ -15143,7 +15143,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] same; the exe also requires a debug byte 0x0087816e that is never cleared (1), and inlines rndAdditiveBlends with a device flag",
+  "note": "[review: M2-R5 render] same; the exe also requires a debug byte 0x0087816e that is never cleared (1), and inlines rndAdditiveBlends with a device flag | [review: M3-R1 ui-scale] compared the star point sizes (decompile 0x00574b90): glPointSize 1.2 (0x3f99999a) when 0x400 < MAIN_WindowWidth, then the size switch on the width before the big stars: as the tree; IDENTICAL stands. HWI-FEATURE(ui-scale): the tree tests the physical width (MAIN_WindowWidthActual), which is the exe's MAIN_WindowWidth (its only size is the render resolution); equal at 100%",
   "sample": "port-R5-render"
  },
  "0x00574f80": {
@@ -17239,7 +17239,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R6 managers] compared: same",
+  "note": "[review: M2-R6 managers] compared: same | [review: M3-R1 ui-scale] compared (decompile 0x004578e0): glEnable(GL_SCISSOR_TEST), glScissor(x0, MAIN_WindowHeight - y1, w, h) in MAIN units, glClear(GL_DEPTH_BUFFER_BIT), glDisable: as the tree; IDENTICAL stands. HWI-FEATURE(ui-scale): the box goes through uiScaleScissor (physical pixels, the identity at 100%) [audit: the producer's edit had no note]",
   "sample": "port-R6-managers"
  },
  "0x00457a00": {
@@ -17470,7 +17470,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R6 managers] compared: same",
+  "note": "[review: M2-R6 managers] compared: same | [review: M3-R1 ui-scale] compared (decompile 0x0052ded0): the scissor box in MAIN units, the depth clear: as the tree; IDENTICAL stands. HWI-FEATURE(ui-scale): the box goes through uiScaleScissor (physical pixels, the identity at 100%) [audit: the producer's edit had no note]",
   "sample": "port-R6-managers"
  },
  "0x0052dff0": {
@@ -18852,7 +18852,7 @@
  "_notes_r2": [
   "Tool fixes in `tools/delta_map.py` (M2-R2), for the systemic misses the R1 audit found:",
   "",
-  "- **Linker-folded callees.** `ICF_FOLDED` lists HW1 functions whose release code is identical to another's, so the linker kept one copy: `SpaceObjRegistryGetShip`/`GetTarget` → `SpaceObjRegistryGetObj`, `aimInterceptShipDied` → `aimCaptureShipDied`, `aimAdvancedAttackClose` → `aimCloseKamikaze`. A call to the folded name now matches the surviving one (`calls_folded` in the features). The tool also prints candidate folds it finds in the data, but does not apply them: the 4 it lists are inlined or reworked callees, not folds.",
+  "- **Linker-folded callees.** `ICF_FOLDED` lists HW1 functions whose release code is identical to another's, so the linker kept one copy: `SpaceObjRegistryGetShip`/`GetTarget` \u2192 `SpaceObjRegistryGetObj`, `aimInterceptShipDied` \u2192 `aimCaptureShipDied`, `aimAdvancedAttackClose` \u2192 `aimCloseKamikaze`. A call to the folded name now matches the surviving one (`calls_folded` in the features). The tool also prints candidate folds it finds in the data, but does not apply them: the 4 it lists are inlined or reworked callees, not folds.",
   "- **Callee interface changes.** A bound callee whose Cataclysm prototype has real parameter names and another parameter count than its HW1 definition (`timTimer*`, `clCommandMessage`, `spMainScreen`, `hsStaticInit`...), or that the binary map extended with `cat_argN` arguments counted from caller stack cleanup (`clFormation`, `RemoveShipsFromDoingStuff`, `ApplyDamageToTarget`, `tutSetPointerTargetAIVolume`...), makes each caller MODIFIED. Over-declared prototypes are skipped when every call site passes register or stack garbage in the extra slots (`feCurrentScreenDelete(unaff_EDI, unaff_ESI)`), and under-declared ones when the callee reads `in_EAX`/`in_stack_` (`kniTransGrowVertexLists`). `param_N` prototypes are not used, because a double or a by-value struct splits into several slots (`rgluLookAt` 9 -> 12); so `trTextureRegister`'s real 4th argument is still caught only by hand review.",
   "- **One-parameter ETG/particle callables** that take a pointer to their argument slot are MODIFIED (the old rule needed two or more HW1 parameters).",
   "- **KAS hash keys.** A function that calls `kasfScopeName` in HW1 and tests the `0x80000000` hash bit in Cataclysm is MODIFIED.",
@@ -19088,13 +19088,13 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R6 startup-keys] HW1's body (it also saves the renderer names); GoK's SDL version kept"
+  "note": "[review: M2-R6 startup-keys] HW1's body (it also saves the renderer names); GoK's SDL version kept | [review: M3-R1 ui-scale] compared (decompile 0x005604e0): RGLtype, MAIN_WindowWidth / Height / Depth and the three renderer names saved; the tree (GoK, decision 28: one GL backend) saves the size and depth only: MODIFIED (decision 28). HWI-FEATURE(ui-scale): the size saved is the window request (uiScaleWindowRequestGet), MAIN_Window* being the logical size | [audit: M3-R1 ui-scale] reclassified MODIFIED -> IDENTICAL: the exe's body equals HW1's (Win32/main.c:2354: RGLtype, the size and depth, the GL / device / D3D names): the class compares the exe with HW1, so IDENTICAL; GoK's SDL tree saves only the size and depth (decision 28)"
  },
  "0x00560550": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R6 startup-keys] HW1's body (rGL software device names); GoK's SDL version kept"
+  "note": "[review: M2-R6 startup-keys] HW1's body (rGL software device names); GoK's SDL version kept | [review: M3-R1 ui-scale] compared (decompile 0x00560550): the software renderer's names, MAIN_WindowWidth / Height / Depth = 640 / 480 / 16 and their copies; the tree (GoK, decision 28: no software renderer) copies the current size into mainWindowWidth / Height and sets opDeviceIndex -1: MODIFIED (decision 28). HWI-FEATURE(ui-scale): the size copied is the window request | [audit: M3-R1 ui-scale] reclassified MODIFIED -> IDENTICAL: the exe's body equals HW1's (Win32/main.c:2365: rgl.dll, sw, 640x480x16, opDeviceIndex -1, gDevcaps 0): IDENTICAL; GoK's SDL tree copies the current size instead (decision 28)"
  },
  "0x005605f0": {
   "class": "MODIFIED",

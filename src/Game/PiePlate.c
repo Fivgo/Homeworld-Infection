@@ -44,6 +44,7 @@
 #include "Tweak.h"
 #include "Undo.h"
 #include "Universe.h"
+#include "uiscale.h"         // HWI-FEATURE(ui-scale): the pie plate's lines one logical pixel wide
 
 // CAT (M2-R5 hud): the exe's GL -> screen conversion rounds to the nearest pixel (the 0x0072a458 rounding constant
 //      added in double precision) where HW1's primGLToScreenX truncated
@@ -1050,14 +1051,14 @@ void pieMovementCursorDraw(real32 distance)
     if (ABS(piePointSpecZ) < pieDottedDistance)
     {
         glEnable(GL_LINE_STIPPLE);
-        glLineStipple(1, (GLushort)pieStipplePattern);
+        glLineStipple((uiScalePercent + 50) / 100, (GLushort)pieStipplePattern);  // HWI-FEATURE(ui-scale): the dots in logical pixels (100%: 1)
         primLine3(&piePlanePoint, &selCentrePoint, moveLineColor);//draw line from centre to mouse point on x/y plane
         glDisable(GL_LINE_STIPPLE);
     }
     else
     {                                                       //if point off standard Z-plane
         glEnable(GL_LINE_STIPPLE);
-        glLineStipple(1, (GLushort)pieStipplePattern);
+        glLineStipple((uiScalePercent + 50) / 100, (GLushort)pieStipplePattern);  // HWI-FEATURE(ui-scale): the dots in logical pixels (100%: 1)
         primLine3(&pieHeightPoint, &selCentrePoint, moveLineColor);//draw from centre of dish to height point
         glDisable(GL_LINE_STIPPLE);
         primLine3(&pieHeightPoint, &piePlanePoint, moveLineColor); //TW_MOVE_PIZZA_COLOR tweakable global variable (tweak.*)
@@ -1400,6 +1401,10 @@ void piePointSpecDraw(void)
     distance = fmathSqrt(vecMagnitudeSquared(world0));
     //prepare for drawing
     primModeClear2();
+    if (uiScalePercent != 100)                              // HWI-FEATURE(ui-scale): the pie plate, its spokes, the move
+    {                                                       // HWI-FEATURE(ui-scale): lines and the ships' height lines are
+        glLineWidth(uiScaleLineWidth(1.0f));                // HWI-FEATURE(ui-scale): HUD: one logical pixel wide (back to
+    }                                                       // HWI-FEATURE(ui-scale): 1 at primModeClear2)
     rndLightingEnable(FALSE);                               //draw the pizza dish
     rndTextureEnable(FALSE);                                //disable texturing
 

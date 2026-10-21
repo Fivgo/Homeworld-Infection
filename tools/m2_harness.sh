@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle|replay|ai|skirmish|missiontest|loadgame|warpstart
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle|uiscale|replay|ai|skirmish|missiontest|loadgame|warpstart
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -156,6 +156,24 @@
 #                    file's value), the Video_Options FULL DETAIL checkbox (OP_NoLOD) shows it and its clicks set 0 / 1,
 #                    Accept writes and reads back noLOD 0 / 1, the console row noLOD, the frame-rate presets
 #                    (cat_opSetAllDefaults: low 0, high 1), the switch run-only; pass "-- /lodBands" to check the switch
+#                    uiscale: /catUiScaleTest (M3-R1 ui-scale, HWI-FEATURE(ui-scale), docs/m3-r1-ui-scale.md; src/Game/UiScaleTest.c):
+#                    once the front end is up at Main_game_screen, with no OS input: the UI scale chosen for the window
+#                    (auto: 200 at a physical height of 2160 or more, 150 at 1440 or more, 100 below; or the uiScale row /
+#                    the /uiScale switch) and the logical size (physical / scale, rounded); the windowed mode's fit rule
+#                    over a table of desktops (the user's 3840x2160 request against 3840x1960 usable bounds: fullscreen
+#                    desktop; "window: fit .." lines); the mouse at the physical bottom row, the bottom-right corner and
+#                    outside the window, handed to mouse.c's poll as SDL reports a window position (the test hook replaces
+#                    SDL_GetMouseState), must land on the logical bottom row / corner, a region reaching the bottom edge
+#                    under it; a click (SDL_MOUSEBUTTONDOWN / UP events handed to main.c HandleEvent, the regions processed
+#                    as regProcessTask does) at the physical centre of Main_game_screen's OPTIONS button must open the
+#                    options, one just outside it nothing; the Video screens' UI SCALE buttons (a scripted click on 150%,
+#                    Cancel; 200%, Accept's order: applied at once, the main menu re-made at the new logical size, the
+#                    saved screenWidth / Height the request); the options file's uiScale row read back with the window's
+#                    logical size kept, /uiScale run-only, the console row; "uiscaletest:" lines, "uiscaletest: done ...
+#                    result=PASS|FAIL"; quits. Pass --res WxH for the size, --cfg 'uiScale N' or "-- /uiScale N" for an
+#                    override. Every mode's summary prints the engine's "window: requested .." and "uiscale: physical .."
+#                    lines; "-- /testUsableBounds WxH[@DWxDH]" (HWI-TEST) forces the desktop's usable bounds (and display
+#                    size) the fit uses for the run's own window (the offscreen driver has none; without it no fit)
 #                    M3-R1 motion-jitter adds "toggletest: screen untouched / screen cancel" (the screens' own orders: the
 #                    Smooth motion box keeps OP_NoLOD's FAF_CallOnDelete, so its callback runs at the screen's deletion;
 #                    Cancel restores before the deletion, Accept saves after it): the flags, a switch's run-only state and
@@ -604,6 +622,7 @@ grep -q -a "/logFileLoads" "$bin" || args=(/window /nodebugInt /settingspath "$o
 [[ "$mode" == strings ]] && args+=(/catStringsTest)
 [[ "$mode" == keys ]] && args+=(/catKeysTest)
 [[ "$mode" == toggle ]] && args+=(/catToggleTest)
+[[ "$mode" == uiscale ]] && args+=(/catUiScaleTest)
 if [[ "$mode" == oracle ]]; then
 	args+=(/oracleSelfTest "$oticks" /oracleDump "$out/run.hwo")
 	[[ -n "$perturb" ]] && args+=(/oracleSelfTestPerturb "$perturb")
@@ -820,6 +839,7 @@ grep -q "nisparsetest: done" "$L" && milestone="nisparse self-test done"
 grep -q "motiontest: done" "$L" && milestone="motion self-test done"
 grep -q "motiontest: scene done" "$L" && milestone="motion scene done"
 grep -q "toggletest: done" "$L" && milestone="toggle self-test done"
+grep -q "uiscaletest: done" "$L" && milestone="uiscale self-test done"
 grep -q "skirmishtest: done" "$L" && milestone="skirmish self-test done"
 grep -q "missiontest: done" "$L" && milestone="mission self-test done"
 grep -q "loadgametest: loaded" "$L" && milestone="save loaded"
@@ -883,6 +903,8 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == warpstart ]] && echo "warpstarttest: $(grep -h 'warpstarttest: ' "$L" | sed 's/^.*warpstarttest: //' | paste -sd';')"
 	[[ "$mode" == skirmish ]] && echo "skirmishtest: $(grep -h 'skirmishtest: ' "$L" | grep -v 'skirmishtest: FAIL' | sed 's/^.*skirmishtest: //' | paste -sd';'); FAIL lines: $(grep -c 'skirmishtest: FAIL' "$L")"
 	[[ "$mode" == toggle ]] && echo "toggletest: $(grep -h 'toggletest: ' "$L" | grep -v 'toggletest: FAIL' | sed 's/^.*toggletest: //' | paste -sd';'); FAIL lines: $(grep -c 'toggletest: FAIL' "$L")"
+	[[ "$mode" == uiscale ]] && echo "uiscaletest: $(grep -h 'uiscaletest: ' "$L" | grep -v 'uiscaletest: FAIL' | sed 's/^.*uiscaletest: //' | paste -sd';'); FAIL lines: $(grep -c 'uiscaletest: FAIL' "$L")"
+	echo "$(grep -h '^window: requested\|^window: borders' "$L" | head -n 2 | paste -sd';'); $(grep -h '^uiscale: physical' "$L" | head -n 1)"
 	[[ "$mode" == keys ]] && echo "keystest: $(grep -h 'keystest: ' "$L" | grep -v 'keystest: FAIL' | sed 's/^.*keystest: //' | paste -sd';'); FAIL lines: $(grep -c 'keystest: FAIL' "$L")"
 	[[ "$mode" == sound ]] && echo "soundtest: $(grep -h 'soundtest: ' "$L" | sed 's/^.*soundtest: //' | paste -sd';'); UBSan reports in fquant.c/fqcodec.c: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c 'fquant\.c\|fqcodec\.c'); PATCH reports: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c "struct PATCH")"
 	[[ "$mode" == etg ]] && echo "etg: $(grep -c . "$out/etg.list" 2>/dev/null) listed; $(grep -h 'etgtest: etgStartup done\|etgtest: self-test done\|etgtest: created\|etgtest: effect self-test done' "$L" | sed 's/^.*etgtest: //' | paste -sd';')"

@@ -119,6 +119,8 @@
 #include "ShipSelect.h"
 #include "MotionInterp.h"   // HWI-FEATURE(motion-interp): universeTaskHandle
 #include "MotionTest.h"     // HWI-FEATURE(motion-interp): /catToggleTest
+#include "uiscale.h"         // HWI-FEATURE(ui-scale): the uiScale row, the window rows
+#include "UiScaleTest.h"     // HWI-TEST (M3-R1 ui-scale): /catUiScaleTest
 
 #ifdef _WIN32
     #include <windows.h>
@@ -612,6 +614,7 @@ fecallback utyCallbacks[] =
     {opAutodockFuelValue,       "OP_Autodock_Fuel_Value"},
     {opNoLOD,                   "OP_NoLOD"},
     {opSmoothMotion,            "OP_SmoothMotion"},     // HWI-FEATURE(motion-interp): the Smooth motion checkbox (Options.c)
+    {opUiScale,                 "OP_UiScale"},          // HWI-FEATURE(ui-scale): the UI SCALE radio buttons (Options.c)
     {kbListWindowCB,            "OP_KeyBindingsList"},
     // CAT: no OP_KeyBindingsPoolList row (the exe has none: HW1's key-pool list window, kbPoolListWindowCB)
     {utyYesDropPlayer,          "UTY_DropPlayer"},
@@ -809,6 +812,9 @@ scriptEntry utyOptionsList[] =
     {"nisInterpolate",                 scriptSetUdwordCB, &nisInterpolate},     // HWI-FEATURE(motion-interp)
     // HWI-FEATURE(letterbox-setting): 0 (default) the exe's letterbox bars in front of the scene, 1 the old look
     {"letterboxBehind",                scriptSetUdwordCB, &letterboxBehind},    // HWI-FEATURE(letterbox-setting)
+    // HWI-FEATURE(ui-scale): the scale of everything drawn in 2D, percent: 0 (default) = by the window height (200 at
+    //      2160 rows or more, 150 at 1440 or more, 100 below), else 100 .. 400 (the Video screens offer 100 / 150 / 200)
+    {"uiScale",                        scriptSetUdwordCB, &uiScale},            // HWI-FEATURE(ui-scale)
     {"TimeCompressionFactor",          scriptSetUbyteCB,  &turboTimeCompressionFactor},
 
     END_SCRIPT_ENTRY
@@ -964,6 +970,7 @@ void utyOptionsFileWrite(void)
     miOptionsFileValues(TRUE);                      // HWI-FEATURE(motion-interp): a switch's run-only flags stay out of the file
     rndLetterboxFileValues(TRUE);                   // HWI-FEATURE(letterbox-setting): /letterboxBehind stays out of the file
     catLodFileValues(TRUE);                         // HWI-FEATURE(full-detail): /lodBands stays out of the file
+    uiScaleFileValues(TRUE);                        // HWI-FEATURE(ui-scale): /uiScale stays out; screenWidth / Height = the request
     for (index = 0; utyOptionsList[index].name != NULL; index++)
     {
         if (utyOptionsList[index].setVarCB == scriptSetUbyteCB) {
@@ -990,6 +997,7 @@ void utyOptionsFileWrite(void)
     miOptionsFileValues(FALSE);                     // HWI-FEATURE(motion-interp): the run's flags back
     rndLetterboxFileValues(FALSE);                  // HWI-FEATURE(letterbox-setting): the run's value back
     catLodFileValues(FALSE);                        // HWI-FEATURE(full-detail): the run's value back
+    uiScaleFileValues(FALSE);                       // HWI-FEATURE(ui-scale): the run's value and the logical size back
     
     fileClose(cfgFile);
 }
@@ -1021,7 +1029,9 @@ char *catUtyOptionsFileReadBack(void)
     {
         directory[0] = '\0';
     }
+    uiScaleWindowRows(TRUE);                        // HWI-FEATURE(ui-scale): the file's screenWidth / Height are a request
     scriptSetFileSystem(directory, UTY_CONFIG_FILENAME, utyOptionsList);
+    uiScaleWindowRows(FALSE);                       // HWI-FEATURE(ui-scale): the window's logical size back
     catUtyOptionsStagedWordsSet();
     return path;
 }
@@ -4761,6 +4771,15 @@ DONE_INTROS:
     if (catNisParseTestList[0] != '\0')
     {
         catNisRunParseSelfTest();
+        utyGameQuit(NULL, NULL);
+        return(NULL);
+    }
+
+    // HWI-TEST (M3-R1 ui-scale): /catUiScaleTest: the UI scale, the window fit's rule, the mouse at the edges, a scripted
+    //      click on a front-end button, the Video screens' control, the options-file and console rows (UiScaleTest.c)
+    if (catUiScaleSelfTest)                                 // HWI-TEST
+    {
+        catUiScaleRunSelfTest();
         utyGameQuit(NULL, NULL);
         return(NULL);
     }

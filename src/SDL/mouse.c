@@ -42,6 +42,7 @@
 #include "Tweak.h"
 #include "Universe.h"
 #include "utility.h"
+#include "uiscale.h"         // HWI-FEATURE(ui-scale): window coordinates <-> logical
 
 #ifdef _WIN32
     #include <windows.h>
@@ -444,6 +445,25 @@ void mousePositionSet(sdword x, sdword y)
     }
 #endif
 */
+    // CAT: the exe clamps the position to the client rectangle (mousePositionSet 0x0056e8d0: utyClientRectGet, then
+    //      0 .. width - 1 / height - 1, MOUSE_CURSOR_CLAMP on; GoK commented the clamp out above). The exe's client
+    //      rectangle is MAIN_WindowWidth x MAIN_WindowHeight, the tree's logical screen (HWI-FEATURE(ui-scale))
+    if (x < 0)
+    {
+        x = 0;
+    }
+    if (y < 0)
+    {
+        y = 0;
+    }
+    if (x >= MAIN_WindowWidth)
+    {
+        x = MAIN_WindowWidth - 1;
+    }
+    if (y >= MAIN_WindowHeight)
+    {
+        y = MAIN_WindowHeight - 1;
+    }
     mouseCursorXPosition = x;                               //set internal mouse location
     mouseCursorYPosition = y;
     /*
@@ -453,7 +473,10 @@ void mousePositionSet(sdword x, sdword y)
     */
 
     if (!mouseClip)
-        SDL_WarpMouseInWindow(NULL, x * (real32)MAIN_WindowWidthActual/(real32)MAIN_WindowWidth, y * (real32)MAIN_WindowHeightActual/(real32)MAIN_WindowHeight);
+    {
+        uiScaleLogicalToMouse(&x, &y);              // HWI-FEATURE(ui-scale): the logical position in SDL's window coordinates
+        SDL_WarpMouseInWindow(NULL, x, y);
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -1531,18 +1554,28 @@ void mousePoll(void)
     if (mouseClip)
     {
         SDL_GetRelativeMouseState(&tmpX, &tmpY);
-        mouseCursorXPosition += tmpX * (real32)MAIN_WindowWidth / (real32)MAIN_WindowWidthActual;
-        mouseCursorYPosition += tmpY * (real32)MAIN_WindowHeight / (real32)MAIN_WindowHeightActual;
+        // HWI-FEATURE(ui-scale): SDL's motion (window coordinates) in logical units, the fraction carried over
+        uiScaleRelativeToLogical(&tmpX, &tmpY);     // HWI-FEATURE(ui-scale)
+        mouseCursorXPosition += tmpX;               // HWI-FEATURE(ui-scale)
+        mouseCursorYPosition += tmpY;               // HWI-FEATURE(ui-scale)
         mouseClipPointToRect(&mouseCursorXPosition, &mouseCursorYPosition, &mouseClipRect);
         mousePositionSet(mouseCursorXPosition, mouseCursorYPosition);
     }
     else
     {
-        SDL_GetMouseState(&mouseCursorXPosition, &mouseCursorYPosition);
+        if (!uiScaleTestMouseGet(&mouseCursorXPosition, &mouseCursorYPosition))  // HWI-TEST: UiScaleTest.c's position
+        {
+            SDL_GetMouseState(&mouseCursorXPosition, &mouseCursorYPosition);
+        }
 
         // scale the mouse position to the UI resolution in case render resolution is different
-        mouseCursorXPosition = (sdword)((real32)mouseCursorXPosition * (real32)MAIN_WindowWidth / (real32)MAIN_WindowWidthActual);
-        mouseCursorYPosition = (sdword)((real32)mouseCursorYPosition * (real32)MAIN_WindowHeight / (real32)MAIN_WindowHeightActual);
+        // HWI-FEATURE(ui-scale): window coordinates -> logical (the window's last row -> the logical last row), then
+        //      clamped to the logical screen (SDL reports positions outside the window while a button is held)
+        uiScaleMouseToLogical(&mouseCursorXPosition, &mouseCursorYPosition);    // HWI-FEATURE(ui-scale)
+        mouseCursorXPosition = (mouseCursorXPosition < 0) ? 0 :                 // HWI-FEATURE(ui-scale)
+            ((mouseCursorXPosition >= MAIN_WindowWidth) ? MAIN_WindowWidth - 1 : mouseCursorXPosition);    // HWI-FEATURE(ui-scale)
+        mouseCursorYPosition = (mouseCursorYPosition < 0) ? 0 :                 // HWI-FEATURE(ui-scale)
+            ((mouseCursorYPosition >= MAIN_WindowHeight) ? MAIN_WindowHeight - 1 : mouseCursorYPosition);  // HWI-FEATURE(ui-scale)
     }
     //perform client area enter/exit logic to hide/show Windows system cursor
     /*

@@ -1279,7 +1279,8 @@ void catMotionTestFrameEnd(void)
     {
         return;
     }
-    size = (size_t)MAIN_WindowWidth * (size_t)MAIN_WindowHeight * 4;
+    // HWI-FEATURE(ui-scale): the read-back is the physical framebuffer (MAIN_Window* are the logical size; equal at 100%)
+    size = (size_t)MAIN_WindowWidthActual * (size_t)MAIN_WindowHeightActual * 4;  // HWI-FEATURE(ui-scale)
     if (mtPixels == NULL)
     {
         mtPixels = malloc(size);
@@ -1287,7 +1288,7 @@ void catMotionTestFrameEnd(void)
     if (mtPixels != NULL && !mtRealClock)           // M3-R1 motion-jitter: no read-back on the real clock (crc=0)
     {
         glPixelStorei(GL_PACK_ALIGNMENT, 1);
-        glReadPixels(0, 0, MAIN_WindowWidth, MAIN_WindowHeight, GL_RGBA, GL_UNSIGNED_BYTE, mtPixels);
+        glReadPixels(0, 0, MAIN_WindowWidthActual, MAIN_WindowHeightActual, GL_RGBA, GL_UNSIGNED_BYTE, mtPixels);   // HWI-FEATURE(ui-scale)
         crc = mtCrc(mtPixels, size);
         if ((sdword)mtFrame == mtShotFrame)
         {                                           // <dump>.<frame>.ppm, top row first
@@ -1298,12 +1299,12 @@ void catMotionTestFrameEnd(void)
             snprintf(name, sizeof(name), "%s.%u.ppm", mtDumpName, (unsigned)mtFrame);
             if ((f = fopen(name, "wb")) != NULL)
             {
-                fprintf(f, "P6\n%d %d\n255\n", (int)MAIN_WindowWidth, (int)MAIN_WindowHeight);
-                for (row = MAIN_WindowHeight - 1; row >= 0; row--)
+                fprintf(f, "P6\n%d %d\n255\n", (int)MAIN_WindowWidthActual, (int)MAIN_WindowHeightActual);   // HWI-FEATURE(ui-scale)
+                for (row = MAIN_WindowHeightActual - 1; row >= 0; row--)   // HWI-FEATURE(ui-scale)
                 {
-                    ubyte *p = mtPixels + (size_t)row * (size_t)MAIN_WindowWidth * 4;
+                    ubyte *p = mtPixels + (size_t)row * (size_t)MAIN_WindowWidthActual * 4;   // HWI-FEATURE(ui-scale)
                     sdword x;
-                    for (x = 0; x < MAIN_WindowWidth; x++, p += 4)
+                    for (x = 0; x < MAIN_WindowWidthActual; x++, p += 4)   // HWI-FEATURE(ui-scale)
                     {
                         fwrite(p, 1, 3, f);
                     }

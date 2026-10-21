@@ -17,6 +17,7 @@
 #include "glinc.h"
 #include "render.h"
 #include "rglu.h"
+#include "uiscale.h"         // HWI-FEATURE(ui-scale): 2D line widths in logical pixels
 
 #ifdef _WIN32
     #include <windows.h>
@@ -53,6 +54,10 @@ void primModeSetFunction2(void)
     rndLightingEnable(FALSE);                               //mouse is self-illuminated
     rndTextureEnable(FALSE);
     glDisable(GL_DEPTH_TEST);
+    if (uiScalePercent != 100)                              // HWI-FEATURE(ui-scale): a 2D line is one logical pixel wide
+    {                                                       // HWI-FEATURE(ui-scale)
+        glLineWidth(uiScaleLineWidth(1.0f));                // HWI-FEATURE(ui-scale)
+    }                                                       // HWI-FEATURE(ui-scale)
 
     primModeEnabled = TRUE;
 }
@@ -74,6 +79,10 @@ void primModeClearFunction2(void)
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
     glPopMatrix();
+    if (uiScalePercent != 100)                              // HWI-FEATURE(ui-scale): the 3D scene's lines stay physical
+    {                                                       // HWI-FEATURE(ui-scale)
+        glLineWidth(1.0f);                                  // HWI-FEATURE(ui-scale)
+    }                                                       // HWI-FEATURE(ui-scale)
 
     primModeEnabled = FALSE;
 }
@@ -111,7 +120,7 @@ void primTriOutline2(triangle *tri, sdword thickness, color c)
 {
     GLfloat linewidth;
     glGetFloatv(GL_LINE_WIDTH, &linewidth);
-    glLineWidth((GLfloat)thickness);
+    glLineWidth(uiScaleLineWidth((GLfloat)thickness));     // HWI-FEATURE(ui-scale): a width in logical pixels
     glBegin(GL_LINE_LOOP);
     glColor3ub(colRed(c), colGreen(c), colBlue(c));
     glVertex2f(primScreenToGLX(tri->x0), primScreenToGLY(tri->y0));
@@ -258,7 +267,7 @@ void primRectOutline2(rectangle *rect, sdword thickness, color c)
     GLfloat linewidth;
     glGetFloatv(GL_LINE_WIDTH, &linewidth);
 
-    glLineWidth((GLfloat)thickness);
+    glLineWidth(uiScaleLineWidth((GLfloat)thickness));     // HWI-FEATURE(ui-scale): a width in logical pixels
 
     glBegin(GL_LINE_LOOP);
     glColor3ub(colRed(c), colGreen(c), colBlue(c));
@@ -376,7 +385,7 @@ void primOvalArcOutline2(oval *o, real32 radStart, real32 radEnd, sdword thickne
     segment = (sdword)(radStart * (real32)segments / (2.0f * PI));//get starting segment
     endSegment = (sdword)(radEnd * (real32)segments / (2.0f * PI) - 0.01f);//get ending segment
 
-    glLineWidth((GLfloat)thickness);
+    glLineWidth(uiScaleLineWidth((GLfloat)thickness));     // HWI-FEATURE(ui-scale): a width in logical pixels
     glBegin(GL_LINE_STRIP);
 
     x = centreX + (real32)sin((double)radStart) * width;    //first vertex
@@ -511,7 +520,7 @@ void primLineThick2(sdword x0, sdword y0, sdword x1, sdword y1, sdword thickness
 {
     GLfloat linewidth;
     glGetFloatv(GL_LINE_WIDTH, &linewidth);
-    glLineWidth((GLfloat)thickness);
+    glLineWidth(uiScaleLineWidth((GLfloat)thickness));     // HWI-FEATURE(ui-scale): a width in logical pixels
     glBegin(GL_LINES);
     glColor3ub(colRed(c), colGreen(c), colBlue(c));
     glVertex2f(primScreenToGLX(x0), primScreenToGLY(y0));
@@ -539,7 +548,7 @@ void primLineLoopStart2(sdword thickness, color c)
     glEnable(GL_LINE_SMOOTH);
     if (!LLblendon) glEnable(GL_BLEND);
     glColor3ub(colRed(c), colGreen(c), colBlue(c));
-    glLineWidth((GLfloat)thickness);
+    glLineWidth(uiScaleLineWidth((GLfloat)thickness));     // HWI-FEATURE(ui-scale): a width in logical pixels
     glBegin(GL_LINE_LOOP);
 }
 
@@ -692,7 +701,7 @@ void primBeveledRectOutline(rectangle *rect, sdword thickness, color c,
     GLfloat linewidth;
     glGetFloatv(GL_LINE_WIDTH, &linewidth);
     glColor3ub(colRed(c), colGreen(c), colBlue(c));
-    glLineWidth((GLfloat)thickness);
+    glLineWidth(uiScaleLineWidth((GLfloat)thickness));     // HWI-FEATURE(ui-scale): a width in logical pixels
     glBegin(GL_LINE_LOOP);
     glVertex2f(SX(X0+xb), SY(Y0));
     glVertex2f(SX(X1-xb), SY(Y0));
@@ -723,7 +732,7 @@ void primRoundRectOutline(rectangle *rect, sdword thickness, color c, uword xb, 
     glGetFloatv(GL_LINE_WIDTH, &linewidth);
 
     glColor3ub(colRed(c), colGreen(c), colBlue(c));
-    glLineWidth((GLfloat)thickness);
+    glLineWidth(uiScaleLineWidth((GLfloat)thickness));     // HWI-FEATURE(ui-scale): a width in logical pixels
     glBegin(GL_LINES);
     glVertex2f(SX(X0+xb), SY(Y0));
     glVertex2f(SX(X1-xb), SY(Y0));
@@ -777,7 +786,7 @@ void primMaskedRoundRectOutline(rectangle *rect, sdword thickness, color c,
     glGetFloatv(GL_LINE_WIDTH, &linewidth);
 
     glColor3ub(colRed(c), colGreen(c), colBlue(c));
-    glLineWidth((GLfloat)thickness);
+    glLineWidth(uiScaleLineWidth((GLfloat)thickness));     // HWI-FEATURE(ui-scale): a width in logical pixels
     glBegin(GL_LINES);
     glVertex2f(SX(X0+xb), SY(Y0));
     glVertex2f(SX(X1-xb), SY(Y0));

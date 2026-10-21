@@ -1148,8 +1148,9 @@ void btgConvertStar(btgTransStar* out, udword nVert)
 
     halfWidth  = (real32)in->width / 2.0f;
     halfHeight = (real32)in->height / 2.0f;
-    halfWidth *= 640.0f / MAIN_WindowWidth;
-    halfHeight *= 480.0f / MAIN_WindowHeight;
+    // CAT-TODO(M3-R2): the exe has no resolution term here (btgConvertStar 0x00428c20: width * 0.5 at 0x0072a480, a background star a fixed share of the screen, as HW1); GoK's 640 / W keeps it a fixed pixel size; porting it moves every frame with a BTG star (the dumps' crc), a look for the fix round's review
+    halfWidth *= 640.0f / MAIN_WindowWidthActual;         // HWI-FEATURE(ui-scale): a background star's size is in physical
+    halfHeight *= 480.0f / MAIN_WindowHeightActual;       // HWI-FEATURE(ui-scale): pixels, as the 3D view's (100%: the same)
 
     x = in->x - halfWidth;
     y = in->y + halfHeight;

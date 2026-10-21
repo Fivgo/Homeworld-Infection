@@ -116,6 +116,8 @@ void opCPUAttacks(char *name, struct tagfeatom *atom);   // the OP_CPU_Attacks r
 void opOptionsSaveSettings(void);                                          // HWI-FEATURE(motion-interp): declared for /catToggleTest
 void opRestoreSavedSettings(void);                                         // HWI-FEATURE(motion-interp): declared for /catToggleTest
 void opSmoothMotionAtomsAdd(struct tagfibfileheader *header);              // HWI-FEATURE(motion-interp): added to the screens
+void opUiScale(char *name, struct tagfeatom *atom);                       // HWI-FEATURE(ui-scale): the UI SCALE radio buttons
+void opUiScaleAtomsAdd(struct tagfibfileheader *header);                   // HWI-FEATURE(ui-scale): added to the Video screens
 
 extern udword opPauseOrders;
 extern udword opShipRecoil;

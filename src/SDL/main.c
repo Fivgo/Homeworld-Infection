@@ -78,6 +78,8 @@
 #include "UnivUpdate.h"     // CAT: catMultiplayerAutoSave (/SaveMPGames)
 #include "texreg.h"         // CAT: /catTexturesTest (port diagnostic)
 #include "OracleDump.h"     // HWI-ORACLE: /oracleDump, /oracleSelfTest
+#include "uiscale.h"         // HWI-FEATURE(ui-scale): /uiScale, /testUsableBounds; the window request
+#include "UiScaleTest.h"     // HWI-TEST (M3-R1 ui-scale): /catUiScaleTest
 
 #ifdef _WIN32
     #define strcasecmp _stricmp
@@ -594,6 +596,22 @@ bool32 LetterboxBehindSet(char *string)             // HWI-FEATURE(letterbox-set
     rndLetterboxBehindSwitch();                     // HWI-FEATURE(letterbox-setting)
     return TRUE;                                    // HWI-FEATURE(letterbox-setting)
 }                                                   // HWI-FEATURE(letterbox-setting)
+// HWI-FEATURE(ui-scale): /uiScale N: the UI scale in percent (0 = by the window height; 100 .. 400) for this run only;
+//      after the options file (read before ProcessCommandLine), run-only as /noInterp: the saves keep the file's uiScale
+//      row (uiscale.c uiScaleFileValues)
+bool32 UiScaleSet(char *string)                     // HWI-FEATURE(ui-scale)
+{                                                   // HWI-FEATURE(ui-scale)
+    uiScaleSwitchSet((sdword)strtol(string, NULL, 10)); // HWI-FEATURE(ui-scale)
+    return TRUE;                                    // HWI-FEATURE(ui-scale)
+}                                                   // HWI-FEATURE(ui-scale)
+// HWI-TEST (M3-R1 ui-scale): /testUsableBounds WxH[@DWxDH]: the desktop's usable bounds (and display size) the windowed
+//      mode's fit uses for this run (uiscale.c uiScaleWindowFit), for the harness, whose offscreen driver has no desktop;
+//      /catUiScaleTest: the UI-scale self-test (Game/UiScaleTest.c)
+bool32 TestUsableBoundsSet(char *string)
+{
+    uiScaleTestBoundsSet(string);
+    return TRUE;
+}
 // HWI-FEATURE(full-detail): /lodBands: FULL DETAIL (the options file's noLOD row, on by default) off for this run only: the
 //      exe's size-on-screen bands and frame-time passes pick the levels drawn; run-only as /noInterp (LOD.c catLodBandsSwitch:
 //      the saves keep the file's noLOD row)
@@ -1382,6 +1400,9 @@ commandoption commandOptions[] =
     entryFn("/lodBands",                LodBandsSet, " - this run only: FULL DETAIL off (the exe's levels of detail by size on screen and frame time; the options file's noLOD row keeps its value)."),   // HWI-FEATURE(full-detail)
     entryFnParam("/catLodTest",         CatLodTestSet, " <tick>[:far][:fleet] - log every object's level of detail (the exe's and the one drawn) in the main view's first frame of that universe tick (\"lodtest:\" lines); :far pulls the camera out to its farthest zoom, :fleet closes the sensors manager at tick 16 and focuses the camera on every ship."),   // HWI-TEST
     entryFnParam("/catLodStats",        CatLodStatsSet, " <from>-<to>[:fleet] - per frame of those universe ticks: the render time (to the flip, glFinish), the objects and the mesh vertices and polygons drawn (\"lodstats:\" lines, the median and 99th percentile at the end)."),   // HWI-TEST
+    entryFnParam("/uiScale",            UiScaleSet, " <percent> - this run only: the UI scale (0 = by the window height: 200 at 2160 rows or more, 150 at 1440 or more, 100 below; else 100 .. 400; the options file's uiScale row keeps its value)."),   // HWI-FEATURE(ui-scale)
+    entryFnParam("/testUsableBounds",   TestUsableBoundsSet, " <W>x<H>[@<DW>x<DH>] - test: the desktop's usable bounds (and display size) the windowed mode's fit uses."),   // HWI-TEST
+    entryVr("/catUiScaleTest",          catUiScaleSelfTest, TRUE, " - the UI scale's self-test in the front end: the fit's table, the scripted mouse at the physical bottom row and corner, a click on a front-end button and just outside it, the Video screens' control, the options-file row and the console row, then exit."),   // HWI-TEST
     entryFn("/letterboxBehind",         LetterboxBehindSet, " - this run only: the cutscene letterbox bars drawn behind ships near the camera (the old look; the options file's letterboxBehind row keeps its value)."),   // HWI-FEATURE(letterbox-setting)
     entryFnParam("/catMotionTest",      CatMotionTestSet, " <ticks> - headless Mission01 run at the virtual frame rate (/catMotionFps, default 144): a focused, a crossing, a receding and a resting ship, per-frame screen positions to /catMotionDump, exit after <ticks> ticks."),   // HWI-FEATURE(motion-interp)
     entryFnParam("/catNisMotionTest",   CatNisMotionTestSet, " <nis>[:<from>:<to>] - headless Mission01 start, then nis\\<nis>.nis plays at the virtual frame rate; the frames between NIS times <from> and <to> go to /catMotionDump, then exit."),   // HWI-FEATURE(motion-interp)
@@ -2050,15 +2071,14 @@ sdword saveMAIN_WindowDepth;
 ----------------------------------------------------------------------------*/
 void mainSaveRender(void)
 {
-    saveMAIN_WindowWidth  = MAIN_WindowWidth;
-    saveMAIN_WindowHeight = MAIN_WindowHeight;
+    // HWI-FEATURE(ui-scale): MAIN_Window* hold the logical size once the window exists; the mode to restore is the request
+    uiScaleWindowRequestGet(&saveMAIN_WindowWidth, &saveMAIN_WindowHeight);    // HWI-FEATURE(ui-scale)
     saveMAIN_WindowDepth  = MAIN_WindowDepth;
 }
 
 void mainSetupSoftware(void)
 {
-    mainWindowWidth  = MAIN_WindowWidth;
-    mainWindowHeight = MAIN_WindowHeight;
+    uiScaleWindowRequestGet(&mainWindowWidth, &mainWindowHeight);  // HWI-FEATURE(ui-scale): the window's request
     mainWindowDepth  = MAIN_WindowDepth;
 
     opDeviceIndex = -1;
@@ -2103,8 +2123,9 @@ void mainRestoreSoftware(void)
 ----------------------------------------------------------------------------*/
 void mainRestoreRender(void)
 {
-    mainWindowWidth  = MAIN_WindowWidth  = saveMAIN_WindowWidth;
-    mainWindowHeight = MAIN_WindowHeight = saveMAIN_WindowHeight;
+    mainWindowWidth  = saveMAIN_WindowWidth;
+    mainWindowHeight = saveMAIN_WindowHeight;
+    uiScaleWindowRequest(saveMAIN_WindowWidth, saveMAIN_WindowHeight);   // HWI-FEATURE(ui-scale): MAIN_Window* = the request
     mainWindowDepth  = MAIN_WindowDepth  = saveMAIN_WindowDepth;
 
     mainRescaleMainWindow();
