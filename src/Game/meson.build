@@ -142,6 +142,7 @@ src_game = files('AIAttackMan.c',
                  'Tactics.c',
                  'TaskBar.c',
                  'Task.c',
+                 'TeamColourTest.c',      # HWI-TEST (M3-R1 team-colours-warp): /catTeamColourTest
                  'Teams.c',
                  'Timer.c',
                  'TitanNet.c',

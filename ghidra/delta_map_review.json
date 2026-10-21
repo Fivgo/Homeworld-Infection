@@ -6623,7 +6623,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the previous level's fog layer and lens flare textures go after teReset; the need-capital-ship words start at 0; multiplayer captures test 0x00a447b0 for tStandardFrigate only",
-  "note": "[review: M2-R5 render] fog / lens flare part ported (LevelLoad.c); the other deltas are the level-load producers' [review: M2-R8 kas-runtime-mission01] the need words ported as the exe has them [review: M2-R8 singleplayer-tutorial] HW1's warp preload call (singlePlayerPreLoadCheck) removed: the exe has none | [review: M2-R9 missions-02-09] the pending-slipgate pointer of the \"Slipgate\" mission-sphere lines (0x00c362dc) is reset as the exe does (0x004a3245); the \"Mine\" and \"Slipgate\" readers (0x004a3f20, 0x004a1020) ported into LevelLoad.c",
+  "note": "[review: M2-R5 render] fog / lens flare part ported (LevelLoad.c); the other deltas are the level-load producers' [review: M2-R8 kas-runtime-mission01] the need words ported as the exe has them [review: M2-R8 singleplayer-tutorial] HW1's warp preload call (singlePlayerPreLoadCheck) removed: the exe has none | [review: M2-R9 missions-02-09] the pending-slipgate pointer of the \"Slipgate\" mission-sphere lines (0x00c362dc) is reset as the exe does (0x004a3245); the \"Mine\" and \"Slipgate\" readers (0x004a3f20, 0x004a1020) ported into LevelLoad.c | [review: M3-R1 team-colours-warp] compared the colour part: the 8 schemes saved (0x60 dwords from teColorSchemes 0x00bb3020), universeFlagEverythingNeeded, teReset, the fog / lens flare unloads, universeDefaultTeamColors, the mission's preload script, cat_soundLevelReset, then for each player index < numPlayers (0x00a43cac) with no aiPlayer the saved scheme restored, for the others teTeamColorsSet when base or stripe changed: as the tree",
   "sample": "port-R5-render"
  },
  "0x004a4250": {
@@ -6959,7 +6959,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "trTextureRegister gets the new 4th argument (1) at both calls",
-  "note": "callee arity change (audit sample #8); rest as HW1",
+  "note": "callee arity change (audit sample #8); rest as HW1 | [review: M3-R1 team-colours-warp] compared: one trTextureRegister per player whose static teamColor byte is set, with teColorSchemes[i] (0x00bb3020 + 0x30 * i) and 4th argument 1; no static: one registration with no colour; 0xffffffff when nothing was registered (the tree returns NULL and its callers test NULL: the same). GoK's extra condition utyShipsAlwaysUseOwnerColors is not in the exe (the option row ShipsAlwaysUseOwnerColors is FALSE by default and in the user's options file: not changed here)",
   "sample": "reread-R2"
  },
  "0x004ae9c0": {
@@ -7001,7 +7001,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "trTextureRegister gets a 4th argument (push 1)",
-  "note": "callee arity, M2-R2 startup report; was IDENTICAL/medium",
+  "note": "callee arity, M2-R2 startup report; was IDENTICAL/medium | [review: M3-R1 team-colours-warp] compared the recolour passes (a handle whose palette holds another needed team's colours drops all handles; removals of unneeded schemes; trTextureColorsUpdate for kept ones, trTextureRegister / trRegisterAddition for new ones): as the tree",
   "sample": "port-R3"
  },
  "0x004af710": {
@@ -10914,7 +10914,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "cat_missionTimerReset at the end; singlePlayerLoadNewLevel: cat_fowCreatePlayerGrids after bobResetProperties ported (CAT-FIX: the previous level's grid freed first); (nisLevel, keepMission); Mission01 from its opening NIS: the fleet docks and the capital ships / modules go into the ether; cat_spDeleteLeftBehindShips; the fleet modifier by ship class; the effects start",
-  "note": "[review: M2-R5 hud] the call added | [review: M2-R6 mainrgn-popup] cat_mimicInitDisguiseTables added | [review: M2-R6 nis-fow-camera] singlePlayerLoadNewLevel: cat_fowCreatePlayerGrids after bobResetProperties ported (CAT-FIX: the previous level's grid freed first) [review: M2-R8 kas-runtime-mission01] the whole body ported",
+  "note": "[review: M2-R5 hud] the call added | [review: M2-R6 mainrgn-popup] cat_mimicInitDisguiseTables added | [review: M2-R6 nis-fow-camera] singlePlayerLoadNewLevel: cat_fowCreatePlayerGrids after bobResetProperties ported (CAT-FIX: the previous level's grid freed first) [review: M2-R8 kas-runtime-mission01] the whole body ported | [review: M3-R1 team-colours-warp] compared the order of the level change: levelPreInit, universeStaticInit, trailsRecolorize / mistrailsRecolorize, the fleet modifier, levelStartNext, the effects, pingReset / subReset / subTexturesReset, trRegistryRefresh: as the tree (HWI-TEST team-colour hooks only)",
   "sample": "port-R6-nis-fow-camera"
  },
  "0x0051b340": {
@@ -15787,7 +15787,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M3-R1 team-colours-warp] compared (decompile): pending or shared: +0x14; paletted: +0x14 + 0x400 * n; RGB: +0x14 + 4 * n: as the tree",
   "sample": "reread-R2"
  },
  "0x005860d0": {
@@ -15807,8 +15807,8 @@
  "0x00587a50": {
   "class": "MODIFIED",
   "confidence": "medium",
-  "change": "size-sort qsort + trCramRAMScaleCompute/trCramIntoRAM replaced by one call to trCramRAMComputeAndScale(); trMeshSortList nulled after free; sorts with the exe's qsort",
-  "note": "trSharedFilenameCreate/LiF-measure paths inlined, same order | [review: M2-R9 oracle-rung-physics] the exe's CRT qsort 0x00671060 (CatSort.c; trMeshSortListSort inlined, 0x00588327)",
+  "change": "size-sort qsort + trCramRAMScaleCompute/trCramIntoRAM replaced by one call to trCramRAMComputeAndScale(); trMeshSortList nulled after free; sorts with the exe's qsort; the measurement pass lists only PENDING entries (HW1 also listed the loaded ones)",
+  "note": "trSharedFilenameCreate/LiF-measure paths inlined, same order | [review: M2-R9 oracle-rung-physics] the exe's CRT qsort 0x00671060 (CatSort.c; trMeshSortListSort inlined, 0x00588327) | [review: M3-R1 team-colours-warp] compared the measurement pass: trMeshSortAdd(index, flags) for every allocated entry, the flags the local word (pushed at 0x00588231 before the call at 0x0058823e) that only a PENDING entry's measurement writes (trImageMeasureFromListing's flags, or the .LiF header's), so a still-loaded entry passes the last pending entry's listing flags; then trCramRAMComputeAndScale 0x00589a50 (which makes loaded entries it shrinks pending) and the sorted lists loaded: as the tree. The tree's CAT-FIX (M3-R1) passes a loaded entry's own flags (its .LiF team bits): with the exe's stale word the Kuun-Lan's reloaded palettes lost the team colour in Mission01 (the user's play-test item 2) | [audit: M3-R1 team-colours-warp] the review above is wrong about the exe: the measurement loop tests flags & 4 (allocated) at 0x00587d1c and flags & 1 (pending) at 0x00587d24, both je 0x00588246 (past the trMeshSortAdd call at 0x0058823e): a loaded entry is never measured, never put in the size-sort list (0x00a75fb8) and never added to a mesh-sort list, so the stale-word push at 0x00588231 is only ever reached for a pending entry, whose own measurement wrote the word. HW1's loop (the tree's) listed loaded entries too, so trCramRAMComputeAndScale shrank them and trPreLoadedTextureScale reloaded them with the stale word. Ported (CAT, texreg.c): only allocated and pending entries are listed; the producer's CAT-FIX is gone",
   "sample": "port-R9-oracle-rung-physics"
  },
  "0x005883d0": {
@@ -24446,7 +24446,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R10 render-animatics-sp] compared (decompile): as HW1 (trColorInfosPointer inlined)",
+  "note": "[review: M2-R10 render-animatics-sp] compared (decompile): as HW1 (trColorInfosPointer inlined) | [review: M3-R1 team-colours-warp] compared again (decompile): as the tree; a loaded entry with a changed colour gets a 0x40 copy, trInternalTexturesDelete, then +0x14 = the copy (trInternalTexturesDelete's own copy is lost: O4, exe alike)",
   "sample": "port-R10-render-animatics-sp"
  },
  "0x00585280": {
@@ -24556,7 +24556,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R10 tests-leftovers] compared: HW1's body with trColorInfosPointer inlined (pending / shared, paletted 0x400 * n, else 4 * n), the palette CRC over n * 8 bytes, the same growth (16-slot sub-lists, 10 entries): the tree's body is the same",
+  "note": "[review: M2-R10 tests-leftovers] compared: HW1's body with trColorInfosPointer inlined (pending / shared, paletted 0x400 * n, else 4 * n), the palette CRC over n * 8 bytes, the same growth (16-slot sub-lists, 10 entries): the tree's body is the same | [review: M3-R1 team-colours-warp] compared again: the list keyed by meshReference and the CRC of n * 8 bytes of colour infos, teamFlags |= flags & 0x30 on a join and on a new list (new list slots cleared when the array grows by 10): as the tree",
   "sample": "sample-R10-tests-leftovers"
  },
  "0x00479c60": {
@@ -24747,5 +24747,26 @@
   "change": "",
   "note": "[audit: M2-R10 tests-leftovers] compared: the exe's three branches (memAllocFunction(0x1c) with the count 0 at +0x18; the one command packet's copy with the count 1; the concatenation with the summed count) then type 0x5555, from, frame, netcheckFillInChecksum, packetBroadcastSync: HW1's body; +0x1A .. +0x1B never written (GOG's .pkts: 2,535 of 4,800 packets nonzero there in 10-17, 1,159 of 1,763 in 10-18). The tree's only edit is the CAT-FIX memset of those two bytes: an HWI deviation; the class stays IDENTICAL",
   "sample": "audit-R10-tests-leftovers"
+ },
+ "0x00586bd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M3-R1 team-colours-warp] compared: HW1's two branches: the in-place scale-down (glGetTexImage, trImageScaleIndexed / trImageScale, a new texture with the same palette) only when 0x00b3a700 == 0 (HW1: RGLtype == SWtype), the size shrinks and trNoPalettes (0x00a75f98) is clear; otherwise the colour infos copied (memAllocFunction 0x40), trInternalTexturesDelete, +0x14 = the copy, pending (the copy trInternalTexturesDelete stored is overwritten: 64 bytes leaked per reload, as trTextureColorsUpdate / trRegisterRemoval: the R10 audit's O4). IDENTICAL stands. GoK's tree keeps only the reload branch (it always draws through the no-palette path), the branch the exe takes there | [audit: M3-R1 team-colours-warp] its only caller is trCramRAMComputeAndScale 0x00589a50 (call_graph.csv), for a non-pending entry of the size-sort list, which in the exe (and the tree since the M3-R1 audit) holds only pending entries: not reached in a level change",
+  "sample": "port-M3-R1-team-colours-warp"
+ },
+ "0x00587210": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds strings \"C:\\Cataclysm\\src\\win32\\\texreg.c\"; constants 0xfdfbfaf5 not in body; loops 6 -> 18",
+  "note": "[review: M3-R1 team-colours-warp] compared: a pending entry (shared: pending cleared only) loads its .LiF, takes the .LiF's team / paletted / alpha flags, computes the hue scalars per palette; paletted: shares the palette of an earlier paletted unshared list member with the same paletteCRC (+0x10) by its usage count, else allocates n * 0x408 and colours each used palette with trBufferColorRGB only if sortList->teamFlags & 0x30 (else copies the .LiF palette; unused slots 0xff40ff40), then trPalettedTextureCreate or (trNoPalettes 0x00a75f98) trNoPalTextureCreate; RGB: colours by the entry's own flags & 0x30: as the tree (HWI-TEST record of the palette's team flags added)",
+  "sample": "port-M3-R1-team-colours-warp"
+ },
+ "0x00589a50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls trPreLoadedTextureScale; adds strings \"\\nNOTE - TexReg was unable to compres...\"; \"\\nTotal Textures To Load For This Lev...\"; globals +singlePlayerGame, singlePlayerGameInfo; constants 0xfdfbfaf5 not in body; loops 8 -> 4",
+  "note": "[review: M3-R1 team-colours-warp] compared: the shifts reset and the sizes summed over the size list, the Mission17 limit (30 %, at least 1 MB), the halving passes, then each loaded entry that shrank rescaled by trPreLoadedTextureScale and each pending one given its scaled size: as the tree | [audit: M3-R1 team-colours-warp] in the exe the size-sort list holds only pending entries (trRegistryRefresh 0x00587d24), so the trPreLoadedTextureScale branch for a loaded entry is never reached from the refresh; with the tree's pending gate (M3-R1 audit) the same holds in the tree",
+  "sample": "port-M3-R1-team-colours-warp"
  }
 }

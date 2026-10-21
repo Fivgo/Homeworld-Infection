@@ -46,6 +46,7 @@
 #include "Mesh.h"
 #include "mouse.h"
 #include "MotionTest.h"     // HWI-FEATURE(motion-interp): the measurement frame end
+#include "TeamColourTest.h" // HWI-TEST (M3-R1 team-colours-warp)
 #include "MotionInterp.h"   // HWI-FEATURE(motion-interp): miRenderBegin / miRenderEnd
 #include "NavLights.h"
 #include "Nebulae.h"
@@ -5380,6 +5381,7 @@ DEFINE_TASK(rndRenderTask)
 #endif
 #endif
         catShotFrameEnd();                                  // HWI-TEST (M3-R1 letterbox-front): /catShot, the any-mode capture
+        catTeamColourFrameEnd();                            // HWI-TEST (M3-R1 team-colours-warp): /catTeamColourTest
         catMotionTestFrameEnd();                            // HWI-FEATURE(motion-interp) measurement: the frame's dump line + CRC
 
         //demo-specific update code

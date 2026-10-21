@@ -44,6 +44,7 @@
 #include "MultiplayerGame.h"
 #include "NIS.h"
 #include "MotionTest.h"     // HWI-FEATURE(motion-interp): the motion / nis measurement switches
+#include "TeamColourTest.h" // HWI-TEST (M3-R1 team-colours-warp)
 #include "MotionInterp.h"   // HWI-FEATURE(motion-interp): /noInterp, /noNISInterp
 #include "ObjTypes.h"
 #include "Options.h"
@@ -607,6 +608,17 @@ bool32 CatShotFileSet(char *string)
 bool32 CatShotLetterboxSet(char *string)
 {
     catShotLetterboxSet();
+    return TRUE;
+}
+// HWI-TEST (M3-R1 team-colours-warp): /catTeamColourTest (Game/TeamColourTest.c: the team-colour dump and self-test)
+bool32 CatTeamColourTestSet(char *string)
+{
+    catTeamColourTest = TRUE;
+    return TRUE;
+}
+bool32 CatTeamColourTicksSet(char *string)
+{
+    sscanf(string, "%d", &catTeamColourNextTicks);
     return TRUE;
 }
 bool32 CatNisScissorOutSet(char *string)
@@ -1345,6 +1357,8 @@ commandoption commandOptions[] =
     entryFnParam("/catMotionFps",       CatMotionFpsSet, " <fps> - the virtual frame rate of /catMotionTest and /catNisMotionTest (default 144)."),   // HWI-FEATURE(motion-interp)
     entryFnParam("/catShot",            CatShotSet, " <spec> - save frames as PPM (the physical framebuffer before the flip, top row first): <spec> = comma list of <tick>[:<frame>] or <from>-<to>[/<step>][:<frame>] (universe ticks, the n-th frame of the tick)."),   // HWI-TEST
     entryFnParam("/catShotFile",        CatShotFileSet, " <prefix> - /catShot's files are <prefix>.<tick>.<frame>.ppm (default shot in the settings path)."),   // HWI-TEST
+    entryFn("/catTeamColourTest",       CatTeamColourTestSet, " - log the player's team-colour state (\"teamcolour:\" lines) before / after each level change and check it (Game/TeamColourTest.c)."),   // HWI-TEST
+    entryFnParam("/catTeamColourTicks", CatTeamColourTicksSet, " <ticks> - with /catTeamColourTest in the mission self-test: the ticks run in the next mission level (default 32)."),   // HWI-TEST
     entryFn("/catShotLetterbox",        CatShotLetterboxSet, " - /catShot: only the frames with the NIS / KAS letterbox up."),   // HWI-TEST
     entryFnParam("/catNisScissorOut",   CatNisScissorOutSet, " <tick>:<seconds> - /catNisMotionTest: the letterbox fades out from that universe tick as an NIS's ScissorOut event does (a capture of the fade; not for baselines)."),   // HWI-TEST
     entryFnParam("/catRenderTest",      CatRenderTestSet, " <frames> - headless Mission01 run through the Cataclysm object-list renderer with a lens flare source and a fog layer, logs the render counts, exit after <frames> ticks."),

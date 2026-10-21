@@ -376,6 +376,28 @@
 #   --cfg 'KEY VALUE' any mode (M3-R1), repeatable: appends the row to the run's fresh home Cataclysm.cfg (never the
 #                    template), e.g. --cfg 'letterboxBehind 1' (the old letterbox look, HWI-FEATURE(letterbox-setting));
 #                    the options file is read before the command line, so a switch after -- still wins
+#   --player-colours BASE/STRIPE any mode (M3-R1 team-colours-warp): the player's colours as the front end's colour
+#                    picker leaves them: appends PlayerBaseColor / PlayerStripeColor (the colour words, hex as the
+#                    engine's teamcolour lines print them, e.g. ff1bca82/ffff5539 = the user's play-test colours;
+#                    written as the options file's signed decimals), ColorsPicked 1 and PlayerRace 0 to the run's
+#                    fresh home Cataclysm.cfg (as --cfg does); gameStart then gives player 0 these colours
+#                    (teTeamColorsSet(0, utyBaseColor, utyStripeColor)), not the default scheme
+#   --teamcolour     the single-player modes (missiontest, sp, loadgame; M3-R1 team-colours-warp): /catTeamColourTest
+#                    (src/Game/TeamColourTest.c): "teamcolour: dump before|statics|after" lines at each level change
+#                    (the schemes, player 0's Somtaaw ship types and their colour schemes, each level-0 texture's
+#                    registry entry for scheme 0 and its palette), "teamcolour: check after|level|end ... result=" (every
+#                    loaded Somtaaw static player 0 can own: each texture's scheme-0 handle loaded, nPalettes > 0, the
+#                    palette index the one holding the player's colours, the colour info there the player's base /
+#                    stripe, a paletted texture's palette built with its mesh-sort list's team flags; the Kuun-Lan on
+#                    scheme 0; in a new game the colours the picker's) after each level's textures load, at each level's
+#                    64th tick and at the end, "teamcolour: fail ..." per fault and "teamcolour: done checks=N failed=F
+#                    ... result=PASS|FAIL" at the mission / load-game test's done line. In missiontest it also makes
+#                    the run go on past its jump to the next MISSION level (Mission01: Mission02; mission N: past its
+#                    next level's opening-NIS staging level to Mission N+1) and end 32 ticks after that level loaded
+#                    ("-- /catTeamColourTicks N": N ticks, e.g. 2600 for captures of the next mission after the
+#                    arrival). Read only: no stream field changes with it (the run is longer, so its stream has more
+#                    ticks; compare with --to-tick). A debug build also logs "teamcolour: heap level=.. dupe=N" (the
+#                    live "dupe trcolorinfo list" blocks of the memory analysis trRegistryRefresh writes)
 #   --timeout N      seconds (default 60)
 #   --driver D       offscreen (default; falls back to dummy if the offscreen driver cannot set a video mode) | dummy
 #   --data DIR       HW_Data dir to use instead of the harness data dir. ONLY for isolation runs of one item while
@@ -447,7 +469,7 @@ oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=30
 conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0; mtmission=1; savename="01 - Hiigara"; ldticks=400
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""; skticks=600; skmap=LiveFireExercise2
 warplevel=10; savesrc=""; training=0; recordname=""; recordstop=""; skbigotry=""; failjump=0
-shotspec=""; shotlb=0; res=""; cfgrows=()
+shotspec=""; shotlb=0; res=""; cfgrows=(); teamcolour=0
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -492,6 +514,12 @@ while [[ $# -gt 0 ]]; do
 		--shot-letterbox) shotlb=1 ;;
 		--res) res=$2; shift ;;
 		--cfg) cfgrows+=("$2"); shift ;;
+		--player-colours)
+			[[ "$2" =~ ^([0-9a-fA-F]{8})/([0-9a-fA-F]{8})$ ]] || { echo "m2_harness: --player-colours wants BASE/STRIPE (8 hex digits each)" >&2; exit 2; }
+			pcb=$(( 16#${BASH_REMATCH[1]} )); pcs=$(( 16#${BASH_REMATCH[2]} ))
+			(( pcb > 2147483647 )) && pcb=$(( pcb - 4294967296 )); (( pcs > 2147483647 )) && pcs=$(( pcs - 4294967296 ))
+			cfgrows+=("PlayerBaseColor    $pcb" "PlayerStripeColor    $pcs" "ColorsPicked    1" "PlayerRace    0"); shift ;;
+		--teamcolour) teamcolour=1 ;;
 		--) shift; extra=("$@"); break ;;
 		*) echo "m2_harness: unknown option $1" >&2; exit 2 ;;
 	esac
@@ -655,6 +683,7 @@ if [[ -n "$recordname" ]]; then
 	args+=(/oracleRecord "$recordname")
 	[[ -n "$recordstop" ]] && args+=(/oracleRecordStop "$recordstop")
 fi
+[[ $teamcolour -eq 1 ]] && args+=(/catTeamColourTest)     # M3-R1 team-colours-warp
 if [[ -n "$shotspec" ]]; then
 	args+=(/catShot "$shotspec" /catShotFile "$out/shot")
 	[[ $shotlb -eq 1 ]] && args+=(/catShotLetterbox)
@@ -796,6 +825,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == sound ]] && echo "soundtest: $(grep -h 'soundtest: ' "$L" | sed 's/^.*soundtest: //' | paste -sd';'); UBSan reports in fquant.c/fqcodec.c: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c 'fquant\.c\|fqcodec\.c'); PATCH reports: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c "struct PATCH")"
 	[[ "$mode" == etg ]] && echo "etg: $(grep -c . "$out/etg.list" 2>/dev/null) listed; $(grep -h 'etgtest: etgStartup done\|etgtest: self-test done\|etgtest: created\|etgtest: effect self-test done' "$L" | sed 's/^.*etgtest: //' | paste -sd';')"
 	[[ -n "$shotspec" ]] && echo "catshot: $(grep -c 'catshot: tick=' "$L") files ($(grep -h 'catshot: tick=' "$L" | head -n 1 | sed 's/^.*catshot: //; s/ file=.*//') ..); FAIL lines: $(grep -c 'catshot: FAIL' "$L")"
+	[[ $teamcolour -eq 1 ]] && echo "teamcolour: $(grep -c 'teamcolour: check ' "$L") checks, $(grep 'teamcolour: check ' "$L" | grep -c 'result=FAIL') FAIL, $(grep -c 'teamcolour: fail ' "$L") fail lines; $(grep -h 'teamcolour: done' "$L" | sed 's/^.*teamcolour: //' | cut -c1-400)"
 	[[ -n "$res$(printf '%s' "${cfgrows[@]}")" ]] && echo "options rows added: $(tail -n $(( ${#cfgrows[@]} + $([[ -n "$res" ]] && echo 2 || echo 0) )) "$out/home/.homeworld/Cataclysm.cfg" | paste -sd';')"
 	echo "animatics: $(grep -c 'animatic: skipped (headless)' "$L") skipped (headless): $(grep -h 'animatic: skipped (headless)' "$L" | sed 's/^.*file=//' | paste -sd',')"
 	echo "engine glows:$(grep -c -i 'engineglows' "$out/FileLoads.log" 2>/dev/null) mesh/mex loads from misc\\EngineGlows in FileLoads.log"

@@ -28,6 +28,12 @@
 #   console row         letterboxBehind 0|1   (the developer console's; as in cataclysm.exe no key opens that console,
 #                       so for play the Cataclysm.cfg row is the way; a value set there is saved with the options)
 #   switch              -- /letterboxBehind   (this run only: the options file keeps its own letterboxBehind row)
+#
+# Team colours (M3-R1 team-colours-warp): the colours picked in the front end's colour picker (Cataclysm.cfg rows
+# PlayerBaseColor / PlayerStripeColor / ColorsPicked) stay on the Kuun-Lan and the fleet through every level change
+# (the M2 builds lost them when the opening cutscene's level gave way to Mission01). No setting. To have the play log
+# record them, add the test switch -- /catTeamColourTest: "teamcolour: check ... result=PASS|FAIL" lines after each
+# level's load and at its 64th tick in <home>/logs/play-*.log (read only: it changes nothing in the game).
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 build=release; bin=""; data="$root/original/scratch-m2/m2r2-harness/data"; home="$root/original/play-home"; drv=x11; rebuild=0

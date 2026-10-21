@@ -2047,6 +2047,9 @@ void trMeshSortListLoad(trmeshsort *sortList)
 #endif
                             registeredPalette[0] += 0x01000000;
                             reg->palettes = (ubyte *)registeredPalette;
+                            // HWI-TEST (M3-R1 team-colours-warp): the shared palette's team flags
+                            catTrPaletteTeamFlags[sortList->textureList[index]] =
+                                catTrPaletteTeamFlags[sortList->textureList[paletteIndex]];
                             goto alreadyFoundPalette;       //skip the allocation bit
                         }
                     }
@@ -2080,6 +2083,9 @@ void trMeshSortListLoad(trmeshsort *sortList)
                     }
                 }
                 ((color *)reg->palettes)[0] &= 0x01ffffff;  //set new palette usage count to 1
+                // HWI-TEST (M3-R1 team-colours-warp): the team flags this palette was coloured with (0x80: recorded)
+                catTrPaletteTeamFlags[sortList->textureList[index]] =
+                    (ubyte)(0x80 | (sortList->teamFlags & (TRF_TeamColor0 | TRF_TeamColor1)));
 alreadyFoundPalette:;
                 //scale the image down as needed
                 scaledData = trImageScaleIndexed(lifFile->data, reg->diskWidth, reg->diskHeight, reg->scaledWidth, reg->scaledHeight, FALSE);
@@ -3202,7 +3208,14 @@ void trRegistryRefresh(void)
     //now run through list and get image size of all pending images
     for (index = 0; index <= trHighestAllocated; index++)
     {                                                       //for all loaded textures
-        if (trAllocated(index))
+        // CAT: only a PENDING entry is measured, put in the size-sort list and added to a mesh-sort list
+        //      (trRegistryRefresh 0x00587a50: flags & 4 and flags & 1 tested at 0x00587d1c / 0x00587d24, both jumps to
+        //      0x00588246, past the trMeshSortAdd 0x00586190 call at 0x0058823e); HW1 also listed the textures still
+        //      loaded from the previous level, so trCramRAMComputeAndScale 0x00589a50 shrank them and
+        //      trPreLoadedTextureScale 0x00586bd0 reloaded them with the stale listFlags as their list's team flags:
+        //      the Kuun-Lan's palettes lost the player's colours from Mission01 on (M3-R1 team-colours-warp, the user's
+        //      play-test item 2). A loaded texture keeps its size and its palettes, as in the exe
+        if (trAllocated(index) && trPending(index))
         {                                                   //texture slot not free
             reg = &trTextureRegistry[index];                //get pointer to current texture reg struct
             if (trPending(index))
@@ -3298,7 +3311,7 @@ void trRegistryRefresh(void)
                     }
                 }
             }
-            //only pending and pre-loaded textures get here
+            //only pending textures get here (CAT: see above; HW1: pending and pre-loaded)
             dbgAssertOrIgnore(trAllocated(index));
             dbgAssertOrIgnore(trSizeSortLength <= trHighestAllocated);
             trSizeSortList[trSizeSortLength].index = index; //build unsorted list
@@ -4469,6 +4482,11 @@ void trTextureUsageList(char *fileName)
     Return      :
 ----------------------------------------------------------------------------*/
 bool32 catTexturesSelfTest = FALSE;
+
+// HWI-TEST (M3-R1 team-colours-warp): per registry entry, the team flags (TRF_TeamColor0 | TRF_TeamColor1) the
+//      sort list gave trMeshSortListLoad when it built the entry's palette (0x80 set: recorded); read by the team-colour
+//      self-test (Game/TeamColourTest.c), which checks them against the flags of the entry's mesh-sort list
+ubyte catTrPaletteTeamFlags[TR_RegistrySize];
 
 void catTexturesRunSelfTest(void)
 {

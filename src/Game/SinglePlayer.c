@@ -81,6 +81,7 @@
 #include "Acolyte.h"          // CAT: cat_acolyteLinkReset
 #include "ACV.h"              // CAT: cat_acvLinkReset
 #include "avi.h"              // CAT: aviIsPlaying (the Bink player's binkDonePlaying 0x008b6d94)
+#include "TeamColourTest.h"   // HWI-TEST (M3-R1 team-colours-warp): the level change hooks
 
 // CAT: DEG_TO_RAD as the exe's float constant 0x0072a4f8 (0x3c8efa35)
 #define CAT_SP_DEG_TO_RAD   0.01745329238474369f
@@ -3301,6 +3302,7 @@ void singlePlayerLoadNewLevel(sdword nisLevel, sdword keepMission)
     Node *node, *insidenode;
     Ship *ship;
 
+    catTeamColourLevelChange(0);                        // HWI-TEST (M3-R1 team-colours-warp): the old level's colours
     if (!nisLevel)
     {                                                   // the black fade comes up over the new level
         catSpLevelFade = 1.0f;
@@ -3483,9 +3485,11 @@ void singlePlayerLoadNewLevel(sdword nisLevel, sdword keepMission)
     pingReset();
     subReset();
     subTexturesReset();
+    catTeamColourLevelChange(1);                            // HWI-TEST (M3-R1 team-colours-warp): before the refresh
     trRegistryRefresh();                                    //refresh registry - load in all textures
     etgFixupUV();
     utySet(SSA_RegistryRefreshed);                          // 0x00ab7639
+    catTeamColourLevelChange(2);                            // HWI-TEST (M3-R1 team-colours-warp): the new level's colours
 
 abortload:
     //start the sound engine playing again

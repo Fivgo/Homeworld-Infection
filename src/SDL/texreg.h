@@ -413,6 +413,11 @@ ubyte *trImageScaleIndexed(ubyte *data, sdword width, sdword height, sdword newW
 void trSetAllPending(bool32 freeNoPal);
 void trTextureUsageList(char *fileName);
 sdword trColorsEqual(trcolorinfo *info, sdword textureIndex);
+// HWI-TEST (M3-R1 team-colours-warp): read by the team-colour dump (Game/TeamColourTest.c)
+extern texreg *trTextureRegistry;
+extern nopalreg *trNoPalRegistry;
+extern ubyte catTrPaletteTeamFlags[TR_RegistrySize];
+trcolorinfo *trColorInfosPointer(sdword textureIndex);
 
 //no-palette palette functions
 void trNoPalStartup(void);

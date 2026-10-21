@@ -71,6 +71,7 @@
 #include "Volume.h"
 #include "NomadMoon.h"
 #include "TradeMgr.h"
+#include "TeamColourTest.h"   // HWI-TEST (M3-R1 team-colours-warp): the team-colour checks and the longer run
 // M2-R10 tests-leftovers: the KAS dispatcher by name (KASFuncTable.h; not included: its CatKasFunction meets
 //      SinglePlayer.h's), the developer console's KAS call that the failed-jump test takes
 sdword cat_kasCallFunctionByName(char *name, void **args);     // 0x0045b9a0
@@ -90,6 +91,11 @@ static bool32 catMtNisletEnded = FALSE, catMtArrived = FALSE;
 //      start, 2 .. 17 from the warp start) and the flow of a mission after the first: the next level's load after the jump
 static sdword catMtMission = 1;
 static sdword catMtNextLevelTick = -1;
+// HWI-TEST (M3-R1 team-colours-warp): with /catTeamColourTest the run goes on past its jump to the next MISSION level
+//      (Mission01: Mission02; mission N: Mission N+1 after its opening NIS's staging level, if it has one) and ends 32
+//      ticks (/catTeamColourTicks N: N) after that level has loaded, so the team colours are checked after a jump and
+//      after an NIS level
+static sdword catMtTcNextTick = -1;
 static udword catMtLevelTicks = 0;      // the mission level's last tick (the next level starts its counter at 0)
 // HWI-TEST (M2-R9 missions-10-17): the end of the game (Mission17: kasfMissionCompleted, then univUpdate's quit into
 //      the credits, utyGameQuitToMain 0x005ab6b0)
@@ -196,6 +202,18 @@ void catMissionSelfTestEvent(const char *what)
     if (catMissionTestTicks > 0 || catMissionTestTutorialTicks > 0)
     {
         dbgMessagef("missiontest: flow tick=%u %s", (unsigned)universe.univUpdateCounter, what);
+        if (catTeamColourTest && (catMissionTestTicks > 0) && (catMtTcNextTick < 0) && (strncmp(what, "level loaded", 12) == 0))
+        {                                                   // HWI-TEST (M3-R1 team-colours-warp)
+            char next[48];
+
+            snprintf(next, sizeof(next), "Mission%02d.mission", (int)catMtMission + 1);
+            if (strstr(what, next) != NULL)
+            {
+                catMtTcNextTick = (sdword)universe.univUpdateCounter;
+                dbgMessagef("missiontest: teamcolour next mission level tick=%u %s", (unsigned)universe.univUpdateCounter,
+                            what + 13);
+            }
+        }
         if ((catMissionTestTicks > 0) && (catMtMission >= 2))
         {
             char name[48];
@@ -3659,6 +3677,7 @@ static void catMtMissionEnd(void)
                 (int)catMtMission, (unsigned)universe.univUpdateCounter, (int)catMtLevelLoaded, (int)catMtKasStarted,
                 (int)catMtArrived, (int)inOrder, (int)catMtHyperspaceTick, catMtRollCallButton, (int)catMtNextLevelTick,
                 (int)catMtFailed, (int)catMtCompletedTick, (int)catMtGameEndTick);
+    catTeamColourDone();                                // HWI-TEST (M3-R1 team-colours-warp)
     // ticks: the mission level's ticks and the next level's (the run's ticks); at the game's end the mission level's
     dbgMessagef("missiontest: done mission=%d ticks=%u objectives=%d/%d result=%s", (int)catMtMission,
                 (unsigned)((catMtGameEndTick >= 0) ? catMtLevelTicks :
@@ -3821,10 +3840,12 @@ void catMissionSelfTestTick(void)
                     (unsigned)universe.ShipList.num, (thisNisPlaying != NULL) ? "playing" : "none");
     }
     if (((sdword)universe.univUpdateCounter >= limit - 2) ||
-        ((catMissionTestTicks > 0) && (catMtMission == 1) && (catMtHyperspaceTick >= 0) &&
+        ((catMissionTestTicks > 0) && (catMtMission == 1) && (catMtHyperspaceTick >= 0) && !catTeamColourTest &&
          ((sdword)universe.univUpdateCounter >= catMtHyperspaceTick + 32)) ||
-        ((catMissionTestTicks > 0) && (catMtMission >= 2) && (catMtNextLevelTick >= 0) &&
+        ((catMissionTestTicks > 0) && (catMtMission >= 2) && (catMtNextLevelTick >= 0) && !catTeamColourTest &&
          ((sdword)universe.univUpdateCounter >= catMtNextLevelTick + 32)) ||
+        ((catMissionTestTicks > 0) && catTeamColourTest && (catMtTcNextTick >= 0) &&      // HWI-TEST (M3-R1 team-colours-warp)
+         ((sdword)universe.univUpdateCounter >= catMtTcNextTick + catTeamColourNextTicks)) ||
         ((catMissionTestTicks > 0) && (catMtMission >= 2) && catMtFailed) ||     // M2-R9 missions-10-17: a lost mission ends the run
         ((catMissionTestTicks > 0) && (catMtMission >= 2) && (catMtFailJumpEndTick >= 0) &&
          ((sdword)universe.univUpdateCounter >= catMtFailJumpEndTick)))         // M2-R10 tests-leftovers: the failed jump's end
@@ -3865,6 +3886,7 @@ void catMissionSelfTestTick(void)
                         (unsigned)universe.univUpdateCounter, (int)catMtNisStarted, (int)catMtNisEnded, (int)catMtLevelLoaded,
                         (int)catMtKasStarted, (int)catMtNisletEnded, (int)catMtArrived, (int)catMtCounter, (int)inOrder,
                         (int)(catMtHyperspaceTick >= 0), (int)catMtFailed);
+            catTeamColourDone();                                // HWI-TEST (M3-R1 team-colours-warp)
             dbgMessagef("missiontest: done mission=1 ticks=%u objectives=%d/%d result=%s", (unsigned)universe.univUpdateCounter,
                         (int)reached, (int)catMtNumObjectives,
                         ((reached == catMtNumObjectives) && inOrder && !catMtFailed && (catMtCounter == 6) &&
@@ -3947,6 +3969,7 @@ void catLoadGameSelfTestStart(void)
         return;
     }
     gpLoadSinglePlayerGame = TRUE;
+    catTeamColourLoadedGame = TRUE;                 // HWI-TEST (M3-R1 team-colours-warp): the save brings its colours
     gpLoadTutorial = catLoadGameTraining;           // the tutorial's load: tutorial 1 (gpLoadGame's, GamePick.c)
     gpLoadGivenGame(filename);
     for (node = universe.ShipList.head; node != NULL; node = node->next)
@@ -3991,6 +4014,7 @@ void catLoadGameSelfTestTick(void)
                       (!catLoadGameTraining || ((tutorial == 1) && (CurrentMissionWatchFunction == Watch_Tutorial1)));
 
         catLoadGameDone = TRUE;
+        catTeamColourDone();                        // HWI-TEST (M3-R1 team-colours-warp)
         dbgMessagef("loadgametest: done ticks=%d from=%d to=%u mission=%d tutorial=%d ships=%u objectives=%d/%d kasTeams=%d "
                     "result=%s", (int)catLoadGameTicks, (int)catLoadGameStartTick, (unsigned)universe.univUpdateCounter,
                     (int)singlePlayerGameInfo.currentMission, (int)tutorial, (unsigned)universe.ShipList.num,
