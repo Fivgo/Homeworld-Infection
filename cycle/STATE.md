@@ -1,6 +1,6 @@
 # Work cycle and resume point
 
-Last checkpoint: 2026-10-20 16:15
+Last checkpoint: 2026-10-20 21:19
 
 **Read this first when resuming.** It is the single source of truth for where the work stands.
 
@@ -1100,6 +1100,10 @@ only if the user wants the rung before the play-test.
 ## M2-R6: COMPLETE 2026-10-18 (run from the user's terminal session 38027cce, not from the orchestrator)
 
 cycle/workflows/m2-r6.js finished in session 38027cce (Fable, Remote Control): the "## M2" subsection "M2-R6: COMPLETE" above has the exit test and the seven ports. **M2-R7 also finished in that session on 2026-10-19** (cycle/workflows/m2-r7.js, run id wf_b238b029-e72; its integrate step was cut off by the weekly limit on 2026-10-18 and resumed on 2026-10-19 after the skirmish-start merge; "M2-R7: COMPLETE" above, docs/m2-r7-summary.md). **M2-R8 also finished in that session on 2026-10-19** (cycle/workflows/m2-r8.js, run id wf_74bcf42e-330; "M2-R8: COMPLETE" above, docs/m2-r8-summary.md). **M2-R9 also finished in that session on 2026-10-20** (cycle/workflows/m2-r9.js, run id wf_c0cd6893-248; "M2-R9: COMPLETE" above, docs/m2-r9-summary.md). **M2-R10 also finished in that session on 2026-10-20** (cycle/workflows/m2-r10.js, run id wf_dd85ad7e-70e; "M2-R10: COMPLETE" above, docs/m2-r10-summary.md). The orchestrator must relaunch none of them. Merges to main are handled by the user.
+
+## M3-R1: IN FLIGHT since 2026-10-20 21:19 (the play-test fix round; run from the user's terminal session 38027cce, never the orchestrator)
+
+cycle/workflows/m3-r1.js (18281e2; `ROUND_BASE ce4fab4`, the R10 baseline 5bd51234405ea0d8 / release a44d585d71233c4a), run id `wf_42a468c8-942`, launched on the user's word ("we need to fix bugs before we get further from the mark"). Five Opus ports in sequence, each with its auditor, then the Fable integrate: letterbox-front (+ the opt-in `letterboxBehind` setting), team-colours-warp, full-detail (LOD 0 always, default on), motion-jitter (the user's play-test ran with Smooth motion OFF: the cfg's objInterpolate 0 / nisInterpolate 0 are unexplained, producer 4's first question), ui-scale (2.0 at >= 2160 lines, 1.5 at >= 1440). The user's answers for producer 4 live in `cycle/answers/m3-r1-user.md` (95e011d; the user adds jitter examples there through the launching session). Presentation only: no simulation field of any oracle stream may move. If cut off: `Workflow({scriptPath: cycle/workflows/m3-r1.js, resumeFromRunId: 'wf_42a468c8-942'})` from that session; in a fresh session relaunch the script (audited ports are skipped by the probe).
 
 ## Opus workflows in flight
 
