@@ -42,6 +42,8 @@ void miRenderBegin(void);                           // before the regions draw (
 void miRenderEnd(void);                             // after: the simulation's transforms back, bit for bit
 struct Camera *miRenderCamera(struct Camera *camera);   // the camera to draw with (the NIS camera at the render time)
 real32 miRenderAlpha(void);                         // this frame's alpha (-1: not interpolating)
+void miRenderStats(udword *blended, udword *fresh, udword *teleport);   // M3-R1 motion-jitter: this frame's counts
+bool32 miRenderWritten(const void *obj);            // M3-R1 motion-jitter: the frame wrote this object's transform
 
 // the toggle (Options.c, Console.c, main.c)
 bool32 miSmoothMotionGet(void);                     // TRUE when either flag is on

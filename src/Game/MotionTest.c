@@ -49,7 +49,10 @@
 
 #include "Camera.h"
 #include "CameraCommand.h"
+#include "CommandWrap.h"    // M3-R1 motion-jitter: the scene's orders (move, formation, dock)
 #include "Debug.h"
+#include "Dock.h"           // M3-R1 motion-jitter: CAT_DOCK_SUPPORT
+#include "FormationDefs.h"  // M3-R1 motion-jitter: DELTA_FORMATION
 #include "glinc.h"
 #include <SDL2/SDL.h>
 #include "Globals.h"
@@ -81,6 +84,7 @@
 #define MT_MODE_NONE        0
 #define MT_MODE_MOTION      1
 #define MT_MODE_NIS         2
+#define MT_MODE_SCENE       3           // M3-R1 motion-jitter: /catMotionScene, rides on another mode's game
 
 #define MT_START_TICK       16          // the scripted start (as the render self-test's)
 #define MT_BASIS_TICK       48          // the camera has settled on A: B and C get their paths
@@ -120,6 +124,30 @@ static real32 mtNisFrom = 26.0f, mtNisTo = 36.0f;
 static nisheader *mtNisHeader = NULL;
 static nisplaying *mtNisPlaying = NULL;
 static bool32 mtNisStarted = FALSE;
+
+// M3-R1 motion-jitter: the scene (/catMotionScene <spec>): the user's skirmish recipe and the object kinds
+#define MT_SCENE_MAX        16
+#define MT_SCENE_START      mtSceneStartTick    // pick the objects, focus, the zenith camera (default tick 16)
+#define MT_SCENE_ORDER      (mtSceneStartTick + 32) // the orders (the camera has settled)
+static char mtSceneKind[16] = "recon";              // recon: focus A (at rest); follow: focus B (the mover)
+static real32 mtSceneDistance = 0.0f;               // the camera's distance (0: the focus zoom ccFocus picks)
+static real32 mtSceneMove = 500.0f;                 // B's move straight ahead (units)
+static sdword mtSceneTicks = 160;                   // the dump's window after the orders (ticks)
+static sdword mtSceneStartTick = 16;                // the scene's first tick
+static SpaceObj *mtSceneObj[MT_SCENE_MAX];
+static const char *mtSceneName[MT_SCENE_MAX];
+static const char *mtSceneRole[MT_SCENE_MAX];
+static sdword mtSceneN = 0;
+static vector mtSceneB0;                            // B where its move began
+static Ship *mtSceneHost = NULL;                    // H's dock host
+static DockType mtSceneDockPurpose = CAT_DOCK_SUPPORT;  // H's dock purpose (support, or a Worker's deposit)
+static udword mtSceneLastCounter = 0;               // the universe tick of the previous dumped frame
+static bool32 mtRealClock = FALSE;                  // /catMotionRealClock <fps>: the wall clock, paced to <fps>
+static udword mtRealFps = 144;
+static real64 mtRealStamp = 0.0, mtRealLast = 0.0;  // this frame's paced dispatch time, the previous one (ms)
+static udword mtRealTicks = 0;                      // this frame's task ticks (utyNFrameTicks)
+static real32 mtRealSub = 0.0f;                     // this frame's taskSubTick
+static udword mtRealFrames = 0, mtRealLate = 0;     // frames paced, frames that missed their slot
 
 /*=============================================================================
     Command line:
@@ -178,6 +206,100 @@ void catMotionTestFpsSet(char *string)
     {
         mtFps = UNIVERSE_UPDATE_RATE;
     }
+}
+
+// M3-R1 motion-jitter: /catMotionScene <kind>[:<distance>[:<move>[:<ticks>[:<start>]]]]: the measured scene on the game another
+//      mode starts (the harness's --scene; skirmish: the user's recipe); kind recon (the camera on Recon A at its zenith,
+//      Recon B moves <move> units straight ahead) or follow (the same orders, the camera on B)
+void catMotionSceneSet(char *string)
+{
+    char *p = string, *end;
+
+    mtMode = MT_MODE_SCENE;
+    end = strchr(p, ':');
+    snprintf(mtSceneKind, sizeof(mtSceneKind), "%.*s", (int)((end != NULL) ? (size_t)(end - p) : strlen(p)), p);
+    if (end != NULL)
+    {
+        mtSceneDistance = (real32)strtod(end + 1, &end);
+        if (*end == ':')
+        {
+            mtSceneMove = (real32)strtod(end + 1, &end);
+            if (*end == ':')
+            {
+                mtSceneTicks = (sdword)strtol(end + 1, &end, 10);
+                if (*end == ':')
+                {
+                    mtSceneStartTick = (sdword)strtol(end + 1, NULL, 10);
+                }
+            }
+        }
+    }
+    if (mtSceneTicks < 16)
+    {
+        mtSceneTicks = 160;
+    }
+    if (mtSceneStartTick < 1)
+    {
+        mtSceneStartTick = 16;
+    }
+}
+
+// M3-R1 motion-jitter: /catMotionRealClock <fps>: a motion run on the wall clock instead of the virtual one, each
+//      frame's dispatch paced to <fps> (as a monitor's vertical sync paces the swap); the dump gets each frame's
+//      dispatch time and task ticks
+void catMotionRealClockSet(char *string)
+{
+    mtRealClock = TRUE;
+    mtRealFps = (udword)strtol(string, NULL, 10);
+    if (mtRealFps < UNIVERSE_UPDATE_RATE)
+    {
+        mtRealFps = 144;
+    }
+}
+
+bool32 catMotionRealClock(void)
+{
+    return mtRealClock;
+}
+
+// before utyTasksDispatch reads the clock: wait for this frame's slot of the 1/<fps> grid (SDL's performance
+// counter: the sleep to within a millisecond, then a spin); a frame that missed its slot starts at once and the grid
+// restarts from it
+void catMotionRealClockPace(void)
+{
+    static Uint64 next = 0;
+    Uint64 freq = SDL_GetPerformanceFrequency(), period = freq / mtRealFps, now = SDL_GetPerformanceCounter();
+
+    if (next == 0)
+    {
+        next = now;
+    }
+    next += period;
+    if (now >= next)
+    {
+        mtRealLate++;
+        next = now;
+    }
+    else
+    {
+        Uint64 wait = next - now;
+        if (wait * 1000 / freq > 1)
+        {
+            SDL_Delay((Uint32)(wait * 1000 / freq - 1));
+        }
+        while (SDL_GetPerformanceCounter() < next)
+            ;
+    }
+    mtRealLast = mtRealStamp;
+    mtRealStamp = (real64)SDL_GetPerformanceCounter() * 1000.0 / (real64)freq;
+    mtRealFrames++;
+}
+
+// after the clock is read: the frame's task ticks and the sub-tick remainder kept
+void catMotionRealClockStamp(udword ticks, real32 sub)
+{
+    mtRealTicks = ticks;
+    mtRealSub = sub;
 }
 
 bool32 catMotionTestRequested(void)
@@ -606,6 +728,421 @@ static void mtNisTick(void)
 }
 
 /*=============================================================================
+    M3-R1 motion-jitter: the scene mode (/catMotionScene). The user's recipe
+    (cycle/answers/m3-r1-user.md): a skirmish, the camera focused on the Recon
+    nearest the mothership (A) and put at its zenith (looking straight down),
+    an adjacent Recon (B) ordered straight ahead 500 units. Every order goes
+    through the command layer (clWrapMove / clWrapFormation / clWrapDock: no
+    input); the camera through ccFocusGeneral and the camera's own snap
+    (Camera.catSnapToFocus / catScriptedDistance). Tracked with A and B: C
+    (a ship ordered across the view), an asteroid, a derelict (or a no-owner
+    ship), a mothership module (clamped), a formation wingman (three ships in
+    delta formation, moved), a docking ship (ordered to dock at the
+    mothership for support) and the mothership. From MT_SCENE_ORDER - 8 to
+    <ticks> after the orders every frame writes a dump line (motion's format;
+    with alpha=, raw=, calls=, mi= and per object <name>m= (1: written by the
+    interpolation this frame), and with the real clock ms= / tt= / sub=).
+=============================================================================*/
+
+static bool32 mtObjAlive(SpaceObj *obj)
+{
+    Node *node;
+
+    if (obj == NULL)
+    {
+        return FALSE;
+    }
+    for (node = universe.SpaceObjList.head; node != NULL; node = node->next)
+    {
+        if ((SpaceObj *)listGetStructOfNode(node) == obj)
+        {
+            return !bitTest(obj->header.flags, SOF_Dead);
+        }
+    }
+    return FALSE;
+}
+
+static bool32 mtSceneUsed(SpaceObj *obj)
+{
+    sdword i;
+
+    for (i = 0; i < mtSceneN; i++)
+    {
+        if (mtSceneObj[i] == obj)
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+static void mtSceneAdd(SpaceObj *obj, const char *name, const char *role)
+{
+    if (mtSceneN >= MT_SCENE_MAX)
+    {
+        return;
+    }
+    mtSceneObj[mtSceneN] = obj;
+    mtSceneName[mtSceneN] = name;
+    mtSceneRole[mtSceneN] = role;
+    mtSceneN++;
+    if (obj == NULL)
+    {
+        dbgMessagef("motiontest: scene %s (%s) not found", name, role);
+    }
+}
+
+// a free ship of the player: not dead, not hidden (docked), not clamped, not the mothership, not taken
+static bool32 mtSceneFree(Ship *ship, Player *player)
+{
+    return ship->playerowner == player && !bitTest(ship->header.flags, SOF_Dead) && !bitTest(ship->header.flags, SOF_Hide) &&
+           ship->guidance.clampInfo == NULL && ship != player->PlayerMothership && !mtSceneUsed((SpaceObj *)ship);
+}
+
+// the nearest object of <list> to <pos> that <type> (OBJ_*; -1 any) and <shiptype> (-1 any) and <player> (NULL any;
+// (Player *)-1 no playing player: none, or a player the game does not have, the map's no-owner ships) allow
+static SpaceObj *mtSceneNearest(LinkedList *list, vector *pos, sdword objtype, sdword shiptype, Player *player,
+                                bool32 freeShip)
+{
+    Node *node;
+    SpaceObj *obj, *best = NULL;
+    real32 d, bestd = REALlyBig;
+    vector diff;
+
+    for (node = list->head; node != NULL; node = node->next)
+    {
+        obj = (SpaceObj *)listGetStructOfNode(node);
+        if (bitTest(obj->header.flags, SOF_Dead) || mtSceneUsed(obj) || (objtype >= 0 && (sdword)obj->header.objtype != objtype))
+        {
+            continue;
+        }
+        if (obj->header.objtype == OBJ_ShipType)
+        {
+            Ship *ship = (Ship *)obj;
+            if ((shiptype >= 0 && (sdword)ship->shiptype != shiptype) ||
+                (player == (Player *)-1 && ship->playerowner != NULL &&
+                 ship->playerowner->playerIndex < universe.numPlayers) ||
+                (player != NULL && player != (Player *)-1 && (freeShip ? !mtSceneFree(ship, player) : ship->playerowner != player)))
+            {
+                continue;
+            }
+        }
+        vecSub(diff, obj->posinfo.position, *pos);
+        d = vecMagnitudeSquared(diff);
+        if (d < bestd)
+        {
+            bestd = d;
+            best = obj;
+        }
+    }
+    return best;
+}
+
+static void mtSceneStart(void)
+{
+    Player *player = universe.curPlayerPtr;
+    Ship *mothership = (player != NULL) ? player->PlayerMothership : NULL;
+    SpaceObj *a, *b, *obj;
+    vector pos;
+    CameraStackEntry *entry;
+    sdword i, type;
+
+    mtSceneN = 0;
+    {
+        Node *node;
+        for (node = universe.ShipList.head; node != NULL; node = node->next)
+        {
+            Ship *ship = (Ship *)listGetStructOfNode(node);
+            dbgMessagef("motiontest: scene ship %s#%u player=%d flags=0x%x clamped=%d at (%.0f %.0f %.0f)",
+                        ShipTypeToStr(ship->shiptype), (unsigned)ship->shipID.shipNumber,
+                        (ship->playerowner != NULL) ? (int)ship->playerowner->playerIndex : -1, (unsigned)ship->header.flags,
+                        (int)(ship->guidance.clampInfo != NULL), (double)ship->obj.posinfo.position.x,
+                        (double)ship->obj.posinfo.position.y, (double)ship->obj.posinfo.position.z);
+        }
+    }
+    if (mothership == NULL)
+    {
+        dbgMessagef("motiontest: scene FAIL no mothership for player %d", (player != NULL) ? (int)player->playerIndex : -1);
+        return;
+    }
+    pos = mothership->obj.posinfo.position;
+    a = mtSceneNearest(&universe.ShipList, &pos, OBJ_ShipType, sRecon, player, TRUE);
+    mtSceneAdd(a, "A", strcmp(mtSceneKind, "follow") == 0 ? "atrest" : "focus");
+    if (a != NULL)
+    {
+        pos = a->posinfo.position;
+    }
+    b = mtSceneNearest(&universe.ShipList, &pos, OBJ_ShipType, sRecon, player, TRUE);
+    mtSceneAdd(b, "B", strcmp(mtSceneKind, "follow") == 0 ? "focus" : "mover");
+    if (a == NULL || b == NULL)
+    {
+        dbgMessagef("motiontest: scene FAIL two Recons not found");
+        mtSceneN = 0;
+        return;
+    }
+    mtSceneAdd(mtSceneNearest(&universe.ShipList, &pos, OBJ_ShipType, -1, player, TRUE), "C", "crossing");
+    mtSceneAdd(mtSceneNearest(&universe.ResourceList, &pos, OBJ_AsteroidType, -1, NULL, FALSE), "D", "asteroid");
+    obj = mtSceneNearest(&universe.DerelictList, &pos, OBJ_DerelictType, -1, NULL, FALSE);
+    if (obj == NULL)
+    {
+        obj = mtSceneNearest(&universe.ShipList, &pos, OBJ_ShipType, -1, (Player *)-1, FALSE);
+    }
+    mtSceneAdd(obj, "E", "derelict");
+    obj = NULL;
+    if (mothership->guidance.clampInfo != NULL && mothership->guidance.clampInfo->clampedObjs != NULL)
+    {
+        for (i = 0; i < mothership->guidance.clampInfo->clampedObjs->numShips && obj == NULL; i++)
+        {
+            Ship *child = mothership->guidance.clampInfo->clampedObjs->ShipPtr[i];
+            if (child != NULL && child->guidance.clampInfo != NULL &&
+                child->guidance.clampInfo->host == (SpaceObjRotImpTarg *)mothership)
+            {
+                obj = (SpaceObj *)child;
+            }
+        }
+    }
+    mtSceneAdd(obj, "F", "module");
+    // the docking ship: the nearest pair of a free ship of the player and a host of the player it can dock with for
+    // support or, a Worker, to deposit (ThisShipCanDockWith 0x00464290, the exe's test), within 20,000 units
+    {
+        Node *node, *node2;
+        SpaceObj *best = NULL;
+        real32 bestd = 20000.0f * 20000.0f;
+        vector diff;
+        DockType purpose;
+
+        mtSceneHost = NULL;
+        for (purpose = CAT_DOCK_SUPPORT; purpose <= CAT_DOCK_DEPOSIT_RESOURCES; purpose += CAT_DOCK_DEPOSIT_RESOURCES)
+        for (node = universe.ShipList.head; node != NULL; node = node->next)
+        {
+            Ship *host = (Ship *)listGetStructOfNode(node);
+            if (host->playerowner != player || bitTest(host->header.flags, SOF_Dead) || host->staticinfo->dockStaticInfo == NULL)
+            {
+                continue;
+            }
+            for (node2 = universe.ShipList.head; node2 != NULL; node2 = node2->next)
+            {
+                Ship *ship = (Ship *)listGetStructOfNode(node2);
+                if (ship == host || !mtSceneFree(ship, player) || ship->shiptype == sRecon ||
+                    (purpose == CAT_DOCK_DEPOSIT_RESOURCES && ship->staticinfo->shipclass != CLASS_Resource) ||
+                    !ThisShipCanDockWith(ship, host, purpose, FALSE))
+                {
+                    continue;
+                }
+                vecSub(diff, ship->obj.posinfo.position, host->obj.posinfo.position);
+                if (vecMagnitudeSquared(diff) < bestd)
+                {
+                    bestd = vecMagnitudeSquared(diff);
+                    best = (SpaceObj *)ship;
+                    mtSceneHost = host;
+                    mtSceneDockPurpose = purpose;
+                }
+            }
+        }
+        mtSceneAdd(best, "H", "docking");
+        if (mtSceneHost != NULL)
+        {
+            dbgMessagef("motiontest: scene H's host %s#%u at %.0f units, purpose %u", ShipTypeToStr(mtSceneHost->shiptype),
+                        (unsigned)mtSceneHost->shipID.shipNumber, (double)fsqrt(bestd), (unsigned)mtSceneDockPurpose);
+        }
+    }
+    // the formation: three free fighters or corvettes of one type, nearest each other (the wingman tracked)
+    obj = NULL;
+    for (type = 0; type < TOTAL_NUM_SHIPS && obj == NULL; type++)
+    {
+        SpaceObj *f[3];
+        f[0] = mtSceneNearest(&universe.ShipList, &pos, OBJ_ShipType, type, player, TRUE);
+        if (f[0] == NULL || (((Ship *)f[0])->staticinfo->shipclass != CLASS_Fighter &&
+                             ((Ship *)f[0])->staticinfo->shipclass != CLASS_Corvette))
+        {
+            continue;
+        }
+        mtSceneObj[mtSceneN] = f[0]; mtSceneN++;            // taken while the others are looked for
+        f[1] = mtSceneNearest(&universe.ShipList, &f[0]->posinfo.position, OBJ_ShipType, type, player, TRUE);
+        mtSceneObj[mtSceneN] = f[1]; mtSceneN++;
+        f[2] = mtSceneNearest(&universe.ShipList, &f[0]->posinfo.position, OBJ_ShipType, type, player, TRUE);
+        mtSceneN -= 2;
+        if (f[1] != NULL && f[2] != NULL)
+        {
+            obj = f[1];
+            mtSceneAdd(obj, "G", "formation");
+            mtSceneAdd(f[0], "g0", "formation-lead");
+            mtSceneAdd(f[2], "g2", "formation-wing");
+        }
+    }
+    if (obj == NULL)
+    {
+        mtSceneAdd(NULL, "G", "formation");
+    }
+    // a Worker sent to harvest the asteroid nearest it
+    mtSceneAdd(mtSceneNearest(&universe.ShipList, &pos, OBJ_ShipType, sWorker, player, TRUE), "W", "harvest");
+    mtSceneAdd((SpaceObj *)mothership, "M", "mothership");
+
+    mtFocus((Ship *)(strcmp(mtSceneKind, "follow") == 0 ? b : a));
+    entry = currentCameraStackEntry(&universe.mainCameraCommand);
+    entry->remembercam.declination = DEG_TO_RAD(-85.0f);     // the eye straight above the focus (+z): the zenith
+    universe.mainCameraCommand.actualcamera.declination = DEG_TO_RAD(-85.0f);
+    if (mtSceneDistance > 0.0f)
+    {
+        universe.mainCameraCommand.actualcamera.catScriptedDistance = mtSceneDistance;
+    }
+    universe.mainCameraCommand.actualcamera.catSnapToFocus = TRUE;
+    for (i = 0; i < mtSceneN; i++)
+    {
+        obj = mtSceneObj[i];
+        dbgMessagef("motiontest: scene %s %s %s#%u at (%.0f %.0f %.0f)", mtSceneName[i], mtSceneRole[i],
+                    (obj == NULL) ? "none" : (obj->header.objtype == OBJ_ShipType) ? ShipTypeToStr(((Ship *)obj)->shiptype) :
+                    (obj->header.objtype == OBJ_AsteroidType) ? "asteroid" : (obj->header.objtype == OBJ_DerelictType) ? "derelict" : "object",
+                    (obj != NULL && obj->header.objtype == OBJ_ShipType) ? (unsigned)((Ship *)obj)->shipID.shipNumber : 0u,
+                    (obj != NULL) ? (double)obj->posinfo.position.x : 0.0, (obj != NULL) ? (double)obj->posinfo.position.y : 0.0,
+                    (obj != NULL) ? (double)obj->posinfo.position.z : 0.0);
+    }
+    dbgMessagef("motiontest: scene started kind=%s tick=%u objects=%d distance=%.0f move=%.0f fps=%u framesPerTick=%u realClock=%d",
+                mtSceneKind, (unsigned)universe.univUpdateCounter, (int)mtSceneN, (double)mtSceneDistance,
+                (double)mtSceneMove, (unsigned)mtFps, (unsigned)catMotionTestFramesPerTick(), (int)mtRealClock);
+}
+
+static SpaceObj *mtSceneGet(const char *name)
+{
+    sdword i;
+
+    for (i = 0; i < mtSceneN; i++)
+    {
+        if (strcmp(mtSceneName[i], name) == 0)
+        {
+            return mtObjAlive(mtSceneObj[i]) ? mtSceneObj[i] : NULL;
+        }
+    }
+    return NULL;
+}
+
+static void mtSceneOrders(void)
+{
+    SelectCommand *sel = memAlloc(sizeofSelectCommand(3), "motionscenesel", 0);
+    SpaceObj *a = mtSceneGet("A"), *b = mtSceneGet("B"), *c = mtSceneGet("C"), *g[3], *h = mtSceneGet("H");
+    SpaceObj *w = mtSceneGet("W");
+    Ship *mothership = universe.curPlayerPtr->PlayerMothership;
+    vector heading, side, dest;
+
+    g[0] = mtSceneGet("g0"); g[1] = mtSceneGet("G"); g[2] = mtSceneGet("g2");
+    if (b != NULL)
+    {                                                       // B: straight ahead
+        matGetVectFromMatrixCol3(heading, ((SpaceObjRot *)b)->rotinfo.coordsys);
+        mtSceneB0 = b->posinfo.position;
+        vecScalarMultiply(dest, heading, mtSceneMove);
+        vecAddTo(dest, b->posinfo.position);
+        sel->numShips = 1; sel->ShipPtr[0] = (Ship *)b;
+        clWrapMove(&universe.mainCommandLayer, sel, 0, b->posinfo.position, 1, &dest);
+        dbgMessagef("motiontest: scene order B move from (%.0f %.0f %.0f) to (%.0f %.0f %.0f)",
+                    (double)mtSceneB0.x, (double)mtSceneB0.y, (double)mtSceneB0.z, (double)dest.x, (double)dest.y, (double)dest.z);
+    }
+    if (c != NULL && a != NULL)
+    {                                                       // C: across, 1,500 units through A's side
+        vecSet(side, 1.0f, 0.0f, 0.0f);
+        vecScalarMultiply(dest, side, 1500.0f);
+        vecAddTo(dest, a->posinfo.position);
+        sel->numShips = 1; sel->ShipPtr[0] = (Ship *)c;
+        clWrapMove(&universe.mainCommandLayer, sel, 0, c->posinfo.position, 1, &dest);
+    }
+    if (g[0] != NULL && g[1] != NULL && g[2] != NULL)
+    {                                                       // the formation: delta, then 2,000 units along -x
+        sel->numShips = 3; sel->ShipPtr[0] = (Ship *)g[0]; sel->ShipPtr[1] = (Ship *)g[1]; sel->ShipPtr[2] = (Ship *)g[2];
+        clWrapFormation(&universe.mainCommandLayer, sel, DELTA_FORMATION, 0);
+        sel->numShips = 3; sel->ShipPtr[0] = (Ship *)g[0]; sel->ShipPtr[1] = (Ship *)g[1]; sel->ShipPtr[2] = (Ship *)g[2];
+        dest = g[0]->posinfo.position;
+        dest.x -= 2000.0f;
+        clWrapMove(&universe.mainCommandLayer, sel, 0, g[0]->posinfo.position, 1, &dest);
+    }
+    if (h != NULL && mtSceneHost != NULL && mtObjAlive((SpaceObj *)mtSceneHost))
+    {                                                       // H: dock at its host for support
+        sel->numShips = 1; sel->ShipPtr[0] = (Ship *)h;
+        if (mtSceneDockPurpose == CAT_DOCK_DEPOSIT_RESOURCES)
+        {
+            ((Ship *)h)->resources = 100;                   // a scripted hold to deposit (as the dock self-test's)
+        }
+        clWrapDock(&universe.mainCommandLayer, sel, mtSceneDockPurpose, mtSceneHost);
+        dbgMessagef("motiontest: scene order H dock: command=%s", (((Ship *)h)->command != NULL &&
+                    ((Ship *)h)->command->ordertype.order == COMMAND_DOCK) ? "dock" : "none");
+    }
+    if (w != NULL)
+    {                                                       // W: harvest the asteroid nearest it
+        Resource *rock = (Resource *)mtSceneNearest(&universe.ResourceList, &w->posinfo.position, OBJ_AsteroidType, -1,
+                                                    NULL, FALSE);
+        if (rock != NULL)
+        {
+            sel->numShips = 1; sel->ShipPtr[0] = (Ship *)w;
+            clWrapCollectResource(&universe.mainCommandLayer, sel, rock);
+        }
+    }
+    if (mothership != NULL)
+    {                                                       // M: 2,000 units ahead (its modules follow, clamped)
+        matGetVectFromMatrixCol3(heading, mothership->rotatable.rotinfo.coordsys);
+        vecScalarMultiply(dest, heading, 2000.0f);
+        vecAddTo(dest, mothership->obj.posinfo.position);
+        sel->numShips = 1; sel->ShipPtr[0] = mothership;
+        clWrapMove(&universe.mainCommandLayer, sel, 0, mothership->obj.posinfo.position, 1, &dest);
+    }
+    memFree(sel);
+}
+
+static void mtSceneTick(void)
+{
+    sdword tick = (sdword)universe.univUpdateCounter, i;
+    SpaceObj *b;
+    vector d;
+
+    if (mtDone)
+    {
+        return;
+    }
+    if (tick == MT_SCENE_START)
+    {
+        mtSceneStart();
+    }
+    if (tick == MT_SCENE_ORDER - 8 && mtSceneN > 0)
+    {
+        mtOpen();
+        if (mtDump != NULL)
+        {
+            fprintf(mtDump, "# scene %s distance=%.0f move=%.0f realClock=%d realFps=%u\n", mtSceneKind,
+                    (double)mtSceneDistance, (double)mtSceneMove, (int)mtRealClock, (unsigned)mtRealFps);
+            for (i = 0; i < mtSceneN; i++)
+            {
+                SpaceObj *obj = mtSceneObj[i];
+                fprintf(mtDump, "# object %s %s %s#%u\n", mtSceneName[i], mtSceneRole[i],
+                        (obj == NULL) ? "none" : (obj->header.objtype == OBJ_ShipType) ? ShipTypeToStr(((Ship *)obj)->shiptype) :
+                        (obj->header.objtype == OBJ_AsteroidType) ? "asteroid" : (obj->header.objtype == OBJ_DerelictType) ? "derelict" : "object",
+                        (obj != NULL && obj->header.objtype == OBJ_ShipType) ? (unsigned)((Ship *)obj)->shipID.shipNumber : 0u);
+            }
+        }
+        mtWindow = TRUE;
+        mtSceneLastCounter = universe.univUpdateCounter;
+        dbgMessagef("motiontest: window from tick %d to %d", (int)tick, (int)(MT_SCENE_ORDER + mtSceneTicks));
+    }
+    if (tick == MT_SCENE_ORDER && mtSceneN > 0)
+    {
+        mtSceneOrders();
+    }
+    if (tick >= MT_SCENE_ORDER + mtSceneTicks && mtWindow)
+    {
+        real32 moved = 0.0f;
+        b = mtSceneGet("B");
+        if (b != NULL)
+        {
+            vecSub(d, b->posinfo.position, mtSceneB0);
+            moved = fsqrt(vecMagnitudeSquared(d));
+        }
+        mtWindow = FALSE;
+        mtDone = TRUE;
+        dbgMessagef("motiontest: scene done tick=%d frames=%u sampled=%u Bmoved=%.0f realFrames=%u realLate=%u dump=%s result=%s",
+                    tick, (unsigned)mtFrame, (unsigned)mtSampledFrames, (double)moved, (unsigned)mtRealFrames,
+                    (unsigned)mtRealLate, mtDumpName,
+                    (mtSampledFrames > 0 && moved > 0.5f * mtSceneMove) ? "PASS" : "FAIL");
+        mtClose();
+    }
+}
+
+/*=============================================================================
     Hooks:
 =============================================================================*/
 
@@ -643,6 +1180,10 @@ void catMotionTestTick(void)
     {
         mtNisTick();
     }
+    else if (mtMode == MT_MODE_SCENE)
+    {
+        mtSceneTick();                              // M3-R1 motion-jitter
+    }
 }
 
 void catMotionTestFrameSample(struct Camera *camera)
@@ -671,8 +1212,48 @@ void catMotionTestFrameSample(struct Camera *camera)
             n += strlen(mtLine + n);
         }
     }
+    else if (mtMode == MT_MODE_SCENE)
+    {                                               // M3-R1 motion-jitter: the frame's clock and the scene's objects
+        udword blended = 0, fresh = 0, teleport = 0;
+        miRenderStats(&blended, &fresh, &teleport);
+        n += (size_t)snprintf(mtLine + n, sizeof(mtLine) - n, " alpha=%.5f raw=%.5f calls=%u mi=%u/%u/%u",
+                              (double)miRenderAlpha(), (double)taskPeriodFraction(universeTaskHandle),
+                              (unsigned)(universe.univUpdateCounter - mtSceneLastCounter), (unsigned)blended,
+                              (unsigned)fresh, (unsigned)teleport);
+        mtSceneLastCounter = universe.univUpdateCounter;
+        if (mtRealClock && n < sizeof(mtLine))
+        {
+            n += (size_t)snprintf(mtLine + n, sizeof(mtLine) - n, " ms=%.3f ft=%.3f tt=%u sub=%.4f rsub=%.4f", mtRealStamp,
+                                  mtRealStamp - mtRealLast, (unsigned)mtRealTicks, (double)mtRealSub,
+                                  (double)taskSubTickRender);
+        }
+        for (i = 0; i < mtSceneN && n < sizeof(mtLine); i++)
+        {
+            if (!mtObjAlive(mtSceneObj[i]))
+            {
+                continue;
+            }
+            mtProject(&mtSceneObj[i]->posinfo.position, mtLine + n, sizeof(mtLine) - n, mtSceneName[i]);
+            n += strlen(mtLine + n);
+            if (n < sizeof(mtLine))
+            {
+                vector *wp = &mtSceneObj[i]->posinfo.position;
+                n += (size_t)snprintf(mtLine + n, sizeof(mtLine) - n, " %sm=%d %sw=%.3f,%.3f,%.3f", mtSceneName[i],
+                                      (int)miRenderWritten(mtSceneObj[i]), mtSceneName[i], (double)wp->x, (double)wp->y,
+                                      (double)wp->z);
+            }
+        }
+    }
     else if (mtNisPlaying != NULL && thisNisPlaying == mtNisPlaying)
     {
+        if (mtRealClock && n < sizeof(mtLine))
+        {                                           // M3-R1 motion-jitter: the real clock's frame (only then: the virtual
+            n += (size_t)snprintf(mtLine + n, sizeof(mtLine) - n,   // nis dumps keep their format)
+                                  " alpha=%.5f raw=%.5f calls=0 ms=%.3f ft=%.3f tt=%u sub=%.4f rsub=%.4f",
+                                  (double)taskPeriodFraction(nisTaskHandle), (double)taskPeriodFraction(nisTaskHandle),
+                                  mtRealStamp, mtRealStamp - mtRealLast, (unsigned)mtRealTicks, (double)mtRealSub,
+                                  (double)taskSubTickRender);
+        }
         for (i = 0; i < mtNisPlaying->nObjects && i < MT_MAX_NIS_OBJECTS && n < sizeof(mtLine); i++)
         {
             objectmotion *path = &mtNisPlaying->objectsInMotion[i];
@@ -703,7 +1284,7 @@ void catMotionTestFrameEnd(void)
     {
         mtPixels = malloc(size);
     }
-    if (mtPixels != NULL)
+    if (mtPixels != NULL && !mtRealClock)           // M3-R1 motion-jitter: no read-back on the real clock (crc=0)
     {
         glPixelStorei(GL_PACK_ALIGNMENT, 1);
         glReadPixels(0, 0, MAIN_WindowWidth, MAIN_WindowHeight, GL_RGBA, GL_UNSIGNED_BYTE, mtPixels);
@@ -1013,6 +1594,46 @@ static void mtToggleClick(bool32 on, const char *step)
     feCurrentScreenDelete();
 }
 
+static sdword mtToggleFileRows(bool32 obj, bool32 nis);
+
+// M3-R1 motion-jitter: the screen's own order. The Smooth motion box is a copy of OP_NoLOD's atom (flags 0x4862 in
+// front_end.fib / in_game_esc_menu.fib: FAF_CallOnDelete), so its callback also runs at the screen's deletion; Cancel
+// (opOptionsCancelHelper) restores the saved flags BEFORE opOptionsEndHelper's feScreenDisappear deletes the screen,
+// and Accept (opOptionsAcceptHelper) saves after it. <click>: a click to the other state first (then Cancel's order:
+// the restore, then the deletion); else the screen opened and closed untouched (then Accept's order: the deletion,
+// then the save). The flags and a switch's run-only state must be what they were before the screen opened, and the
+// untouched close's save must keep the options file's values
+static void mtToggleScreenOrder(bool32 click, bool32 fileObj, bool32 fileNis, const char *step)
+{
+    bool32 obj = objInterpolate, nis = nisInterpolate, switched = miSwitchStands();
+    featom *box, *label;
+    char what[128];
+
+    feScreenStart(ghMainRegion, "Video_Options");
+    box = mtToggleAtom("Video_Options", &label);
+    if (click && box != NULL)
+    {
+        feToggleButtonSet("OP_SmoothMotion", !miSmoothMotionGet());
+        opSmoothMotion("OP_SmoothMotion", box);
+        opRestoreSavedSettings();                   // Cancel: the restore first,
+    }
+    feCurrentScreenDelete();                        // then the screen's deletion (its FAS_OnDelete calls)
+    if (!click)
+    {
+        opOptionsSaveSettings();                    // Accept: the save after the deletion
+    }
+    dbgMessagef("toggletest: %s objInterpolate=%d nisInterpolate=%d switch=%d (before %d/%d switch=%d) rows=%d",
+                step, (int)objInterpolate, (int)nisInterpolate, (int)miSwitchStands(), (int)obj, (int)nis,
+                (int)switched, (int)mtToggleFileRows(fileObj, fileNis));
+    snprintf(what, sizeof(what), "%s: the flags and the switch state as before the screen", step);
+    mtToggleCheck(objInterpolate == obj && nisInterpolate == nis && miSwitchStands() == switched, what);
+    if (!click)
+    {
+        snprintf(what, sizeof(what), "%s: the save keeps the options file's values", step);
+        mtToggleCheck(mtToggleFileRows(fileObj, fileNis) == 2, what);
+    }
+}
+
 // the options file the Accept path wrote: both rows at <value>, and read back through utyOptionsList
 static void mtToggleFile(bool32 value, const char *step)
 {
@@ -1304,6 +1925,10 @@ void catToggleRunSelfTest(void)
     dbgMessagef("toggletest: cancel restored objInterpolate=%d nisInterpolate=%d", (int)objInterpolate, (int)nisInterpolate);
     mtToggleCheck(objInterpolate == startObj && nisInterpolate == startNis, "cancel restores the flags");
     mtToggleCheck(miSwitchStands() == switched, "cancel restores the switch's run-only state");   // M2-R7 r6-leftovers
+    // M3-R1 motion-jitter: the screens' own orders (the box's FAS_OnDelete call): Cancel after a click, and the screen
+    //      opened and closed untouched (under a switch the box shows off: its deletion must not make that the user's)
+    mtToggleScreenOrder(FALSE, fileObj, fileNis, "screen untouched");
+    mtToggleScreenOrder(TRUE, fileObj, fileNis, "screen cancel");
 
     // Accept: off, persisted; then on, persisted
     mtToggleClick(FALSE, "accept-off");

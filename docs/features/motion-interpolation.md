@@ -65,3 +65,10 @@ lock on the focus cancels the focus's angular motion and nobody else's, which is
 5. **Guard-rails.** Interpolation off must reproduce the pre-feature frames exactly (byte-identical oracle stream in
    both settings; per-frame dump identical with the toggle off). No change to `nisUpdate` semantics, timing, or the KAS
    runtime. Document in `docs/m2-r6-nis.md` (written as docs/m2-r6-motion-interp.md).
+6. **M3-R1 (motion-jitter, docs/m3-r1-motion-jitter.md): the wall clock.** The render task runs before the universe and
+   NIS tasks in each scheduler pass, so on the wall clock one frame a tick sees alpha above 1 (up to a frame's task
+   ticks); that frame is drawn at its own time (gameplay: the last tick's motion continued; NIS: the curves at the render
+   time; at most 2 ticks, `MI_ALPHA_MAX`), not held at the tick (item 1's "clamp 0..1" is replaced by this). The
+   render's alpha takes the clock's sub-millisecond part (Task.c `taskClockSample`, SDL's performance counter); the
+   scheduler's ticks are unchanged. A ship clamped to a host during a tick (a dock's latch) slides there over that tick.
+   Measurement: harness `--scene` (the user's skirmish recipe and the object kinds) and `--real-clock FPS`.

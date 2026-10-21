@@ -227,6 +227,10 @@ sdword taskExecuteAllPending(sdword ticks);
 //      pass's ticks when the task has not run yet in it, and the sub-tick remainder of the clock), negative if the
 //      task is paused or gone; taskSubTick is that remainder, set by utyTasksDispatch
 extern real32 taskSubTick;                                              // HWI-FEATURE(motion-interp)
+// HWI-FEATURE(motion-interp), M3-R1 motion-jitter: the same remainder to a fraction of a millisecond on the wall clock
+//      (taskClockSample, from SDL's performance counter; the render's alpha only), -1 on the virtual clock
+extern real32 taskSubTickRender;                                        // HWI-FEATURE(motion-interp)
+void taskClockSample(real64 precise, udword timer, udword remainder, udword divisor);  // HWI-FEATURE(motion-interp)
 real32 taskPeriodFraction(taskhandle handle);                           // HWI-FEATURE(motion-interp)
 
 #endif

@@ -371,7 +371,8 @@ real32 bsCurveEvalAt(splinecurve *curve, real32 time)                   // HWI-F
                   of it), so the jump still shows at the tick that takes it, as
                   without interpolation, and the frames before it keep moving.
     Inputs      : curve - curve to evaluate (not modified)
-                  time - absolute curve time (at most a tick past its current time)
+                  time - absolute curve time (at most two ticks past its current time:
+                         MI_ALPHA_MAX; [audit: M3-R1 motion-jitter, was "a tick"])
     Outputs     :
     Return      : the value
 ----------------------------------------------------------------------------*/

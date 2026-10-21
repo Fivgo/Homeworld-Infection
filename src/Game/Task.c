@@ -424,6 +424,51 @@ sdword taskExecuteAllPending(sdword ticks)
     Note        : reads only; nothing here changes the task manager's state.
 ----------------------------------------------------------------------------*/
 real32 taskSubTick = 0.0f;                                              // HWI-FEATURE(motion-interp)
+real32 taskSubTickRender = -1.0f;                                       // HWI-FEATURE(motion-interp): M3-R1, <0: none
+
+/*-----------------------------------------------------------------------------
+    Name        : taskClockSample
+    Description : HWI-FEATURE(motion-interp), M3-R1 motion-jitter: not in the
+                  exe. The wall clock's sub-millisecond part for the render's
+                  alpha only. utyTasksDispatch counts whole milliseconds
+                  (SDL_GetTicks), so the remainder it keeps (taskSubTick) steps
+                  in milliseconds: at 144 Hz a frame of 6.94 ms counts 6, 7 or
+                  8 and alpha's per-frame step varied by 14% (0.100 / 0.117 /
+                  0.133 of a tick: the real-clock scene measurement). The same
+                  monotonic clock read with SDL's performance counter at the
+                  same moment gives the fraction: the counter minus the
+                  milliseconds is SDL's start offset plus that fraction; its
+                  slow average (5% a frame, restarted on a jump of more than
+                  4 ms) is the offset, so the remainder becomes
+                  remainder + fraction. taskSubTickRender is that in task ticks;
+                  the task manager's ticks (taskExecuteAllPending) are not
+                  touched, so nothing the simulation sees changes.
+    Inputs      : precise - the performance counter in milliseconds
+                  timer - SDL_GetTicks at the same moment
+                  remainder - the milliseconds utyTasksDispatch keeps
+                  divisor - the milliseconds of a task tick (utyTimerDivisor)
+    Outputs     : taskSubTickRender
+    Return      :
+----------------------------------------------------------------------------*/
+void taskClockSample(real64 precise, udword timer, udword remainder, udword divisor)  // HWI-FEATURE(motion-interp)
+{                                                                       // HWI-FEATURE(motion-interp)
+    static real64 offset = 0.0;                                         // HWI-FEATURE(motion-interp)
+    static bool32 valid = FALSE;                                        // HWI-FEATURE(motion-interp)
+    real64 d = precise - (real64)timer, sub;                            // HWI-FEATURE(motion-interp)
+                                                                        // HWI-FEATURE(motion-interp)
+    if (!valid || d - offset > 4.0 || d - offset < -4.0)                // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        offset = d - 0.5;                                               // HWI-FEATURE(motion-interp): a fraction's mean
+        valid = TRUE;                                                   // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+    else                                                                // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        offset += (d - 0.5 - offset) * 0.05;                            // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+    sub = ((real64)remainder + (d - offset)) / (real64)divisor;         // HWI-FEATURE(motion-interp)
+    taskSubTickRender = (real32)((sub < 0.0) ? 0.0 : sub);              // HWI-FEATURE(motion-interp)
+}                                                                       // HWI-FEATURE(motion-interp)
+
 real32 taskPeriodFraction(taskhandle handle)                            // HWI-FEATURE(motion-interp)
 {                                                                       // HWI-FEATURE(motion-interp)
     taskdata *task;                                                     // HWI-FEATURE(motion-interp)
@@ -439,7 +484,7 @@ real32 taskPeriodFraction(taskhandle handle)                            // HWI-F
     {                                                                   // HWI-FEATURE(motion-interp)
         ticks += (real32)tTicks;                                        // HWI-FEATURE(motion-interp)
     }                                                                   // HWI-FEATURE(motion-interp)
-    ticks += taskSubTick * cat_timeCompressionFactor;                   // HWI-FEATURE(motion-interp)
+    ticks += ((taskSubTickRender >= 0.0f) ? taskSubTickRender : taskSubTick) * cat_timeCompressionFactor;   // HWI-FEATURE(motion-interp): M3-R1, the precise one on the wall clock
     return ticks / (real32)task->ticksPerCall;                          // HWI-FEATURE(motion-interp)
 }                                                                       // HWI-FEATURE(motion-interp)
 

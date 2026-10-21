@@ -156,6 +156,10 @@
 #                    file's value), the Video_Options FULL DETAIL checkbox (OP_NoLOD) shows it and its clicks set 0 / 1,
 #                    Accept writes and reads back noLOD 0 / 1, the console row noLOD, the frame-rate presets
 #                    (cat_opSetAllDefaults: low 0, high 1), the switch run-only; pass "-- /lodBands" to check the switch
+#                    M3-R1 motion-jitter adds "toggletest: screen untouched / screen cancel" (the screens' own orders: the
+#                    Smooth motion box keeps OP_NoLOD's FAF_CallOnDelete, so its callback runs at the screen's deletion;
+#                    Cancel restores before the deletion, Accept saves after it): the flags, a switch's run-only state and
+#                    the options file's rows must be as before the screen
 #                    replay: /oracleReplay <name> /oracleDump <run>/run.hwo (M2-R6 oracle-mode-a, docs/m2-r6-oracle-mode-a.md,
 #                    oracle mode A): the recorded game --recording NAME (default oracle01: the user's reference recording)
 #                    and NAME.pkts are copied from original/game/SavedGames/RecordedGames into the harness data dir's
@@ -420,6 +424,31 @@
 #                    drawn of the visible objects with a LOD table), then "lodstats: done frames=N median=.. p99=.. max=..
 #                    verts_median=.. size=WxH". A GPU measurement (docs: idle GPU); use the release build (--bin) for
 #                    frame times. The summary gets a "lodstats:" line
+#   --scene SPEC     any mode that plays a game (M3-R1 motion-jitter, HWI-FEATURE(motion-interp) measurement; skirmish:
+#                    the user's jitter recipe): /catMotionFps <--fps> /catMotionScene SPEC /catMotionDump <run>/scene.dump;
+#                    SPEC = <kind>[:<distance>[:<move>[:<ticks>[:<start>]]]] [audit: <start> added]. At tick <start> (16) the scene picks player 0's Recon nearest its
+#                    mothership (A) and the Recon nearest A (B), C (the nearest other free ship), D (the nearest
+#                    asteroid), E (the nearest derelict, else a no-owner ship), F (a module clamped to the mothership),
+#                    G (the wingman of three ships of one type, g0 / g2 the others), H (the nearest free ship and host
+#                    ThisShipCanDockWith accepts: support, or a Worker's deposit), W (a Worker) and M (the mothership)
+#                    [audit: H / W / M as MotionTest.c picks and orders them], focuses the camera on A (kind recon; follow: on B) at its zenith (declination -85, the
+#                    eye straight above) and snaps it there (<distance> > 0: that camera distance; 0: the focus zoom); at
+#                    tick 48 the command layer orders B <move> units (default 500) straight ahead, C 1,500 units across
+#                    A, G's three ships into delta formation and 2,000 units along -x, H to dock at its host, W to harvest
+#                    the asteroid nearest it and M 2,000 units ahead (no input); from tick 40 to 48 + <ticks> (default 160) every frame writes a motion-format
+#                    line with alpha= (the alpha the frame was blended with, -1 none), raw= (taskPeriodFraction of the
+#                    universe task), calls= (universe ticks since the previous frame), mi=blended/new/teleported and
+#                    per object <name>m=1 when the interpolation wrote its transform that frame; "motiontest: scene ..."
+#                    lines, "motiontest: scene done ... Bmoved=.. result=PASS|FAIL" (PASS: frames dumped and B moved
+#                    over half its move); the summary gets a "scene:" line. The virtual clock runs --fps frames a tick;
+#                    pass --skirmish-ticks over 48 + <ticks>. tools/nis_smoothness.py reads the dump (--span, --offscreen)
+#   --real-clock FPS with --scene (M3-R1 motion-jitter): /catMotionRealClock FPS: the run on the wall clock instead of the
+#                    virtual one (the offscreen driver, no vertical sync): each frame's dispatch waits for its slot of a
+#                    1/FPS grid (SDL's performance counter), as a monitor's vertical sync paces the swap; the dump lines
+#                    add ms= (the dispatch time), ft= (since the previous frame), tt= (the task ticks, 4 ms each) and
+#                    sub= (taskSubTick), and carry crc=00000000 (no read-back). A GPU measurement: an idle GPU, the
+#                    release build (--bin build/release/hwi-engine). Also in the nis mode (its lines get the same clock
+#                    tokens; the mode's /noSpeech is left out then: a debug-build switch, and the real clock has no CRC)
 #   --timeout N      seconds (default 60)
 #   --driver D       offscreen (default; falls back to dummy if the offscreen driver cannot set a video mode) | dummy
 #   --data DIR       HW_Data dir to use instead of the harness data dir. ONLY for isolation runs of one item while
@@ -491,7 +520,7 @@ oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=30
 conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0; mtmission=1; savename="01 - Hiigara"; ldticks=400
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""; skticks=600; skmap=LiveFireExercise2
 warplevel=10; savesrc=""; training=0; recordname=""; recordstop=""; skbigotry=""; failjump=0
-shotspec=""; shotlb=0; res=""; cfgrows=(); teamcolour=0; lodtest=""; lodstats=""
+shotspec=""; shotlb=0; res=""; cfgrows=(); teamcolour=0; lodtest=""; lodstats=""; scene=""; realclock=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -544,6 +573,8 @@ while [[ $# -gt 0 ]]; do
 		--teamcolour) teamcolour=1 ;;
 		--lodtest) lodtest=$2; shift ;;
 		--lodstats) lodstats=$2; shift ;;
+		--scene) scene=$2; shift ;;
+		--real-clock) realclock=$2; shift ;;
 		--) shift; extra=("$@"); break ;;
 		*) echo "m2_harness: unknown option $1" >&2; exit 2 ;;
 	esac
@@ -650,7 +681,9 @@ elif [[ "$mode" == replay ]]; then
 elif [[ "$mode" == nis ]]; then
 	# /noSpeech: the NIS's speech subtitles start and end with the audio thread's progress through the speech (wall
 	# clock, even on SDL's dummy driver), which made about 40 frame CRCs of n06's window differ run to run
-	args+=(/noSpeech /catMotionFps "$vfps" /catNisMotionTest "$nisspec" /catMotionDump "$out/nis.dump")
+	# M3-R1 motion-jitter: not with --real-clock (/noSpeech is a debug-build switch; a real-clock run has no CRC to keep)
+	[[ -z "$realclock" ]] && args+=(/noSpeech)
+	args+=(/catMotionFps "$vfps" /catNisMotionTest "$nisspec" /catMotionDump "$out/nis.dump")
 elif [[ $hwo -eq 1 ]]; then
 	args+=(/oracleDump "$out/run.hwo")
 fi
@@ -710,6 +743,8 @@ fi
 [[ $teamcolour -eq 1 ]] && args+=(/catTeamColourTest)     # M3-R1 team-colours-warp
 [[ -n "$lodtest" ]] && args+=(/catLodTest "$lodtest")      # M3-R1 full-detail
 [[ -n "$lodstats" ]] && args+=(/catLodStats "$lodstats")   # M3-R1 full-detail
+[[ -n "$scene" ]] && args+=(/catMotionFps "$vfps" /catMotionScene "$scene" /catMotionDump "$out/scene.dump")   # M3-R1 motion-jitter
+[[ -n "$realclock" ]] && args+=(/catMotionRealClock "$realclock")   # M3-R1 motion-jitter
 if [[ -n "$shotspec" ]]; then
 	args+=(/catShot "$shotspec" /catShotFile "$out/shot")
 	[[ $shotlb -eq 1 ]] && args+=(/catShotLetterbox)
@@ -783,6 +818,7 @@ grep -q "buildtest: done" "$L" && milestone="build self-test done"
 grep -q "aitest: done" "$L" && milestone="ai self-test done"
 grep -q "nisparsetest: done" "$L" && milestone="nisparse self-test done"
 grep -q "motiontest: done" "$L" && milestone="motion self-test done"
+grep -q "motiontest: scene done" "$L" && milestone="motion scene done"
 grep -q "toggletest: done" "$L" && milestone="toggle self-test done"
 grep -q "skirmishtest: done" "$L" && milestone="skirmish self-test done"
 grep -q "missiontest: done" "$L" && milestone="mission self-test done"
@@ -853,6 +889,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ -n "$shotspec" ]] && echo "catshot: $(grep -c 'catshot: tick=' "$L") files ($(grep -h 'catshot: tick=' "$L" | head -n 1 | sed 's/^.*catshot: //; s/ file=.*//') ..); FAIL lines: $(grep -c 'catshot: FAIL' "$L")"
 	[[ -n "$lodtest" ]] && echo "lodtest: $(grep -c 'lodtest: obj ' "$L") objects; $(grep -h 'lodtest: frame' "$L" | sed 's/^.*lodtest: //' | cut -c1-300); $(grep -h 'lodtest: done' "$L" | sed 's/^.*lodtest: //' | cut -c1-300)"
 	[[ -n "$lodstats" ]] && echo "lodstats: $(grep -c 'lodstats: tick=' "$L") frames; $(grep -h 'lodstats: done' "$L" | sed 's/^.*lodstats: //' | cut -c1-300)"
+	[[ -n "$scene" ]] && echo "scene: $(grep -h 'motiontest: scene done' "$L" | sed 's/^.*motiontest: //' | cut -c1-300)"
 	[[ $teamcolour -eq 1 ]] && echo "teamcolour: $(grep -c 'teamcolour: check ' "$L") checks, $(grep 'teamcolour: check ' "$L" | grep -c 'result=FAIL') FAIL, $(grep -c 'teamcolour: fail ' "$L") fail lines; $(grep -h 'teamcolour: done' "$L" | sed 's/^.*teamcolour: //' | cut -c1-400)"
 	[[ -n "$res$(printf '%s' "${cfgrows[@]}")" ]] && echo "options rows added: $(tail -n $(( ${#cfgrows[@]} + $([[ -n "$res" ]] && echo 2 || echo 0) )) "$out/home/.homeworld/Cataclysm.cfg" | paste -sd';')"
 	echo "animatics: $(grep -c 'animatic: skipped (headless)' "$L") skipped (headless): $(grep -h 'animatic: skipped (headless)' "$L" | sed 's/^.*file=//' | paste -sd',')"

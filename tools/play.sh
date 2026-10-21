@@ -16,10 +16,13 @@
 #             /noNISInterp (cutscene interpolation off only), /window, /fullscreen, /1600 (1600x1200), /noBorder
 # Logs: <home>/logs/play-<timestamp>.log (stdout+stderr). Exit code = the engine's.
 #
-# Smooth motion (docs/features/motion-interpolation.md): ON by default. Toggle in game with the "Smooth motion"
-# checkbox on Options -> Video (front end and the Escape menu), or with the console (tilde key): objInterpolate 0|1,
-# nisInterpolate 0|1. Note: the switches /noInterp and /noNISInterp set the same flags, and saving options while
-# they are off writes 0 into Cataclysm.cfg (the run-only override is an M2-R7 follow-up): re-enable with the checkbox.
+# Smooth motion (docs/features/motion-interpolation.md): ON by default. It is the SMOOTH MOTION checkbox on
+# Options -> Video (the front end's and the Escape menu's); Accept saves it as the Cataclysm.cfg rows
+#   objInterpolate 0|1 / nisInterpolate 0|1   (both 1 = on; a file that says 0 keeps it OFF in every session)
+# The switches -- /noInterp (all off) and -- /noNISInterp (cutscenes only) are this run only: the options file keeps
+# its rows (since M2-R7; the M2-R6 builds of 2026-10-18 wrote a switch's 0 into the file, and until M3-R1 an options
+# screen closed during a /noInterp run, or Cancel after a click, could save the 0 too). If Smooth motion seems off,
+# open Options -> Video and tick SMOOTH MOTION, or set both rows to 1 in <home>/.homeworld/Cataclysm.cfg.
 #
 # Cutscene letterbox (M3-R1, HWI-FEATURE(letterbox-setting)): the black bars of an NIS and of a mission's letterbox
 # are drawn IN FRONT of the scene by default (as cataclysm.exe draws them: a ship flying into a bar is hidden). The old

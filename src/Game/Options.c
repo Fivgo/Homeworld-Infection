@@ -2471,6 +2471,13 @@ void opNoLOD(char* name, featom* atom)
     (opSmoothMotionAtomsAdd, called by feScreensImageLoad): a copy of the
     screen's own "full detail" checkbox (OP_NoLOD) and of its label, moved to
     free space and renamed OP_SmoothMotion / "SMOOTH MOTION".
+    M3-R1 motion-jitter: the copy keeps OP_NoLOD's flags (0x4862 in both .fib
+    files: FAF_CallOnDelete), so the screen's deletion called this again with
+    the box's state: after Cancel's opRestoreSavedSettings (the click kept,
+    and saved by the next opOptionsSaveSettings) and, under /noInterp, on an
+    untouched close (the box shows the switch's off: the switch's 0 made the
+    user's choice and Accept's save wrote it). Only a click sets the flags now
+    (the deletion's FAS_OnDelete call is ignored).
 ----------------------------------------------------------------------------*/
 void opSmoothMotion(char* name, featom* atom)                           // HWI-FEATURE(motion-interp)
 {                                                                       // HWI-FEATURE(motion-interp)
@@ -2478,7 +2485,7 @@ void opSmoothMotion(char* name, featom* atom)                           // HWI-F
     {                                                                   // HWI-FEATURE(motion-interp)
         feToggleButtonSet(name, miSmoothMotionGet());                   // HWI-FEATURE(motion-interp)
     }                                                                   // HWI-FEATURE(motion-interp)
-    else                                                                // HWI-FEATURE(motion-interp)
+    else if (!FELASTCALL(atom))                                         // HWI-FEATURE(motion-interp): a click only (M3-R1)
     {                                                                   // HWI-FEATURE(motion-interp)
         miSmoothMotionSet(FECHECKED(atom) ? TRUE : FALSE);              // HWI-FEATURE(motion-interp)
     }                                                                   // HWI-FEATURE(motion-interp)

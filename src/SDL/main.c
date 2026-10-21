@@ -671,6 +671,17 @@ bool32 CatMotionFpsSet(char *string)                // HWI-FEATURE(motion-interp
     catMotionTestFpsSet(string);                    // HWI-FEATURE(motion-interp)
     return TRUE;                                    // HWI-FEATURE(motion-interp)
 }                                                   // HWI-FEATURE(motion-interp)
+// HWI-FEATURE(motion-interp) measurement (M3-R1 motion-jitter): /catMotionScene, /catMotionRealClock (MotionTest.c)
+bool32 CatMotionSceneSet(char *string)              // HWI-FEATURE(motion-interp)
+{                                                   // HWI-FEATURE(motion-interp)
+    catMotionSceneSet(string);                      // HWI-FEATURE(motion-interp)
+    return TRUE;                                    // HWI-FEATURE(motion-interp)
+}                                                   // HWI-FEATURE(motion-interp)
+bool32 CatMotionRealClockSet(char *string)          // HWI-FEATURE(motion-interp)
+{                                                   // HWI-FEATURE(motion-interp)
+    catMotionRealClockSet(string);                  // HWI-FEATURE(motion-interp)
+    return TRUE;                                    // HWI-FEATURE(motion-interp)
+}                                                   // HWI-FEATURE(motion-interp)
 
 // CAT: port diagnostic: /catHudTest <frames> (InfoOverlay.c catHudSelfTestTick: the HUD self-test on the headless
 //      Mission01 run, M2-R5 hud)
@@ -1378,6 +1389,8 @@ commandoption commandOptions[] =
     entryFnParam("/catMotionDump",      CatMotionDumpSet, " <file> - the per-frame dump of /catMotionTest and /catNisMotionTest."),   // HWI-FEATURE(motion-interp)
     entryFnParam("/catMotionShot",      CatMotionShotSet, " <frame> - /catMotionTest, /catNisMotionTest: save that frame of the window as <dump>.<frame>.ppm."),   // HWI-FEATURE(motion-interp)
     entryFnParam("/catMotionFps",       CatMotionFpsSet, " <fps> - the virtual frame rate of /catMotionTest and /catNisMotionTest (default 144)."),   // HWI-FEATURE(motion-interp)
+    entryFnParam("/catMotionScene",     CatMotionSceneSet, " <kind>[:<distance>[:<move>[:<ticks>[:<start>]]]] - with another mode's game (e.g. the skirmish test): the camera on a Recon at its zenith, a second Recon moved <move> units ahead (recon; follow: the camera on the mover), the object kinds tracked, per-frame screen positions to /catMotionDump."),   // HWI-FEATURE(motion-interp)
+    entryFnParam("/catMotionRealClock", CatMotionRealClockSet, " <fps> - a motion measurement on the wall clock, each frame paced to <fps> (the dump gets the frame times, the task ticks and alpha)."),   // HWI-FEATURE(motion-interp)
     entryFnParam("/catShot",            CatShotSet, " <spec> - save frames as PPM (the physical framebuffer before the flip, top row first): <spec> = comma list of <tick>[:<frame>] or <from>-<to>[/<step>][:<frame>] (universe ticks, the n-th frame of the tick)."),   // HWI-TEST
     entryFnParam("/catShotFile",        CatShotFileSet, " <prefix> - /catShot's files are <prefix>.<tick>.<frame>.ppm (default shot in the settings path)."),   // HWI-TEST
     entryFn("/catTeamColourTest",       CatTeamColourTestSet, " - log the player's team-colour state (\"teamcolour:\" lines) before / after each level change and check it (Game/TeamColourTest.c)."),   // HWI-TEST

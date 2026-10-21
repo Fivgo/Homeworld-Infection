@@ -19,7 +19,9 @@
               the latest tick (a normalised blend of the coordinate systems),
               where alpha is the fraction of the current universe tick elapsed
               (Task.c taskPeriodFraction: the scheduler's leftover ticks, time
-              compression included); miRenderEnd writes the simulation's values
+              compression included; M3-R1 motion-jitter: above 1 in a frame
+              whose pass runs the next tick later, the last tick's motion
+              continued, MI_ALPHA_MAX); miRenderEnd writes the simulation's values
               back bit for bit. So the main view, the camera's focus centre
               (ccControl runs inside the draw), the selection circles and the
               picking they feed, and the HUD overlays all use the drawn
@@ -90,6 +92,14 @@ static bool32 miSavedNisSwitched = FALSE;
 taskhandle universeTaskHandle = -1;
 
 #define MI_TELEPORT         2000.0f                 // more than this in one tick is a jump (hyperspace, placement)
+// M3-R1 motion-jitter: the render task runs before the universe task in each pass of the task manager (utility.c starts
+//      it first), so in the frame whose pass will run the next universe tick alpha is above 1 (the time past the
+//      current tick); on the wall clock that is one frame in every tick (by up to a frame's task ticks: 1.13 at 144 Hz).
+//      Drawing those frames at the current tick held the motion for that frame and doubled the next frame's step, a
+//      16 Hz hitch of every interpolated object (the scene measurement: docs/m3-r1-motion-jitter.md). The frame is now
+//      drawn at its own time: the last tick's motion continued (gameplay; the NIS curves at the render time) up to this
+//      many ticks past the current one. Exactly 1 (the virtual clock's frames) still draws the simulation's values
+#define MI_ALPHA_MAX        2.0f
 
 #define MI_HAS_POS          0x01
 #define MI_HAS_ROT          0x02
@@ -104,6 +114,7 @@ typedef struct
     udword gen;                                     // the capture that wrote this entry (0: none)
     udword nisFrame;                                // the frame this object was an NIS object in
     ubyte has;
+    ubyte clamped;                                  // M3-R1 motion-jitter: clamped to a host at the capture
     vector pos, coll, engine;
     matrix coord;
 } MiEntry;
@@ -126,6 +137,7 @@ static MiSaved *miSaved = NULL;
 static udword miSavedCap = 0, miSavedCount = 0;
 static bool32 miDrawing = FALSE;                    // between miRenderBegin and miRenderEnd
 static real32 miAlpha = -1.0f;
+static udword miStatBlended = 0, miStatFresh = 0, miStatTeleport = 0;   // M3-R1 motion-jitter: the frame's counts
 static Camera miNisCamera;
 static bool32 miNisCameraValid = FALSE;
 
@@ -316,6 +328,8 @@ void miCaptureTick(void)
         }
         e->gen = miGen;
         e->has = miRead(obj, &e->pos, &e->coord, &e->coll, &e->engine);
+        e->clamped = (obj->header.objtype == OBJ_ShipType &&
+                      ((SpaceObjRotImpTargGuidance *)obj)->clampInfo != NULL);   // M3-R1 motion-jitter
     }
     miDroids(FALSE, 0.0f);                          // M2-R7 r6-leftovers: the repair droids' owner-space positions
 }
@@ -531,6 +545,14 @@ static void miGameplayClamped(udword first)
             {
                 continue;                           // the NIS's this frame
             }
+            // M3-R1 motion-jitter: a child clamped during the latest tick (a dock's latch: CAT_DOCKSTATE_LINK_IN; an
+            //      externally built ship) was elsewhere at the capture: its own blend slides it from there onto the
+            //      clamp point over the tick. The host-frame write put it on the clamp point from the tick's first
+            //      frame (the scene's docking Worker: a 5.3-unit pop in one frame, then still)
+            if (e != NULL && e->gen == miGen && !e->clamped)
+            {
+                continue;
+            }
             miClampedWrite(host, child);            // the child's own blend, if any, is undone by the earlier save
         }
     }
@@ -626,10 +648,10 @@ static void miRenderNis(nisplaying *nis)
 #endif
             )
         {
-            if (alpha > 1.0f)
+            if (alpha > MI_ALPHA_MAX)
             {
-                alpha = 1.0f;
-            }
+                alpha = MI_ALPHA_MAX;               // M3-R1 motion-jitter: past the next NIS tick the curves at the render
+            }                                       //      time too (bsCurveEvalAtBeforeJump leaves every jump ahead out)
             dt = alpha * UNIVERSE_UPDATE_PERIOD;
 #if NIS_TIME_CONTROLS
             dt *= nisPlayFactor;                    // nisUpdate scales its step only where it has the time controls
@@ -696,6 +718,7 @@ void miRenderBegin(void)
     miFrame++;
     miSavedCount = 0;
     miAlpha = -1.0f;
+    miStatBlended = miStatFresh = miStatTeleport = 0;
     miNisCameraValid = FALSE;
     miDrawing = TRUE;
     if (!gameIsRunning || (!objInterpolate && !nisInterpolate))
@@ -713,10 +736,14 @@ void miRenderBegin(void)
         return;
     }
     alpha = taskPeriodFraction(universeTaskHandle);
-    if (alpha < 0.0f || alpha >= 1.0f)
+    if (alpha < 0.0f || alpha == 1.0f)
     {
         return;                                     // paused, or at the current tick: the simulation's values
     }
+    if (alpha > MI_ALPHA_MAX)
+    {
+        alpha = MI_ALPHA_MAX;                       // M3-R1 motion-jitter: past the current tick, the last tick's motion
+    }                                               //      continued (miLerp and miBlendCoordsys extrapolate above 1)
     miAlpha = alpha;
     first = miSavedCount;                           // M2-R7 r6-leftovers: the gameplay lerp's entries start here
     for (node = universe.SpaceObjList.head; node != NULL; node = node->next)
@@ -725,13 +752,19 @@ void miRenderBegin(void)
         e = miFind(obj);
         if (e == NULL || e->gen != miGen || e->nisFrame == miFrame)
         {
+            if (e == NULL || e->nisFrame != miFrame)
+            {
+                miStatFresh++;                      // M3-R1 motion-jitter: the counts
+            }
             continue;                               // new this tick, or the NIS's
         }
         vecSub(d, obj->posinfo.position, e->pos);
         if (vecMagnitudeSquared(d) > MI_TELEPORT * MI_TELEPORT)
         {
+            miStatTeleport++;                       // M3-R1 motion-jitter
             continue;
         }
+        miStatBlended++;                            // M3-R1 motion-jitter
         if ((s = miSave(obj)) == NULL)
         {
             break;
@@ -809,6 +842,34 @@ Camera *miRenderCamera(Camera *camera)
 real32 miRenderAlpha(void)
 {
     return miAlpha;
+}
+
+// M3-R1 motion-jitter: the measurement's counts (MotionTest.c scene dumps): objects blended this frame, objects with
+// no entry of the latest capture (new this tick, or none), jumps over MI_TELEPORT
+void miRenderStats(udword *blended, udword *fresh, udword *teleport)
+{
+    *blended = miStatBlended;
+    *fresh = miStatFresh;
+    *teleport = miStatTeleport;
+}
+
+// M3-R1 motion-jitter: TRUE while the frame is drawn with this object's transform written by the interpolation
+bool32 miRenderWritten(const void *obj)
+{
+    udword i;
+
+    if (!miDrawing)
+    {
+        return FALSE;
+    }
+    for (i = 0; i < miSavedCount; i++)
+    {
+        if (miSaved[i].obj == obj)
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
 }
 
 /*=============================================================================

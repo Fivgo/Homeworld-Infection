@@ -25,6 +25,12 @@ void catNisMotionTestSet(char *string);     // /catNisMotionTest <nis>: the NIS 
 void catMotionTestDumpSet(char *string);    // /catMotionDump <file>: the per-frame dump
 void catMotionTestFpsSet(char *string);     // /catMotionFps <fps>: the virtual frame rate (default 144)
 void catMotionTestShotSet(char *string);    // /catMotionShot <frame>: that frame of the window saved as <dump>.<frame>.ppm
+// M3-R1 motion-jitter: the scene mode and the real clock (MotionTest.c "the scene mode")
+void catMotionSceneSet(char *string);       // /catMotionScene <kind>[:<distance>[:<move>[:<ticks>[:<start>]]]]: recon | follow
+void catMotionRealClockSet(char *string);   // /catMotionRealClock <fps>: the wall clock, each frame paced to <fps>
+bool32 catMotionRealClock(void);            // utyTasksDispatch: take the wall clock in a virtual-clock run
+void catMotionRealClockPace(void);          // utyTasksDispatch, before the clock is read: wait for the frame's slot
+void catMotionRealClockStamp(udword ticks, real32 sub); // utyTasksDispatch, after: the frame's task ticks and remainder
 
 // HWI-TEST (M3-R1 letterbox-front): the any-mode frame capture: /catShot <spec> saves the listed frames (the physical
 //      framebuffer read back before the flip, top row first) as <prefix>.<tick>.<frame>.ppm; <spec> is a comma list of

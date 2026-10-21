@@ -4333,6 +4333,7 @@ char *utyGameSystemsInit(void)
     }
 #endif
     
+    // CAT-TODO(M3 soak): the exe's task clock is QueryPerformanceCounter / (QPF / 240) (utyGameSystemsInit 0x005abe70 sets utyTimerDivisor, utyTasksDispatch 0x005acd10 divides 64-bit counts): 240 task ticks a second and a 62.5 ms universe tick; GoK's SDL_GetTicks / 4 ms gives 250 a second, a 60 ms universe tick (16.67 Hz on the wall clock, 4% fast) and whole-millisecond frames (measured by the motion-jitter scene, docs/m3-r1-motion-jitter.md: the render's alpha takes the sub-millisecond part from taskClockSample); porting it changes taskTimeDelta / taskTimeElapsed in every run, the virtual-clock streams too, so it is the soak round's measured change
     utyTimerDivisor = 1000 / UTY_TimerResolutionMax;
     utySet(SSA_Timer);
                                                             //start the task manager
@@ -5288,14 +5289,21 @@ void utyTasksDispatch(void)
 #if HWI_ORACLE
     // HWI-ORACLE: a headless mission run (/oracleMission) advances the task clock by exactly one universe tick per frame
     // instead of by the wall clock, so the run is a function of the frame count alone (OracleDump.c)
-    if (oracleVirtualFrameTicks() != 0)
+    if (oracleVirtualFrameTicks() != 0 && !catMotionRealClock())    // HWI-FEATURE(motion-interp): /catMotionRealClock takes the wall clock
     {
         utyNFrameTicks = oracleVirtualFrameStep();  // HWI-FEATURE(motion-interp): N frames a tick in a motion run (else oracleVirtualFrameTicks())
         taskSubTick = oracleVirtualSubTick();       // HWI-FEATURE(motion-interp): the virtual clock's leftover
+        taskSubTickRender = -1.0f;                  // HWI-FEATURE(motion-interp): M3-R1, the virtual clock's is exact
         taskExecuteAllPending(utyNFrameTicks);
         soundVirtualAdvance(utyNFrameTicks, (udword)taskFrequency);    // HWI-TEST (M2-R9): the virtual audio clock, if on
         utyTimerLast = SDL_GetTicks();
         return;
+    }
+#endif
+#if HWI_ORACLE
+    if (catMotionRealClock())                               // HWI-FEATURE(motion-interp) measurement [audit: tagged]
+    {
+        catMotionRealClockPace();                           // HWI-FEATURE(motion-interp) measurement: the frame's slot
     }
 #endif
     timer = SDL_GetTicks();                                 //get counter, let's assume it works
@@ -5303,6 +5311,11 @@ void utyTasksDispatch(void)
     utyNFrameTicks = (udword)(difference / utyTimerDivisor);
     remainder = difference % utyTimerDivisor;               //get remainder of the division
     taskSubTick = (real32)remainder / (real32)utyTimerDivisor;  // HWI-FEATURE(motion-interp): the milliseconds kept for the next frame
+    taskClockSample((real64)SDL_GetPerformanceCounter() * 1000.0 / (real64)SDL_GetPerformanceFrequency(), timer, remainder,   // HWI-FEATURE(motion-interp) [audit: tagged]
+                    utyTimerDivisor);               // HWI-FEATURE(motion-interp): M3-R1 motion-jitter, the render's sub-millisecond part
+#if HWI_ORACLE
+    catMotionRealClockStamp(utyNFrameTicks, taskSubTick);   // HWI-FEATURE(motion-interp) measurement
+#endif
     taskExecuteAllPending(utyNFrameTicks);                  //execute tasks for the correct number of ticks
     utyTimerLast = timer - remainder;                       //save timer for differencing next frame
 }
