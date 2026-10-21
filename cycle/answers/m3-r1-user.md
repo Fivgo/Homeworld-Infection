@@ -9,6 +9,13 @@ question: find the path that wrote them (an earlier session's options screen, th
 the Accept / Cancel flow, the copied OP_NoLOD atom's initial state, the options-file read of a missing row). If any path
 writes 0 without the user ticking the box off, that is the first bug of the item.
 
-## Jitter examples
-Not yet. The user will supply consistent reproductions later (mission, moment, camera focus, objects, refresh rate);
-until then measure the six object kinds of the task. Check this file again before writing the report.
+## Jitter example (the user, 2026-10-21; "I was able to easily recreate it")
+A standard multiplayer (skirmish) match. Focus the camera on the nearest Recon to the mothership and put the camera at
+the ZENITH of that Recon (looking straight down on it). Select an ADJACENT Recon and order it to move directly forward
+about 500 m "to get a good travel distance". The moving, unfocused Recon jitters visibly along its whole path.
+Producer 4: reproduce this exactly as a measured scene (the skirmish self-test's map, LiveFireExercise2 or Armed8:
+the camera focused on Recon A at its zenith, Recon B given a move order 500 units ahead, 144 Hz virtual, the flags on
+and /noInterp), report Recon B's per-frame screen-space displacement and repeated frames, and treat it as the primary
+case of the item; the six object kinds of the task come after it. The monitor's refresh rate is not confirmed by the
+user (the machine's 4K monitor is the 144 Hz target of docs/features/high-refresh-4k.md). Check this file again before
+writing the report: the user may add more cases.
