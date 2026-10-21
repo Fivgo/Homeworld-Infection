@@ -421,7 +421,7 @@ sdword opSaveDetailThresholdVal;
 udword opDetailThresholdVal = 10;       // CAT: a frame rate now (cat_lodSetTimeThreshold), the exe's default 10 (.data 0x0088be6c; HW1 100 polys/22)
 sdword opSaveBrightnessVal;
 sdword opBrightnessVal = 30;
-sdword opNoLODVal = 0;
+sdword opNoLODVal = 1;                  // HWI-FEATURE(full-detail): FULL DETAIL on by default (the exe's .bss 0x00a4cc34: 0)
 sdword opSaveNoLODVal;
 static bool32 opSaveObjInterpolate = TRUE;          // HWI-FEATURE(motion-interp): the Cancel copies of the two flags
 static bool32 opSaveNisInterpolate = TRUE;          // HWI-FEATURE(motion-interp)
@@ -1468,6 +1468,7 @@ void opRestoreSavedSettings(void)
     opBrightnessVal = opSaveBrightnessVal;
     shGammaSet(opBrightnessVal);
     opNoLODVal = opSaveNoLODVal;
+    catLodSwitchStateRestore();                     // HWI-FEATURE(full-detail): and /lodBands' run-only state
     objInterpolate = opSaveObjInterpolate;          // HWI-FEATURE(motion-interp): the Smooth motion checkbox's flags
     nisInterpolate = opSaveNisInterpolate;          // HWI-FEATURE(motion-interp)
     miSwitchStateRestore();                         // HWI-FEATURE(motion-interp): and a switch's run-only override
@@ -1767,6 +1768,7 @@ void opOptionsSaveSettings(void)
     opBrightnessVal = shGammaGet();
     opSaveBrightnessVal = opBrightnessVal;
     opSaveNoLODVal = opNoLODVal;
+    catLodSwitchStateSave();                        // HWI-FEATURE(full-detail): and /lodBands' run-only state
     opSaveObjInterpolate = objInterpolate;          // HWI-FEATURE(motion-interp): the Smooth motion checkbox's flags
     opSaveNisInterpolate = nisInterpolate;          // HWI-FEATURE(motion-interp)
     miSwitchStateSave();                            // HWI-FEATURE(motion-interp): and a switch's run-only override
@@ -2449,6 +2451,10 @@ void opNoLOD(char* name, featom* atom)
     }
     else
     {
+        if ((FECHECKED(atom) ? 1 : 0) != (opNoLODVal ? 1 : 0))  // HWI-FEATURE(full-detail): a click that changes it is
+        {                                                       // HWI-FEATURE(full-detail): the user's choice, saved as it
+            catLodSwitchEnd();                                  // HWI-FEATURE(full-detail): is (the screen's last call,
+        }                                                       // HWI-FEATURE(full-detail): FAS_OnDelete, re-reads the box)
         opNoLODVal = FECHECKED(atom) ? 1 : 0;
         opDetailDisable();
     }
@@ -3883,7 +3889,8 @@ void cat_opSetAllDefaults(sdword lowEnd)
         battleChatterFrequencySet(50);
         opSoundQuality = 0;
         soundMixerSetMode(0);
-        opNoLODVal = 0;
+        opNoLODVal = 1;                             // HWI-FEATURE(full-detail): the high preset is FULL DETAIL (the exe: 0)
+        catLodSwitchEnd();                          // HWI-FEATURE(full-detail): a preset is the user's choice
         opDetailThresholdVal = 10;
         cat_lodSetTimeThreshold(10);
         catOpTextureDetail = 50;
@@ -3926,7 +3933,8 @@ void cat_opSetAllDefaults(sdword lowEnd)
         battleChatterFrequencySet(0);
         opSoundQuality = 2;
         soundMixerSetMode(2);
-        opNoLODVal = 0;
+        opNoLODVal = 0;                             // the low preset keeps the exe's bands (weak hardware)
+        catLodSwitchEnd();                          // HWI-FEATURE(full-detail): a preset is the user's choice
         opDetailThresholdVal = 30;
         cat_lodSetTimeThreshold(30);
         catOpTextureDetail = 0;
@@ -3960,6 +3968,8 @@ void cat_opSetAllDefaults(sdword lowEnd)
     catSmViewFOWRanges = 0;
     feToggleButtonSet("OP_ExperienceMessages", 0);
     catOpSensorsButtonsSet();
+    feToggleButtonSet("OP_NoLOD", opNoLODVal);      // HWI-FEATURE(full-detail): the exe leaves the checkbox and the
+    opDetailDisable();                              // HWI-FEATURE(full-detail): slider as they were; they show the preset
 }
 
 void cat_opCataclysmFramerate(char *name, featom *atom) // 0x004dbb30: the frame-rate radio picks a preset
@@ -4030,6 +4040,8 @@ void catOptionsRunSelfTest(void)
         {"SFXVolume",                   &opSFXVol,                              75, 0x0088be50},
         {"SpeechVolume",                &opSpeechVol,                           75, 0x0088be54},
         {"detailThreshold",             (sdword *)&opDetailThresholdVal,        10, 0x0088be6c},
+        // HWI-FEATURE(full-detail): the recreation's default 1 (FULL DETAIL on); the exe's .bss 0x00a4cc34 is 0
+        {"noLOD",                       &opNoLODVal,                            1, 0x00a4cc34},
         {NULL, NULL, 0, 0}
     };
     sdword i, n = 0, atDefault = 0, readBack = 0;

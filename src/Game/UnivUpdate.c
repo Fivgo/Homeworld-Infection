@@ -40,6 +40,7 @@
 #include "FEFlow.h"           // CAT: featom for ResearchGUI.h [integrate: M2-R6]
 #include "ResearchGUI.h"      // CAT: rmCloseIfOpen in the player-death path [integrate: M2-R6]
 #include "LevelLoad.h"
+#include "LOD.h"            // HWI-FEATURE(full-detail): cat_lodDrawLevel
 #include "MadLinkIn.h"
 #include "MadLinkInDefs.h"
 #include "mainrgn.h"
@@ -1676,7 +1677,7 @@ mhlocalbinding *cat_shipNozzleInfoGet(Ship *ship, sdword index)
     {
         return NULL;
     }
-    list = ship->bindings->localBinding[ship->obj.currentLOD];
+    list = ship->bindings->localBinding[cat_lodDrawLevel(ship)];    // HWI-FEATURE(full-detail): the level drawn, whose matrices the render updates (the exe: currentLOD)
     return (list == NULL) ? NULL : &list[index];            // HWI: no pointer arithmetic on a NULL list
 }
 

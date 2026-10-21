@@ -46,6 +46,7 @@
 #include "MotionTest.h"     // HWI-FEATURE(motion-interp): the motion / nis measurement switches
 #include "TeamColourTest.h" // HWI-TEST (M3-R1 team-colours-warp)
 #include "MotionInterp.h"   // HWI-FEATURE(motion-interp): /noInterp, /noNISInterp
+#include "LOD.h"            // HWI-FEATURE(full-detail): /lodBands
 #include "ObjTypes.h"
 #include "Options.h"
 #include "OverlayIcons.h"
@@ -593,6 +594,25 @@ bool32 LetterboxBehindSet(char *string)             // HWI-FEATURE(letterbox-set
     rndLetterboxBehindSwitch();                     // HWI-FEATURE(letterbox-setting)
     return TRUE;                                    // HWI-FEATURE(letterbox-setting)
 }                                                   // HWI-FEATURE(letterbox-setting)
+// HWI-FEATURE(full-detail): /lodBands: FULL DETAIL (the options file's noLOD row, on by default) off for this run only: the
+//      exe's size-on-screen bands and frame-time passes pick the levels drawn; run-only as /noInterp (LOD.c catLodBandsSwitch:
+//      the saves keep the file's noLOD row)
+bool32 LodBandsSet(char *string)                    // HWI-FEATURE(full-detail)
+{                                                   // HWI-FEATURE(full-detail)
+    catLodBandsSwitch();                            // HWI-FEATURE(full-detail)
+    return TRUE;                                    // HWI-FEATURE(full-detail)
+}                                                   // HWI-FEATURE(full-detail)
+// HWI-TEST (M3-R1 full-detail): /catLodTest <tick>[:far][:fleet] and /catLodStats <from>-<to>[:fleet] (render.c: "lodtest:" / "lodstats:" lines)
+bool32 CatLodTestSet(char *string)
+{
+    catLodTestSet(string);
+    return TRUE;
+}
+bool32 CatLodStatsSet(char *string)
+{
+    catLodStatsSet(string);
+    return TRUE;
+}
 // HWI-TEST (M3-R1 letterbox-front): /catShot <spec>, /catShotFile <prefix>, /catShotLetterbox (MotionTest.c catShotFrameEnd:
 //      the any-mode frame capture of the harness's --shot)
 bool32 CatShotSet(char *string)
@@ -1348,6 +1368,9 @@ commandoption commandOptions[] =
     entryFnParam("/catUiTest",          CatUiTestSet, " <ticks> - headless Mission01 run: the player's fleet selected, the popup menu opened, every cat_ui* command run once, the game-stats screen shown, logs uitest lines and quits."),
     entryFn("/noInterp",                NoInterpSet, " - render-time motion interpolation off (objects, camera and NIS; the Smooth motion option)."),   // HWI-FEATURE(motion-interp)
     entryFn("/noNISInterp",             NoNISInterpSet, " - render-time interpolation of NIS cutscenes off (gameplay interpolation stays)."),   // HWI-FEATURE(motion-interp)
+    entryFn("/lodBands",                LodBandsSet, " - this run only: FULL DETAIL off (the exe's levels of detail by size on screen and frame time; the options file's noLOD row keeps its value)."),   // HWI-FEATURE(full-detail)
+    entryFnParam("/catLodTest",         CatLodTestSet, " <tick>[:far][:fleet] - log every object's level of detail (the exe's and the one drawn) in the main view's first frame of that universe tick (\"lodtest:\" lines); :far pulls the camera out to its farthest zoom, :fleet closes the sensors manager at tick 16 and focuses the camera on every ship."),   // HWI-TEST
+    entryFnParam("/catLodStats",        CatLodStatsSet, " <from>-<to>[:fleet] - per frame of those universe ticks: the render time (to the flip, glFinish), the objects and the mesh vertices and polygons drawn (\"lodstats:\" lines, the median and 99th percentile at the end)."),   // HWI-TEST
     entryFn("/letterboxBehind",         LetterboxBehindSet, " - this run only: the cutscene letterbox bars drawn behind ships near the camera (the old look; the options file's letterboxBehind row keeps its value)."),   // HWI-FEATURE(letterbox-setting)
     entryFnParam("/catMotionTest",      CatMotionTestSet, " <ticks> - headless Mission01 run at the virtual frame rate (/catMotionFps, default 144): a focused, a crossing, a receding and a resting ship, per-frame screen positions to /catMotionDump, exit after <ticks> ticks."),   // HWI-FEATURE(motion-interp)
     entryFnParam("/catNisMotionTest",   CatNisMotionTestSet, " <nis>[:<from>:<to>] - headless Mission01 start, then nis\\<nis>.nis plays at the virtual frame rate; the frames between NIS times <from> and <to> go to /catMotionDump, then exit."),   // HWI-FEATURE(motion-interp)

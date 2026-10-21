@@ -57,6 +57,7 @@
 #include "FEFlow.h"
 #include "File.h"
 #include "LevelLoad.h"
+#include "LOD.h"            // HWI-FEATURE(full-detail): the toggle self-test
 #include "MotionInterp.h"
 #include "Options.h"
 #include "main.h"
@@ -1159,6 +1160,119 @@ static void mtToggleLetterbox(bool32 start)          // start: letterboxBehind b
                   value == (sdword)file, "letterbox: the start-up's state and file row back");
 }
 
+// HWI-FEATURE(full-detail) (M3-R1 full-detail): the options file's noLOD rows: how many, and the last one's value
+static sdword mtNoLODFileRow(sdword *count)
+{
+    char path[PATH_MAX], line[256];
+    FILE *f;
+    sdword value = -1;
+    int v;
+
+    *count = 0;
+    snprintf(path, sizeof(path), "%s", filePathPrepend("Cataclysm.cfg", FF_UserSettingsPath));
+    f = fopen(path, "r");
+    if (f != NULL)
+    {
+        while (fgets(line, sizeof(line), f) != NULL)
+        {
+            if (sscanf(line, "noLOD %d", &v) == 1)
+            {
+                (*count)++;
+                value = v;
+            }
+        }
+        fclose(f);
+    }
+    return value;
+}
+
+// HWI-FEATURE(full-detail): the FULL DETAIL setting's surfaces: the start-up's save wrote the options file's noLOD
+//      (the default 1 when the file has no row), the Video_Options checkbox (OP_NoLOD) shows it and its click sets it,
+//      Accept's save writes the row and it reads back at 0 and 1, the console row, the frame-rate presets
+//      (cat_opSetAllDefaults: high 1, low 0), the switch run-only (/lodBands: the saves keep the file's value); the
+//      start state back at the end. "toggletest: fulldetail ..." lines; the failures count into the done line
+static void mtToggleFullDetail(sdword start, bool32 switched)  // start / switched: noLOD and /lodBands before the Smooth
+{                                                   // motion checks, whose read-backs parse the whole options file again
+    sdword file = catLodFileValueGet(), count, value, i;
+    fescreen *screen;
+    featom *box = NULL;
+    char what[128];
+
+    value = mtNoLODFileRow(&count);
+    dbgMessagef("toggletest: fulldetail start noLOD=%d switch=%d file=%d saved row=%d rows=%d", (int)start,
+                (int)switched, (int)file, (int)value, (int)count);
+    mtToggleCheck(count == 1 && value == file, "fulldetail: the saves wrote the options file's noLOD");
+    mtToggleCheck(switched ? (start == 0 && file == 1) : (start == 1), "fulldetail: on by default (the switch: off over the file's 1)");
+    catLodSwitchEnd();                              // the round trip on the option itself
+    opNoLODVal = file;
+    // the checkbox: shown as the option, a click sets it
+    feScreenStart(ghMainRegion, "Video_Options");
+    screen = feScreenFind("Video_Options");
+    for (i = 0; screen != NULL && i < screen->nAtoms; i++)
+    {
+        if (screen->atoms[i].type == FA_CheckBox && screen->atoms[i].name != NULL &&
+            strcmp(screen->atoms[i].name, "OP_NoLOD") == 0)
+        {
+            box = &screen->atoms[i];
+        }
+    }
+    mtToggleCheck(box != NULL && box->region != NULL, "fulldetail: the FULL DETAIL checkbox on Video_Options");
+    if (box != NULL)
+    {
+        mtToggleCheck((FECHECKED(box) ? 1 : 0) == (opNoLODVal ? 1 : 0), "fulldetail: the checkbox shows noLOD");
+        for (i = 0; i <= 1; i++)
+        {
+            feToggleButtonSet("OP_NoLOD", i);       // the FE's checkbox: the state toggled, then the callback
+            opNoLOD("OP_NoLOD", box);
+            dbgMessagef("toggletest: fulldetail click to %d: noLOD=%d", (int)i, (int)opNoLODVal);
+            snprintf(what, sizeof(what), "fulldetail: the click to %d sets noLOD", (int)i);
+            mtToggleCheck(opNoLODVal == i, what);
+        }
+    }
+    feCurrentScreenDelete();
+    for (i = 0; i <= 1; i++)
+    {
+        opNoLODVal = i;
+        opOptionsSaveSettings();                    // Accept's save: writes Cataclysm.cfg
+        value = mtNoLODFileRow(&count);
+        opNoLODVal = !i;                            // scrambled: the file must set it back
+        catUtyOptionsFileReadBack();
+        dbgMessagef("toggletest: fulldetail accept-%d row=%d rows=%d read back noLOD=%d", (int)i, (int)value, (int)count,
+                    (int)opNoLODVal);
+        snprintf(what, sizeof(what), "fulldetail: Cataclysm.cfg has noLOD %d and reads it back", (int)i);
+        mtToggleCheck(count == 1 && value == i && opNoLODVal == i, what);
+    }
+    mtToggleConsole("noLOD", "0", (bool32 *)&opNoLODVal, FALSE);
+    mtToggleConsole("noLOD", "1", (bool32 *)&opNoLODVal, TRUE);
+    // the frame-rate presets (the options screen's defaults): high FULL DETAIL, low the exe's bands
+    opOptionsSaveSettings();
+    cat_opSetAllDefaults(TRUE);
+    value = opNoLODVal;
+    cat_opSetAllDefaults(FALSE);
+    dbgMessagef("toggletest: fulldetail presets low=%d high=%d", (int)value, (int)opNoLODVal);
+    mtToggleCheck(value == 0 && opNoLODVal == 1, "fulldetail: the presets set noLOD 0 (low) and 1 (high)");
+    opRestoreSavedSettings();
+    // the switch, run-only: the save keeps the file's 1
+    opNoLODVal = 1;
+    catLodBandsSwitch();
+    opOptionsSaveSettings();
+    value = mtNoLODFileRow(&count);
+    dbgMessagef("toggletest: fulldetail switch run-only noLOD=%d row=%d rows=%d", (int)opNoLODVal, (int)value, (int)count);
+    mtToggleCheck(opNoLODVal == 0 && count == 1 && value == 1, "fulldetail: the switch is run-only");
+    catLodSwitchEnd();
+    opNoLODVal = file;                              // as the start-up left it
+    if (switched)
+    {
+        catLodBandsSwitch();
+    }
+    opOptionsSaveSettings();
+    value = mtNoLODFileRow(&count);
+    dbgMessagef("toggletest: fulldetail end noLOD=%d switch=%d row=%d", (int)opNoLODVal, (int)catLodSwitchStands(),
+                (int)value);
+    mtToggleCheck(opNoLODVal == start && catLodSwitchStands() == switched && count == 1 && value == file,
+                  "fulldetail: the start-up's state and file row back");
+}
+
 void catToggleRunSelfTest(void)
 {
     bool32 startObj = objInterpolate, startNis = nisInterpolate;
@@ -1166,6 +1280,8 @@ void catToggleRunSelfTest(void)
     featom *box, *label;
     sdword rows;
     bool32 startLetterbox = letterboxBehind;        // HWI-FEATURE(letterbox-setting)
+    sdword startNoLOD = opNoLODVal;                 // HWI-FEATURE(full-detail)
+    bool32 startLodSwitch = catLodSwitchStands();   // HWI-FEATURE(full-detail)
 
     miOptionsFileValues(TRUE);                      // M2-R7 r6-leftovers: the values the options file keeps
     fileObj = objInterpolate;
@@ -1226,6 +1342,7 @@ void catToggleRunSelfTest(void)
         mtToggleCheck(rows == 2, "the final save keeps the options file's values");
     }
     mtToggleLetterbox(startLetterbox);              // HWI-FEATURE(letterbox-setting)
+    mtToggleFullDetail(startNoLOD, startLodSwitch); // HWI-FEATURE(full-detail)
     dbgMessagef("toggletest: done start=%d/%d fails=%d result=%s", (int)startObj, (int)startNis, (int)mtToggleFails,
                 (mtToggleFails == 0) ? "PASS" : "FAIL");
 }

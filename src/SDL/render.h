@@ -266,6 +266,9 @@ void cat_rndLensFlareNISSourceEnable(sdword unused, sdword show);           // 0
 void catRenderSelfTestSet(char *string);
 bool32 catRenderSelfTestRequested(void);
 void catRenderSelfTestTick(void);
+// HWI-TEST (M3-R1 full-detail): /catLodTest <tick>[:far], /catLodStats <from>-<to> ("lodtest:" / "lodstats:" lines)
+void catLodTestSet(char *string);
+void catLodStatsSet(char *string);
 
 // CAT: lens flare sources (particle systems of type PART_LENSFLARES own one per particle; Particle.h). The list and
 //      its add/remove are ported with the particles; the lens flare renderer (cat_rndLensFlaresRender 0x0057bec0)

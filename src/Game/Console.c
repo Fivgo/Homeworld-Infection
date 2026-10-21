@@ -42,6 +42,7 @@
 #include "Universe.h"
 #include "utility.h"
 #include "MotionInterp.h"   // HWI-FEATURE(motion-interp): the objInterpolate / nisInterpolate rows
+#include "Options.h"        // HWI-FEATURE(full-detail): the noLOD row (opNoLODVal)
 
 #define CAT_CON_PROMPT              "]"                 // 0x0075501c
 #define CAT_CON_CURSOR              "|"                 // 0x00755044
@@ -108,7 +109,7 @@ static void cat_consoleExperienceShips(sdword type, void *data, void *value, cha
 // HWI-FEATURE(motion-interp): rows added by this tree have ids from here on; cat_consoleConfigFileSave leaves them out,
 //      so the console's config file keeps the exe's format (the options file keeps their values)
 #define CAT_CON_HWI_ROW_ID      0x1000                  // HWI-FEATURE(motion-interp)
-#define CAT_CON_HWI_ROWS        3                       // HWI-FEATURE(motion-interp): objInterpolate, nisInterpolate; HWI-FEATURE(letterbox-setting): letterboxBehind (all settable)
+#define CAT_CON_HWI_ROWS        4                       // HWI-FEATURE(motion-interp): objInterpolate, nisInterpolate; HWI-FEATURE(letterbox-setting): letterboxBehind; HWI-FEATURE(full-detail): noLOD (all settable)
 
 CatConsoleCommand catConsoleCommandTable[] =       // 0x008783c8
 {
@@ -144,6 +145,7 @@ CatConsoleCommand catConsoleCommandTable[] =       // 0x008783c8
     { 5, CAT_CON_HWI_ROW_ID + 0, &objInterpolate, "objInterpolate", NULL },     // HWI-FEATURE(motion-interp): not in the exe's table
     { 5, CAT_CON_HWI_ROW_ID + 1, &nisInterpolate, "nisInterpolate", NULL },     // HWI-FEATURE(motion-interp)
     { 5, CAT_CON_HWI_ROW_ID + 2, &letterboxBehind, "letterboxBehind", NULL },   // HWI-FEATURE(letterbox-setting): not in the exe's table
+    { 5, CAT_CON_HWI_ROW_ID + 3, &opNoLODVal, "noLOD", NULL },             // HWI-FEATURE(full-detail): FULL DETAIL (not in the exe's table)
     { -1, -1, NULL, NULL, NULL }
 };
 

@@ -29,6 +29,14 @@
 #                       so for play the Cataclysm.cfg row is the way; a value set there is saved with the options)
 #   switch              -- /letterboxBehind   (this run only: the options file keeps its own letterboxBehind row)
 #
+# Full detail (M3-R1, HWI-FEATURE(full-detail)): ON by default: every ship, asteroid, derelict, dust cloud and nebula
+# is drawn with its most detailed model (LOD 0) at any distance. It is the FULL DETAIL checkbox of Options -> Video
+# (cataclysm.exe's own checkbox, which there only stopped the frame-time detail cuts; while it is ticked the detail
+# slider is greyed out, as in the exe). The Options frame-rate preset "high" ticks it, "low" unticks it.
+#   Cataclysm.cfg row   noLOD 0|1   (default 1 = full detail; 0 = the original game's levels of detail by size on screen)
+#   console row         noLOD 0|1   (the developer console's; as in cataclysm.exe no key opens that console)
+#   switch              -- /lodBands   (this run only: full detail off; the options file keeps its own noLOD row)
+#
 # Team colours (M3-R1 team-colours-warp): the colours picked in the front end's colour picker (Cataclysm.cfg rows
 # PlayerBaseColor / PlayerStripeColor / ColorsPicked) stay on the Kuun-Lan and the fleet through every level change
 # (the M2 builds lost them when the opening cutscene's level gave way to Mission01). No setting. To have the play log

@@ -3240,6 +3240,7 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
     CatRndFieldNode *field;
     ShipStaticInfo *beastStatic;
     lightning *l;
+    udword drawLOD;                                 // HWI-FEATURE(full-detail): the level drawn (cat_lodDrawLevel)
 
     cat_rndSetupObjectFlags(obj);
     catRndAsteroidTint = FALSE;
@@ -3341,7 +3342,7 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
             }
 
             glPushMatrix();
-            level = cat_lodCurrentLevelGet(ship);
+            level = cat_lodDrawLevelGet(ship, &drawLOD);    // HWI-FEATURE(full-detail): LOD 0 under FULL DETAIL (the exe: cat_lodCurrentLevelGet)
             if (cat_taskRealTimeElapsed - ship->targetable.flashtimer < FLASH_TIMER)
             {
                 g_ReplaceHack = TRUE;                   // CAT: the RGL glPixelTransferf flash is not drawn (RGL)
@@ -3489,8 +3490,8 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
                                     g_HiddenRemoval = FALSE;
                                 }
                                 glScalef(1.01f, 1.01f, 1.01f);                  // 0x3f8147ae
-                                cat_rndShipMeshDraw(NULL, ship->catBeastBindings, obj->currentLOD,
-                                                    (meshdata *)beastStatic->common.LOD->level[obj->currentLOD].pData,
+                                cat_rndShipMeshDraw(NULL, ship->catBeastBindings, drawLOD,     // HWI-FEATURE(full-detail): drawLOD (the exe: currentLOD)
+                                                    (meshdata *)beastStatic->common.LOD->level[drawLOD].pData,   // HWI-FEATURE(full-detail)
                                                     ship->catBeastColor);
                                 meshSetFade(3, 0.0f);
                                 rendered = TRUE;
@@ -3542,8 +3543,8 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
                                         g_WireframeHack = TRUE;
                                         g_HiddenRemoval = FALSE;
                                     }
-                                    cat_rndShipMeshDraw(NULL, ship->catSalvageConvertBindings, obj->currentLOD,
-                                                        (meshdata *)convertStatic->common.LOD->level[obj->currentLOD].pData,
+                                    cat_rndShipMeshDraw(NULL, ship->catSalvageConvertBindings, drawLOD,   // HWI-FEATURE(full-detail): drawLOD
+                                                        (meshdata *)convertStatic->common.LOD->level[drawLOD].pData,   // HWI-FEATURE(full-detail)
                                                         ship->catSalvageConvertColor);
                                     rendered = TRUE;
                                 }
@@ -3559,7 +3560,7 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
                         if (catRndMimic)
                         {
                             lodinfo *mimicLOD = catRndMimicLOD;
-                            sdword mimicLevel = obj->currentLOD;
+                            sdword mimicLevel = (sdword)drawLOD;        // HWI-FEATURE(full-detail): drawLOD (the exe: currentLOD)
                             meshdata *mimicMesh;
                             if (mimicLevel >= mimicLOD->nLevels)
                             {
@@ -3588,7 +3589,7 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
                                 if (catRndMimicFade > 0.25f)
                                 {
                                     meshSetFade(4, 1.0f - catRndMimicFade);
-                                    cat_rndShipMeshDraw(NULL, ship->bindings, obj->currentLOD, (meshdata *)level->pData,
+                                    cat_rndShipMeshDraw(NULL, ship->bindings, drawLOD, (meshdata *)level->pData,   // HWI-FEATURE(full-detail): drawLOD
                                                         colorScheme);
                                     meshRenders++;
                                 }
@@ -3660,11 +3661,19 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
                             }
                             if (ssinfo == NULL || ssinfo->hsState != HS_FINISHED || singlePlayerGameInfo.hyperspaceFails)
                             {
-                                cat_rndShipMeshDraw(ship->obj.catMeshState, ship->bindings, obj->currentLOD,
+                                cat_rndShipMeshDraw(ship->obj.catMeshState, ship->bindings, drawLOD,   // HWI-FEATURE(full-detail): drawLOD
                                                     (meshdata *)level->pData, colorScheme);
                                 g_SpecificPoly = FALSE;     // CAT: 0x00a4c44c cleared after the mesh
                                 g_WireframeHack = FALSE;
-                                obj->renderedLODs |= (ubyte)(1 << obj->currentLOD);
+                                // HWI-FEATURE(full-detail): the exe's level, not the one drawn: KAS RenderedShips /
+                                //      RenderedDerelicts and the AI's aitCheckAmIBeingWatched read these bits; and only
+                                //      when the exe's level is a mesh (the exe sets the bit in this mesh path only)
+                                //      [audit: M3-R1 full-detail: the guard added; a non-mesh exe level drawn at LOD 0
+                                //      set a bit the exe never sets]
+                                if ((cat_lodCurrentLevelGet(ship)->flags & LM_LODType) == LT_Mesh)   // HWI-FEATURE(full-detail)
+                                {                                                                   // HWI-FEATURE(full-detail)
+                                    obj->renderedLODs |= (ubyte)(1 << obj->currentLOD);
+                                }                                                                   // HWI-FEATURE(full-detail)
                                 if (pass == 0 && (!deferred || !renderNow || catRndSortMode == 2))
                                 {
                                     RenderNAVLights(ship);
@@ -3721,7 +3730,7 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
                     glDisable(GL_RESCALE_NORMAL);
                     rndNormalization = FALSE;
                     if (cat_shipHasUpgrade(ship, CAT_UPGRADE_RepairDroids) && enableRepairbots &&
-                        ship->staticinfo->shiprace == R1 && ship->catRepairDroids != NULL && obj->currentLOD < 3)
+                        ship->staticinfo->shiprace == R1 && ship->catRepairDroids != NULL && drawLOD < 3)   // HWI-FEATURE(full-detail): drawLOD
                     {
                         cat_droidRenderArray((CatRepairDroidArray *)ship->catRepairDroids);
                     }
@@ -3752,7 +3761,20 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
                     }
                 }
             }
-            if (catRndEdgeEffect && level->pData != NULL)
+            // HWI-FEATURE(full-detail): the Beast-stun edge lightning stays on the exe's level: each bolt is a particle
+            //      whose segments draw stream 0 (cat_partRenderEBoltSystem), and the bolts count the level's polygons
+            //      and segments, so a LOD-0 lightning would move stream 0 (Mission04 / 10 / 14). With FULL DETAIL
+            //      drawing another level it is placed by the objects' rest matrices (the exe's level's animated
+            //      binding matrices are only refreshed when that level is drawn)
+            if (catRndEdgeEffect && drawLOD != obj->currentLOD)                         // HWI-FEATURE(full-detail)
+            {                                                                           // HWI-FEATURE(full-detail)
+                lod *edgeLevel = cat_lodCurrentLevelGet(ship);                          // HWI-FEATURE(full-detail)
+                if ((edgeLevel->flags & LM_LODType) == LT_Mesh && edgeLevel->pData != NULL)   // HWI-FEATURE(full-detail)
+                {                                                                       // HWI-FEATURE(full-detail)
+                    cat_meshRenderEdgeEffect(ship, (meshdata *)edgeLevel->pData);       // HWI-FEATURE(full-detail)
+                }                                                                       // HWI-FEATURE(full-detail)
+            }                                                                           // HWI-FEATURE(full-detail)
+            else if (catRndEdgeEffect && level->pData != NULL)                          // HWI-FEATURE(full-detail): "else" (the exe: if)
             {
                 if (ship->bindings == NULL)
                 {
@@ -3856,7 +3878,7 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
                 break;
             }
             glPushMatrix();
-            level = cat_lodCurrentLevelGet(obj);
+            level = cat_lodDrawLevelGet(obj, &drawLOD);     // HWI-FEATURE(full-detail): LOD 0 under FULL DETAIL (the exe: cat_lodCurrentLevelGet)
             if (cat_taskRealTimeElapsed - targetable->flashtimer < FLASH_TIMER)
             {
                 g_ReplaceHack = TRUE;
@@ -3890,7 +3912,7 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
                         cat_lodTimingStart(level);
                         rndFade(obj, camera);
                         meshRenders++;
-                        cloudRenderSystem(level->pData, ((DustCloud *)obj)->stub, obj->currentLOD);
+                        cloudRenderSystem(level->pData, ((DustCloud *)obj)->stub, (sdword)drawLOD);   // HWI-FEATURE(full-detail): drawLOD
                         meshSetFade(0, 0.0f);
                         cat_lodTimingStop(level);
                         shPopLightMatrix();
@@ -3916,7 +3938,13 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
                         glScalef(s, s, s);
                     }
                     cat_meshRenderState(NULL, (meshdata *)level->pData, colorScheme);
-                    obj->renderedLODs |= (ubyte)(1 << obj->currentLOD);
+                    // HWI-FEATURE(full-detail): the exe's level (KAS RenderedDerelictType reads it), and only when the exe's
+                    //      level is a mesh: the planet derelicts' level 1 is SubPixel (derelicts/*.lod), which the exe
+                    //      draws as a point and marks nothing [audit: M3-R1 full-detail: the guard added]
+                    if ((cat_lodCurrentLevelGet(obj)->flags & LM_LODType) == LT_Mesh)                   // HWI-FEATURE(full-detail)
+                    {                                                                                   // HWI-FEATURE(full-detail)
+                        obj->renderedLODs |= (ubyte)(1 << obj->currentLOD);
+                    }                                                                                   // HWI-FEATURE(full-detail)
                     meshSetFade(0, 0.0f);
                     cat_lodTimingStop(level);
                     shPopLightMatrix();
@@ -3966,6 +3994,7 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
                   rndMainViewAllButRenderFunction, any drastic changes to rndMainViewRenderFunction will have to be
                   made to rndMainViewAllButRenderFunction.
 ----------------------------------------------------------------------------*/
+static void catLodTestMainView(LinkedList *visible);       // HWI-TEST (M3-R1 full-detail)
 void rndMainViewRenderFunction(Camera *camera)
 {
     Node *objnode;
@@ -4218,6 +4247,7 @@ void rndMainViewRenderFunction(Camera *camera)
         }
     }
     while (!opNoLODVal && total > catLodTimeThreshold && ++pass < 11);
+    catLodTestMainView(&visible);                           // HWI-TEST (M3-R1 full-detail): /catLodTest, /catLodStats
 
     // the opaque pass
     cat_rndSortObjectsByDepth(1);
@@ -5126,6 +5156,8 @@ void rndDrawScissorBars(bool32 scissorEnabled)
     Outputs     : Clears frame buffer, renders regions, draws mouse, swaps buffers.
     Return      : void
 ----------------------------------------------------------------------------*/
+static void catLodStatsFrameBegin(void);                    // HWI-TEST (M3-R1 full-detail)
+static void catLodStatsFrameEnd(void);                      // HWI-TEST (M3-R1 full-detail)
 DEFINE_TASK(rndRenderTask)
 {
     static sdword index;
@@ -5140,6 +5172,7 @@ DEFINE_TASK(rndRenderTask)
     while (1)
     {
         primErrorMessagePrint();
+        catLodStatsFrameBegin();                            // HWI-TEST (M3-R1 full-detail): /catLodStats
 
         speechEventUpdate();
         subTitlesUpdate();
@@ -5410,6 +5443,7 @@ DEFINE_TASK(rndRenderTask)
         }
         primErrorMessagePrint();
 afterTheSwap:
+        catLodStatsFrameEnd();                              // HWI-TEST (M3-R1 full-detail): /catLodStats
 
 #if RND_GL_STATE_DEBUG
         rndGLStateSaving = FALSE;                           //done saving the file for now
@@ -6880,6 +6914,235 @@ void cat_rndFogLayerRender(void)                                                
     layers all drawn). None of these touches the simulation (no random draw, no game state); the camera focus does
     change which objects are on the render list, so this run is not a stream reference (the mission mode is).
 =============================================================================*/
+/*=============================================================================
+    HWI-TEST (M3-R1 full-detail): the level-of-detail check and the frame statistics of HWI-FEATURE(full-detail).
+    /catLodTest <tick>[:far]: in the main view's first frame of universe tick <tick>, after the levels are chosen,
+    one "lodtest: obj ..." line per visible object with a LOD table (its type, ship type or object number, the
+    exe's level currentLOD = band, the level drawn = drawn, the table's levels and the selection circle radius the
+    bands read), then "lodtest: frame ..." and "lodtest: done ... result=PASS|FAIL" (FULL DETAIL on: every drawn
+    level 0 and at least one object; off: every drawn level the exe's and at least one above 0). ":far" pulls the
+    camera out to its farthest zoom from tick 16 on (the current focus's remembered camera), so the bands pick their
+    low levels. ":fleet" (either switch): at tick 16 the sensors manager the headless start opens is closed and the
+    camera focuses on every ship (as the render self-test focuses the player's), so the modes that never draw the
+    main view (ai, skirmish, mission) draw it with the whole fleet in view. /catLodStats <from>-<to>: one "lodstats: tick=.. ms=.." line per main-view frame of those ticks (the
+    render task from its top to the flip, a glFinish before the clock is read), the objects with a LOD table drawn
+    and the vertices / polygons of the levels drawn; at the end the median and the 99th percentile. Read only: no
+    game state, no random draw (the camera pull moves the view, so a ":far" run is no stream reference).
+=============================================================================*/
+static sdword catLodTestTick = -1;
+static bool32 catLodTestFar = FALSE;
+static bool32 catLodTestDone = FALSE;
+static sdword catLodStatsFrom = -1, catLodStatsTo = -1;
+static bool32 catLodStatsActive = FALSE, catLodStatsDone = FALSE;
+static Uint64 catLodStatsStart = 0;
+static udword catLodStatsObjects = 0, catLodStatsVerts = 0, catLodStatsPolys = 0;
+#define CAT_LOD_STATS_MAX   8192
+static real32 *catLodStatsMs = NULL, *catLodStatsVertList = NULL;
+static sdword catLodStatsCount = 0;
+static bool32 catLodFleetFocus = FALSE, catLodFleetFocused = FALSE;
+
+void catLodTestSet(char *string)
+{
+    catLodTestTick = (sdword)strtol(string, NULL, 10);
+    catLodTestFar = (strstr(string, ":far") != NULL);
+    catLodFleetFocus |= (strstr(string, ":fleet") != NULL);
+}
+
+void catLodStatsSet(char *string)
+{
+    char *dash = strchr(string, '-');
+
+    catLodStatsFrom = (sdword)strtol(string, NULL, 10);
+    catLodStatsTo = (dash != NULL) ? (sdword)strtol(dash + 1, NULL, 10) : catLodStatsFrom;
+    catLodFleetFocus |= (strstr(string, ":fleet") != NULL);
+}
+
+// ":fleet": out of the sensors manager, the camera on every ship
+static void catLodFleetFocusTick(void)
+{
+    FocusCommand *focus;
+    Node *node;
+
+    if (!catLodFleetFocus || catLodFleetFocused || !gameIsRunning || universe.univUpdateCounter < 16 || nisIsRunning)
+    {
+        return;
+    }
+    catLodFleetFocused = TRUE;
+    focus = memAlloc(sizeofSelectCommand(universe.ShipList.num + 1), "lodtestfocus", 0);
+    focus->numShips = 0;
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        focus->ShipPtr[focus->numShips++] = (Ship *)listGetStructOfNode(node);
+    }
+    if (smSensorsActive)
+    {
+        smSensorsCloseForGood();
+    }
+    if (focus->numShips > 0)
+    {
+        ccCameraTimeoutOverride = TRUE;
+        ccFocusGeneral(&universe.mainCameraCommand, focus, FALSE);
+    }
+    dbgMessagef("lodtest: fleet focus tick=%u ships=%d", (unsigned)universe.univUpdateCounter, (int)focus->numShips);
+    memFree(focus);
+}
+
+// the vertices of a level's mesh (every polygon object)
+static udword catLodLevelVerts(lod *level)
+{
+    meshdata *mesh;
+    udword n = 0;
+    sdword i;
+
+    if ((level->flags & LM_LODType) != LT_Mesh || (mesh = (meshdata *)level->pData) == NULL)
+    {
+        return 0;
+    }
+    for (i = 0; i < mesh->nPolygonObjects; i++)
+    {
+        n += (udword)mesh->object[i].nVertices;
+    }
+    return n;
+}
+
+// the main view, after the levels are chosen: the camera pull, the per-object lines and the frame's counts
+static void catLodTestMainView(LinkedList *visible)
+{
+    Node *node;
+    SpaceObj *obj;
+    lodinfo *info;
+    lod *level;
+    udword drawn, objects = 0, drawnAbove0 = 0, bandAbove0 = 0, mismatch = 0, maxBand = 0, verts = 0, polys = 0;
+    bool32 logIt = (catLodTestTick >= 0 && !catLodTestDone && (sdword)universe.univUpdateCounter >= catLodTestTick);
+    bool32 pass;
+
+    if (catLodTestFar && !catLodTestDone && universe.univUpdateCounter >= 16 &&
+        universe.mainCameraCommand.currentCameraStack != NULL)
+    {
+        Camera *remember = &universe.mainCameraCommand.currentCameraStack->remembercam;
+        remember->distance = remember->farthestZoom;
+        cameraSetEyePosition(remember);
+    }
+    if (!logIt && !catLodStatsActive)
+    {
+        return;
+    }
+    for (node = visible->head; node != NULL; node = node->next)
+    {
+        obj = (SpaceObj *)listGetStructOfNode(node);
+        switch (obj->header.objtype)
+        {
+            case OBJ_ShipType: case OBJ_AsteroidType: case OBJ_GasType: case OBJ_DustType: case OBJ_DerelictType:
+            case OBJ_MissileType:
+                break;
+            default:
+                continue;
+        }
+        if (obj->staticinfo->LOD == NULL)
+        {
+            continue;
+        }
+        info = (obj->header.objtype == OBJ_ShipType) ? cat_mimicGetStaticInfo((Ship *)obj) : obj->staticinfo->LOD;
+        level = cat_lodDrawLevelGet(obj, &drawn);
+        objects++;
+        verts += catLodLevelVerts(level);
+        polys += ((level->flags & LM_LODType) == LT_Mesh) ? (udword)cat_lodHierarchyCount(level) : 0;
+        if (drawn > 0) drawnAbove0++;
+        if (obj->currentLOD > 0) bandAbove0++;
+        if (obj->currentLOD > maxBand) maxBand = obj->currentLOD;
+        if (!opNoLODVal && drawn != obj->currentLOD) mismatch++;
+        if (logIt)
+        {
+            dbgMessagef("lodtest: obj type=%s name=%s id=%u band=%u drawn=%u levels=%d radius=%.5f dist=%.0f",
+                        ObjTypeToStr(obj->header.objtype),
+                        (obj->header.objtype == OBJ_ShipType) ? ShipTypeToStr(((Ship *)obj)->shiptype) : "-",
+                        (obj->header.objtype == OBJ_ShipType) ? (unsigned)((Ship *)obj)->shipID.shipNumber : 0u,
+                        (unsigned)obj->currentLOD, (unsigned)drawn, (int)info->nLevels,
+                        (double)((SpaceObjRotImpTarg *)obj)->impactable.collInfo.selCircleRadius,
+                        (double)fsqrt(obj->cameraDistanceSquared));
+        }
+    }
+    if (catLodStatsActive)
+    {
+        catLodStatsObjects = objects;
+        catLodStatsVerts = verts;
+        catLodStatsPolys = polys;
+    }
+    if (logIt)
+    {
+        catLodTestDone = TRUE;
+        pass = (objects > 0) && (opNoLODVal ? (drawnAbove0 == 0) : (mismatch == 0 && bandAbove0 > 0));
+        dbgMessagef("lodtest: frame tick=%u fullDetail=%d switch=%d camera=%.0f objects=%u drawnAbove0=%u bandAbove0=%u "
+                    "maxBand=%u verts=%u polys=%u", (unsigned)universe.univUpdateCounter, (int)opNoLODVal,
+                    (int)catLodSwitchStands(), (mrCamera != NULL) ? (double)mrCamera->distance : -1.0, objects,
+                    drawnAbove0, bandAbove0, maxBand, verts, polys);
+        dbgMessagef("lodtest: done tick=%u fullDetail=%d objects=%u drawnAbove0=%u bandAbove0=%u result=%s",
+                    (unsigned)universe.univUpdateCounter, (int)opNoLODVal, objects, drawnAbove0, bandAbove0,
+                    pass ? "PASS" : "FAIL");
+    }
+}
+
+// the render task's top and its end after the flip (rndRenderTask)
+static void catLodStatsFrameBegin(void)
+{
+    sdword tick = (sdword)universe.univUpdateCounter;
+
+    catLodFleetFocusTick();
+    catLodStatsActive = (catLodStatsFrom >= 0 && !catLodStatsDone && gameIsRunning && tick >= catLodStatsFrom &&
+                         tick <= catLodStatsTo);
+    if (catLodStatsActive)
+    {
+        catLodStatsStart = SDL_GetPerformanceCounter();
+        catLodStatsObjects = catLodStatsVerts = catLodStatsPolys = 0;
+    }
+}
+
+static int catLodStatsCompare(const void *a, const void *b)
+{
+    real32 x = *(const real32 *)a, y = *(const real32 *)b;
+    return (x < y) ? -1 : ((x > y) ? 1 : 0);
+}
+
+static void catLodStatsFrameEnd(void)
+{
+    real32 ms;
+
+    if (catLodStatsActive)
+    {
+        glFinish();
+        ms = (real32)((real64)(SDL_GetPerformanceCounter() - catLodStatsStart) * 1000.0 /
+                      (real64)SDL_GetPerformanceFrequency());
+        if (catLodStatsMs == NULL)
+        {
+            catLodStatsMs = memAlloc(sizeof(real32) * CAT_LOD_STATS_MAX, "catLodStatsMs", NonVolatile);
+            catLodStatsVertList = memAlloc(sizeof(real32) * CAT_LOD_STATS_MAX, "catLodStatsVerts", NonVolatile);
+        }
+        if (catLodStatsCount < CAT_LOD_STATS_MAX)
+        {
+            catLodStatsMs[catLodStatsCount] = ms;
+            catLodStatsVertList[catLodStatsCount] = (real32)catLodStatsVerts;
+            catLodStatsCount++;
+        }
+        dbgMessagef("lodstats: tick=%u ms=%.3f objects=%u verts=%u polys=%u fullDetail=%d",
+                    (unsigned)universe.univUpdateCounter, (double)ms, catLodStatsObjects, catLodStatsVerts,
+                    catLodStatsPolys, (int)opNoLODVal);
+        catLodStatsActive = FALSE;
+    }
+    if (!catLodStatsDone && catLodStatsFrom >= 0 && gameIsRunning && (sdword)universe.univUpdateCounter > catLodStatsTo &&
+        catLodStatsCount > 0)
+    {
+        sdword p99 = (catLodStatsCount * 99 + 99) / 100 - 1;
+        catLodStatsDone = TRUE;
+        qsort(catLodStatsMs, (size_t)catLodStatsCount, sizeof(real32), catLodStatsCompare);
+        qsort(catLodStatsVertList, (size_t)catLodStatsCount, sizeof(real32), catLodStatsCompare);
+        dbgMessagef("lodstats: done frames=%d median=%.3f p99=%.3f max=%.3f verts_median=%.0f verts_max=%.0f fullDetail=%d "
+                    "size=%dx%d", (int)catLodStatsCount, (double)catLodStatsMs[catLodStatsCount / 2],
+                    (double)catLodStatsMs[p99], (double)catLodStatsMs[catLodStatsCount - 1],
+                    (double)catLodStatsVertList[catLodStatsCount / 2], (double)catLodStatsVertList[catLodStatsCount - 1],
+                    (int)opNoLODVal, (int)MAIN_WindowWidth, (int)MAIN_WindowHeight);
+    }
+}
+
 static sdword catRenderSelfTestTicks = 0;
 static Ship *catRenderSelfTestDroidShip = NULL;    // M2-R6 nis-fow-camera: the damaged ship whose droids are drawn
 static bool32 catRenderSelfTestStarted = FALSE;

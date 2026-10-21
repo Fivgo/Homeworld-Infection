@@ -1339,6 +1339,7 @@ bool32 cat_smShipMeshDraw(Ship *ship)
 {
     lod *level = cat_lodLevelGetMimic((SpaceObj *)ship, &smCamera.eyeposition, &ship->obj.posinfo.position);
     lod *moduleLevel;
+    udword drawLOD, moduleLOD;                      // HWI-FEATURE(full-detail)
     hmatrix coordMatrix;
     sdword lightOn, textureOn, i, scheme;
     CatClampedList *clamped;
@@ -1349,6 +1350,8 @@ bool32 cat_smShipMeshDraw(Ship *ship)
     {
         return FALSE;
     }
+    // HWI-FEATURE(full-detail): a ship the exe draws as a mesh here is drawn at LOD 0 (one it draws as a blip stays one)
+    level = cat_lodDrawLevelGet((SpaceObj *)ship, &drawLOD);    // HWI-FEATURE(full-detail)
     scheme = ship->colorScheme;
     glPushMatrix();
     hmatMakeHMatFromMat(&coordMatrix, &ship->rotatable.rotinfo.coordsys);
@@ -1363,7 +1366,7 @@ bool32 cat_smShipMeshDraw(Ship *ship)
         g_WireframeHack = FALSE;
         if (ship->bindings != NULL)
         {
-            meshRenderShipHierarchy(NULL, ship->bindings, ship->obj.currentLOD, (meshdata *)level->pData, scheme);
+            meshRenderShipHierarchy(NULL, ship->bindings, (sdword)drawLOD, (meshdata *)level->pData, scheme);   // HWI-FEATURE(full-detail): drawLOD
         }
         else
         {
@@ -1376,9 +1379,17 @@ bool32 cat_smShipMeshDraw(Ship *ship)
             {
                 module = clamped->ShipPtr[i];
                 moduleLevel = cat_lodLevelGetMimic((SpaceObj *)module, &smCamera.eyeposition, &module->obj.posinfo.position);
+                if ((moduleLevel->flags & LM_LODType) == LT_Mesh)   // HWI-FEATURE(full-detail): as its host, LOD 0
+                {                                                   // HWI-FEATURE(full-detail)
+                    moduleLevel = cat_lodDrawLevelGet((SpaceObj *)module, &moduleLOD);   // HWI-FEATURE(full-detail)
+                }                                                   // HWI-FEATURE(full-detail)
+                else                                                // HWI-FEATURE(full-detail)
+                {                                                   // HWI-FEATURE(full-detail)
+                    moduleLOD = module->obj.currentLOD;             // HWI-FEATURE(full-detail)
+                }                                                   // HWI-FEATURE(full-detail)
                 if (module->bindings != NULL)
                 {
-                    meshRenderShipHierarchy(NULL, module->bindings, module->obj.currentLOD, (meshdata *)moduleLevel->pData, scheme);
+                    meshRenderShipHierarchy(NULL, module->bindings, (sdword)moduleLOD, (meshdata *)moduleLevel->pData, scheme);   // HWI-FEATURE(full-detail): moduleLOD
                 }
                 else
                 {

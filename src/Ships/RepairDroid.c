@@ -51,7 +51,7 @@ void cat_droidRenderArray(CatRepairDroidArray *array)                           
     sdword i;
     Ship *droid;
 
-    if (array->owner->obj.currentLOD >= 2)
+    if (cat_lodDrawLevel(array->owner) >= 2)        // HWI-FEATURE(full-detail): the level the owner is drawn at (the exe: currentLOD)
     {
         return;
     }

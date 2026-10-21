@@ -32,6 +32,7 @@
 #include "Tactics.h"
 #include "Teams.h"
 #include "UnivUpdate.h"     // CAT: cat_shipNozzleInfoGet, cat_meshObjectMatrixGet
+#include "LOD.h"            // HWI-FEATURE(full-detail): cat_lodDrawLevel
 #include "Universe.h"
 #include "RammingFrigate.h"  // CAT (M2-R5 render): cat_trailShouldDraw
 #include "ShipSelect.h"      // CAT: cat_shipGetSpeedMultiplier
@@ -527,7 +528,7 @@ void trailGetNozzleOffset(real32* vec, shiptrail* trail)
     //      transformed by that object's ship-space matrix in the current LOD (cat_shipNozzleInfoGet 0x0053f8c0,
     //      cat_meshObjectMatrixGet 0x0053f970; the identity when the ship has no local bindings)
     cat_meshObjectMatrixGet(&objectMatrix,
-        cat_shipNozzleInfoGet(ship, statinfo->engineNozzleObject[ship->obj.currentLOD][trail->trailNum]));
+        cat_shipNozzleInfoGet(ship, statinfo->engineNozzleObject[cat_lodDrawLevel(ship)][trail->trailNum]));   // HWI-FEATURE(full-detail): the level drawn (the exe: currentLOD)
     nozzle.x = statinfo->engineNozzleOffset[trail->trailNum].x;
     nozzle.y = statinfo->engineNozzleOffset[trail->trailNum].y;
     nozzle.z = statinfo->engineNozzleOffset[trail->trailNum].z;

@@ -14,6 +14,7 @@
 #include "prim3d.h"
 #include "render.h"
 #include "Universe.h"
+#include "LOD.h"            // HWI-FEATURE(full-detail): cat_lodDrawLevel
 
 #ifndef SW_Render
     #ifdef _WIN32
@@ -159,7 +160,7 @@ void RenderNAVLights(Ship *ship)
 			}
 			if (((navLightStatic->lightType == NAVLIGHT_Default) && navLight->lightstate) || (navLightStatic->lightType == NAVLIGHT_FadeOnOff))
 			{
-				if (ship->obj.currentLOD <= (sdword)navLightStatic->minLOD)
+				if ((sdword)cat_lodDrawLevel(ship) <= (sdword)navLightStatic->minLOD)	// HWI-FEATURE(full-detail): the level drawn (the exe: currentLOD)
 				{
 					navLightBillboardEnable(ship, navLightStatic);
 

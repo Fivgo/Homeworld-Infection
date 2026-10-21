@@ -368,7 +368,11 @@ lod *lodLevelGet(void *spaceObj, vector *camera, vector *ship)
         }
     }
 
-    // CAT: no opNoLODVal override here (the exe's main view tests it before it raises levels for time)
+    // CAT: no opNoLODVal test here: cataclysm.exe reads FULL DETAIL (opNoLODVal 0x00a4cc34) in exactly one place
+    //      outside the options code, the main view's frame-budget loop (rndMainViewRenderFunction 0x005764e0 at
+    //      0x00576c03: no timed passes while it is on); this function sets the exe's level (the bands, the distance
+    //      table, catLodDetail) whatever the checkbox says. HWI-FEATURE(full-detail): the level DRAWN is
+    //      cat_lodDrawLevel's (LOD 0 under FULL DETAIL); currentLOD keeps the exe's level for every other reader
 
     dbgAssertOrIgnore(obj->currentLOD >= 0);
     dbgAssertOrIgnore(obj->currentLOD < info->nLevels);             //verify we are within the available levels of detail
@@ -747,3 +751,113 @@ lod *cat_lodLevelGetMimic(void *spaceObj, vector *camera, vector *ship)
     }
     return &info->level[obj->currentLOD];
 }
+
+/*=============================================================================
+    HWI-FEATURE(full-detail): "always full detail" (docs/PLAN.md, the third approved feature; M3-R1 full-detail,
+    docs/m3-r1-full-detail.md). Cataclysm's FULL DETAIL checkbox (OP_NoLOD, opNoLODVal, the options file's noLOD row)
+    only stops the main view's frame-time passes; the size-on-screen bands still pick lower levels for small or far
+    objects. With the setting on, every object is DRAWN at its LOD 0 (when its table's level 0 is a mesh): the mesh,
+    its bindings, its mesh state slots, its edge effect, its nav lights and its repair droids. obj->currentLOD keeps the
+    exe's level, so its other readers (the KAS RenderedShips / RenderedDerelicts and the AI's "being watched" through
+    renderedLODs, the repair droids' runtime, the effect level a gun / hit / explosion picks, the trails, the ACV's
+    link bolts, the selection's precise hit, the status bars) see exactly what the exe would. The recreation's default
+    is ON (opNoLODVal 1; the exe's 0); the low frame-rate preset (cat_opSetAllDefaults) still turns it off.
+    /lodBands turns it off for one run (run-only, as /noInterp: the options file keeps its noLOD row).
+=============================================================================*/
+static bool32 catLodBandsSwitched = FALSE;          // HWI-FEATURE(full-detail): /lodBands stands
+static sdword catLodFileValue = 1;                  // HWI-FEATURE(full-detail): the options file's noLOD while it stands
+static sdword catLodRunValue = 1;                   // HWI-FEATURE(full-detail)
+static bool32 catLodSavedSwitched = FALSE;          // HWI-FEATURE(full-detail): the Cancel copy of the switch state
+
+// the apparent table (a mimic's disguise), as cat_lodCurrentLevelGet 0x004a4af0 reads it
+static lodinfo *cat_lodApparentInfo(SpaceObj *obj)                                          // HWI-FEATURE(full-detail)
+{                                                                                           // HWI-FEATURE(full-detail)
+    return (obj->header.objtype == OBJ_ShipType) ? cat_mimicGetStaticInfo((Ship *)obj) : obj->staticinfo->LOD;   // HWI-FEATURE(full-detail)
+}                                                                                           // HWI-FEATURE(full-detail)
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_lodDrawLevel / cat_lodDrawLevelGet
+    Description : HWI-FEATURE(full-detail): the level an object is drawn at: 0 while FULL DETAIL is on and its
+                  (apparent) table's level 0 is a mesh, else the exe's currentLOD
+    Inputs      : spaceObj; levelOut - where the index goes (cat_lodDrawLevelGet, may be NULL)
+    Return      : the index / the level in the apparent table
+----------------------------------------------------------------------------*/
+udword cat_lodDrawLevel(void *spaceObj)                                                     // HWI-FEATURE(full-detail)
+{                                                                                           // HWI-FEATURE(full-detail)
+    SpaceObj *obj = (SpaceObj *)spaceObj;                                                   // HWI-FEATURE(full-detail)
+    lodinfo *info;                                                                          // HWI-FEATURE(full-detail)
+                                                                                            // HWI-FEATURE(full-detail)
+    if (!opNoLODVal || obj->staticinfo == NULL || obj->staticinfo->LOD == NULL)             // HWI-FEATURE(full-detail)
+    {                                                                                       // HWI-FEATURE(full-detail)
+        return obj->currentLOD;                                                             // HWI-FEATURE(full-detail)
+    }                                                                                       // HWI-FEATURE(full-detail)
+    info = cat_lodApparentInfo(obj);                                                        // HWI-FEATURE(full-detail)
+    if (info == NULL || info->nLevels < 1 || (info->level[0].flags & LM_LODType) != LT_Mesh || info->level[0].pData == NULL)   // HWI-FEATURE(full-detail)
+    {                                                                                       // HWI-FEATURE(full-detail)
+        return obj->currentLOD;                                                             // HWI-FEATURE(full-detail): no mesh at LOD 0
+    }                                                                                       // HWI-FEATURE(full-detail)
+    return 0;                                                                               // HWI-FEATURE(full-detail)
+}                                                                                           // HWI-FEATURE(full-detail)
+
+lod *cat_lodDrawLevelGet(void *spaceObj, udword *levelOut)                                 // HWI-FEATURE(full-detail)
+{                                                                                           // HWI-FEATURE(full-detail)
+    udword level = cat_lodDrawLevel(spaceObj);                                              // HWI-FEATURE(full-detail)
+                                                                                            // HWI-FEATURE(full-detail)
+    if (levelOut != NULL)                                                                   // HWI-FEATURE(full-detail)
+    {                                                                                       // HWI-FEATURE(full-detail)
+        *levelOut = level;                                                                  // HWI-FEATURE(full-detail)
+    }                                                                                       // HWI-FEATURE(full-detail)
+    return &cat_lodApparentInfo((SpaceObj *)spaceObj)->level[level];                       // HWI-FEATURE(full-detail)
+}                                                                                           // HWI-FEATURE(full-detail)
+
+/*-----------------------------------------------------------------------------
+    Name        : catLodBandsSwitch .. catLodSwitchStateRestore
+    Description : HWI-FEATURE(full-detail): /lodBands is run-only, as /noInterp (MotionInterp.c miSwitchOff): FULL
+                  DETAIL off for this run (the exe's bands and frame-time passes), while utyOptionsFileWrite writes
+                  the options file's own noLOD; a click on the FULL DETAIL checkbox ends it (the user's choice), Cancel
+                  restores the switch state with the value (opOptionsSaveSettings / opRestoreSavedSettings)
+----------------------------------------------------------------------------*/
+void catLodBandsSwitch(void)                                                                // HWI-FEATURE(full-detail)
+{                                                                                           // HWI-FEATURE(full-detail)
+    if (!catLodBandsSwitched)                                                               // HWI-FEATURE(full-detail)
+    {                                                                                       // HWI-FEATURE(full-detail)
+        catLodFileValue = opNoLODVal;                                                       // HWI-FEATURE(full-detail)
+        catLodBandsSwitched = TRUE;                                                         // HWI-FEATURE(full-detail)
+    }                                                                                       // HWI-FEATURE(full-detail)
+    opNoLODVal = 0;                                                                         // HWI-FEATURE(full-detail)
+}                                                                                           // HWI-FEATURE(full-detail)
+void catLodSwitchEnd(void)                                                                  // HWI-FEATURE(full-detail)
+{                                                                                           // HWI-FEATURE(full-detail)
+    catLodBandsSwitched = FALSE;                                                            // HWI-FEATURE(full-detail)
+}                                                                                           // HWI-FEATURE(full-detail)
+bool32 catLodSwitchStands(void)                                                             // HWI-FEATURE(full-detail)
+{                                                                                           // HWI-FEATURE(full-detail)
+    return catLodBandsSwitched;                                                             // HWI-FEATURE(full-detail)
+}                                                                                           // HWI-FEATURE(full-detail)
+sdword catLodFileValueGet(void)                                                             // HWI-FEATURE(full-detail)
+{                                                                                           // HWI-FEATURE(full-detail)
+    return catLodBandsSwitched ? catLodFileValue : opNoLODVal;                              // HWI-FEATURE(full-detail)
+}                                                                                           // HWI-FEATURE(full-detail)
+void catLodFileValues(bool32 begin)                                                         // HWI-FEATURE(full-detail)
+{                                                                                           // HWI-FEATURE(full-detail)
+    if (begin)                                                                              // HWI-FEATURE(full-detail)
+    {                                                                                       // HWI-FEATURE(full-detail)
+        catLodRunValue = opNoLODVal;                                                        // HWI-FEATURE(full-detail)
+        if (catLodBandsSwitched)                                                            // HWI-FEATURE(full-detail)
+        {                                                                                   // HWI-FEATURE(full-detail)
+            opNoLODVal = catLodFileValue;                                                   // HWI-FEATURE(full-detail)
+        }                                                                                   // HWI-FEATURE(full-detail)
+    }                                                                                       // HWI-FEATURE(full-detail)
+    else                                                                                    // HWI-FEATURE(full-detail)
+    {                                                                                       // HWI-FEATURE(full-detail)
+        opNoLODVal = catLodRunValue;                                                        // HWI-FEATURE(full-detail)
+    }                                                                                       // HWI-FEATURE(full-detail)
+}                                                                                           // HWI-FEATURE(full-detail)
+void catLodSwitchStateSave(void)                                                            // HWI-FEATURE(full-detail)
+{                                                                                           // HWI-FEATURE(full-detail)
+    catLodSavedSwitched = catLodBandsSwitched;                                              // HWI-FEATURE(full-detail)
+}                                                                                           // HWI-FEATURE(full-detail)
+void catLodSwitchStateRestore(void)                                                         // HWI-FEATURE(full-detail)
+{                                                                                           // HWI-FEATURE(full-detail)
+    catLodBandsSwitched = catLodSavedSwitched;                                              // HWI-FEATURE(full-detail)
+}                                                                                           // HWI-FEATURE(full-detail)

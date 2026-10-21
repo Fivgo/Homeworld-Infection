@@ -149,6 +149,17 @@ sdword lodHierarchySizeCompute(lodinfo *LOD);
 
 void lodFree(lodinfo *LOD);
 
+//HWI-FEATURE(full-detail): the level drawn (LOD 0 under FULL DETAIL, opNoLODVal) and the run-only switch /lodBands
+udword cat_lodDrawLevel(void *spaceObj);                                    // HWI-FEATURE(full-detail)
+lod *cat_lodDrawLevelGet(void *spaceObj, udword *levelOut);                 // HWI-FEATURE(full-detail)
+void catLodBandsSwitch(void);                                               // HWI-FEATURE(full-detail): /lodBands
+void catLodSwitchEnd(void);                                                 // HWI-FEATURE(full-detail)
+bool32 catLodSwitchStands(void);                                            // HWI-FEATURE(full-detail)
+sdword catLodFileValueGet(void);                                            // HWI-FEATURE(full-detail)
+void catLodFileValues(bool32 begin);                                        // HWI-FEATURE(full-detail): around utyOptionsFileWrite
+void catLodSwitchStateSave(void);                                           // HWI-FEATURE(full-detail)
+void catLodSwitchStateRestore(void);                                        // HWI-FEATURE(full-detail)
+
 #if LOD_AUTO_SAVE
 sdword lodAutoSave(lodinfo *LOD);
 #endif

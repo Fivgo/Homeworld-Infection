@@ -6707,8 +6707,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "render-time LOD: the selection circle radius against five bands from the detail option on, mimics by their apparent static (cat_mimicGetStaticInfo), hierarchy counts (cat_lodHierarchyCount), never above the detail option's first level",
-  "note": "[review: M2-R5 render] ported (LOD.c: lodLevelGet, cat_lodLevelGetTimed)",
-  "sample": "port-R5-render"
+  "note": "[review: M2-R5 render] ported (LOD.c: lodLevelGet, cat_lodLevelGetTimed) | [review: M3-R1 full-detail] compared again: the five size-on-screen bands from catLodDetail 0x00a4cc38 (radius < 0 or > 0.4 at 0x0072a674: the detail level; > 0.12 +1, > 0.045 +2, > 0.017 +3, > 0.0065 +4, else +5; clamped to nLevels-1), the distance table branch when +8 of the table (catDistanceLOD) is set [audit: M3-R1 full-detail: said +0x20; the exe reads BYTE PTR [ecx+0x8] at 0x004a4dce] (bOff / bOn * lodScaleFactor 0x00884868, never above catLodDetail), then the render-time estimate; no reference to FULL DETAIL (opNoLODVal 0x00a4cc34 is read only by the options code and rndMainViewRenderFunction 0x00576c03): as the tree. The tree's HWI-FEATURE(full-detail) draws at cat_lodDrawLevel; currentLOD stays this function's",
+  "sample": "port-M3-R1-full-detail"
  },
  "0x004a5100": {
   "class": "IDENTICAL",
@@ -7580,8 +7580,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "light types: NAVLIGHT_Default drawn while lit, the new NAVLIGHT_FadeOnOff (name table 0x00889d88) always drawn with a fade pulsing over each on/off interval, other types not drawn; past minLOD nothing is drawn (HW1's point sprite primPointSize3Fade dropped)",
-  "note": "[review: M2-R5 render] ported (NavLights.c, ObjTypes.c/.h)",
-  "sample": "port-R5-render"
+  "note": "[review: M2-R5 render] ported (NavLights.c, ObjTypes.c/.h) | [review: M3-R1 full-detail] the minLOD test reads the exe's currentLOD; the tree reads cat_lodDrawLevel (the same value with FULL DETAIL off; LOD 0 under HWI-FEATURE(full-detail), so a ship drawn at LOD 0 shows its LOD-0 lights)",
+  "sample": "port-M3-R1-full-detail"
  },
  "0x004c8650": {
   "class": "MODIFIED",
@@ -8371,8 +8371,8 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28)",
-  "sample": "port-R6-frontend"
+  "note": "[review: M2-R6 frontend] compared with r6: same (Win32 device / glcompat calls are GoK's backend, decision 28) | [review: M3-R1 full-detail] compared again (decompile + the raw reference at 0x004d9d6f/8c/c3): the first call (FAS_OnCreate) sets the checkbox from opNoLODVal 0x00a4cc34; every other call (a click, and the screen's FAS_OnDelete call) sets opNoLODVal from FAS_Checked; both branches set or clear the detail slider's RSF_RegionDisabled (|4 / &0xfffb) and set RSF_DrawThisFrame (|8) on the region opDetailThreshold stored (0x00a4cc70; opDetailDisable inlined): IDENTICAL stands. The tree adds HWI-FEATURE(full-detail) lines only (a changing click ends the run-only /lodBands)",
+  "sample": "port-M3-R1-full-detail"
  },
  "0x004da5e0": {
   "class": "MODIFIED",
@@ -15185,8 +15185,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "Cataclysm's main view: cat_rndRenderObjectList with the deferred depth-sorted pass, render-time LOD timing, the fog layer, blasts, lens flares, the Sentinel fields, motion cues (cat_mcRender); rndMainViewRenderFunction: the motion cues (cat_mcRender at 0x00577360 with catMotionCues) ported",
-  "note": "[review: M2-R5 render] ported in the objlist / flares-fog subsystems (render.c); cat_mcRender is a CAT-TODO(M2-R6 NIS/camera) | [review: M2-R6 nis-fow-camera] rndMainViewRenderFunction: the motion cues (cat_mcRender at 0x00577360 with catMotionCues) ported",
-  "sample": "port-R6-nis-fow-camera"
+  "note": "[review: M2-R5 render] ported in the objlist / flares-fog subsystems (render.c); cat_mcRender is a CAT-TODO(M2-R6 NIS/camera) | [review: M2-R6 nis-fow-camera] rndMainViewRenderFunction: the motion cues (cat_mcRender at 0x00577360 with catMotionCues) ported | [review: M3-R1 full-detail] compared the level loop (0x00576baa .. 0x00576c18): pass 0 calls lodLevelGet 0x004a4d70 for each visible ship / asteroid / gas / dust / derelict / missile with a LOD table, passes 1..10 cat_lodLevelGetTimed 0x004a5000, the loop ends when opNoLODVal 0x00a4cc34 is set (0x00576c03, jne 0x00576c1a), or the summed time is <= catLodTimeThreshold 0x0088486c, or after pass 10: as the tree (the only FULL DETAIL reader outside the options code)",
+  "sample": "port-M3-R1-full-detail"
  },
  "0x00579e30": {
   "class": "IDENTICAL",
@@ -24768,5 +24768,12 @@
   "change": "adds calls trPreLoadedTextureScale; adds strings \"\\nNOTE - TexReg was unable to compres...\"; \"\\nTotal Textures To Load For This Lev...\"; globals +singlePlayerGame, singlePlayerGameInfo; constants 0xfdfbfaf5 not in body; loops 8 -> 4",
   "note": "[review: M3-R1 team-colours-warp] compared: the shifts reset and the sizes summed over the size list, the Mission17 limit (30 %, at least 1 MB), the halving passes, then each loaded entry that shrank rescaled by trPreLoadedTextureScale and each pending one given its scaled size: as the tree | [audit: M3-R1 team-colours-warp] in the exe the size-sort list holds only pending entries (trRegistryRefresh 0x00587d24), so the trPreLoadedTextureScale branch for a loaded entry is never reached from the refresh; with the tree's pending gate (M3-R1 audit) the same holds in the tree",
   "sample": "port-M3-R1-team-colours-warp"
+ },
+ "0x004cadb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M3-R1 full-detail audit] compared with the exe (decompile of 0x004cadb0): per active, unclipped tendril the level is nebLOD inlined (univSpaceObjInRenderList of both chunks' space objects: 0 if either is on the render list, else 1), then nebColourTendril, the 1.1 * far-clip distance test of both chunks, nebRenderChunk for a non-leading / non-trailing end and nebRenderTendril, all with that level: as the tree; IDENTICAL stands. The tree adds one HWI-FEATURE(full-detail) line (the level is 0 while FULL DETAIL is on; both tendril levels' geometry is built at once, so no RANDOM_NEBULAE draw depends on it)",
+  "sample": "port-M3-R1-full-detail"
  }
 }

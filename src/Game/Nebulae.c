@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "AutoLOD.h"
+#include "Options.h"        // HWI-FEATURE(full-detail): opNoLODVal
 #include "Debug.h"
 #include "FastMath.h"
 #include "glinc.h"
@@ -2107,7 +2108,7 @@ void nebRenderNebula(nebulae_t* neb)
                 continue;
             }
 
-            lod = nebLOD(tendril->a, tendril->b);
+            lod = opNoLODVal ? 0 : nebLOD(tendril->a, tendril->b);  // HWI-FEATURE(full-detail): LOD 0 (the exe: nebLOD)
             nebColourTendril(tendril, lod);
 
             //too far to be visible?

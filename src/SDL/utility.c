@@ -693,7 +693,7 @@ scriptEntry utyOptionsList[] =
     {"speakerSetting",          scriptSetUdwordCB, &opSpeakerSetting},
     {"brightnessVal",           scriptSetUdwordCB, &opBrightnessVal},
     {"detailThreshold",         scriptSetUdwordCB, &opDetailThresholdVal},
-    {"noLOD",                   scriptSetUdwordCB, &opNoLODVal},
+    {"noLOD",                   scriptSetUdwordCB, &opNoLODVal},     // FULL DETAIL; HWI-FEATURE(full-detail): 1 by default, every object drawn at LOD 0
     {"enableSmoothing",         scriptSetUdwordCB, &enableSmoothing},
     {"enableCPV",               scriptSetUdwordCB, &enableCPV},        // 0x008c14c0
     {"enableLensFlare",         scriptSetUdwordCB, &enableLensFlare},  // 0x008c14cc (M2-R5 render)
@@ -963,6 +963,7 @@ void utyOptionsFileWrite(void)
     catUtyOptionsStagedWordsGet();
     miOptionsFileValues(TRUE);                      // HWI-FEATURE(motion-interp): a switch's run-only flags stay out of the file
     rndLetterboxFileValues(TRUE);                   // HWI-FEATURE(letterbox-setting): /letterboxBehind stays out of the file
+    catLodFileValues(TRUE);                         // HWI-FEATURE(full-detail): /lodBands stays out of the file
     for (index = 0; utyOptionsList[index].name != NULL; index++)
     {
         if (utyOptionsList[index].setVarCB == scriptSetUbyteCB) {
@@ -988,6 +989,7 @@ void utyOptionsFileWrite(void)
     }
     miOptionsFileValues(FALSE);                     // HWI-FEATURE(motion-interp): the run's flags back
     rndLetterboxFileValues(FALSE);                  // HWI-FEATURE(letterbox-setting): the run's value back
+    catLodFileValues(FALSE);                        // HWI-FEATURE(full-detail): the run's value back
     
     fileClose(cfgFile);
 }

@@ -151,6 +151,11 @@
 #                    result=PASS|FAIL"; quits. Pass "-- /noInterp" or "-- /noNISInterp" to see the switches' start flags
 #                    (M2-R7 r6-leftovers: then the switch is checked run-only: the saves write the options file's
 #                    values, not the switch's, and Cancel restores the override; "toggletest: run-only" lines)
+#                    M3-R1 letterbox-front adds the letterboxBehind checks ("toggletest: letterbox ..."); M3-R1 full-detail
+#                    adds FULL DETAIL's ("toggletest: fulldetail ..."): noLOD 1 by default (the start-up's save wrote the
+#                    file's value), the Video_Options FULL DETAIL checkbox (OP_NoLOD) shows it and its clicks set 0 / 1,
+#                    Accept writes and reads back noLOD 0 / 1, the console row noLOD, the frame-rate presets
+#                    (cat_opSetAllDefaults: low 0, high 1), the switch run-only; pass "-- /lodBands" to check the switch
 #                    replay: /oracleReplay <name> /oracleDump <run>/run.hwo (M2-R6 oracle-mode-a, docs/m2-r6-oracle-mode-a.md,
 #                    oracle mode A): the recorded game --recording NAME (default oracle01: the user's reference recording)
 #                    and NAME.pkts are copied from original/game/SavedGames/RecordedGames into the harness data dir's
@@ -398,6 +403,23 @@
 #                    arrival). Read only: no stream field changes with it (the run is longer, so its stream has more
 #                    ticks; compare with --to-tick). A debug build also logs "teamcolour: heap level=.. dupe=N" (the
 #                    live "dupe trcolorinfo list" blocks of the memory analysis trRegistryRefresh writes)
+#   --lodtest SPEC   any mode that draws the main view (M3-R1 full-detail, HWI-FEATURE(full-detail)): /catLodTest SPEC,
+#                    SPEC = <tick>[:far][:fleet]: in the main view's first frame of universe tick <tick>, after the levels of
+#                    detail are chosen, one "lodtest: obj type=.. name=.. id=.. band=B drawn=D levels=N radius=.. dist=.."
+#                    line per visible object with a LOD table (B = currentLOD, the exe's level: the size-on-screen bands /
+#                    the distance table / the frame-time passes; D = the level drawn: 0 under FULL DETAIL, the noLOD row,
+#                    on by default; B with -- /lodBands), then "lodtest: frame ..." (counts, the camera distance, the
+#                    vertices / polygons of the levels drawn) and "lodtest: done ... result=PASS|FAIL" (FULL DETAIL on:
+#                    every D 0 and at least one object; off: every D = B and at least one B above 0). ":far" pulls the
+#                    camera out to its farthest zoom from tick 16; ":fleet" closes the sensors manager the headless start
+#                    opens at tick 16 and focuses the camera on every ship, so ai / skirmish / mission draw the main view
+#                    (both change the view: such a run is no stream reference). The summary gets a "lodtest:" line
+#   --lodstats SPEC  any mode (M3-R1 full-detail): /catLodStats SPEC, SPEC = <from>-<to>[:fleet]: per frame of those
+#                    universe ticks "lodstats: tick=.. ms=.. objects=.. verts=.. polys=.. fullDetail=0|1" (ms: the render
+#                    task from its top to after the flip, a glFinish before the clock is read; verts / polys: the levels
+#                    drawn of the visible objects with a LOD table), then "lodstats: done frames=N median=.. p99=.. max=..
+#                    verts_median=.. size=WxH". A GPU measurement (docs: idle GPU); use the release build (--bin) for
+#                    frame times. The summary gets a "lodstats:" line
 #   --timeout N      seconds (default 60)
 #   --driver D       offscreen (default; falls back to dummy if the offscreen driver cannot set a video mode) | dummy
 #   --data DIR       HW_Data dir to use instead of the harness data dir. ONLY for isolation runs of one item while
@@ -469,7 +491,7 @@ oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=30
 conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0; mtmission=1; savename="01 - Hiigara"; ldticks=400
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""; skticks=600; skmap=LiveFireExercise2
 warplevel=10; savesrc=""; training=0; recordname=""; recordstop=""; skbigotry=""; failjump=0
-shotspec=""; shotlb=0; res=""; cfgrows=(); teamcolour=0
+shotspec=""; shotlb=0; res=""; cfgrows=(); teamcolour=0; lodtest=""; lodstats=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -520,6 +542,8 @@ while [[ $# -gt 0 ]]; do
 			(( pcb > 2147483647 )) && pcb=$(( pcb - 4294967296 )); (( pcs > 2147483647 )) && pcs=$(( pcs - 4294967296 ))
 			cfgrows+=("PlayerBaseColor    $pcb" "PlayerStripeColor    $pcs" "ColorsPicked    1" "PlayerRace    0"); shift ;;
 		--teamcolour) teamcolour=1 ;;
+		--lodtest) lodtest=$2; shift ;;
+		--lodstats) lodstats=$2; shift ;;
 		--) shift; extra=("$@"); break ;;
 		*) echo "m2_harness: unknown option $1" >&2; exit 2 ;;
 	esac
@@ -684,6 +708,8 @@ if [[ -n "$recordname" ]]; then
 	[[ -n "$recordstop" ]] && args+=(/oracleRecordStop "$recordstop")
 fi
 [[ $teamcolour -eq 1 ]] && args+=(/catTeamColourTest)     # M3-R1 team-colours-warp
+[[ -n "$lodtest" ]] && args+=(/catLodTest "$lodtest")      # M3-R1 full-detail
+[[ -n "$lodstats" ]] && args+=(/catLodStats "$lodstats")   # M3-R1 full-detail
 if [[ -n "$shotspec" ]]; then
 	args+=(/catShot "$shotspec" /catShotFile "$out/shot")
 	[[ $shotlb -eq 1 ]] && args+=(/catShotLetterbox)
@@ -825,6 +851,8 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == sound ]] && echo "soundtest: $(grep -h 'soundtest: ' "$L" | sed 's/^.*soundtest: //' | paste -sd';'); UBSan reports in fquant.c/fqcodec.c: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c 'fquant\.c\|fqcodec\.c'); PATCH reports: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c "struct PATCH")"
 	[[ "$mode" == etg ]] && echo "etg: $(grep -c . "$out/etg.list" 2>/dev/null) listed; $(grep -h 'etgtest: etgStartup done\|etgtest: self-test done\|etgtest: created\|etgtest: effect self-test done' "$L" | sed 's/^.*etgtest: //' | paste -sd';')"
 	[[ -n "$shotspec" ]] && echo "catshot: $(grep -c 'catshot: tick=' "$L") files ($(grep -h 'catshot: tick=' "$L" | head -n 1 | sed 's/^.*catshot: //; s/ file=.*//') ..); FAIL lines: $(grep -c 'catshot: FAIL' "$L")"
+	[[ -n "$lodtest" ]] && echo "lodtest: $(grep -c 'lodtest: obj ' "$L") objects; $(grep -h 'lodtest: frame' "$L" | sed 's/^.*lodtest: //' | cut -c1-300); $(grep -h 'lodtest: done' "$L" | sed 's/^.*lodtest: //' | cut -c1-300)"
+	[[ -n "$lodstats" ]] && echo "lodstats: $(grep -c 'lodstats: tick=' "$L") frames; $(grep -h 'lodstats: done' "$L" | sed 's/^.*lodstats: //' | cut -c1-300)"
 	[[ $teamcolour -eq 1 ]] && echo "teamcolour: $(grep -c 'teamcolour: check ' "$L") checks, $(grep 'teamcolour: check ' "$L" | grep -c 'result=FAIL') FAIL, $(grep -c 'teamcolour: fail ' "$L") fail lines; $(grep -h 'teamcolour: done' "$L" | sed 's/^.*teamcolour: //' | cut -c1-400)"
 	[[ -n "$res$(printf '%s' "${cfgrows[@]}")" ]] && echo "options rows added: $(tail -n $(( ${#cfgrows[@]} + $([[ -n "$res" ]] && echo 2 || echo 0) )) "$out/home/.homeworld/Cataclysm.cfg" | paste -sd';')"
 	echo "animatics: $(grep -c 'animatic: skipped (headless)' "$L") skipped (headless): $(grep -h 'animatic: skipped (headless)' "$L" | sed 's/^.*file=//' | paste -sd',')"

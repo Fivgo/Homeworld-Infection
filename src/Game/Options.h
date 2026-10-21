@@ -107,6 +107,7 @@ void cat_opTextureDetail(char *name, struct tagfeatom *atom);
 void cat_opSpeechTest(char *name, struct tagfeatom *atom);
 void cat_opSoundFXTest(char *name, struct tagfeatom *atom);
 void cat_opSetAllDefaults(sdword lowEnd);
+void opNoLOD(char *name, struct tagfeatom *atom);           // the FULL DETAIL checkbox (OP_NoLOD); HWI-TEST: the toggle self-test clicks it
 void cat_opCataclysmFramerate(char *name, struct tagfeatom *atom);
 void catOptionsRunSelfTest(void);                  // HWI: port diagnostic, /catFeScreensTest's options round trip
 struct tagfibfileheader;                                                   // HWI-FEATURE(motion-interp)
