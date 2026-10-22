@@ -24,3 +24,6 @@ fullscreen-desktop 4K window, the exe's level-following trails, decisions 111-12
 ## Open hints the user may add later (check this file again before the report)
 - Flicker: on a hard cut between shots, or mid-pan? (not yet answered)
 - Which cutscene exactly: Mission01's opening NIS or the arrival NIS? (not yet answered; "the close up of the Kuun-Lan")
+
+## GPU (the user, 2026-10-22 11:22)
+"okay I have gotten off my game, use the gpu how you need to": the GPU is free for measurements from now; no claude-ping needed unless a game appears again (the idle check still applies).
