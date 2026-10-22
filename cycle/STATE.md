@@ -1,6 +1,6 @@
 # Work cycle and resume point
 
-Last checkpoint: 2026-10-21 14:26
+Last checkpoint: 2026-10-22 11:00
 
 **Read this first when resuming.** It is the single source of truth for where the work stands.
 
@@ -1330,6 +1330,10 @@ cycle/workflows/m2-r6.js finished in session 38027cce (Fable, Remote Control): t
 ## M3-R1: COMPLETE 2026-10-21 (the play-test fix round; run from the user's terminal session 38027cce, never the orchestrator)
 
 cycle/workflows/m3-r1.js (18281e2; run id `wf_42a468c8-942`, `ROUND_BASE ce4fab4`) finished in session 38027cce (Fable): the "## M2" subsection "M3-R1: COMPLETE" above has the exit test, the five ports and the plan for M3-R2; docs/m3-r1-summary.md the full report and the refreshed play-test brief. Relaunched twice on 2026-10-21 within its first half hour (item 6 and the jitter recipe folded in; the main checkout's stale script copy: LESSON kept: the Workflow scriptPath is the main checkout's file; fast-forward main to m2 BEFORE every launch or relaunch). The orchestrator must relaunch nothing. Merges to main are handled by the user. Next: the user's play-test with docs/m3-r1-summary.md's brief (Smooth motion ticked once), then M3-R2 (the Windows 11 build + the one-hour 4K@144 soak + the oracle's rung + the fix items), a new script `cycle/workflows/m3-r2.js` written from the play-test report.
+
+## M3-R2: IN FLIGHT since 2026-10-22 11:00 (the second play-test fix round; run from the user's terminal session 38027cce, never the orchestrator)
+
+cycle/workflows/m3-r2.js (944565c; `ROUND_BASE 06dae5c`, after the three "M3 Windows build" commits of 2026-10-21 made by the user's other session, which zipped an untested win64 build: docs/m3-windows-build.md), run id `wf_3590992d-400`, launched on the user's word ("try and fix up those issues in r2 with the remaining tokens we have. be prepared for the interruption"). Four Opus ports in sequence, each with its auditor, then the Fable integrate: instrumentation (the settings line, the overlay, /frameLog + tools/frame_log_report.py, the quit-after-resolution-change fault), nis-flicker (the one-frame flicker in a Mission01 cutscene, found by a dump outlier scan), hyperspace-assembly (the gate over the whole assembly, every part under one clip reveal; the exe's UpdateArrivingShip waits are the lead), mesh-batching (FULL DETAIL under 6.94 ms p99 at 4K behind /meshImmediate). The user's answers live in `cycle/answers/m3-r2-user.md` (f47d384). THE STREAM RULE: the Mission01 baseline IDENTICAL, the rung 2823 / 2871, only producer 3's stated arrival moves. If cut off by a limit: `Workflow({scriptPath: cycle/workflows/m3-r2.js, resumeFromRunId: 'wf_3590992d-400'})` from that session after `git -C <main> merge --ff-only m2`; in a fresh session relaunch the script (audited ports are skipped by the probe). The user's standing rule: a one-shot cron "please continue your work" a few minutes past the reset.
 
 ## Opus workflows in flight
 
