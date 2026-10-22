@@ -21,6 +21,8 @@
 #include "MultiplayerGame.h"      // CAT: time compression
 #include "Tutor.h"      // CAT: time compression
 #include "StringsOnly.h"      // CAT: the time-compression message [integrate: M2-R6]
+#include "Instrument.h"       // HWI-FEATURE(instrumentation): the universe task's time
+#include "MotionInterp.h"     // HWI-FEATURE(instrumentation): universeTaskHandle
 
 /*=============================================================================
     Data:
@@ -395,8 +397,16 @@ sdword taskExecuteAllPending(sdword ticks)
         taskProcessIndex++;
         for (; taskNumberCalls > 0; taskNumberCalls--)
         {
+            if (taskCurrentTask == universeTaskHandle)      // HWI-FEATURE(instrumentation): one universe tick's time
+            {                                               // HWI-FEATURE(instrumentation)
+                hwiUniverseCallBegin();                     // HWI-FEATURE(instrumentation)
+            }                                               // HWI-FEATURE(instrumentation)
             taskData[taskCurrentTask]->function(
                 &taskData[taskCurrentTask]->context);
+            if (taskCurrentTask == universeTaskHandle)      // HWI-FEATURE(instrumentation)
+            {                                               // HWI-FEATURE(instrumentation)
+                hwiUniverseCallEnd();                       // HWI-FEATURE(instrumentation)
+            }                                               // HWI-FEATURE(instrumentation)
             if (taskData[taskCurrentTask]->context == NULL) {
                 // Task has exited.
                 taskStop(taskCurrentTask);

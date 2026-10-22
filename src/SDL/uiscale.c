@@ -34,6 +34,7 @@
 #include "mouse.h"
 #include "uiscale.h"
 #include "utility.h"
+#include "Instrument.h"                                         // HWI-FEATURE(instrumentation): the settings line
 
 /*=============================================================================
     Data:
@@ -347,6 +348,11 @@ void uiScaleWindowFit(sdword reqW, sdword reqH, bool32 full, bool32 border, udwo
     uiFitRule = uiScaleFitDecide(reqW, reqH, full, &uiFitDisplay, &uiFitUsable, uiFitHave, flags, w, h);
 }
 
+const char *uiScaleFitRule(void)                                // HWI-FEATURE(instrumentation): the settings line
+{                                                               // HWI-FEATURE(instrumentation)
+    return uiFitRule;                                           // HWI-FEATURE(instrumentation)
+}                                                               // HWI-FEATURE(instrumentation)
+
 // HWI-TEST: the rule for given bounds (UiScaleTest.c's table), logged
 const char *uiScaleWindowFitCheck(sdword reqW, sdword reqH, bool32 full, bool32 border, sdword dispW, sdword dispH,
                                   sdword usableW, sdword usableH, udword *flags, sdword *w, sdword *h)   // HWI-TEST
@@ -464,6 +470,7 @@ void uiScaleWindowCreated(void *window, sdword reqW, sdword reqH)   // HWI-FEATU
         printf("uiscale: relaid out at logical %dx%d after the mode switch\n", (int)MAIN_WindowWidth, (int)MAIN_WindowHeight);
         fflush(stdout);
     }
+    hwiSettingsWindow();                                        // HWI-FEATURE(instrumentation): the settings line (start-up / mode switch)
 }
 
 bool32 uiScaleWindowCurrent(sdword *reqW, sdword *reqH)         // HWI-FEATURE(ui-scale)

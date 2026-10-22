@@ -2232,3 +2232,86 @@ char *memStrncpy(char *dest, char *source, sdword count)
     return(destStart);
 }
 
+
+/*-----------------------------------------------------------------------------
+    Name        : memHwiUsage
+    Description : HWI-TEST (M3-R2 instrumentation, /frameLog once a second): the bytes allocated in the main heap and
+                  the growth heaps (a walk of the cookies, without the debug build's verification, plus the small-block
+                  heaps' allocated blocks at their block size), the growth heaps made, and the live "dupe trcolorinfo
+                  list" blocks (M3-R1's O4: the M3 soak's leak candidate) where the build keeps names (the debug build;
+                  -1 in the release build). Reads only.
+    Inputs      : used, pools, dupe - where the counts go
+----------------------------------------------------------------------------*/
+static void memHwiPoolUsage(mempool *pool, bool32 smallHeaps, sdword *used, sdword *dupe)     // HWI-TEST
+{
+    memcookie *cookie;
+#if MEM_SMALL_BLOCK_HEAP
+    sdword index;
+    mbheap *heap;
+    Node *node;
+#endif
+
+    if (pool->first == NULL)
+    {
+        return;
+    }
+    for (cookie = pool->first; cookie < pool->last;
+         cookie = (memcookie *)((ubyte *)cookie + sizeof(memcookie) + memBlocksToBytes(cookie->blocksNext)))
+    {
+        if (bitTest(cookie->flags, MBF_AllocatedNext))
+        {
+            *used += memBlocksToBytes(cookie->blocksNext);
+#if MEM_USE_NAMES
+            if (strncmp(cookie->name, "dupe trcolorinfo list", MEM_NameLength - 1) == 0)
+            {
+                (*dupe)++;
+            }
+#endif
+        }
+        if (cookie->blocksNext < 0)
+        {
+            break;                                  // a damaged heap: stop (the walk only reads)
+        }
+    }
+#if MEM_SMALL_BLOCK_HEAP
+    if (smallHeaps)
+    {
+        for (index = 0; memSmallHeapInfo[index].blockSize != 0; index++)
+        {
+            heap = (mbheap *)(pool->pool + index * sizeof(mbheap));
+            *used += (sdword)heap->allocated.num * heap->blockSize;
+#if MEM_USE_NAMES
+            for (node = heap->allocated.head; node != NULL; node = node->next)
+            {
+                if (strncmp(((mbhcookie *)listGetStructOfNode(node))->name, "dupe trcolorinfo list", MBH_NameLength - 1) == 0)
+                {
+                    (*dupe)++;
+                }
+            }
+#endif
+        }
+    }
+#endif
+}
+
+void memHwiUsage(sdword *used, sdword *pools, sdword *dupe)                                     // HWI-TEST
+{
+    sdword index;
+
+    *used = 0;
+    *pools = memNumberGrowthPools;
+#if MEM_USE_NAMES
+    *dupe = 0;
+#else
+    *dupe = -1;
+#endif
+    if (!memModuleInit)
+    {
+        return;
+    }
+    memHwiPoolUsage(&memMainPool, TRUE, used, dupe);
+    for (index = 0; index < memNumberGrowthPools; index++)
+    {
+        memHwiPoolUsage(&memGrowthPool[index], FALSE, used, dupe);
+    }
+}

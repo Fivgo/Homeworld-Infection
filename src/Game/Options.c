@@ -42,6 +42,7 @@
 #include "utility.h"
 #include "MotionInterp.h"    // HWI-FEATURE(motion-interp): the Smooth motion checkbox
 #include "uiscale.h"         // HWI-FEATURE(ui-scale): the UI SCALE radio buttons; the window request
+#include "Instrument.h"      // HWI-FEATURE(instrumentation): the settings line at Accept
 
 #ifdef _MSC_VER
     #define strcasecmp _stricmp
@@ -1286,6 +1287,7 @@ void opOptionsAcceptHelper(char* name, featom* atom, char* linkName)
     //      made (the reflow of a resolution change: uiscale.c uiScaleApply); in game, as the exe allows no render switch
     //      there (the return below), it is saved and takes effect at the next start
     uiScaleUpdate();                                // HWI-FEATURE(ui-scale)
+    hwiSettingsAccepted();                          // HWI-FEATURE(instrumentation): the settings line, the rows the save writes
 
     opOptionsEndHelper(linkName);
 

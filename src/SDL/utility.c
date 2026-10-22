@@ -121,6 +121,7 @@
 #include "MotionTest.h"     // HWI-FEATURE(motion-interp): /catToggleTest
 #include "uiscale.h"         // HWI-FEATURE(ui-scale): the uiScale row, the window rows
 #include "UiScaleTest.h"     // HWI-TEST (M3-R1 ui-scale): /catUiScaleTest
+#include "Instrument.h"      // HWI-FEATURE(instrumentation): the settings line's options-file rows
 
 #ifdef _WIN32
     #include <windows.h>
@@ -950,6 +951,7 @@ void utyOptionsFileRead(void)
         ch_buf[0] = '\0';
     }
     scriptSetFileSystem(ch_buf, UTY_CONFIG_FILENAME, utyOptionsList);
+    hwiSettingsRowsRead(ch_buf);                    // HWI-FEATURE(instrumentation): which HWI rows the file has (the settings line's sources)
     catUtyOptionsStagedWordsSet();
 
     //call any functions that need to acknowledge a change due to loading
@@ -4797,6 +4799,14 @@ DONE_INTROS:
     if (catUiScaleSelfTest)                                 // HWI-TEST
     {
         catUiScaleRunSelfTest();
+        utyGameQuit(NULL, NULL);
+        return(NULL);
+    }
+
+    // HWI-TEST (M3-R2 instrumentation): /catModeQuitTest <W>x<H>: a resolution change, then one quit (UiScaleTest.c)
+    if (catModeQuitSelfTest)                                // HWI-TEST
+    {
+        catModeQuitRunSelfTest();
         utyGameQuit(NULL, NULL);
         return(NULL);
     }

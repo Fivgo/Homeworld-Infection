@@ -102,6 +102,7 @@
 #include "UnivUpdate.h"
 #include "utility.h"
 #include "uiscale.h"         // HWI-FEATURE(ui-scale): the logical / physical sizes, the window fit
+#include "Instrument.h"      // HWI-FEATURE(instrumentation): the overlay, the frame's clocks
 #ifdef HW_ENABLE_GLES
 #include "SDL_syswm.h"
 #endif
@@ -5194,6 +5195,7 @@ DEFINE_TASK(rndRenderTask)
     {
         primErrorMessagePrint();
         catLodStatsFrameBegin();                            // HWI-TEST (M3-R1 full-detail): /catLodStats
+        hwiFrameBegin();                                    // HWI-FEATURE(instrumentation): the render task's top
 
         speechEventUpdate();
         subTitlesUpdate();
@@ -5434,6 +5436,7 @@ DEFINE_TASK(rndRenderTask)
         }
 #endif
 #endif
+        hwiOverlayDraw();                                   // HWI-FEATURE(instrumentation): the overlay (off by default), on top
         catShotFrameEnd();                                  // HWI-TEST (M3-R1 letterbox-front): /catShot, the any-mode capture
         catTeamColourFrameEnd();                            // HWI-TEST (M3-R1 team-colours-warp): /catTeamColourTest
         catMotionTestFrameEnd();                            // HWI-FEATURE(motion-interp) measurement: the frame's dump line + CRC
@@ -5465,6 +5468,7 @@ DEFINE_TASK(rndRenderTask)
         primErrorMessagePrint();
 afterTheSwap:
         catLodStatsFrameEnd();                              // HWI-TEST (M3-R1 full-detail): /catLodStats
+        hwiFrameEnd();                                      // HWI-FEATURE(instrumentation): the frame's clocks, /frameLog
 
 #if RND_GL_STATE_DEBUG
         rndGLStateSaving = FALSE;                           //done saving the file for now
@@ -7044,7 +7048,7 @@ static void catLodTestMainView(LinkedList *visible)
         remember->distance = remember->farthestZoom;
         cameraSetEyePosition(remember);
     }
-    if (!logIt && !catLodStatsActive)
+    if (!logIt && !catLodStatsActive && !hwiWantVerts())   // HWI-FEATURE(instrumentation): the overlay's / frame log's count
     {
         return;
     }
@@ -7083,6 +7087,7 @@ static void catLodTestMainView(LinkedList *visible)
                         (double)fsqrt(obj->cameraDistanceSquared));
         }
     }
+    hwiVertsDrawn(objects, verts);                  // HWI-FEATURE(instrumentation)
     if (catLodStatsActive)
     {
         catLodStatsObjects = objects;

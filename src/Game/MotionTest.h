@@ -29,6 +29,7 @@ void catMotionTestShotSet(char *string);    // /catMotionShot <frame>: that fram
 void catMotionSceneSet(char *string);       // /catMotionScene <kind>[:<distance>[:<move>[:<ticks>[:<start>]]]]: recon | follow
 void catMotionRealClockSet(char *string);   // /catMotionRealClock <fps>: the wall clock, each frame paced to <fps>
 bool32 catMotionRealClock(void);            // utyTasksDispatch: take the wall clock in a virtual-clock run
+udword catMotionRealClockFps(void);         // HWI-TEST (M3-R2 instrumentation): the --real-clock rate (0: none)
 void catMotionRealClockPace(void);          // utyTasksDispatch, before the clock is read: wait for the frame's slot
 void catMotionRealClockStamp(udword ticks, real32 sub); // utyTasksDispatch, after: the frame's task ticks and remainder
 

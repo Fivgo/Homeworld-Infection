@@ -1178,6 +1178,7 @@ char *cat_moDebugKeyValue(sdword group)
 #include "Shader.h"
 #include "Task.h"
 #include "UnivUpdate.h"
+#include "Instrument.h"     // HWI-FEATURE(instrumentation): the keys self-test's overlay-key check
 
 typedef void (*CatKbCommandCB)(udword state);
 
@@ -2375,6 +2376,23 @@ void catKeysRunSelfTest(void)
     cat_kbBindingToString(&catKbBindings[5].binding[0], message, TRUE);
     dbgMessagef("keystest: names named=%d found=%d groups=%d Move='%s' %s='%s' Pause='%s'", named, found, groups, text,
                 cat_kbCommandNameGet(5), message, cat_kbKeyToString(catKbBindings[0x69].binding[0].key));
+    {                                                       // HWI-FEATURE(instrumentation) (M3-R2): the overlay's key
+        sdword c, b, onKey = 0;                             //      (the Menu key) has no virtual-key code, and no binding
+                                                            //      names VK_APPS (0x5d), the exe's code for that key
+        for (c = 0; c < CAT_KB_NUMBER_COMMANDS; c++)
+        {
+            for (b = 0; b < catKbBindings[c].count; b++)
+            {
+                onKey += (((ubyte)catKbBindings[c].binding[b].key) == 0x5d) ? 1 : 0;
+            }
+        }
+        dbgMessagef("keystest: overlay key scancode=%d vk=%u bindings on VK_APPS=%d", (int)HWI_OVERLAY_KEY,
+                    (unsigned)catKeyVkFromKey(HWI_OVERLAY_KEY), (int)onKey);
+        if ((catKeyVkFromKey(HWI_OVERLAY_KEY) != 0) || (onKey != 0))
+        {
+            CAT_KEYS_FAIL("the overlay key: vk %u, %d bindings on VK_APPS", (unsigned)catKeyVkFromKey(HWI_OVERLAY_KEY), (int)onKey);
+        }
+    }
     cat_kbSaveKeyBindings();                                // the run leaves keys.cfg as the start-up's save made it
     dbgMessagef("keystest: done rows=%d known=%d unknown=%d commands=%d bindings=%d startsave=%d saved=%d reload=%d reset=%d "
                 "newkey=%d conflicts=%d shares=%d failures=%d result=%s", rows, known, rows - known, boundCommands,

@@ -19,3 +19,26 @@ What it needs (each already touched by the plan; this ties them together):
 5. **No gamescope, no wrapper** in the measurement (docs/CONSTRAINTS.md rule 1).
 
 Follow-on features (not required for the target): UI/front-end scaling above 640x480; higher-resolution text.
+
+## The soak's instrument (M3-R2, docs/m3-r2-instrumentation.md)
+
+- **`/frameLog <file>`** (HWI-TEST, run-only; the harness's `--frame-log` writes `<run>/frame.log`): a header (`# hwi-framelog
+  v1 build=.. commit=.. size=WxH logical=WxH refresh=R (source) heap=67108864 driver=..`, then `# settings: <the settings
+  line>`), then once a second `s=N t=.. frames=.. ft_p50 / ft_p95 / ft_p99 / ft_max` (the frame PERIOD, ms: from one end of
+  the render task, after the flip, to the next: every task of the frame and the wait for the swap included), `over` (frames
+  longer than one refresh interval) with `over1 / over2 / over3p` (1, 2, 3+ refreshes late), `rnd_p50 / rnd_max` (the
+  render task alone, its top to after the flip, no glFinish), `ticks` and `tick_p50 / tick_max` (each universe task call,
+  ms), `heap_used` / `heap_growth` / `growth_pools` (the memory module's allocated bytes in the main heap and its growth
+  heaps, small-block heaps counted by block; the growth heaps made), `dupe` (live "dupe trcolorinfo list" blocks, M3-R1's
+  O4; -1 in the release build, which keeps no block names), `verts_p50 / verts_max` (the /catLodStats count); and an
+  `h s=N bin:count,..` line, the second's frame periods in 0.1 ms bins. The refresh R is the `--real-clock` rate in a
+  harness run, else the display mode's refresh (SDL), else 144 (the header says which). Nothing is read back, no
+  glFinish, no random stream: the streams do not move with it.
+- **`python3 -I tools/frame_log_report.py <frame.log> [--window 10] [--tolerance 0.10] [--oneline]`**: the whole run's
+  frame-period p50 / p95 / p99 / max from the histograms, the frames over budget, the universe ticks and their cost, the
+  vertices; **the drift test** (the soak's exit rule "no drift over the hour"): the last `--window` minutes' p50 and p99
+  within `--tolerance` of the first's (a run shorter than two windows compares its first and last thirds) = PASS; **the
+  heap's growth a minute** (least squares over the seconds) and the growth heaps; **the seconds over budget** (a second
+  whose ft_p99 exceeds the refresh interval).
+- The attended hour: `tools/play.sh -- /frameLog <path>` (and the Menu key or `-- /overlay` to watch it live); the
+  log's `hwi-settings:` lines say what the session ran with.

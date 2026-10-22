@@ -80,6 +80,7 @@
 #include "OracleDump.h"     // HWI-ORACLE: /oracleDump, /oracleSelfTest
 #include "uiscale.h"         // HWI-FEATURE(ui-scale): /uiScale, /testUsableBounds; the window request
 #include "UiScaleTest.h"     // HWI-TEST (M3-R1 ui-scale): /catUiScaleTest
+#include "Instrument.h"      // HWI-FEATURE(instrumentation): /overlay, the overlay's key; HWI-TEST /frameLog
 
 #ifdef _WIN32
     #define strcasecmp _stricmp
@@ -629,6 +630,33 @@ bool32 CatLodTestSet(char *string)
 bool32 CatLodStatsSet(char *string)
 {
     catLodStatsSet(string);
+    return TRUE;
+}
+// HWI-FEATURE(instrumentation): /overlay: the on-screen overlay on for this run (Instrument.c; the console row "overlay"
+//      and the Menu key toggle it too; it has no options-file row, so nothing is saved)
+bool32 OverlaySet(char *string)                     // HWI-FEATURE(instrumentation)
+{                                                   // HWI-FEATURE(instrumentation)
+    hwiOverlaySwitch();                             // HWI-FEATURE(instrumentation)
+    return TRUE;                                    // HWI-FEATURE(instrumentation)
+}                                                   // HWI-FEATURE(instrumentation)
+// HWI-TEST (M3-R2 instrumentation): /frameLog <file>: one line a second of frame times, universe ticks, the heap and the
+//      vertices drawn (Instrument.c; tools/frame_log_report.py)
+bool32 FrameLogSet(char *string)
+{
+    hwiFrameLogSet(string);
+    return TRUE;
+}
+// HWI-TEST (M3-R2 instrumentation) [audit: the frame log's build= field]: the build version meson gives only the SDL
+//      library (src/SDL/meson.build -DHOMEWORLD_BUILD_VERSION); src/Game/Instrument.c got mainswitches.h's fallback
+//      "UNSUPPORTED_BUILD"
+const char *hwiBuildVersion(void)                   // HWI-TEST
+{
+    return HOMEWORLD_BUILD_VERSION;
+}
+// HWI-TEST (M3-R2 instrumentation): /catModeQuitTest <W>x<H>: a resolution change in the front end, then one quit
+bool32 CatModeQuitTestSet(char *string)
+{
+    catModeQuitTestSet(string);
     return TRUE;
 }
 // HWI-TEST (M3-R1 letterbox-front): /catShot <spec>, /catShotFile <prefix>, /catShotLetterbox (MotionTest.c catShotFrameEnd:
@@ -1399,6 +1427,9 @@ commandoption commandOptions[] =
     entryFn("/noNISInterp",             NoNISInterpSet, " - render-time interpolation of NIS cutscenes off (gameplay interpolation stays)."),   // HWI-FEATURE(motion-interp)
     entryFn("/lodBands",                LodBandsSet, " - this run only: FULL DETAIL off (the exe's levels of detail by size on screen and frame time; the options file's noLOD row keeps its value)."),   // HWI-FEATURE(full-detail)
     entryFnParam("/catLodTest",         CatLodTestSet, " <tick>[:far][:fleet] - log every object's level of detail (the exe's and the one drawn) in the main view's first frame of that universe tick (\"lodtest:\" lines); :far pulls the camera out to its farthest zoom, :fleet closes the sensors manager at tick 16 and focuses the camera on every ship."),   // HWI-TEST
+    entryFn("/overlay",                 OverlaySet, " - this run only: the on-screen overlay on (frame time, universe tick, interpolation alpha, the settings, the vertices drawn; the console row overlay and the Menu key toggle it)."),   // HWI-FEATURE(instrumentation)
+    entryFnParam("/catModeQuitTest",    CatModeQuitTestSet, " <W>x<H> - test: once the front end is up, the Video screen's render switch to that resolution, then one quit."),   // HWI-TEST
+    entryFnParam("/frameLog",           FrameLogSet, " <file> - test: one line a second to <file>: frame-time percentiles, frames over the refresh interval, universe ticks and their cost, the main heap, the vertices drawn."),   // HWI-TEST
     entryFnParam("/catLodStats",        CatLodStatsSet, " <from>-<to>[:fleet] - per frame of those universe ticks: the render time (to the flip, glFinish), the objects and the mesh vertices and polygons drawn (\"lodstats:\" lines, the median and 99th percentile at the end)."),   // HWI-TEST
     entryFnParam("/uiScale",            UiScaleSet, " <percent> - this run only: the UI scale (0 = by the window height: 200 at 2160 rows or more, 150 at 1440 or more, 100 below; else 100 .. 400; the options file's uiScale row keeps its value)."),   // HWI-FEATURE(ui-scale)
     entryFnParam("/testUsableBounds",   TestUsableBoundsSet, " <W>x<H>[@<DW>x<DH>] - test: the desktop's usable bounds (and display size) the windowed mode's fit uses."),   // HWI-TEST
@@ -1928,6 +1959,13 @@ bool32 mainStartupParticularRGL(char* device, char* data)
 void mainDestroyWindow(void)
 {
     mainActuallyQuit = FALSE;
+    // HWI-FIX (M3-R2 instrumentation; GoK's fault, M3-R1's finding docs/audits/m3-r1-ui-scale.md): cataclysm.exe clears
+    //      the flag and at once destroys the window (mainDestroyWindow 0x00560350: DAT_008b85b0 = 0; DestroyWindow), and
+    //      the window's own WM_DESTROY consumes the clear (WindowProc 0x00561f10 case 2: the flag 0 -> set back to 1, no
+    //      quit), so the user's next quit quits. SDL's window goes in rndClose (SDL_DestroyWindow), which posts no
+    //      SDL_QUIT: the clear stayed, the next quit's SDL_QUIT was swallowed (HandleEvent) and the main loop ended without
+    //      WindowsCleanup (rc 1, no shutdown). The destroyed window's WM_DESTROY, as the exe's window takes it:
+    mainActuallyQuit = TRUE;                        // HWI-FIX
 
     mainWindowTotalWidth  = MAIN_WindowWidth  + mainWidthAdd;
     mainWindowTotalHeight = MAIN_WindowHeight + mainHeightAdd;
@@ -2384,6 +2422,10 @@ void HandleEvent(SDL_Event const* pEvent) {
             }
             else                         //else it's a freshly-pressed key
             {
+                if (pEvent->key.keysym.scancode == HWI_OVERLAY_KEY)    // HWI-FEATURE(instrumentation): the overlay's key
+                {                                                       // HWI-FEATURE(instrumentation)
+                    hwiOverlayKey();                                    // HWI-FEATURE(instrumentation)
+                }                                                       // HWI-FEATURE(instrumentation)
                 keyPressDown(keyLanguageTranslate(pEvent->key.keysym.scancode));
             }
             // CAT: the exe's WM_KEYDOWN gives every key down (and repeat) to the developer console too, untranslated

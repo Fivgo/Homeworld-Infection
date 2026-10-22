@@ -405,6 +405,7 @@ char *memStrncpy(char *dest, char *source, sdword count);
 #if MEM_ANALYSIS
 sdword memFreeMemGet(mempool *pool);
 #endif
+void memHwiUsage(sdword *used, sdword *pools, sdword *dupe);    // HWI-TEST (M3-R2 instrumentation): /frameLog's heap counts
 
 const memsize * check_mem(const memsize * data);
 

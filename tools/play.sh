@@ -64,6 +64,32 @@
 # it, aspect kept. A smaller window stays as requested. /fullscreen is unchanged (fullscreen-desktop), /noBorder makes
 # the window borderless. The log's "window: requested WxH, usable WxH (display N: WxH), created WxH (...)" line and the
 # "uiscale: physical .. logical .." line say what was made.
+#
+# The settings line (M3-R2, HWI-FEATURE(instrumentation)): the log's "hwi-settings:" line names every recreation setting
+# with its value and where it came from, once at start-up and again whenever one changes:
+#   hwi-settings: objInterpolate=1 (cfg) nisInterpolate=1 (cfg) letterboxBehind=0 (cfg) noLOD=1 (cfg)
+#                 uiScale=0->200% (cfg, auto) overlay=0 (default) fit=fullscreen-desktop (...) 3840x2160 switches=none [start]
+#   the source: default (Cataclysm.cfg has no row), cfg (its row, or the row Options -> Accept saved), switch (a -- switch
+#   overrides the row for this run), console (a developer-console row), options (an Options control, not yet accepted),
+#   key (the overlay key); [why]: start, options accept, console <row>, key overlay, window (a mode switch), frame.
+#   So "objInterpolate=0 (cfg)" means Smooth motion is OFF because the options file says so.
+# The overlay (M3-R2, HWI-FEATURE(instrumentation)): OFF by default; a small panel in the top-left corner, drawn at the
+# UI scale over everything: FRAME (the last frame's period in ms, the last second's median and 99th percentile; at
+# 144 Hz a frame within budget is 6.94 ms or less), TICK (the universe tick's cost in the last frame that ran one, and
+# how many ran), ALPHA (the motion-interpolation blend the frame was drawn with, -1 = none), the flags (OBJ / NIS
+# interpolation, LBB letterboxBehind, NOLOD = FULL DETAIL) and the switches, VERTS / OBJECTS (the vertices and objects
+# of the levels of detail drawn in the main view), FULL DETAIL and the UI scale.
+#   key                 the keyboard's Menu key (the "application" key, usually right of the right Windows key): toggles
+#                       it; no default key binding of cataclysm.exe uses it and this engine's keys.cfg cannot bind it
+#                       [audit: said "cataclysm.exe has no use for that key"]
+#   console row         overlay 0|1
+#   switch              -- /overlay   (on for this run; nothing is saved: the overlay has no Cataclysm.cfg row)
+# The frame log (M3-R2, HWI-TEST; docs/features/high-refresh-4k.md "The soak's instrument") [audit: added]:
+#   switch              -- /frameLog <file>   (this run only: one line a second to <file>: frame-time p50 / p95 / p99 /
+#                       max, the frames over the refresh interval, the universe ticks and their cost, the heap, the
+#                       vertices drawn; give a full path, e.g. -- /frameLog ~/hwi-frame-$(date +%H%M).log)
+#   report              python3 -I tools/frame_log_report.py <file>   (the whole session's percentiles, the drift test,
+#                       the heap's growth a minute, the seconds over budget)
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 build=release; bin=""; data="$root/original/scratch-m2/m2r2-harness/data"; home="$root/original/play-home"; drv=x11; rebuild=0

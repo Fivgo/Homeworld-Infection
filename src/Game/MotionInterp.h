@@ -53,5 +53,7 @@ void miOptionsFileValues(bool32 begin);             // utyOptionsFileWrite: the 
 void miSwitchStateSave(void);                       // opOptionsSaveSettings: the switch state for Cancel
 void miSwitchStateRestore(void);                    // opRestoreSavedSettings
 bool32 miSwitchStands(void);                        // a switch's override stands (the toggle self-test)
+bool32 miSwitchObjStands(void);                     // HWI-FEATURE(instrumentation): objInterpolate's override (/noInterp)
+bool32 miSwitchNisStands(void);                     // HWI-FEATURE(instrumentation): nisInterpolate's (/noInterp, /noNISInterp)
 
 #endif // ___MOTIONINTERP_H

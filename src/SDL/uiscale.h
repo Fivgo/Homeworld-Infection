@@ -40,6 +40,7 @@ sdword uiScaleFileValue(void);                          // HWI-FEATURE(ui-scale)
 void uiScaleFileValues(bool32 begin);                   // HWI-FEATURE(ui-scale): around utyOptionsFileWrite
 void uiScaleWindowRows(bool32 begin);                   // HWI-FEATURE(ui-scale): screenWidth / Height = the request (a read)
 sdword uiScaleWanted(void);                             // HWI-FEATURE(ui-scale): the percent the setting asks for this window
+const char *uiScaleFitRule(void);                       // HWI-FEATURE(instrumentation): the window fit's choice (the settings line)
 const char *uiScaleSource(void);                        // HWI-FEATURE(ui-scale): "auto" | "cfg" | "switch"
 
 // the window (render.c setupPixelFormat)

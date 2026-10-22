@@ -41,6 +41,7 @@
 #include "mouse.h"
 #include "Options.h"
 #include "Region.h"
+#include "SoundEvent.h"     // HWI-TEST (M3-R2 instrumentation): the render switch's sound shutdown / restart
 #include "uiscale.h"
 #include "utility.h"
 
@@ -553,4 +554,53 @@ void catUiScaleRunSelfTest(void)
     dbgMessagef("uiscaletest: done physical=%dx%d logical=%dx%d scale=%d checks=%d fails=%d result=%s",
                 (int)MAIN_WindowWidthActual, (int)MAIN_WindowHeightActual, (int)MAIN_WindowWidth, (int)MAIN_WindowHeight,
                 (int)uiScalePercent, (int)utChecks, (int)utFails, (utFails == 0) ? "PASS" : "FAIL");
+}
+
+/*-----------------------------------------------------------------------------
+    HWI-TEST (M3-R2 instrumentation): /catModeQuitTest <W>x<H>: the quit after a resolution change (M3-R1's finding,
+    docs/audits/m3-r1-ui-scale.md: after a real mode switch the next quit's first SDL_QUIT was swallowed and the run
+    ended rc 1 without the shutdown). Once the front end is up: the render switch of the Video screen's Accept with a new
+    resolution (Options.c opOptionsAcceptHelper: soundEventShutdown, mainSaveRender, the new request, mainLoadGL, on a
+    failure mainRestoreRender, soundEventRestart; the list's own selection is left out: the offscreen driver lists only
+    its one display mode, so the request is given directly), then utility.c quits once (utyGameQuit). The harness's
+    modequit mode judges the quit: rc 0 and "Quit game" once in the log.
+----------------------------------------------------------------------------*/
+bool32 catModeQuitSelfTest = FALSE;                 // HWI-TEST
+static sdword utQuitW = 1280, utQuitH = 720;        // HWI-TEST
+
+void catModeQuitTestSet(char *string)               // HWI-TEST
+{
+    int w = 0, h = 0;
+
+    if (sscanf(string, "%dx%d", &w, &h) == 2 && w >= 640 && h >= 480)
+    {
+        utQuitW = w;
+        utQuitH = h;
+    }
+    catModeQuitSelfTest = TRUE;
+}
+
+void catModeQuitRunSelfTest(void)                   // HWI-TEST
+{
+    sdword reqW, reqH;
+    bool32 ok;
+
+    uiScaleWindowRequestGet(&reqW, &reqH);
+    dbgMessagef("modequittest: start request=%dx%d physical=%dx%d logical=%dx%d to=%dx%d", (int)reqW, (int)reqH,
+                (int)MAIN_WindowWidthActual, (int)MAIN_WindowHeightActual, (int)MAIN_WindowWidth, (int)MAIN_WindowHeight,
+                (int)utQuitW, (int)utQuitH);
+    soundEventShutdown();
+    mainSaveRender();
+    uiScaleWindowRequest(utQuitW, utQuitH);         // opOptionsAcceptHelper: the new request
+    ok = mainLoadGL("");
+    if (!ok)
+    {
+        mainRestoreRender();
+    }
+    soundEventRestart();
+    uiScaleWindowRequestGet(&reqW, &reqH);
+    dbgMessagef("modequittest: switched ok=%d request=%dx%d physical=%dx%d logical=%dx%d", (int)ok, (int)reqW, (int)reqH,
+                (int)MAIN_WindowWidthActual, (int)MAIN_WindowHeightActual, (int)MAIN_WindowWidth, (int)MAIN_WindowHeight);
+    dbgMessagef("modequittest: done switched=%d result=%s (the quit follows: the harness judges rc 0 and the quit line once)",
+                (int)ok, (ok && MAIN_WindowWidthActual == utQuitW && MAIN_WindowHeightActual == utQuitH) ? "PASS" : "FAIL");
 }

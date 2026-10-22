@@ -957,3 +957,13 @@ bool32 miSwitchStands(void)
 {
     return (miObjSwitched || miNisSwitched);
 }
+
+bool32 miSwitchObjStands(void)                      // HWI-FEATURE(instrumentation): /noInterp stands (the settings line)
+{                                                   // HWI-FEATURE(instrumentation)
+    return miObjSwitched;                           // HWI-FEATURE(instrumentation)
+}                                                   // HWI-FEATURE(instrumentation)
+
+bool32 miSwitchNisStands(void)                      // HWI-FEATURE(instrumentation): /noInterp or /noNISInterp stands
+{                                                   // HWI-FEATURE(instrumentation)
+    return miNisSwitched;                           // HWI-FEATURE(instrumentation)
+}                                                   // HWI-FEATURE(instrumentation)

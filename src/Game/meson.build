@@ -70,6 +70,7 @@ src_game = files('AIAttackMan.c',
                  'HorseRace.c',
                  'HS.c',
                  'InfoOverlay.c',
+                 'Instrument.c',          # HWI-FEATURE(instrumentation): the settings line, the overlay, /frameLog
                  'KAS.c',
                  'KASVar.c',
                  'KASFunc.c',

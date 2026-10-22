@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle|uiscale|replay|ai|skirmish|missiontest|loadgame|warpstart
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle|uiscale|modequit|replay|ai|skirmish|missiontest|loadgame|warpstart
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -178,6 +178,13 @@
 #                    Smooth motion box keeps OP_NoLOD's FAF_CallOnDelete, so its callback runs at the screen's deletion;
 #                    Cancel restores before the deletion, Accept saves after it): the flags, a switch's run-only state and
 #                    the options file's rows must be as before the screen
+#                    modequit: /catModeQuitTest <--mode-to WxH> (M3-R2 instrumentation, HWI-TEST, docs/m3-r2-instrumentation.md;
+#                    src/Game/UiScaleTest.c): once the front end is up, the Video screen's render switch to that
+#                    resolution (Options.c opOptionsAcceptHelper's order: soundEventShutdown, mainSaveRender, the new
+#                    request, mainLoadGL, soundEventRestart; a real second window), then ONE quit (utyGameQuit);
+#                    "modequittest:" lines; the summary's "modequit:" line judges the quit: rc 0 and "Quit game, baby!" once in
+#                    the log (the debug build prints it) = PASS (M3-R1's finding: GoK's mainDestroyWindow cleared
+#                    mainActuallyQuit, so that quit was swallowed and the run ended rc 1 without the shutdown)
 #                    replay: /oracleReplay <name> /oracleDump <run>/run.hwo (M2-R6 oracle-mode-a, docs/m2-r6-oracle-mode-a.md,
 #                    oracle mode A): the recorded game --recording NAME (default oracle01: the user's reference recording)
 #                    and NAME.pkts are copied from original/game/SavedGames/RecordedGames into the harness data dir's
@@ -467,6 +474,21 @@
 #                    sub= (taskSubTick), and carry crc=00000000 (no read-back). A GPU measurement: an idle GPU, the
 #                    release build (--bin build/release/hwi-engine). Also in the nis mode (its lines get the same clock
 #                    tokens; the mode's /noSpeech is left out then: a debug-build switch, and the real clock has no CRC)
+#   --mode-to WxH    modequit mode: the resolution the render switch goes to (default 1280x720)
+#   --frame-log      any mode (M3-R2 instrumentation, HWI-TEST): /frameLog <run>/frame.log: one line a second (frame-time
+#                    p50 / p95 / p99 / max, the frames over the refresh interval and by how many refreshes, the universe
+#                    ticks and their cost, the main heap's use and growth, the 'dupe trcolorinfo list' blocks (debug
+#                    build), the vertices drawn) and a 0.1 ms histogram line; the refresh is the --real-clock rate, else
+#                    the display mode's, else 144 (the header says which). The summary's "framelog:" line is
+#                    tools/frame_log_report.py --oneline (run it on the file for the whole report: the drift test, the
+#                    heap's growth a minute, the seconds over budget). Frame times are a GPU measurement: the release
+#                    build (--bin), an idle GPU
+#                    Every run's log has the settings line (M3-R2 instrumentation, HWI-FEATURE(instrumentation)):
+#                    "hwi-settings: objInterpolate=.. (source) nisInterpolate=.. letterboxBehind=.. noLOD=.. uiScale=..->..%
+#                    overlay=.. fit=.. switches=.. [start]" once the window exists, again at every change ([console ..],
+#                    [options accept], [key overlay], [frame], [window]); the summary prints the first and counts them.
+#                    The overlay (HWI-FEATURE(instrumentation)) is off by default: "-- /overlay" turns it on for a run
+#                    (with --shot to capture it), the console row "overlay" and the Menu key toggle it
 #   --timeout N      seconds (default 60)
 #   --driver D       offscreen (default; falls back to dummy if the offscreen driver cannot set a video mode) | dummy
 #   --data DIR       HW_Data dir to use instead of the harness data dir. ONLY for isolation runs of one item while
@@ -539,6 +561,7 @@ conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0; mtmission=1; sav
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""; skticks=600; skmap=LiveFireExercise2
 warplevel=10; savesrc=""; training=0; recordname=""; recordstop=""; skbigotry=""; failjump=0
 shotspec=""; shotlb=0; res=""; cfgrows=(); teamcolour=0; lodtest=""; lodstats=""; scene=""; realclock=""
+modeto=1280x720; framelog=0
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -593,6 +616,8 @@ while [[ $# -gt 0 ]]; do
 		--lodstats) lodstats=$2; shift ;;
 		--scene) scene=$2; shift ;;
 		--real-clock) realclock=$2; shift ;;
+		--mode-to) modeto=$2; shift ;;
+		--frame-log) framelog=1 ;;
 		--) shift; extra=("$@"); break ;;
 		*) echo "m2_harness: unknown option $1" >&2; exit 2 ;;
 	esac
@@ -623,6 +648,7 @@ grep -q -a "/logFileLoads" "$bin" || args=(/window /nodebugInt /settingspath "$o
 [[ "$mode" == keys ]] && args+=(/catKeysTest)
 [[ "$mode" == toggle ]] && args+=(/catToggleTest)
 [[ "$mode" == uiscale ]] && args+=(/catUiScaleTest)
+[[ "$mode" == modequit ]] && args+=(/catModeQuitTest "$modeto")   # M3-R2 instrumentation
 if [[ "$mode" == oracle ]]; then
 	args+=(/oracleSelfTest "$oticks" /oracleDump "$out/run.hwo")
 	[[ -n "$perturb" ]] && args+=(/oracleSelfTestPerturb "$perturb")
@@ -764,6 +790,7 @@ fi
 [[ -n "$lodstats" ]] && args+=(/catLodStats "$lodstats")   # M3-R1 full-detail
 [[ -n "$scene" ]] && args+=(/catMotionFps "$vfps" /catMotionScene "$scene" /catMotionDump "$out/scene.dump")   # M3-R1 motion-jitter
 [[ -n "$realclock" ]] && args+=(/catMotionRealClock "$realclock")   # M3-R1 motion-jitter
+[[ $framelog -eq 1 ]] && args+=(/frameLog "$out/frame.log")   # M3-R2 instrumentation
 if [[ -n "$shotspec" ]]; then
 	args+=(/catShot "$shotspec" /catShotFile "$out/shot")
 	[[ $shotlb -eq 1 ]] && args+=(/catShotLetterbox)
@@ -840,6 +867,7 @@ grep -q "motiontest: done" "$L" && milestone="motion self-test done"
 grep -q "motiontest: scene done" "$L" && milestone="motion scene done"
 grep -q "toggletest: done" "$L" && milestone="toggle self-test done"
 grep -q "uiscaletest: done" "$L" && milestone="uiscale self-test done"
+grep -q "modequittest: done" "$L" && milestone="modequit self-test done"
 grep -q "skirmishtest: done" "$L" && milestone="skirmish self-test done"
 grep -q "missiontest: done" "$L" && milestone="mission self-test done"
 grep -q "loadgametest: loaded" "$L" && milestone="save loaded"
@@ -905,6 +933,13 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == toggle ]] && echo "toggletest: $(grep -h 'toggletest: ' "$L" | grep -v 'toggletest: FAIL' | sed 's/^.*toggletest: //' | paste -sd';'); FAIL lines: $(grep -c 'toggletest: FAIL' "$L")"
 	[[ "$mode" == uiscale ]] && echo "uiscaletest: $(grep -h 'uiscaletest: ' "$L" | grep -v 'uiscaletest: FAIL' | sed 's/^.*uiscaletest: //' | paste -sd';'); FAIL lines: $(grep -c 'uiscaletest: FAIL' "$L")"
 	echo "$(grep -h '^window: requested\|^window: borders' "$L" | head -n 2 | paste -sd';'); $(grep -h '^uiscale: physical' "$L" | head -n 1)"
+	echo "settings: $(grep -c '^hwi-settings:' "$L") lines; first: $(grep -h '^hwi-settings:' "$L" | head -n 1 | sed 's/^hwi-settings: //')"
+	if [[ "$mode" == modequit ]]; then
+		nq=$(grep -c "Quit game, baby" "$L")
+		mq=$(grep -h 'modequittest: done' "$L" | sed 's/^.*modequittest: //')
+		echo "modequit: $(grep -h 'modequittest: ' "$L" | grep -v 'modequittest: done' | sed 's/^.*modequittest: //' | paste -sd';'); $mq; rc=$rc; \"Quit game\" lines: $nq; quit: $([[ $rc -eq 0 && $nq -eq 1 && "$mq" == *result=PASS* ]] && echo PASS || echo FAIL)"
+	fi
+	[[ $framelog -eq 1 ]] && echo "framelog: $(python3 -I "$root/tools/frame_log_report.py" "$out/frame.log" --oneline 2>&1 | head -n 1)"
 	[[ "$mode" == keys ]] && echo "keystest: $(grep -h 'keystest: ' "$L" | grep -v 'keystest: FAIL' | sed 's/^.*keystest: //' | paste -sd';'); FAIL lines: $(grep -c 'keystest: FAIL' "$L")"
 	[[ "$mode" == sound ]] && echo "soundtest: $(grep -h 'soundtest: ' "$L" | sed 's/^.*soundtest: //' | paste -sd';'); UBSan reports in fquant.c/fqcodec.c: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c 'fquant\.c\|fqcodec\.c'); PATCH reports: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c "struct PATCH")"
 	[[ "$mode" == etg ]] && echo "etg: $(grep -c . "$out/etg.list" 2>/dev/null) listed; $(grep -h 'etgtest: etgStartup done\|etgtest: self-test done\|etgtest: created\|etgtest: effect self-test done' "$L" | sed 's/^.*etgtest: //' | paste -sd';')"

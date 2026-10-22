@@ -76,6 +76,8 @@
 #include "Universe.h"
 #include "UnivUpdate.h"
 #include "utility.h"
+#include "Instrument.h"     // HWI-FEATURE(instrumentation): the toggle self-test's overlay and settings-line checks
+#include "Key.h"            // HWI-FEATURE(instrumentation): the overlay key has no virtual-key code
 
 /*=============================================================================
     Data:
@@ -260,6 +262,11 @@ void catMotionRealClockSet(char *string)
 bool32 catMotionRealClock(void)
 {
     return mtRealClock;
+}
+
+udword catMotionRealClockFps(void)                  // HWI-TEST (M3-R2 instrumentation): /frameLog's refresh in a harness run
+{
+    return mtRealClock ? mtRealFps : 0;
 }
 
 // before utyTasksDispatch reads the clock: wait for this frame's slot of the 1/<fps> grid (SDL's performance
@@ -1813,6 +1820,70 @@ static sdword mtNoLODFileRow(sdword *count)
 //      Accept's save writes the row and it reads back at 0 and 1, the console row, the frame-rate presets
 //      (cat_opSetAllDefaults: high 1, low 0), the switch run-only (/lodBands: the saves keep the file's value); the
 //      start state back at the end. "toggletest: fulldetail ..." lines; the failures count into the done line
+// HWI-FEATURE(instrumentation) (M3-R2): the overlay's three toggles (its console row, /overlay's start state, the Menu
+//      key as an SDL_KEYDOWN event handed to main.c HandleEvent, as SDL's event loop does: no OS input) and the settings
+//      line at each change (a console row of another setting too); the start state back at the end
+static bool32 mtToggleLineHas(const char *a, const char *b)
+{
+    const char *line = hwiSettingsLast();
+    return strstr(line, a) != NULL && (b == NULL || strstr(line, b) != NULL);
+}
+
+static void mtToggleKey(void)
+{
+    SDL_Event event;
+
+    memset(&event, 0, sizeof(event));
+    event.type = SDL_KEYDOWN;
+    event.key.keysym.scancode = HWI_OVERLAY_KEY;
+    event.key.repeat = 0;
+    HandleEvent(&event);
+    memset(&event, 0, sizeof(event));
+    event.type = SDL_KEYUP;
+    event.key.keysym.scancode = HWI_OVERLAY_KEY;
+    HandleEvent(&event);
+}
+
+static void mtToggleOverlay(bool32 switched)
+{
+    sdword lines = hwiSettingsLines(), start = hwiOverlay;
+    char buffer[512] = "", *reply = buffer;
+    bool32 ok;
+
+    dbgMessagef("toggletest: overlay start=%d switch=%d (expected %d) line=%s", (int)hwiOverlay, (int)switched,
+                (int)(switched ? 1 : 0), mtToggleLineHas(switched ? "overlay=1 (switch)" : "overlay=0 (default)", NULL) ? "yes" : "no");
+    mtToggleCheck(hwiOverlay == (switched ? 1 : 0), "overlay: off by default, on under /overlay");
+    mtToggleCheck(mtToggleLineHas(switched ? "overlay=1 (switch)" : "overlay=0 (default)", NULL),
+                  "overlay: the settings line names its start state and source");
+    mtToggleConsole("overlay", "1", (bool32 *)&hwiOverlay, TRUE);
+    ok = mtToggleLineHas("overlay=1 (console)", "[console overlay]") && hwiSettingsLines() > lines;
+    dbgMessagef("toggletest: overlay console 1 -> %d lines=%d line=%s", (int)hwiOverlay, (int)(hwiSettingsLines() - lines),
+                ok ? "yes" : "no");
+    mtToggleCheck(ok, "overlay: the console row's change prints the settings line with source console");
+    mtToggleKey();
+    ok = (hwiOverlay == 0) && mtToggleLineHas("overlay=0 (key)", "[key overlay]");
+    dbgMessagef("toggletest: overlay key (scancode %d, vk %u) -> %d line=%s", (int)HWI_OVERLAY_KEY,
+                (unsigned)catKeyVkFromKey(HWI_OVERLAY_KEY), (int)hwiOverlay, ok ? "yes" : "no");
+    mtToggleCheck(ok, "overlay: the Menu key toggles it off and prints the line with source key");
+    mtToggleCheck(catKeyVkFromKey(HWI_OVERLAY_KEY) == 0, "overlay: the key has no virtual-key code (keys.cfg cannot bind it)");
+    mtToggleKey();
+    mtToggleCheck(hwiOverlay == 1, "overlay: the key toggles it on again");
+    mtToggleConsole("overlay", "0", (bool32 *)&hwiOverlay, FALSE);
+    // another setting's console row: the line with source console
+    cat_consoleRunCommand("letterboxBehind", letterboxBehind ? "0" : "1", &reply, "letterboxBehind");
+    ok = mtToggleLineHas(letterboxBehind ? "letterboxBehind=1 (console)" : "letterboxBehind=0 (console)", "[console letterboxBehind]");
+    dbgMessagef("toggletest: settings line console letterboxBehind -> %d line=%s", (int)letterboxBehind, ok ? "yes" : "no");
+    mtToggleCheck(ok, "settings line: a console row's change prints it with source console");
+    cat_consoleRunCommand("letterboxBehind", letterboxBehind ? "0" : "1", &reply, "letterboxBehind");
+    if (start)
+    {
+        hwiOverlaySwitch();                         // /overlay's state back
+    }
+    hwiSettingsChanged("toggletest end");
+    dbgMessagef("toggletest: overlay end=%d lines=%d", (int)hwiOverlay, (int)(hwiSettingsLines() - lines));
+    mtToggleCheck(hwiOverlay == start, "overlay: the start state back");
+}
+
 static void mtToggleFullDetail(sdword start, bool32 switched)  // start / switched: noLOD and /lodBands before the Smooth
 {                                                   // motion checks, whose read-backs parse the whole options file again
     sdword file = catLodFileValueGet(), count, value, i;
@@ -1904,6 +1975,7 @@ void catToggleRunSelfTest(void)
     bool32 startLetterbox = letterboxBehind;        // HWI-FEATURE(letterbox-setting)
     sdword startNoLOD = opNoLODVal;                 // HWI-FEATURE(full-detail)
     bool32 startLodSwitch = catLodSwitchStands();   // HWI-FEATURE(full-detail)
+    bool32 startOverlay = hwiOverlay ? TRUE : FALSE;  // HWI-FEATURE(instrumentation): 1 only under /overlay
 
     miOptionsFileValues(TRUE);                      // M2-R7 r6-leftovers: the values the options file keeps
     fileObj = objInterpolate;
@@ -1969,6 +2041,7 @@ void catToggleRunSelfTest(void)
     }
     mtToggleLetterbox(startLetterbox);              // HWI-FEATURE(letterbox-setting)
     mtToggleFullDetail(startNoLOD, startLodSwitch); // HWI-FEATURE(full-detail)
+    mtToggleOverlay(startOverlay);                  // HWI-FEATURE(instrumentation)
     dbgMessagef("toggletest: done start=%d/%d fails=%d result=%s", (int)startObj, (int)startNis, (int)mtToggleFails,
                 (mtToggleFails == 0) ? "PASS" : "FAIL");
 }
