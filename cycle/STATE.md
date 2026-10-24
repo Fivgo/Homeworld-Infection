@@ -1335,6 +1335,15 @@ cycle/workflows/m3-r1.js (18281e2; run id `wf_42a468c8-942`, `ROUND_BASE ce4fab4
 
 cycle/workflows/m3-r2.js (944565c; `ROUND_BASE 06dae5c`, after the three "M3 Windows build" commits of 2026-10-21 made by the user's other session, which zipped an untested win64 build: docs/m3-windows-build.md), run id `wf_3590992d-400`, launched on the user's word ("try and fix up those issues in r2 with the remaining tokens we have. be prepared for the interruption"). Four Opus ports in sequence, each with its auditor, then the Fable integrate: instrumentation (the settings line, the overlay, /frameLog + tools/frame_log_report.py, the quit-after-resolution-change fault), nis-flicker (the one-frame flicker in a Mission01 cutscene, found by a dump outlier scan), hyperspace-assembly (the gate over the whole assembly, every part under one clip reveal; the exe's UpdateArrivingShip waits are the lead), mesh-batching (FULL DETAIL under 6.94 ms p99 at 4K behind /meshImmediate). The user's answers live in `cycle/answers/m3-r2-user.md` (f47d384). THE STREAM RULE: the Mission01 baseline IDENTICAL, the rung 2823 / 2871, only producer 3's stated arrival moves. If cut off by a limit: `Workflow({scriptPath: cycle/workflows/m3-r2.js, resumeFromRunId: 'wf_3590992d-400'})` from that session after `git -C <main> merge --ff-only m2`; in a fresh session relaunch the script (audited ports are skipped by the probe). The user's standing rule: a one-shot cron "please continue your work" a few minutes past the reset.
 
+**Cut-off and resume (2026-10-22 → 2026-10-24).** The weekly limit (reset 2026-10-23 23:00 Denver) cut the run after
+port 1: instrumentation PASS-WITH-FIXES at bbdc613 (stream 8d32ad5a04b0ff43 IDENTICAL; the quit-after-resolution-change
+fix proven; a soak finding: the heap grows about 4 MB a minute in a 600 s sp run, "dupe trcolorinfo list" blocks 912 by
+Mission06, owner M3 soak). The nis-flicker producer was cut mid-subsystem (a); its partial work is the WIP snapshot
+641a9be (per-frame signal column /catFrameSig, tools/dump_outliers.py), which the resumed producer continues per the
+script's RESUME RULE. Resumed 2026-10-24 on the user's word with the same run id (resumeFromRunId wf_3590992d-400; main
+fast-forwarded to 1e7cffa first). The user's third play-test (missions 2 to 4, seven reports) is recorded verbatim in
+cycle/answers/m3-r3-user.md for the NEXT round, not this one.
+
 ## Opus workflows in flight
 
 **Observed 2026-10-09:** the session restarts roughly hourly (00:53, 03:53 restarts logged), which kills any agent that has not written its file yet. The sim-subsystems producer ran 36 min and was lost twice. Rule for every long producer: write its output file incrementally per subsystem (the binary-map script now does this and splits sim into three producers).
