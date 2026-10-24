@@ -108,6 +108,8 @@ static bool32 mtSampled = FALSE;                    // this frame's main view wa
 static char mtLine[MT_LINE_MAX];
 static ubyte *mtPixels = NULL;
 static sdword mtShotFrame = -1;                     // /catMotionShot <frame>: that frame of the window saved as a PPM
+static bool32 sigOn = FALSE;                        // HWI-TEST (M3-R2 nis-flicker): /catFrameSig is on
+static char sigText[320] = "";                      // HWI-TEST (M3-R2 nis-flicker): this frame's " sig ..." for the dump line
 static udword mtCrcTable[256];
 
 // motion
@@ -1321,14 +1323,246 @@ void catMotionTestFrameEnd(void)
             }
         }
     }
-    fprintf(mtDump, "F %u tick=%u%s crc=%08x\n", (unsigned)mtFrame, (unsigned)universe.univUpdateCounter,
-            mtSampled ? mtLine : " nosample", (unsigned)crc);
+    fprintf(mtDump, "F %u tick=%u%s crc=%08x%s\n", (unsigned)mtFrame, (unsigned)universe.univUpdateCounter,
+            mtSampled ? mtLine : " nosample", (unsigned)crc, sigOn ? sigText : "");   // HWI-TEST (M3-R2 nis-flicker): sig after crc=
     if (mtSampled)
     {
         mtSampledFrames++;
     }
     mtSampled = FALSE;
     mtFrame++;
+}
+
+/*=============================================================================
+    HWI-TEST (M3-R2 nis-flicker): the per-frame signal (/catFrameSig <file>).
+    The user's report: a cutscene frame with every object and the letterbox
+    bars missing, only the backdrop. Per rendered frame, in any mode:
+      F <n> tick=<t> seg=<s> dump=<dump frame|-> sig mv=<main views drawn>
+        rl=<render list> vis=<visible objects> lb=<late bars: -, full or the
+        fade> fd=<nisBlackFade> nis=<NIS time|-> cut=<nisCameraCutTime>
+        a=<the NIS task's period fraction|-> [bar=<non-black pixels in the bar
+        rows> mid=<non-black pixels between them> lum=<mean luma> d1=<mean
+        |luma| difference of the 16x16-block thumbnail to the previous frame>
+        d2=<to the frame before that>]
+    The bracketed part needs a read-back (none on the real clock: those lines
+    end after a=). Nothing here is read by the game: the counters are written
+    by the render path and only read here; the read-back changes
+    GL_PACK_ALIGNMENT only (as /catShot).
+=============================================================================*/
+#define SIG_BLOCK           16                      // thumbnail block (physical pixels)
+#define SIG_THUMB_MAX       (512 * 512)
+
+static char sigName[1024] = "";
+static FILE *sigFile = NULL;
+static udword sigFrame = 0;
+static udword sigSegment = 0, sigLastTick = 0xffffffff;
+static udword sigMainViews = 0, sigListed = 0, sigVisible = 0;
+static real32 sigBarFade = -1.0f;                   // -1: no late bars this frame
+static ubyte *sigPixels = NULL;
+static size_t sigPixelsSize = 0;
+static uword *sigThumb[3] = { NULL, NULL, NULL };   // this frame, the previous one, the one before
+static udword sigThumbN = 0, sigThumbs = 0;          // blocks; thumbnails held (0..3)
+
+void catFrameSigSet(char *string)
+{
+    snprintf(sigName, sizeof(sigName), "%s", string);
+    sigOn = TRUE;
+}
+
+void catFrameSigMainView(udword listed, udword visible)
+{
+    sigMainViews++;
+    sigListed = listed;
+    sigVisible = visible;
+}
+
+void catFrameSigBars(real32 fade)
+{
+    sigBarFade = fade;
+}
+
+static real32 sigThumbDiff(const uword *a, const uword *b, udword n)
+{
+    udword i;
+    real64 sum = 0.0;
+
+    for (i = 0; i < n; i++)
+    {
+        sum += (a[i] > b[i]) ? (real64)(a[i] - b[i]) : (real64)(b[i] - a[i]);
+    }
+    return (n > 0) ? (real32)(sum / (real64)n / 16.0) : 0.0f;   // the thumbnail holds luma x 16
+}
+
+void catFrameSigEnd(void)
+{
+    udword tick = universe.univUpdateCounter;
+    size_t n;
+    char lb[16], nis[16], al[16];
+
+    if (!sigOn)
+    {
+        return;
+    }
+    if (sigFile == NULL)
+    {
+        if ((sigFile = fopen(sigName, "w")) == NULL)
+        {
+            dbgMessagef("framesig: FAIL cannot open %s", sigName);
+            sigOn = FALSE;
+            return;
+        }
+        fprintf(sigFile, "# hwi-framesig v1 (HWI-TEST, M3-R2 nis-flicker) size=%dx%d logical=%dx%d letter=%d readback=%d\n",
+                (int)MAIN_WindowWidthActual, (int)MAIN_WindowHeightActual, (int)MAIN_WindowWidth,
+                (int)MAIN_WindowHeight, (int)NIS_LetterHeight, mtRealClock ? 0 : 1);
+    }
+    if (sigLastTick != 0xffffffff && tick < sigLastTick)
+    {
+        sigSegment++;                               // the universe tick counter restarted: a level load
+    }
+    sigLastTick = tick;
+    if (sigBarFade < 0.0f)
+    {
+        snprintf(lb, sizeof(lb), "-");
+    }
+    else if (sigBarFade == 0.0f)
+    {
+        snprintf(lb, sizeof(lb), "full");
+    }
+    else
+    {
+        snprintf(lb, sizeof(lb), "%.3f", (double)sigBarFade);
+    }
+    if (thisNisPlaying != NULL)
+    {
+        snprintf(nis, sizeof(nis), "%.4f", (double)thisNisPlaying->timeElapsed);
+        snprintf(al, sizeof(al), "%.4f", (double)taskPeriodFraction(nisTaskHandle));
+    }
+    else
+    {
+        snprintf(nis, sizeof(nis), "-");
+        snprintf(al, sizeof(al), "-");
+    }
+    n = (size_t)snprintf(sigText, sizeof(sigText), " sig mv=%u rl=%u vis=%u lb=%s fd=%.3f nis=%s cut=%.4f a=%s",
+                         (unsigned)sigMainViews, (unsigned)sigListed, (unsigned)sigVisible, lb,
+                         (double)nisBlackFade, nis, (double)nisCameraCutTime, al);
+    if (!mtRealClock && n < sizeof(sigText))
+    {
+        sdword w = MAIN_WindowWidthActual, h = MAIN_WindowHeightActual, x, y, bw, bh, barRows;
+        size_t size = (size_t)w * (size_t)h * 4;
+        udword bar = 0, mid = 0, i;
+        real64 lum = 0.0;
+        uword *t;
+
+        if (size > sigPixelsSize)
+        {
+            free(sigPixels);
+            sigPixels = malloc(size);
+            sigPixelsSize = (sigPixels != NULL) ? size : 0;
+        }
+        bw = (w + SIG_BLOCK - 1) / SIG_BLOCK;
+        bh = (h + SIG_BLOCK - 1) / SIG_BLOCK;
+        if ((udword)(bw * bh) != sigThumbN)
+        {
+            for (i = 0; i < 3; i++)
+            {
+                free(sigThumb[i]);
+                sigThumb[i] = NULL;
+            }
+            sigThumbN = (bw * bh <= SIG_THUMB_MAX) ? (udword)(bw * bh) : 0;
+            sigThumbs = 0;
+            for (i = 0; i < 3 && sigThumbN > 0; i++)
+            {
+                sigThumb[i] = calloc(sigThumbN, sizeof(uword));
+            }
+        }
+        if (sigPixels != NULL && sigThumbN > 0 && sigThumb[0] != NULL && sigThumb[1] != NULL && sigThumb[2] != NULL)
+        {
+            udword *acc = calloc(sigThumbN, sizeof(udword));
+            udword *cnt = calloc(sigThumbN, sizeof(udword));
+
+            barRows = (sdword)((real32)NIS_LetterHeight * (real32)h / (real32)MAIN_WindowHeight);
+            glPixelStorei(GL_PACK_ALIGNMENT, 1);
+            glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, sigPixels);
+            t = sigThumb[2];                        // the oldest becomes this frame's
+            sigThumb[2] = sigThumb[1];
+            sigThumb[1] = sigThumb[0];
+            sigThumb[0] = t;
+            for (y = 0; y < h && acc != NULL && cnt != NULL; y++)
+            {
+                const ubyte *p = sigPixels + (size_t)y * (size_t)w * 4;   // row 0 is the bottom row
+                bool32 inBar = (y < barRows || y >= h - barRows);
+                for (x = 0; x < w; x++, p += 4)
+                {
+                    udword l = (77u * p[0] + 150u * p[1] + 29u * p[2]) >> 8;
+                    udword b = (udword)((h - 1 - y) / SIG_BLOCK) * (udword)bw + (udword)(x / SIG_BLOCK);
+                    if (p[0] > 8 || p[1] > 8 || p[2] > 8)
+                    {
+                        if (inBar)
+                        {
+                            bar++;
+                        }
+                        else
+                        {
+                            mid++;
+                        }
+                    }
+                    lum += (real64)l;
+                    acc[b] += l;
+                    cnt[b]++;
+                }
+            }
+            for (i = 0; i < sigThumbN && acc != NULL && cnt != NULL; i++)
+            {
+                t[i] = (uword)((cnt[i] > 0) ? (acc[i] * 16u) / cnt[i] : 0u);
+            }
+            free(acc);
+            free(cnt);
+            if (sigThumbs < 3)
+            {
+                sigThumbs++;
+            }
+            n += (size_t)snprintf(sigText + n, sizeof(sigText) - n, " bar=%u mid=%u lum=%.2f", (unsigned)bar,
+                                  (unsigned)mid, lum / ((real64)w * (real64)h));
+            if (n < sizeof(sigText))
+            {
+                if (sigThumbs >= 2)
+                {
+                    n += (size_t)snprintf(sigText + n, sizeof(sigText) - n, " d1=%.3f",
+                                          (double)sigThumbDiff(sigThumb[0], sigThumb[1], sigThumbN));
+                }
+                else
+                {
+                    n += (size_t)snprintf(sigText + n, sizeof(sigText) - n, " d1=-");
+                }
+            }
+            if (n < sizeof(sigText))
+            {
+                if (sigThumbs >= 3)
+                {
+                    snprintf(sigText + n, sizeof(sigText) - n, " d2=%.3f",
+                             (double)sigThumbDiff(sigThumb[0], sigThumb[2], sigThumbN));
+                }
+                else
+                {
+                    snprintf(sigText + n, sizeof(sigText) - n, " d2=-");
+                }
+            }
+        }
+    }
+    if (mtWindow && mtDump != NULL)
+    {
+        fprintf(sigFile, "F %u tick=%u seg=%u dump=%u%s\n", (unsigned)sigFrame, (unsigned)tick, (unsigned)sigSegment,
+                (unsigned)mtFrame, sigText);
+    }
+    else
+    {
+        fprintf(sigFile, "F %u tick=%u seg=%u dump=-%s\n", (unsigned)sigFrame, (unsigned)tick, (unsigned)sigSegment,
+                sigText);
+    }
+    fflush(sigFile);
+    sigFrame++;
+    sigMainViews = sigListed = sigVisible = 0;
+    sigBarFade = -1.0f;
 }
 
 /*=============================================================================

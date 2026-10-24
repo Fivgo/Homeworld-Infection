@@ -44,6 +44,17 @@ void catShotLetterboxSet(void);             // /catShotLetterbox
 void catShotFrameEnd(void);                 // end of the frame, before the flip (render.c rndRenderTask)
 void catNisScissorOutSet(char *string);     // /catNisScissorOut <tick>:<seconds>: the nis mode's letterbox fades out there
 
+// HWI-TEST (M3-R2 nis-flicker): the per-frame signal (/catFrameSig <file>, any mode): one line per rendered frame with the
+//      cheap draw-side counts (the main view drawn, its render list and visible objects, the late letterbox bars, the
+//      NIS fade and time) and, off the real clock, a read-back's counts (non-black pixels in the bar rows and between
+//      them, mean luma, the frame's difference to the previous one and to the one before: a one-frame outlier differs
+//      from both neighbours while they match each other); the motion / nis dump lines get the same " sig ..." after
+//      crc= (only with the switch: the default dumps stay byte-identical). tools/dump_outliers.py scans them
+void catFrameSigSet(char *string);          // /catFrameSig <file>
+void catFrameSigMainView(udword listed, udword visible);   // render.c rndMainViewRenderFunction: the view was drawn
+void catFrameSigBars(real32 fade);          // render.c rndRenderTask: the late bars drawn (fade 0: full)
+void catFrameSigEnd(void);                  // render.c rndRenderTask, before catMotionTestFrameEnd
+
 extern bool32 catToggleSelfTest;            // /catToggleTest: the Smooth motion checkbox, the options file, the console
 void catToggleRunSelfTest(void);
 

@@ -4270,6 +4270,7 @@ void rndMainViewRenderFunction(Camera *camera)
     }
     while (!opNoLODVal && total > catLodTimeThreshold && ++pass < 11);
     catLodTestMainView(&visible);                           // HWI-TEST (M3-R1 full-detail): /catLodTest, /catLodStats
+    catFrameSigMainView(universe.RenderList.num, visible.num);   // HWI-TEST (M3-R2 nis-flicker): /catFrameSig
 
     // the opaque pass
     cat_rndSortObjectsByDepth(1);
@@ -5252,6 +5253,7 @@ DEFINE_TASK(rndRenderTask)
         //draw partial scissor window, if applicable
         if (nisScissorFade != 0.0f || (nisFullyScissored && !rndScissorEnabled))
         {
+            catFrameSigBars(nisScissorFade);                // HWI-TEST (M3-R2 nis-flicker): /catFrameSig
             rndDrawScissorBars(rndScissorEnabled);
         }
         glDisable(GL_SCISSOR_TEST);                         //in case the scene was rendered with scissoring, turn it off properly.
@@ -5439,6 +5441,7 @@ DEFINE_TASK(rndRenderTask)
         hwiOverlayDraw();                                   // HWI-FEATURE(instrumentation): the overlay (off by default), on top
         catShotFrameEnd();                                  // HWI-TEST (M3-R1 letterbox-front): /catShot, the any-mode capture
         catTeamColourFrameEnd();                            // HWI-TEST (M3-R1 team-colours-warp): /catTeamColourTest
+        catFrameSigEnd();                                   // HWI-TEST (M3-R2 nis-flicker): /catFrameSig, the per-frame signal
         catMotionTestFrameEnd();                            // HWI-FEATURE(motion-interp) measurement: the frame's dump line + CRC
 
         //demo-specific update code

@@ -489,6 +489,15 @@
 #                    [options accept], [key overlay], [frame], [window]); the summary prints the first and counts them.
 #                    The overlay (HWI-FEATURE(instrumentation)) is off by default: "-- /overlay" turns it on for a run
 #                    (with --shot to capture it), the console row "overlay" and the Menu key toggle it
+#   --frame-sig      any mode (M3-R2 nis-flicker, HWI-TEST, docs/m3-r2-nis-flicker.md): /catFrameSig <run>/frame.sig: one
+#                    line per rendered frame "F <n> tick=<t> seg=<level segment> dump=<dump frame|-> sig mv=<main views
+#                    drawn> rl=<render list> vis=<visible objects> lb=<late letterbox bars: -|full|fade> fd=<nisBlackFade>
+#                    nis=<NIS time|-> cut=<nisCameraCutTime> a=<the NIS task's period fraction|->" and, off the real
+#                    clock, a read-back's "bar=<non-black pixels in the bar rows> mid=<between them> lum=<mean luma>
+#                    d1=<thumbnail difference to the previous frame> d2=<to the frame before>"; the motion / nis dump
+#                    lines get the same " sig ..." after crc= (only with this flag: the default dumps are unchanged). The
+#                    summary's "framesig:" line is tools/dump_outliers.py --oneline (the one-frame outliers: a frame that
+#                    differs from both neighbours while they match, or that loses its objects or its bars for one frame)
 #   --timeout N      seconds (default 60)
 #   --driver D       offscreen (default; falls back to dummy if the offscreen driver cannot set a video mode) | dummy
 #   --data DIR       HW_Data dir to use instead of the harness data dir. ONLY for isolation runs of one item while
@@ -561,7 +570,7 @@ conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0; mtmission=1; sav
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""; skticks=600; skmap=LiveFireExercise2
 warplevel=10; savesrc=""; training=0; recordname=""; recordstop=""; skbigotry=""; failjump=0
 shotspec=""; shotlb=0; res=""; cfgrows=(); teamcolour=0; lodtest=""; lodstats=""; scene=""; realclock=""
-modeto=1280x720; framelog=0
+modeto=1280x720; framelog=0; framesig=0
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -618,6 +627,7 @@ while [[ $# -gt 0 ]]; do
 		--real-clock) realclock=$2; shift ;;
 		--mode-to) modeto=$2; shift ;;
 		--frame-log) framelog=1 ;;
+		--frame-sig) framesig=1 ;;
 		--) shift; extra=("$@"); break ;;
 		*) echo "m2_harness: unknown option $1" >&2; exit 2 ;;
 	esac
@@ -791,6 +801,7 @@ fi
 [[ -n "$scene" ]] && args+=(/catMotionFps "$vfps" /catMotionScene "$scene" /catMotionDump "$out/scene.dump")   # M3-R1 motion-jitter
 [[ -n "$realclock" ]] && args+=(/catMotionRealClock "$realclock")   # M3-R1 motion-jitter
 [[ $framelog -eq 1 ]] && args+=(/frameLog "$out/frame.log")   # M3-R2 instrumentation
+[[ $framesig -eq 1 ]] && args+=(/catFrameSig "$out/frame.sig")   # M3-R2 nis-flicker
 if [[ -n "$shotspec" ]]; then
 	args+=(/catShot "$shotspec" /catShotFile "$out/shot")
 	[[ $shotlb -eq 1 ]] && args+=(/catShotLetterbox)
@@ -939,6 +950,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 		mq=$(grep -h 'modequittest: done' "$L" | sed 's/^.*modequittest: //')
 		echo "modequit: $(grep -h 'modequittest: ' "$L" | grep -v 'modequittest: done' | sed 's/^.*modequittest: //' | paste -sd';'); $mq; rc=$rc; \"Quit game\" lines: $nq; quit: $([[ $rc -eq 0 && $nq -eq 1 && "$mq" == *result=PASS* ]] && echo PASS || echo FAIL)"
 	fi
+	[[ $framesig -eq 1 ]] && echo "framesig: $(python3 -I "$root/tools/dump_outliers.py" "$out/frame.sig" --oneline 2>&1 | head -n 1)"
 	[[ $framelog -eq 1 ]] && echo "framelog: $(python3 -I "$root/tools/frame_log_report.py" "$out/frame.log" --oneline 2>&1 | head -n 1)"
 	[[ "$mode" == keys ]] && echo "keystest: $(grep -h 'keystest: ' "$L" | grep -v 'keystest: FAIL' | sed 's/^.*keystest: //' | paste -sd';'); FAIL lines: $(grep -c 'keystest: FAIL' "$L")"
 	[[ "$mode" == sound ]] && echo "soundtest: $(grep -h 'soundtest: ' "$L" | sed 's/^.*soundtest: //' | paste -sd';'); UBSan reports in fquant.c/fqcodec.c: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c 'fquant\.c\|fqcodec\.c'); PATCH reports: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c "struct PATCH")"
