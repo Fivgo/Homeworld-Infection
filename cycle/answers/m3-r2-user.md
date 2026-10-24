@@ -27,3 +27,6 @@ fullscreen-desktop 4K window, the exe's level-following trails, decisions 111-12
 
 ## GPU (the user, 2026-10-22 11:22)
 "okay I have gotten off my game, use the gpu how you need to": the GPU is free for measurements from now; no claude-ping needed unless a game appears again (the idle check still applies).
+
+## Pointer (2026-10-24)
+The user's third play-test reports (missions 2 to 4, seven items) are in cycle/answers/m3-r3-user.md. They are NOT this round's scope; the integrate's play-test brief may list them as queued.
