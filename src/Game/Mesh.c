@@ -107,6 +107,7 @@ void meshSpecObjectRender(polygonobject *object, materialentry *materials, sdwor
 static void cat_meshMaterialTextureAndShade(materialentry *material, sdword iColorScheme);
 static void cat_meshEMPFlickerAmbient(GLfloat *attribs);
 static void cat_meshMaterialSwitch(materialentry *material, sdword iColorScheme);
+static void meshBatchFree(void);                            // HWI-FEATURE(mesh-batching)
 //CAT: the exe tests RGLtype (0x00b3a700); this tree draws with OpenGL (GLtype 3, as render.c)
 #define CAT_MESH_RGLTYPE    3
 
@@ -196,6 +197,7 @@ void meshStartup()
 void meshShutdown()
 {
     //nothing here
+    meshBatchFree();                                        // HWI-FEATURE(mesh-batching): the scratch array
 }
 
 /*-----------------------------------------------------------------------------
@@ -1816,6 +1818,14 @@ void meshSpecColour(normalentry* normal, vertexentry* vertex, real32* m, real32*
     colour[2] = specColour[2];
     colour[3] = specColour[3];
     shSpecularColour(specIndex, 0, &vert, &norm, colour, m, minv, vertexState, vertexInfo);
+    if (shColourCapture != NULL)                            // HWI-FEATURE(mesh-batching): the batched path keeps the colour
+    {                                                       // HWI-FEATURE(mesh-batching)
+        shColourCapture[0] = colour[0];                     // HWI-FEATURE(mesh-batching)
+        shColourCapture[1] = colour[1];                     // HWI-FEATURE(mesh-batching)
+        shColourCapture[2] = colour[2];                     // HWI-FEATURE(mesh-batching)
+        shColourCapture[3] = colour[3];                     // HWI-FEATURE(mesh-batching)
+        return;                                             // HWI-FEATURE(mesh-batching)
+    }                                                       // HWI-FEATURE(mesh-batching)
     glColor4ub(colour[0], colour[1], colour[2], colour[3]);
 }
 
@@ -2206,6 +2216,237 @@ void meshDisableVertexArrays(void)
     */
 }
 
+/*=============================================================================
+    HWI-FEATURE(mesh-batching): the batched submission of the CPU-lit mesh renderers (M3-R2, docs/m3-r2-mesh-batching.md).
+    meshObjectRenderLit and meshSpecObjectRender light every vertex on the CPU (the exe's equation, shColourSet0 /
+    shSpecularColour) and hand it to the GL one call at a time: glBegin / glEnd around each material run, a glColor,
+    a glTexCoord and a glArrayElement / glVertex per corner. The batched path runs the same loop, in the same order,
+    with the same lighting calls (so every side effect, the glow states and the EMP flicker steps included, is the
+    same), but writes each corner into an interleaved array instead: the position the immediate call would have sent,
+    the texture coordinate and colour the GL's current values would have held at that call (shColourCapture keeps
+    the colour shColourSet0 / meshSpecColour computed; a glTexCoord call only sets meshBatchTex), and draws each
+    material run with one glDrawArrays after its material is made current, as the immediate path's glBegin did. At
+    the end the GL's current colour and texture coordinate are left as the immediate path leaves them. The arrays are
+    rebuilt every draw: the colours are lit per frame and the texture coordinates can change in place
+    (meshFixupPacoUV), so nothing is kept per mesh and meshFree has nothing to free; the one scratch array grows to
+    the largest object drawn and is freed by meshShutdown. /meshImmediate (run-only) or the console row
+    meshImmediate restores the immediate path.
+=============================================================================*/
+sdword meshImmediate = 0;                                   // HWI-FEATURE(mesh-batching): 1 = the immediate-mode path
+bool32 meshImmediateSwitched = FALSE;                       // HWI-FEATURE(mesh-batching): /meshImmediate stands
+
+typedef struct                                              // HWI-FEATURE(mesh-batching): one corner, 24 bytes
+{
+    GLfloat x, y, z;
+    GLfloat s, t;
+    GLubyte c[4];
+}
+CatMeshCorner;
+
+static CatMeshCorner *meshBatch = NULL;                     // HWI-FEATURE(mesh-batching): the scratch array
+static sdword meshBatchCapacity = 0;                        // HWI-FEATURE(mesh-batching): corners it holds
+static ubyte meshBatchColour[4];                            // HWI-FEATURE(mesh-batching): the "current colour"
+static GLfloat meshBatchTex[4];                             // HWI-FEATURE(mesh-batching): the "current texture coordinate"
+static bool32 meshBatchTexSet;                              // HWI-FEATURE(mesh-batching): a glTexCoord call was made
+// HWI-FEATURE(mesh-batching): the smooth modes light a corner from its vertex's own normal, so every corner of one
+//      vertex within one material run gets the same colour: the lighting terms change only with the material
+//      (shUpdateLighting) and the object (its light matrix), and a vertex's glow state, once brought up to date in a
+//      frame (cat_shGlowUpdate: lastUpdate = the frame's time), comes out the same from every later update in that
+//      frame (no time has passed: the hit glow and the scorch lose nothing, the colour is recomputed from the same
+//      values). So the batched path lights each vertex once per run and copies the colour to its other corners: the
+//      colours and the states' end values are the immediate path's. The flat modes light with the face's normal and
+//      are not cached
+static udword *meshBatchStamp = NULL;                       // HWI-FEATURE(mesh-batching): the run a vertex was lit in
+static ubyte *meshBatchLit = NULL;                          // HWI-FEATURE(mesh-batching): its colour, 4 bytes a vertex
+static sdword meshBatchVertexCapacity = 0;                  // HWI-FEATURE(mesh-batching)
+static udword meshBatchRun = 0;                             // HWI-FEATURE(mesh-batching): the current run's stamp
+static ShGlowCacheEntry *meshBatchGlow = NULL;              // HWI-FEATURE(mesh-batching): each vertex's glow addend in this
+                                                            //      object draw (Shader.c shGlowCache): a flat mode lights
+                                                            //      each corner with the face's normal but adds its vertex's glow
+
+// HWI-FEATURE(mesh-batching): the scratch array freed (meshShutdown)
+static void meshBatchFree(void)                             // HWI-FEATURE(mesh-batching)
+{                                                           // HWI-FEATURE(mesh-batching)
+    free(meshBatch);                                        // HWI-FEATURE(mesh-batching)
+    meshBatch = NULL;                                       // HWI-FEATURE(mesh-batching)
+    meshBatchCapacity = 0;                                  // HWI-FEATURE(mesh-batching)
+    free(meshBatchStamp);                                   // HWI-FEATURE(mesh-batching)
+    meshBatchStamp = NULL;                                  // HWI-FEATURE(mesh-batching)
+    free(meshBatchLit);                                     // HWI-FEATURE(mesh-batching)
+    meshBatchLit = NULL;                                    // HWI-FEATURE(mesh-batching)
+    free(meshBatchGlow);                                    // HWI-FEATURE(mesh-batching)
+    meshBatchGlow = NULL;                                   // HWI-FEATURE(mesh-batching)
+    meshBatchVertexCapacity = 0;                            // HWI-FEATURE(mesh-batching)
+}                                                           // HWI-FEATURE(mesh-batching)
+
+// HWI-FEATURE(mesh-batching): /meshImmediate: the immediate path for this run only (no options-file row)
+void meshImmediateSwitch(void)                              // HWI-FEATURE(mesh-batching)
+{                                                           // HWI-FEATURE(mesh-batching)
+    meshImmediate = 1;                                      // HWI-FEATURE(mesh-batching)
+    meshImmediateSwitched = TRUE;                           // HWI-FEATURE(mesh-batching)
+}                                                           // HWI-FEATURE(mesh-batching)
+
+// HWI-FEATURE(mesh-batching): room for an object's corners and its vertices' cache (FALSE: none; the caller draws
+//      immediately)
+static bool32 meshBatchReserve(polygonobject *object)       // HWI-FEATURE(mesh-batching)
+{
+    CatMeshCorner *grown;
+    udword *stamps;
+    ubyte *lit;
+    ShGlowCacheEntry *glow;
+    sdword capacity, n = object->nPolygons * 3;
+
+    if (n > meshBatchCapacity)
+    {
+        capacity = (n + 1023) & ~1023;
+        grown = (CatMeshCorner *)realloc(meshBatch, (size_t)capacity * sizeof(CatMeshCorner));
+        if (grown == NULL)
+        {
+            return FALSE;
+        }
+        meshBatch = grown;
+        meshBatchCapacity = capacity;
+    }
+    if (object->nVertices > meshBatchVertexCapacity)
+    {
+        capacity = (object->nVertices + 1023) & ~1023;
+        stamps = (udword *)realloc(meshBatchStamp, (size_t)capacity * sizeof(udword));
+        if (stamps == NULL)
+        {
+            return FALSE;
+        }
+        meshBatchStamp = stamps;
+        lit = (ubyte *)realloc(meshBatchLit, (size_t)capacity * 4);
+        if (lit == NULL)
+        {
+            return FALSE;
+        }
+        meshBatchLit = lit;
+        glow = (ShGlowCacheEntry *)realloc(meshBatchGlow, (size_t)capacity * sizeof(ShGlowCacheEntry));
+        if (glow == NULL)
+        {
+            return FALSE;
+        }
+        meshBatchGlow = glow;
+        memset(meshBatchStamp + meshBatchVertexCapacity, 0, (size_t)(capacity - meshBatchVertexCapacity) * sizeof(udword));
+        memset(meshBatchGlow + meshBatchVertexCapacity, 0, (size_t)(capacity - meshBatchVertexCapacity) * sizeof(ShGlowCacheEntry));
+        meshBatchVertexCapacity = capacity;
+    }
+    return TRUE;
+}
+
+// HWI-FEATURE(mesh-batching): a new run: no vertex lit in it yet (the stamp's wrap clears every stamp)
+static void meshBatchNewRun(void)                           // HWI-FEATURE(mesh-batching)
+{
+    meshBatchRun++;
+    if (meshBatchRun == 0)
+    {
+        memset(meshBatchStamp, 0, (size_t)meshBatchVertexCapacity * sizeof(udword));
+        meshBatchRun = 1;
+    }
+}
+
+// HWI-FEATURE(mesh-batching): the arrays on (the pointers at the scratch array) and the colour capture on. The texture
+//      coordinate array is on only for a run of a textured mode (meshBatchDraw): a run of an untextured mode makes no
+//      glTexCoord call in the immediate path and takes the GL's current texture coordinate (unused with texturing off;
+//      with g_NoMatSwitch, the trails' engine glow, the caller's texture state stands), and a draw with the array off
+//      leaves that coordinate as it is
+static bool32 meshBatchTexArray;                            // HWI-FEATURE(mesh-batching): the texture coordinate array is on
+static void meshBatchBegin(void)                            // HWI-FEATURE(mesh-batching)
+{
+    meshBatchTexSet = FALSE;
+    meshBatchTex[0] = meshBatchTex[1] = 0.0f;
+    meshBatchTexArray = FALSE;
+    shColourCapture = meshBatchColour;
+    shGlowStamp++;                                          // a new object draw: no glow addend worked out yet
+    if (shGlowStamp == 0)
+    {
+        memset(meshBatchGlow, 0, (size_t)meshBatchVertexCapacity * sizeof(ShGlowCacheEntry));
+        shGlowStamp = 1;
+    }
+    glVertexPointer(3, GL_FLOAT, sizeof(CatMeshCorner), &meshBatch[0].x);
+    glTexCoordPointer(2, GL_FLOAT, sizeof(CatMeshCorner), &meshBatch[0].s);
+    glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(CatMeshCorner), meshBatch[0].c);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    glDisableClientState(GL_NORMAL_ARRAY);
+    glDisableClientState(GL_EDGE_FLAG_ARRAY);
+    glDisableClientState(GL_INDEX_ARRAY);
+}
+
+// HWI-FEATURE(mesh-batching): the run of corners [first, end) drawn with the material now current (its poly mode says
+//      whether the immediate path gave each corner a texture coordinate)
+static void meshBatchDraw(sdword first, sdword end)         // HWI-FEATURE(mesh-batching)
+{
+    bool32 textured;
+
+    if (end > first)
+    {
+        textured = (meshPolyMode == MPM_Texture) || (meshPolyMode == MPM_SmoothTexture);
+        if (textured != meshBatchTexArray)
+        {
+            if (textured)
+            {
+                glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+            }
+            else
+            {
+                glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+            }
+            meshBatchTexArray = textured;
+        }
+        if (!textured && meshBatchTexSet)
+        {                                                   //an earlier run's last glTexCoord is the current one here
+            glTexCoord2f(meshBatchTex[0], meshBatchTex[1]);
+        }
+        glDrawArrays(GL_TRIANGLES, first, end - first);
+    }
+}
+
+// HWI-FEATURE(mesh-batching): the arrays off and the GL's current colour / texture coordinate as the immediate calls
+//      leave them (the last colour and texture coordinate given)
+static void meshBatchEnd(sdword corners)                    // HWI-FEATURE(mesh-batching)
+{
+    shColourCapture = NULL;
+    shGlowCache = NULL;
+    shColourReuseLit = FALSE;
+    glDisableClientState(GL_COLOR_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    if (corners > 0)
+    {
+        glColor4ub(meshBatchColour[0], meshBatchColour[1], meshBatchColour[2], meshBatchColour[3]);
+    }
+    if (meshBatchTexSet)
+    {
+        glTexCoord2f(meshBatchTex[0], meshBatchTex[1]);
+    }
+}
+
+// HWI-FEATURE(mesh-batching): the immediate calls, recorded: a glTexCoord2f sets the current texture coordinate; a
+//      glArrayElement / glVertex3fv emits a corner with the vertex's position and the current values
+#define MB_TEX(S, T)    { meshBatchTex[0] = (S); meshBatchTex[1] = (T); meshBatchTexSet = TRUE; }
+#define MB_EMIT(IV)     { corner->x = vertexList[(IV)].x; corner->y = vertexList[(IV)].y; corner->z = vertexList[(IV)].z; \
+                          corner->s = meshBatchTex[0]; corner->t = meshBatchTex[1]; \
+                          corner->c[0] = meshBatchColour[0]; corner->c[1] = meshBatchColour[1]; \
+                          corner->c[2] = meshBatchColour[2]; corner->c[3] = meshBatchColour[3]; corner++; }
+
+// HWI-FEATURE(mesh-batching): a smooth mode's lighting call (CALL) for vertex IV, once per run (meshBatchStamp above)
+#define MB_LIT_ONCE(IV, CALL)   { if (meshBatchStamp[(IV)] == meshBatchRun) \
+                                  { memcpy(meshBatchColour, &meshBatchLit[(IV) * 4], 4); } \
+                                  else { CALL; memcpy(&meshBatchLit[(IV) * 4], meshBatchColour, 4); \
+                                         meshBatchStamp[(IV)] = meshBatchRun; } }
+
+// HWI-FEATURE(mesh-batching): vertex IV's glow addend from this draw's cache (Shader.c shGlowCache)
+#define MB_GLOW(IV)             { shGlowCache = &meshBatchGlow[(IV)]; }
+// HWI-FEATURE(mesh-batching): a flat polygon's second / third corner with per-vertex colour: the same face normal and
+//      lighting as the corner before (its lit bytes reused), the vertex's own glow addend
+#define MB_CPV_NEXT(IV)         { MB_GLOW(IV); shColourReuseLit = TRUE; meshColourCPV(normal, object, (IV)) shColourReuseLit = FALSE; }
+
+static void cat_meshObjectRenderLitBatched(polygonobject *object, materialentry *materials, sdword iColorScheme);
+static void cat_meshSpecObjectRenderBatched(polygonobject *object, materialentry *materials, sdword iColorScheme);
+
 /*-----------------------------------------------------------------------------
     Name        : meshObjectRenderLit
     Description : this mesh renderer performs lighting operations itself as a
@@ -2227,6 +2468,12 @@ void meshObjectRenderLit(polygonobject *object, materialentry *materials, sdword
     normalentry *normal, *normalList;
     sdword currentMaterial = -1;
     GLenum mode = GL_SMOOTH;
+
+    if (!meshImmediate && meshBatchReserve(object))  // HWI-FEATURE(mesh-batching): the same corners, in arrays
+    {                                                       // HWI-FEATURE(mesh-batching)
+        cat_meshObjectRenderLitBatched(object, materials, iColorScheme);    // HWI-FEATURE(mesh-batching)
+        return;                                             // HWI-FEATURE(mesh-batching)
+    }                                                       // HWI-FEATURE(mesh-batching)
 
     glShadeModel(mode);
 
@@ -2400,6 +2647,12 @@ void meshSpecObjectRender(polygonobject *object, materialentry *materials, sdwor
 
     real32 modelview[16], modelviewInv[16];
 
+    if (!meshImmediate && meshBatchReserve(object))  // HWI-FEATURE(mesh-batching): the same corners, in arrays
+    {                                                       // HWI-FEATURE(mesh-batching)
+        cat_meshSpecObjectRenderBatched(object, materials, iColorScheme);   // HWI-FEATURE(mesh-batching)
+        return;                                             // HWI-FEATURE(mesh-batching)
+    }                                                       // HWI-FEATURE(mesh-batching)
+
     lightOn = rndLightingEnable(FALSE);
 
     glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
@@ -2529,6 +2782,313 @@ void meshSpecObjectRender(polygonobject *object, materialentry *materials, sdwor
         polygon++;
     }
     glEnd();                                            //done drawing these triangles
+
+    glShadeModel(GL_SMOOTH);
+    glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, GL_FALSE);
+    rndLightingEnable(lightOn);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_meshObjectRenderLitBatched
+    Description : HWI-FEATURE(mesh-batching): meshObjectRenderLit's loop with its GL calls recorded into corners and
+                  each material run drawn with one glDrawArrays (the block comment above meshImmediate). Every
+                  lighting call, material switch and state change is the immediate path's, in its order.
+    Inputs      : as meshObjectRenderLit
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+static void cat_meshObjectRenderLitBatched(polygonobject *object, materialentry *materials, sdword iColorScheme)
+{
+    sdword iPoly;
+    vertexentry *vertexList;
+    polyentry *polygon;
+    normalentry *normal, *normalList;
+    sdword currentMaterial = -1;
+    CatMeshCorner *corner;
+    sdword runStart = 0;
+
+    glShadeModel(GL_SMOOTH);
+
+    rndLightingEnable(FALSE);
+
+    vertexList = object->pVertexList;                       //get base of vertex list
+
+    normalList = object->pNormalList;                       //get base of normal list
+    polygon = object->pPolygonList;                         //get first polygon list entry
+
+    alodIncPolys(object->nPolygons);
+
+    meshBatchBegin();
+    corner = meshBatch;
+
+    for (iPoly = 0; iPoly < object->nPolygons; iPoly++)
+    {
+#if MESH_ANAL_CHECKING                                      //validate vertex indices
+        dbgAssertOrIgnore(polygon->iV0 < object->nVertices);
+        dbgAssertOrIgnore(polygon->iV1 < object->nVertices);
+        dbgAssertOrIgnore(polygon->iV2 < object->nVertices);
+#endif
+        if (polygon->iMaterial != currentMaterial)
+        {                                                   //if a new material
+            meshBatchDraw(runStart, (sdword)(corner - meshBatch));  //the run so far (the immediate path's glEnd)
+            runStart = (sdword)(corner - meshBatch);
+            currentMaterial = polygon->iMaterial;           //remember current material
+            meshBatchNewRun();                              //no vertex lit with it yet
+            cat_meshMaterialSwitch(&materials[currentMaterial], iColorScheme);//set new material (CAT: or the fade's alternative)
+            if (bFade)
+            {
+                glEnable(GL_BLEND);
+            }
+#if MESH_MATERIAL_STATS
+            nMaterialChanges++;                             //record material stats
+            iMaterialMax = max(currentMaterial, iMaterialMax);
+#endif //MESH_MATERIAL_STATS
+        }
+
+        switch (meshPolyMode)
+        {
+            case MPM_Flat:
+                dbgAssertOrIgnore(polygon->iFaceNormal != UWORD_Max);
+                normal = &normalList[polygon->iFaceNormal];
+                if (enableCPV) { MB_GLOW(polygon->iV0); meshColourCPV(normal, object, polygon->iV0) } else { meshColour(normal) }
+                MB_EMIT(polygon->iV0);
+                if (enableCPV) MB_CPV_NEXT(polygon->iV1)
+                MB_EMIT(polygon->iV1);
+                if (enableCPV) MB_CPV_NEXT(polygon->iV2)
+                MB_EMIT(polygon->iV2);
+#if RND_POLY_STATS
+                rndNumberPolys++;
+#endif //RND_POLY_STATS
+                break;
+            case MPM_Texture:
+                dbgAssertOrIgnore(polygon->iFaceNormal != UWORD_Max);
+                normal = &normalList[polygon->iFaceNormal];
+                if (enableCPV) { MB_GLOW(polygon->iV0); meshColourCPV(normal, object, polygon->iV0) } else { meshColour(normal) }
+                MB_TEX(polygon->s0, polygon->t0);
+                MB_EMIT(polygon->iV0);
+                if (enableCPV) MB_CPV_NEXT(polygon->iV1)
+                MB_TEX(polygon->s1, polygon->t1);
+                MB_EMIT(polygon->iV1);
+                if (enableCPV) MB_CPV_NEXT(polygon->iV2)
+                MB_TEX(polygon->s2, polygon->t2);
+                MB_EMIT(polygon->iV2);
+#if RND_POLY_STATS
+                rndNumberPolys++;
+                rndNumberTextured++;
+#endif //RND_POLY_STATS
+                break;
+            case MPM_Smooth:
+                dbgAssertOrIgnore(vertexList[polygon->iV0].iVertexNormal != UWORD_Max);
+                normal = &normalList[vertexList[polygon->iV0].iVertexNormal];
+                MB_LIT_ONCE(polygon->iV0, MB_GLOW(polygon->iV0); meshColourLit(normal, object, polygon->iV0));
+                MB_EMIT(polygon->iV0);
+                dbgAssertOrIgnore(vertexList[polygon->iV1].iVertexNormal != UWORD_Max);
+                normal = &normalList[vertexList[polygon->iV1].iVertexNormal];
+                MB_LIT_ONCE(polygon->iV1, MB_GLOW(polygon->iV1); meshColourLit(normal, object, polygon->iV1));
+                MB_EMIT(polygon->iV1);
+                dbgAssertOrIgnore(vertexList[polygon->iV2].iVertexNormal != UWORD_Max);
+                normal = &normalList[vertexList[polygon->iV2].iVertexNormal];
+                MB_LIT_ONCE(polygon->iV2, MB_GLOW(polygon->iV2); meshColourLit(normal, object, polygon->iV2));
+                MB_EMIT(polygon->iV2);
+#if RND_POLY_STATS
+                rndNumberPolys++;
+                rndNumberSmoothed++;
+#endif //RND_POLY_STATS
+                break;
+            case MPM_SmoothTexture:
+                dbgAssertOrIgnore(vertexList[polygon->iV0].iVertexNormal != UWORD_Max);
+                normal = &normalList[vertexList[polygon->iV0].iVertexNormal];
+                MB_LIT_ONCE(polygon->iV0, MB_GLOW(polygon->iV0); meshColourLit(normal, object, polygon->iV0));
+                MB_TEX(polygon->s0, polygon->t0);
+                MB_EMIT(polygon->iV0);
+                dbgAssertOrIgnore(vertexList[polygon->iV1].iVertexNormal != UWORD_Max);
+                normal = &normalList[vertexList[polygon->iV1].iVertexNormal];
+                MB_LIT_ONCE(polygon->iV1, MB_GLOW(polygon->iV1); meshColourLit(normal, object, polygon->iV1));
+                MB_TEX(polygon->s1, polygon->t1);
+                MB_EMIT(polygon->iV1);
+                dbgAssertOrIgnore(vertexList[polygon->iV2].iVertexNormal != UWORD_Max);
+                normal = &normalList[vertexList[polygon->iV2].iVertexNormal];
+                MB_LIT_ONCE(polygon->iV2, MB_GLOW(polygon->iV2); meshColourLit(normal, object, polygon->iV2));
+                MB_TEX(polygon->s2, polygon->t2);
+                MB_EMIT(polygon->iV2);
+#if RND_POLY_STATS
+                rndNumberPolys++;
+                rndNumberTextured++;
+                rndNumberSmoothed++;
+#endif //RND_POLY_STATS
+                break;
+            default:
+#if MESH_ERROR_CHECKING
+                dbgFatalf(DBG_Loc, "meshRender: invalid meshPolyMode: 0x%x", meshPolyMode);
+#endif
+                break;
+        }
+        polygon++;
+    }
+    meshBatchDraw(runStart, (sdword)(corner - meshBatch));  //done drawing these triangles
+
+    meshBatchEnd((sdword)(corner - meshBatch));
+    glVertexPointer(3, GL_FLOAT, 4*sizeof(GLfloat), vertexList);   //the vertex pointer meshEnableVertexArrays left
+
+    glShadeModel(GL_SMOOTH);
+    if (!usingShader) glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, GL_FALSE);
+
+    if (bFade)
+    {
+        glDisable(GL_BLEND);
+    }
+
+    rndLightingEnable(TRUE); //shader
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_meshSpecObjectRenderBatched
+    Description : HWI-FEATURE(mesh-batching): meshSpecObjectRender's loop (the specular-only renderer of the engine
+                  glows and the particle meshes) with its GL calls recorded into corners, each material run drawn
+                  with one glDrawArrays. The immediate path draws with glVertex3fv and no vertex array, so the
+                  arrays' enables are put back as found.
+    Inputs      : as meshSpecObjectRender
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+static void cat_meshSpecObjectRenderBatched(polygonobject *object, materialentry *materials, sdword iColorScheme)
+{
+    sdword iPoly;
+    vertexentry *vertexList;
+    polyentry *polygon;
+    normalentry *normal, *normalList;
+    sdword currentMaterial = -1;
+    sdword lightOn;
+    real32 modelview[16], modelviewInv[16];
+    CatMeshCorner *corner;
+    sdword runStart = 0;
+    GLboolean wasVertex, wasTex, wasColour;
+
+    lightOn = rndLightingEnable(FALSE);
+
+    glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
+    shInvertMatrix(modelviewInv, modelview);
+
+    glShadeModel(GL_SMOOTH);
+
+    alodIncPolys(object->nPolygons);
+
+    vertexList = object->pVertexList;                       //get base of vertex list
+    normalList = object->pNormalList;                       //get base of normal list
+    polygon = object->pPolygonList;                         //get first polygon list entry
+
+    wasVertex = glIsEnabled(GL_VERTEX_ARRAY);
+    wasTex = glIsEnabled(GL_TEXTURE_COORD_ARRAY);
+    wasColour = glIsEnabled(GL_COLOR_ARRAY);
+    meshBatchBegin();
+    corner = meshBatch;
+
+    for (iPoly = 0; iPoly < object->nPolygons; iPoly++)
+    {
+#if MESH_ANAL_CHECKING                                      //validate vertex indices
+        dbgAssertOrIgnore(polygon->iV0 < object->nVertices);
+        dbgAssertOrIgnore(polygon->iV1 < object->nVertices);
+        dbgAssertOrIgnore(polygon->iV2 < object->nVertices);
+#endif
+        if (polygon->iMaterial != currentMaterial)
+        {                                                   //if a new material
+            meshBatchDraw(runStart, (sdword)(corner - meshBatch));
+            runStart = (sdword)(corner - meshBatch);
+            currentMaterial = polygon->iMaterial;           //remember current material
+            meshBatchNewRun();                              //no vertex lit with it yet
+            cat_meshMaterialSwitch(&materials[currentMaterial], iColorScheme);//set new material (CAT: or the fade's alternative)
+#if MESH_MATERIAL_STATS
+            nMaterialChanges++;                             //record material stats
+            iMaterialMax = max(currentMaterial, iMaterialMax);
+#endif //MESH_MATERIAL_STATS
+        }
+
+        switch (meshPolyMode)
+        {
+            case MPM_Flat:
+                dbgAssertOrIgnore(polygon->iFaceNormal != UWORD_Max);
+                normal = &normalList[polygon->iFaceNormal];
+                MB_GLOW(polygon->iV0); meshSpecColourCPV(normal, vertexList, object, polygon->iV0, modelview, modelviewInv);
+                MB_EMIT(polygon->iV0);
+                MB_GLOW(polygon->iV1); meshSpecColourCPV(normal, vertexList, object, polygon->iV1, modelview, modelviewInv);
+                MB_EMIT(polygon->iV1);
+                MB_GLOW(polygon->iV2); meshSpecColourCPV(normal, vertexList, object, polygon->iV2, modelview, modelviewInv);
+                MB_EMIT(polygon->iV2);
+#if RND_POLY_STATS
+                rndNumberPolys++;
+#endif //RND_POLY_STATS
+                break;
+            case MPM_Texture:
+                dbgAssertOrIgnore(polygon->iFaceNormal != UWORD_Max);
+                normal = &normalList[polygon->iFaceNormal];
+                MB_TEX(polygon->s0, polygon->t0);
+                MB_GLOW(polygon->iV0); meshSpecColourCPV(normal, vertexList, object, polygon->iV0, modelview, modelviewInv);
+                MB_EMIT(polygon->iV0);
+                MB_TEX(polygon->s1, polygon->t1);
+                MB_GLOW(polygon->iV1); meshSpecColourCPV(normal, vertexList, object, polygon->iV1, modelview, modelviewInv);
+                MB_EMIT(polygon->iV1);
+                MB_TEX(polygon->s2, polygon->t2);
+                MB_GLOW(polygon->iV2); meshSpecColourCPV(normal, vertexList, object, polygon->iV2, modelview, modelviewInv);
+                MB_EMIT(polygon->iV2);
+#if RND_POLY_STATS
+                rndNumberPolys++;
+                rndNumberTextured++;
+#endif //RND_POLY_STATS
+                break;
+            case MPM_Smooth:
+                dbgAssertOrIgnore(vertexList[polygon->iV0].iVertexNormal != UWORD_Max);
+                normal = &normalList[vertexList[polygon->iV0].iVertexNormal];
+                MB_LIT_ONCE(polygon->iV0, MB_GLOW(polygon->iV0); meshSpecColourCPV(normal, vertexList, object, polygon->iV0, modelview, modelviewInv));
+                MB_EMIT(polygon->iV0);
+                dbgAssertOrIgnore(vertexList[polygon->iV1].iVertexNormal != UWORD_Max);
+                normal = &normalList[vertexList[polygon->iV1].iVertexNormal];
+                MB_LIT_ONCE(polygon->iV1, MB_GLOW(polygon->iV1); meshSpecColourCPV(normal, vertexList, object, polygon->iV1, modelview, modelviewInv));
+                MB_EMIT(polygon->iV1);
+                dbgAssertOrIgnore(vertexList[polygon->iV2].iVertexNormal != UWORD_Max);
+                normal = &normalList[vertexList[polygon->iV2].iVertexNormal];
+                MB_LIT_ONCE(polygon->iV2, MB_GLOW(polygon->iV2); meshSpecColourCPV(normal, vertexList, object, polygon->iV2, modelview, modelviewInv));
+                MB_EMIT(polygon->iV2);
+#if RND_POLY_STATS
+                rndNumberPolys++;
+                rndNumberSmoothed++;
+#endif //RND_POLY_STATS
+                break;
+            case MPM_SmoothTexture:
+                dbgAssertOrIgnore(vertexList[polygon->iV0].iVertexNormal != UWORD_Max);
+                normal = &normalList[vertexList[polygon->iV0].iVertexNormal];
+                MB_TEX(polygon->s0, polygon->t0);
+                MB_LIT_ONCE(polygon->iV0, MB_GLOW(polygon->iV0); meshSpecColourCPV(normal, vertexList, object, polygon->iV0, modelview, modelviewInv));
+                MB_EMIT(polygon->iV0);
+                dbgAssertOrIgnore(vertexList[polygon->iV1].iVertexNormal != UWORD_Max);
+                normal = &normalList[vertexList[polygon->iV1].iVertexNormal];
+                MB_TEX(polygon->s1, polygon->t1);
+                MB_LIT_ONCE(polygon->iV1, MB_GLOW(polygon->iV1); meshSpecColourCPV(normal, vertexList, object, polygon->iV1, modelview, modelviewInv));
+                MB_EMIT(polygon->iV1);
+                dbgAssertOrIgnore(vertexList[polygon->iV2].iVertexNormal != UWORD_Max);
+                normal = &normalList[vertexList[polygon->iV2].iVertexNormal];
+                MB_TEX(polygon->s2, polygon->t2);
+                MB_LIT_ONCE(polygon->iV2, MB_GLOW(polygon->iV2); meshSpecColourCPV(normal, vertexList, object, polygon->iV2, modelview, modelviewInv));
+                MB_EMIT(polygon->iV2);
+#if RND_POLY_STATS
+                rndNumberPolys++;
+                rndNumberTextured++;
+                rndNumberSmoothed++;
+#endif //RND_POLY_STATS
+                break;
+            default:
+#if MESH_ERROR_CHECKING
+                dbgFatalf(DBG_Loc, "meshRender: invalid meshPolyMode: 0x%x", meshPolyMode);
+#endif
+                break;
+        }
+        polygon++;
+    }
+    meshBatchDraw(runStart, (sdword)(corner - meshBatch));  //done drawing these triangles
+
+    meshBatchEnd((sdword)(corner - meshBatch));
+    if (wasVertex) glEnableClientState(GL_VERTEX_ARRAY);
+    if (wasTex) glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    if (wasColour) glEnableClientState(GL_COLOR_ARRAY);
 
     glShadeModel(GL_SMOOTH);
     glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, GL_FALSE);

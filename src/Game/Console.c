@@ -111,7 +111,7 @@ static void cat_consoleExperienceShips(sdword type, void *data, void *value, cha
 // HWI-FEATURE(motion-interp): rows added by this tree have ids from here on; cat_consoleConfigFileSave leaves them out,
 //      so the console's config file keeps the exe's format (the options file keeps their values)
 #define CAT_CON_HWI_ROW_ID      0x1000                  // HWI-FEATURE(motion-interp)
-#define CAT_CON_HWI_ROWS        6                       // HWI-FEATURE(motion-interp): objInterpolate, nisInterpolate; HWI-FEATURE(letterbox-setting): letterboxBehind; HWI-FEATURE(full-detail): noLOD; HWI-FEATURE(ui-scale): uiScale; HWI-FEATURE(instrumentation): overlay (all settable)
+#define CAT_CON_HWI_ROWS        7                       // HWI-FEATURE(motion-interp): objInterpolate, nisInterpolate; HWI-FEATURE(letterbox-setting): letterboxBehind; HWI-FEATURE(full-detail): noLOD; HWI-FEATURE(ui-scale): uiScale; HWI-FEATURE(instrumentation): overlay; HWI-FEATURE(mesh-batching): meshImmediate (all settable)
 
 CatConsoleCommand catConsoleCommandTable[] =       // 0x008783c8
 {
@@ -150,6 +150,7 @@ CatConsoleCommand catConsoleCommandTable[] =       // 0x008783c8
     { 5, CAT_CON_HWI_ROW_ID + 3, &opNoLODVal, "noLOD", NULL },             // HWI-FEATURE(full-detail): FULL DETAIL (not in the exe's table)
     { 5, CAT_CON_HWI_ROW_ID + 4, &uiScale, "uiScale", NULL },              // HWI-FEATURE(ui-scale): the UI scale setting (not in the exe's table)
     { 5, CAT_CON_HWI_ROW_ID + 5, &hwiOverlay, "overlay", NULL },           // HWI-FEATURE(instrumentation): the overlay, 0 | 1 (not in the exe's table)
+    { 5, CAT_CON_HWI_ROW_ID + 6, &meshImmediate, "meshImmediate", NULL },  // HWI-FEATURE(mesh-batching): 1 = the immediate-mode mesh path (not in the exe's table)
     { -1, -1, NULL, NULL, NULL }
 };
 

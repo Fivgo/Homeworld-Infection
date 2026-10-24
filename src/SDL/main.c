@@ -630,6 +630,14 @@ bool32 NoHsAssemblySet(char *string)                // HWI-FEATURE(hyperspace-as
     hsAssemblyEnabled = FALSE;                      // HWI-FEATURE(hyperspace-assembly)
     return TRUE;                                    // HWI-FEATURE(hyperspace-assembly)
 }                                                   // HWI-FEATURE(hyperspace-assembly)
+// HWI-FEATURE(mesh-batching): /meshImmediate: this run only, the CPU-lit mesh renderers submit their corners one GL call
+//      at a time (GoK's immediate mode) instead of in arrays (Mesh.c meshImmediate): the exact A/B of the batched path;
+//      no options-file row (the console row meshImmediate sets it for the run too)
+bool32 MeshImmediateSet(char *string)               // HWI-FEATURE(mesh-batching)
+{                                                   // HWI-FEATURE(mesh-batching)
+    meshImmediateSwitch();                          // HWI-FEATURE(mesh-batching)
+    return TRUE;                                    // HWI-FEATURE(mesh-batching)
+}                                                   // HWI-FEATURE(mesh-batching)
 // HWI-TEST (M3-R1 full-detail): /catLodTest <tick>[:far][:fleet] and /catLodStats <from>-<to>[:fleet] (render.c: "lodtest:" / "lodstats:" lines)
 bool32 CatLodTestSet(char *string)
 {
@@ -1447,6 +1455,7 @@ commandoption commandOptions[] =
     entryFn("/noInterp",                NoInterpSet, " - render-time motion interpolation off (objects, camera and NIS; the Smooth motion option)."),   // HWI-FEATURE(motion-interp)
     entryFn("/noNISInterp",             NoNISInterpSet, " - render-time interpolation of NIS cutscenes off (gameplay interpolation stays)."),   // HWI-FEATURE(motion-interp)
     entryFn("/noHsAssembly",            NoHsAssemblySet, " - this run only: a modular ship (the Kuun-Lan) hyperspaces as the exe draws it: the gate and the reveal sized from its core hull, its modules shown at their own exits."),   // HWI-FEATURE(hyperspace-assembly)
+    entryFn("/meshImmediate",           MeshImmediateSet, " - this run only: the ship meshes drawn one GL call per vertex (the old immediate-mode path) instead of in vertex arrays: the A/B of the mesh batching (the console row meshImmediate toggles it)."),   // HWI-FEATURE(mesh-batching)
     entryFn("/lodBands",                LodBandsSet, " - this run only: FULL DETAIL off (the exe's levels of detail by size on screen and frame time; the options file's noLOD row keeps its value)."),   // HWI-FEATURE(full-detail)
     entryFnParam("/catLodTest",         CatLodTestSet, " <tick>[:far][:fleet] - log every object's level of detail (the exe's and the one drawn) in the main view's first frame of that universe tick (\"lodtest:\" lines); :far pulls the camera out to its farthest zoom, :fleet closes the sensors manager at tick 16 and focuses the camera on every ship."),   // HWI-TEST
     entryFn("/overlay",                 OverlaySet, " - this run only: the on-screen overlay on (frame time, universe tick, interpolation alpha, the settings, the vertices drawn; the console row overlay and the Menu key toggle it)."),   // HWI-FEATURE(instrumentation)

@@ -387,6 +387,9 @@ extern sdword meshTotalMaterials;
 extern sdword meshMaterialChanges;
 extern char meshMaterialStatsString[100];
 extern bool32 usingShader;
+extern sdword meshImmediate;                 // HWI-FEATURE(mesh-batching): 1 = the immediate-mode mesh path (/meshImmediate, console row)
+extern bool32 meshImmediateSwitched;        // HWI-FEATURE(mesh-batching): /meshImmediate stands
+void meshImmediateSwitch(void);             // HWI-FEATURE(mesh-batching): /meshImmediate
 #endif //MESH_MATERIAL_STATS
 
 #if MESH_MORPH_DEBUG

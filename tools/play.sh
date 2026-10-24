@@ -40,6 +40,12 @@
 #   Cataclysm.cfg row   noLOD 0|1   (default 1 = full detail; 0 = the original game's levels of detail by size on screen)
 #   console row         noLOD 0|1   (the developer console's; as in cataclysm.exe no key opens that console)
 #   switch              -- /lodBands   (this run only: full detail off; the options file keeps its own noLOD row)
+# The ship meshes' submission (M3-R2, HWI-FEATURE(mesh-batching)): FULL DETAIL's cost at 4K was the old immediate-mode
+# mesh path (one GL call per vertex corner); the ships are now drawn in vertex arrays, one draw per material run, with
+# the same lighting, colours and order (the pixels are byte-identical in every harness capture). ON; no options-file row.
+#   switch              -- /meshImmediate   (this run only: the old one-call-per-vertex path, for an A/B of the frame time)
+#   console row         meshImmediate 0|1   (the developer console's; as in cataclysm.exe no key opens that console)
+#   the settings line   "meshImmediate=0 (default)" (1 (switch) with -- /meshImmediate)
 #
 # Team colours (M3-R1 team-colours-warp): the colours picked in the front end's colour picker (Cataclysm.cfg rows
 # PlayerBaseColor / PlayerStripeColor / ColorsPicked) stay on the Kuun-Lan and the fleet through every level change
@@ -76,7 +82,8 @@
 # The settings line (M3-R2, HWI-FEATURE(instrumentation)): the log's "hwi-settings:" line names every recreation setting
 # with its value and where it came from, once at start-up and again whenever one changes:
 #   hwi-settings: objInterpolate=1 (cfg) nisInterpolate=1 (cfg) letterboxBehind=0 (cfg) noLOD=1 (cfg)
-#                 uiScale=0->200% (cfg, auto) overlay=0 (default) fit=fullscreen-desktop (...) 3840x2160 switches=none [start]
+#                 uiScale=0->200% (cfg, auto) overlay=0 (default) meshImmediate=0 (default)
+#                 fit=fullscreen-desktop (...) 3840x2160 switches=none [start]
 #   the source: default (Cataclysm.cfg has no row), cfg (its row, or the row Options -> Accept saved), switch (a -- switch
 #   overrides the row for this run), console (a developer-console row), options (an Options control, not yet accepted),
 #   key (the overlay key); [why]: start, options accept, console <row>, key overlay, window (a mode switch), frame.

@@ -41,6 +41,17 @@ void shSpecularColour(sdword specInd, sdword side, vector* vobj, vector* norm,
 void shColour(sdword side, vector* norm, ubyte* color, real32* minv);
 void shColourSet(sdword side, vector* norm, real32* minv);
 void shColourSet0(vector* norm, real32* vertexState, udword* vertexInfo);  // CAT: + vertex state and info entry (0x0050dfe0)
+extern ubyte *shColourCapture;                                              // HWI-FEATURE(mesh-batching): shColourSet0's colour, stored instead of drawn
+typedef struct ShGlowCacheEntry             // HWI-FEATURE(mesh-batching): a vertex's glow addend in one object draw
+{
+    udword stamp;                           // shGlowStamp when worked out
+    sdword has;                             // an addend applies
+    sdword add[3];
+}
+ShGlowCacheEntry;
+extern bool8 shColourReuseLit;              // HWI-FEATURE(mesh-batching): shColourSet0 reuses the previous call's lit bytes
+extern ShGlowCacheEntry *shGlowCache;       // HWI-FEATURE(mesh-batching): cat_shColourAddGlow's addend cache, or NULL
+extern udword shGlowStamp;                  // HWI-FEATURE(mesh-batching): the current object draw's stamp
 void cat_shColourAddGlow(ubyte *r, ubyte *g, ubyte *b, real32 *vertexState, udword *vertexInfo); // CAT: 0x0050d7c0
 struct CatVertexState;
 void cat_shGlowUpdate(struct CatVertexState *state, udword *vertexInfo);  // CAT: 0x0050d560

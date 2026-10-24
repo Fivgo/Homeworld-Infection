@@ -99,6 +99,9 @@ static sdword hwiValLetterbox(void) { return letterboxBehind ? 1 : 0; }
 static sdword hwiValNoLOD(void)     { return opNoLODVal; }
 static sdword hwiValUiScale(void)   { return uiScale; }
 static sdword hwiValOverlay(void)   { return hwiOverlay ? 1 : 0; }
+static sdword hwiValMeshImm(void)   { return meshImmediate ? 1 : 0; }      // HWI-FEATURE(mesh-batching)
+static bool32 hwiSwMeshImm(void)    { return meshImmediateSwitched; }        // HWI-FEATURE(mesh-batching)
+static const char *hwiSwNameMeshImm(void)   { return "/meshImmediate"; }   // HWI-FEATURE(mesh-batching)
 
 static bool32 hwiOverlaySwitched = FALSE;           // /overlay stands (until a console row or the key changes it)
 static bool32 hwiSwOverlay(void)    { return hwiOverlaySwitched; }
@@ -118,6 +121,7 @@ static const HwiSetting hwiSettings[] =
     { "noLOD",           hwiValNoLOD,     catLodSwitchStands,       hwiSwNameLod,       TRUE  },   // HWI-FEATURE(full-detail)
     { "uiScale",         hwiValUiScale,   uiScaleSwitchStands,      hwiSwNameUiScale,   TRUE  },   // HWI-FEATURE(ui-scale)
     { "overlay",         hwiValOverlay,   hwiSwOverlay,             hwiSwNameOverlay,   FALSE },   // HWI-FEATURE(instrumentation)
+    { "meshImmediate",   hwiValMeshImm,   hwiSwMeshImm,             hwiSwNameMeshImm,   FALSE },   // HWI-FEATURE(mesh-batching): no options-file row
 };
 #define HWI_SETTINGS    ((sdword)(sizeof(hwiSettings) / sizeof(hwiSettings[0])))
 
@@ -280,6 +284,10 @@ void hwiSettingsConsole(const char *row)                        // HWI-FEATURE(i
             {
                 hwiOverlaySwitched = FALSE;         // the console's choice ends /overlay's
             }
+            if (i == 6)                                         // HWI-FEATURE(mesh-batching)
+            {                                                   // HWI-FEATURE(mesh-batching)
+                meshImmediateSwitched = FALSE;                  // HWI-FEATURE(mesh-batching): the console's choice ends /meshImmediate's
+            }                                                   // HWI-FEATURE(mesh-batching)
         }
     }
     snprintf(why, sizeof(why), "console %s", row);

@@ -22,6 +22,9 @@ Copyright Relic Entertainment, Inc.  All rights reserved.
 #include "Teams.h"       // CAT: teColorSchemes
 #include "Trails.h"
 #include "Universe.h"    // CAT: universe.totaltimeelapsed
+#if defined(__x86_64__) && defined(__SSE2__) && !defined(_WIN32)
+#include <emmintrin.h>   // HWI-FEATURE(mesh-batching): catShFastToInt's cvtsd2si
+#endif
 
 
 /*=============================================================================
@@ -691,11 +694,29 @@ void shShadeBuffer(sdword nVertices, hvector* source)
 //0x00878574 -> 0x0087816d). Both bytes are 1 in .data and no code writes them; this tree has no such console.
 bool8 catShColourByVertex = TRUE;           // cat_shColourAddGlow adds a vertex's colour only when set
 bool8 catShLighting = TRUE;                 // when clear, shColourSet0 draws every vertex flat grey (0x80) + its colour
+//HWI-FEATURE(mesh-batching): while set, shColourSet0 stores its colour bytes here instead of calling glColor4ub (Mesh.c's
+//      batched renderers set it around an object and copy it into each corner as the GL's current colour would be)
+ubyte *shColourCapture = NULL;              // HWI-FEATURE(mesh-batching)
+//HWI-FEATURE(mesh-batching): two reuses for the batched path (Mesh.c), both exact (docs/m3-r2-mesh-batching.md):
+//      shColourReuseLit: the call's normal and lighting are the previous call's (a flat polygon's next corner), so its
+//      lit bytes are the previous call's; shGlowCache: the vertex's glow term (cat_shColourAddGlow's addend) once
+//      worked out in this object's draw (shGlowStamp), which a second update in the same frame would give again
+bool8 shColourReuseLit = FALSE;             // HWI-FEATURE(mesh-batching)
+ShGlowCacheEntry *shGlowCache = NULL;       // HWI-FEATURE(mesh-batching)
+udword shGlowStamp = 0;                     // HWI-FEATURE(mesh-batching)
+static ubyte shColourLastLit[3];            // HWI-FEATURE(mesh-batching): the last lit bytes shColourSet0 worked out
 
 //CAT: FAST_TO_INT: the exe adds 1.5 * 2^52 (double at 0x0072a458) and reads the low dword, i.e. rounds to nearest
 static sdword catShFastToInt(real32 x)
 {
+#if defined(__x86_64__) && defined(__SSE2__) && !defined(_WIN32)
+    //HWI-FEATURE(mesh-batching): glibc's lrint on x86-64 is the single instruction cvtsd2si (libm llrint/lrint:
+    //      cvtsd2si %xmm0,%rax), called through the PLT here because -fno-fast-math keeps errno math; inlined, the
+    //      result is the same for every input. Other targets (the Windows build's mingw lrint) keep the call
+    return (sdword)_mm_cvtsd_si64(_mm_set_sd((double)x));     // HWI-FEATURE(mesh-batching)
+#else
     return (sdword)lrint((double)x);
+#endif
 }
 
 static ubyte catShClampByte(sdword c)
@@ -883,11 +904,44 @@ void cat_shGlowUpdate(CatVertexState *state, udword *vertexInfo)
 void cat_shColourAddGlow(ubyte *r, ubyte *g, ubyte *b, real32 *vertexState, udword *vertexInfo)
 {
     CatVertexState *state = (CatVertexState *)vertexState;
+    ShGlowCacheEntry *cache = shGlowCache;          // HWI-FEATURE(mesh-batching)
 
     if (!catShColourByVertex)
     {
         return;
     }
+    if (cache != NULL)                              // HWI-FEATURE(mesh-batching): the addend below, worked out once
+    {                                               // HWI-FEATURE(mesh-batching): per vertex and object draw
+        if (cache->stamp != shGlowStamp)            // HWI-FEATURE(mesh-batching)
+        {                                           // HWI-FEATURE(mesh-batching)
+            cache->stamp = shGlowStamp;             // HWI-FEATURE(mesh-batching)
+            cache->has = TRUE;                      // HWI-FEATURE(mesh-batching)
+            if (state != NULL)                      // HWI-FEATURE(mesh-batching): as the state branch below
+            {                                       // HWI-FEATURE(mesh-batching)
+                cat_shGlowUpdate(state, vertexInfo);    // HWI-FEATURE(mesh-batching)
+                cache->add[0] = catShFastToInt(state->colour[0] * 256.0f) * 2;     // HWI-FEATURE(mesh-batching)
+                cache->add[1] = catShFastToInt(state->colour[1] * 256.0f) * 2;     // HWI-FEATURE(mesh-batching)
+                cache->add[2] = catShFastToInt(state->colour[2] * 256.0f) * 2;     // HWI-FEATURE(mesh-batching)
+            }                                       // HWI-FEATURE(mesh-batching)
+            else if ((*vertexInfo & 0x00ffffff) != 0)   // HWI-FEATURE(mesh-batching): as the info branch below
+            {                                       // HWI-FEATURE(mesh-batching)
+                cache->add[0] = (sdword)(sbyte)(*vertexInfo);          // HWI-FEATURE(mesh-batching)
+                cache->add[1] = (sdword)(sbyte)(*vertexInfo >> 8);     // HWI-FEATURE(mesh-batching)
+                cache->add[2] = (sdword)(sbyte)(*vertexInfo >> 16);    // HWI-FEATURE(mesh-batching)
+            }                                       // HWI-FEATURE(mesh-batching)
+            else                                    // HWI-FEATURE(mesh-batching)
+            {                                       // HWI-FEATURE(mesh-batching)
+                cache->has = FALSE;                 // HWI-FEATURE(mesh-batching)
+            }                                       // HWI-FEATURE(mesh-batching)
+        }                                           // HWI-FEATURE(mesh-batching)
+        if (cache->has)                             // HWI-FEATURE(mesh-batching)
+        {                                           // HWI-FEATURE(mesh-batching)
+            *r = catShClampByte((sdword)*r + cache->add[0]);    // HWI-FEATURE(mesh-batching)
+            *g = catShClampByte((sdword)*g + cache->add[1]);    // HWI-FEATURE(mesh-batching)
+            *b = catShClampByte((sdword)*b + cache->add[2]);    // HWI-FEATURE(mesh-batching)
+        }                                           // HWI-FEATURE(mesh-batching)
+        return;                                     // HWI-FEATURE(mesh-batching)
+    }                                               // HWI-FEATURE(mesh-batching)
     if (state != NULL)
     {
         //CAT: with a per-vertex state the glow colour is added instead: the state is brought up to date
@@ -919,13 +973,14 @@ void cat_shColourAddGlow(ubyte *r, ubyte *g, ubyte *b, real32 *vertexState, udwo
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void shColourSet0(vector* norm, real32* vertexState, udword* vertexInfo)
+//HWI-FEATURE(mesh-batching): shColourSet0's lighting sum and its byte conversion, moved here unchanged (shColourReuseLit)
+static void shColourLit0(vector* norm, ubyte* lit)                 // HWI-FEATURE(mesh-batching)
 {
     udword l;
     real32 sumR, sumG, sumB;
     real32 nx, ny, nz;
     real32 nDotVP;
-    ubyte r, g, b, a;
+    ubyte r, g, b;
 
     nx = norm->x;
     ny = norm->y;
@@ -973,6 +1028,23 @@ void shColourSet0(vector* norm, real32* vertexState, udword* vertexInfo)
     r = catShClampByte(catShFastToInt(sumR * 255.0f));
     g = catShClampByte(catShFastToInt(sumG * 255.0f));
     b = catShClampByte(catShFastToInt(sumB * 255.0f));
+    lit[0] = r;                                     // HWI-FEATURE(mesh-batching)
+    lit[1] = g;                                     // HWI-FEATURE(mesh-batching)
+    lit[2] = b;                                     // HWI-FEATURE(mesh-batching)
+}
+
+void shColourSet0(vector* norm, real32* vertexState, udword* vertexInfo)
+{
+    ubyte r, g, b, a;
+
+    if (!shColourReuseLit)                          // HWI-FEATURE(mesh-batching): the lighting (shColourLit0), unless the
+    {                                               // HWI-FEATURE(mesh-batching): batched path's corner before had this
+        shColourLit0(norm, shColourLastLit);        // HWI-FEATURE(mesh-batching): normal and lighting
+    }                                               // HWI-FEATURE(mesh-batching)
+    // CAT: byte colour, clamped at both ends, plus the vertex's own colour (shColourSet0 0x0050dfe0)
+    r = shColourLastLit[0];                         // HWI-FEATURE(mesh-batching)
+    g = shColourLastLit[1];                         // HWI-FEATURE(mesh-batching)
+    b = shColourLastLit[2];                         // HWI-FEATURE(mesh-batching)
     if (vertexInfo != NULL)
     {
         cat_shColourAddGlow(&r, &g, &b, vertexState, vertexInfo);
@@ -987,6 +1059,14 @@ void shColourSet0(vector* norm, real32* vertexState, udword* vertexInfo)
         }
         a = 0xff;
     }
+    if (shColourCapture != NULL)                    // HWI-FEATURE(mesh-batching): the batched mesh path keeps the colour
+    {                                               // HWI-FEATURE(mesh-batching): as the GL's current colour would be
+        shColourCapture[0] = r;                     // HWI-FEATURE(mesh-batching)
+        shColourCapture[1] = g;                     // HWI-FEATURE(mesh-batching)
+        shColourCapture[2] = b;                     // HWI-FEATURE(mesh-batching)
+        shColourCapture[3] = a;                     // HWI-FEATURE(mesh-batching)
+        return;                                     // HWI-FEATURE(mesh-batching)
+    }                                               // HWI-FEATURE(mesh-batching)
     glColor4ub(r, g, b, a);
 }
 

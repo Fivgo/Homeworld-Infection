@@ -7029,7 +7029,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "two new arguments passed on to shSpecularColour",
-  "note": "[review: M2-R5 render] ported (Mesh.c)",
+  "note": "[review: M2-R5 render] ported (Mesh.c) | [review: M3-R2 mesh-batching] compared: shSpecularColour then glColor4ub; the tree keeps it, the batched path stores the colour (shColourCapture) instead of the glColor4ub call (HWI-FEATURE(mesh-batching))",
   "sample": "port-R5-render"
  },
  "0x004b0170": {
@@ -7043,14 +7043,14 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the fade's material switch, per-vertex colour with enableCPV in every smooth mode",
-  "note": "[review: M2-R5 render] ported (Mesh.c)",
+  "note": "[review: M2-R5 render] ported (Mesh.c) | [review: M3-R2 mesh-batching] compared with the exe (decompile): per material run a material switch, then per corner the lit colour (shColourSet0 / the per-vertex colour) and, in the textured modes, glTexCoord2f, then glArrayElement, inside glBegin / glEnd; the CAT body stands and runs under /meshImmediate; the default draws the same corners from arrays (HWI-FEATURE(mesh-batching), cat_meshObjectRenderLitBatched: the same calls in the same order, the GL calls recorded, one glDrawArrays a run; repeated lighting of one vertex in a run reused, exact)",
   "sample": "port-R5-render"
  },
  "0x004b1d40": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the fade's material switch (default / alternative, cat_meshCurrentMaterialAlt), a forced switch at polygon 0x00c32c0c (0 in .bss: the first), and with enableCPV each vertex lit with its info entry and state (meshSpecColour inlined)",
-  "note": "[review: M2-R5 render] ported (Mesh.c: cat_meshMaterialSwitch, meshSpecColourCPV)",
+  "note": "[review: M2-R5 render] ported (Mesh.c: cat_meshMaterialSwitch, meshSpecColourCPV) | [review: M3-R2 mesh-batching] compared with the exe: per corner glTexCoord2f, meshSpecColour (inlined in the exe) and glVertex3fv; the CAT body stands under /meshImmediate; the default records the corners into arrays (cat_meshSpecObjectRenderBatched, HWI-FEATURE(mesh-batching))",
   "sample": "port-R5-render"
  },
  "0x004b34f0": {
@@ -10494,7 +10494,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "two new arguments (vertex state, info entry) and cat_shColourAddGlow; byte colour clamped at both ends; the lighting toggle",
-  "note": "[review: M2-R5 render] ported before M2-R5 (Shader.c); compared",
+  "note": "[review: M2-R5 render] ported before M2-R5 (Shader.c); compared | [review: M3-R2 mesh-batching] compared again (decompile): the lighting sum over lightNumLights 0x008b8398, the dock blend, FAST_TO_INT (+1.5*2^52) byte conversion clamped at both ends, the glow add, the alpha, the lighting toggle, glColor4ub: the CAT arithmetic stands, moved unchanged into shColourLit0; the batched path's hooks (shColourReuseLit, shColourCapture; cat_shColourAddGlow's shGlowCache) are HWI-FEATURE(mesh-batching) lines that leave every computed byte as the exe's; catShFastToInt calls glibc lrint's instruction (cvtsd2si) inline on x86-64 Linux",
   "sample": "port-R5-render"
  },
  "0x0050e280": {
