@@ -30,3 +30,14 @@ fullscreen-desktop 4K window, the exe's level-following trails, decisions 111-12
 
 ## Pointer (2026-10-24)
 The user's third play-test reports (missions 2 to 4, seven items) are in cycle/answers/m3-r3-user.md. They are NOT this round's scope; the integrate's play-test brief may list them as queued.
+
+## The user's answers to the instrumentation port's questions (2026-10-24)
+- GPU: "you now have access to the gpu" (free again for measurements; the idle check still applies).
+- The overlay key: "let's dedicate a key from the F1-F12 suite for this overlay". USER DECISION (binding): the overlay's
+  toggle is one of F1-F12, not the Menu key (the Menu key may stay as a second toggle). This is NOT applied inside
+  M3-R2: it is queued as M3-R3's first item (cycle/answers/m3-r3-user.md, item 0); the integrate lists it under
+  user_decisions as decided and under the play-test brief as "coming in M3-R3". Candidate: F12 is the only F key absent
+  from the main region's hardwired key table (src/SDL/mainrgn.c F1-F11; F12 only inside the construction manager's
+  build hotkeys, ConsMgr.c), to be verified against cataclysm.exe's key tables before binding.
+- The overlay at 200% UI scale: "At 200% ui scale, everythings seems to be normally viewable at this size" (readable,
+  covers nothing needed).

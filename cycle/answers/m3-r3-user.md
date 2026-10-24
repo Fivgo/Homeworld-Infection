@@ -10,6 +10,13 @@ The user played "past mission 4" (missions 2, 3 and 4 at least) on the release b
 3840x2160 fullscreen-desktop, UI scale 200%, objInterpolate 1 / nisInterpolate 1 (cfg rows set by hand on 2026-10-21),
 FULL DETAIL on. Logs: original/play-home/logs/play-20261022-155157.log (read only; never write under original/play-home).
 
+## Item 0 (the user's decision of 2026-10-24, on the instrumentation port's question)
+"let's dedicate a key from the F1-F12 suite for this overlay": bind the frame overlay's toggle to an F1-F12 key that
+cataclysm.exe leaves unbound in the main game view (candidate F12: the only F key absent from the main region's hardwired
+table in src/SDL/mainrgn.c, used only inside the construction manager's build hotkeys; verify against the exe's key
+tables and the keys self-test, 197/149). The Menu key may stay as a second toggle. Also from the user: at 200% UI scale
+the overlay is readable and covers nothing needed (no layout change).
+
 ## The reports, verbatim (the user's message of 2026-10-24, in the user's order)
 "Also I found these issues while playing past mission 4:"
 
