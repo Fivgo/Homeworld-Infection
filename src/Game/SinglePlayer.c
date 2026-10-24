@@ -1616,6 +1616,16 @@ bool32 UpdateArrivingShip(Ship *ship,hvector *topoint,bool32 midLevel)
                     }
                 }
                 bitSet(ship->header.flags, SOF_Hide);       // CAT: hidden until it decelerates in (0x00518649)
+                if (bitTest(ship->header.flags, SOF_CatShipPart) ||                 // HWI-TEST (M3-R2 hyperspace-assembly)
+                    ((ship->guidance.clampInfo != NULL) && (ship->guidance.clampInfo->clampedObjs != NULL)))
+                {
+                    dbgMessagef("hsarrive: tick=%u ship=%s id=%u step=GONE hidden wait=%.3f until=%.3f part=%d",
+                                (unsigned)universe.univUpdateCounter, ShipTypeToStr(ship->shiptype),
+                                (unsigned)ship->shipID.shipNumber,
+                                shipSinglePlayerGameInfo->timeToHyperspace - universe.totaltimeelapsed,
+                                shipSinglePlayerGameInfo->timeToHyperspace,
+                                bitTest(ship->header.flags, SOF_CatShipPart) ? 1 : 0);
+                }
             }
             if (!midLevel)
             {
@@ -1630,6 +1640,13 @@ bool32 UpdateArrivingShip(Ship *ship,hvector *topoint,bool32 midLevel)
                 shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_DONE;
                 shipSinglePlayerGameInfo->timeToHyperspace = universe.totaltimeelapsed + HYPERSPACE_DECELERATE_TIME;
                 bitClear(ship->header.flags, SOF_Hide);     // CAT: shown (0x00518693)
+                if (bitTest(ship->header.flags, SOF_CatShipPart) ||                 // HWI-TEST (M3-R2 hyperspace-assembly)
+                    ((ship->guidance.clampInfo != NULL) && (ship->guidance.clampInfo->clampedObjs != NULL)))
+                {
+                    dbgMessagef("hsarrive: tick=%u ship=%s id=%u step=DECELERATE shown, hsStart outof",
+                                (unsigned)universe.univUpdateCounter, ShipTypeToStr(ship->shiptype),
+                                (unsigned)ship->shipID.shipNumber);
+                }
                 hsStart(ship, HYPERSPACE_SLICE_RATE, FALSE, hsShouldDisplayEffect(ship));
                 // CAT: no Ship_HyperdriveOff sound
             }

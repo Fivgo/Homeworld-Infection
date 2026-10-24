@@ -5399,7 +5399,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "clamp-host test as HW1",
+  "note": "clamp-host test as HW1 | [review: M3-R2 hyperspace-assembly] relied on (not edited): compared again (decompile 0x0048f1a0): FALSE for a clamped ship with a host, so a module never draws a gate of its own: as the tree",
   "sample": "MODIFIED/low"
  },
  "0x00490180": {
@@ -22759,7 +22759,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "a multiplayer arrival clipped to the universe; the ship hidden until it decelerates; the mothership and a self-hosted module first; 3 x BASE + random; the motion cues restart; no Ship_HyperdriveOff; the white-out at 3 slice rates (x87); the range flag cleared on arrival; a multiplayer module waits on its host's command",
-  "note": "[review: M2-R8 singleplayer-tutorial] compared (decompile and disassembly): ported",
+  "note": "[review: M2-R8 singleplayer-tutorial] compared (decompile and disassembly): ported | [review: M3-R2 hyperspace-assembly] relied on (not edited): compared again (decompile 0x00518170): the waits (2 x BASE for the mothership and a self-hosted part, 3 x BASE + RANDOM x ranRandomFn(10) / 2^32 for the others), SOF_Hide set at GONE (0x8000) and cleared at DECELERATE before hsStart(ship, rate, 0, hsShouldDisplayEffect): as the tree; HWI-TEST hsarrive lines added",
   "sample": "port-R8-singleplayer-tutorial"
  },
  "0x005186c0": {
@@ -24775,5 +24775,41 @@
   "change": "",
   "note": "[review: M3-R1 full-detail audit] compared with the exe (decompile of 0x004cadb0): per active, unclipped tendril the level is nebLOD inlined (univSpaceObjInRenderList of both chunks' space objects: 0 if either is on the render list, else 1), then nebColourTendril, the 1.1 * far-clip distance test of both chunks, nebRenderChunk for a non-leading / non-trailing end and nebRenderTendril, all with that level: as the tree; IDENTICAL stands. The tree adds one HWI-FEATURE(full-detail) line (the level is 0 while FULL DETAIL is on; both tendril levels' geometry is built at once, so no RANDOM_NEBULAE draw depends on it)",
   "sample": "port-M3-R1-full-detail"
+ },
+ "0x0048f070": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the effect particle's up and right scales are times the static's hyperspaceBoxScale (+0x3D0): boxScale * uplength * 1.08, boxScale * rightlength * 1.08",
+  "note": "[review: M3-R2 hyperspace-assembly] compared (decompile 0x0048f070): HW1's body but for the hyperspaceBoxScale factor on tumble[0] / tumble[1]; ported (HS.c, through hsGateShapeGet; the assembly's lengths on top under HWI-FEATURE(hyperspace-assembly))"
+ },
+ "0x0048f1c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the effect's right scale is hyperspaceBoxScale * rightlength * 1.08; the effect is created only when glCapFastFeature(GL_BLEND) (the tree: etgEffectsEnabled)",
+  "note": "[review: M3-R2 hyperspace-assembly] compared (decompile 0x0048f1c0): the boxScale factor ported; the glCapFastFeature(0xbe2) test is the tree's etgEffectsEnabled test (left as is: the effect's creation is a simulation-side call; hyperwindow.ebg only sets its mesh XYZ scale from the arguments)"
+ },
+ "0x0048f320": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a POPUP_INTO case (-1, +forwardlength); the planes as doubles",
+  "note": "[review: M3-R2 hyperspace-assembly] compared (decompile 0x0048f320): GoK has no POPUP_INTO case, its default plane (z >= 0) cut a clamped part's back half while its host popped up into hyperspace (Mission03's departure, captured); ported"
+ },
+ "0x0048f400": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a clamped ship whose host's hsState is 0 disables GL_CLIP_PLANE0 instead of clipping by the host's plane",
+  "note": "[review: M3-R2 hyperspace-assembly] compared (decompile 0x0048f400, the branch at 0x0048f4a6): GoK clipped a module by the host's default plane (z >= 0: the back half) once the host's own exit had ended, the user's 'back half parts flickered into existence after the hyperspace was complete' (Mission01 ticks 1918-1938, captured); ported"
+ },
+ "0x0048fd10": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the rectangle's lengths are the collision box's up and right lengths times hyperspaceBoxScale (the line's length keeps the box's rightlength)",
+  "note": "[review: M3-R2 hyperspace-assembly] compared (decompile and disassembly 0x0048fd10: 0x0048fe79-0x0048fe90 and the hsLine part at 0x0048ff0e): the boxScale factor on the three hsRectangle calls ported; displayEffect and hsGateState tested as the tree"
+ },
+ "0x0048fb60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M3-R2 hyperspace-assembly audit] relied on (the tree's hsFinish, which the port edited with an HWI-TEST hsfinish line, is inlined here in the exe): compared (decompile 0x0048fb60): the POPUP / COLLAPSE rate 2.5, the SLICING thresholds and scalars, HSF_WAIT, the gravwell and spHoldHyperspaceWindow (0x00a6ad7c) holds, and the inlined finish (clipt -2.0, cliptDelta 0, FINISHED after COLLAPSE_INTO else INACTIVE, the effect deleted): as the tree"
  }
 }

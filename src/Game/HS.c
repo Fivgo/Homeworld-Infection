@@ -44,6 +44,204 @@ static bool32 hsGateState = TRUE;
 void hsRectangle(vector* origin, real32 rightlength, real32 uplength, ubyte alpha, bool32 outline, color c);
 
 /*-----------------------------------------------------------------------------
+    The gate's shape. CAT: cataclysm.exe sizes the gate rectangle and the effect's up / right scales by the static's
+    hyperspaceBoxScale (ShipStaticInfo +0x3D0, default 1.0; hsStart 0x0048f1c0, hsOrientEffect 0x0048f070, hsEnd
+    0x0048fd10: the sMothership's .shp sets 6.0, "Make the hyperspace around the spine encompass all the
+    components"); the clip plane sweeps the collision box's forward length unscaled (hsGetEquation 0x0048f320,
+    hsContinue 0x0048f400: +forwardlength .. -forwardlength), and the effect's position follows the plane.
+    HWI-FEATURE(hyperspace-assembly): for a host with SOF_CatShipPart parts the sweep also covers the assembly's forward
+    extent (the union of the host's and its parts' collision boxes in the host's frame, by the clamp offsets) and the
+    rectangle the bounding rectangle of the exe's gate and that union, so the gate and the reveal span every part.
+----------------------------------------------------------------------------*/
+bool32 hsAssemblyEnabled = TRUE;                    // HWI-FEATURE(hyperspace-assembly): /noHsAssembly clears it (run-only)
+
+typedef struct hsGateShape                          // HWI-FEATURE(hyperspace-assembly)
+{
+    real32 up, right;       // the rectangle's lengths (hsRectangle's uplength / rightlength; the effect's tumble)
+    real32 cx, cy;          // the rectangle's centre from the collision sphere's, in the ship's frame (the exe: 0, 0)
+    real32 front, back;     // the clip plane's model z at clipt 1 / -1 (the exe: +forwardlength / -forwardlength)
+} hsGateShape;
+
+typedef struct hsAssemblyBox                        // HWI-FEATURE(hyperspace-assembly)
+{
+    vector min, max;        // the union of the collision boxes, in the host's model frame
+    sdword parts;           // the parts counted
+} hsAssemblyBox;
+
+// HWI-FEATURE(hyperspace-assembly): the union of host's collision box and its live SOF_CatShipPart parts' boxes, each
+//      part's corners put in the host's frame as updateClampedObject places the part (clampOffset + clampCoordsys);
+//      FALSE for a ship that is not a host of parts. Reads only.
+static bool32 hsAssemblyBoxGet(Ship* host, hsAssemblyBox* box)
+{
+    StaticCollInfo* sinfo = &host->staticinfo->common.staticCollInfo;
+    CatClampedList* clamped;
+    sdword i, c;
+
+    if ((host->guidance.clampInfo == NULL) || (host->guidance.clampInfo->host != NULL) ||
+        ((clamped = host->guidance.clampInfo->clampedObjs) == NULL))
+    {
+        return FALSE;
+    }
+    box->min = sinfo->collrectoffset;
+    box->max.x = sinfo->collrectoffset.x + sinfo->uplength;
+    box->max.y = sinfo->collrectoffset.y + sinfo->rightlength;
+    box->max.z = sinfo->collrectoffset.z + sinfo->forwardlength;
+    box->parts = 0;
+    for (i = 0; i < clamped->numShips; i++)
+    {
+        Ship* part = clamped->ShipPtr[i];
+        StaticCollInfo* psinfo;
+
+        if ((part == NULL) || (part->header.objtype != OBJ_ShipType) || !bitTest(part->header.flags, SOF_CatShipPart) ||
+            bitTest(part->header.flags, SOF_Dead) || (part->guidance.clampInfo == NULL))
+        {
+            continue;
+        }
+        psinfo = &part->staticinfo->common.staticCollInfo;
+        for (c = 0; c < 8; c++)
+        {
+            vector corner, inHost;
+
+            corner.x = psinfo->collrectoffset.x + ((c & 1) ? psinfo->uplength : 0.0f);
+            corner.y = psinfo->collrectoffset.y + ((c & 2) ? psinfo->rightlength : 0.0f);
+            corner.z = psinfo->collrectoffset.z + ((c & 4) ? psinfo->forwardlength : 0.0f);
+            matMultiplyMatByVec(&inHost, &part->guidance.clampInfo->clampCoordsys, &corner);
+            vecAddTo(inHost, part->guidance.clampInfo->clampOffset);
+            box->min.x = min(box->min.x, inHost.x);
+            box->min.y = min(box->min.y, inHost.y);
+            box->min.z = min(box->min.z, inHost.z);
+            box->max.x = max(box->max.x, inHost.x);
+            box->max.y = max(box->max.y, inHost.y);
+            box->max.z = max(box->max.z, inHost.z);
+        }
+        box->parts++;
+    }
+    return (box->parts > 0);
+}
+
+// the gate's shape for ship: the exe's (CAT, above), then the assembly's on top (HWI-FEATURE(hyperspace-assembly))
+static void hsGateShapeGet(Ship* ship, hsGateShape* g, hsAssemblyBox* boxOut)
+{
+    StaticCollInfo* sinfo = &ship->staticinfo->common.staticCollInfo;
+    real32 boxScale = ship->staticinfo->hyperspaceBoxScale;
+    hsAssemblyBox box;
+
+    // CAT: uplength * boxScale and boxScale * rightlength (hsEnd 0x0048fd10: 0x0048fe79 .. 0x0048fe90)
+    g->up = sinfo->uplength * boxScale;
+    g->right = boxScale * sinfo->rightlength;
+    g->cx = 0.0f;
+    g->cy = 0.0f;
+    g->front = sinfo->forwardlength;
+    g->back = -sinfo->forwardlength;
+    if (boxOut != NULL)
+    {
+        boxOut->parts = 0;
+    }
+
+    if (!hsAssemblyEnabled || !hsAssemblyBoxGet(ship, &box))                    // HWI-FEATURE(hyperspace-assembly)
+    {
+        return;
+    }
+    if (boxOut != NULL)                                                         // HWI-FEATURE(hyperspace-assembly)
+    {
+        *boxOut = box;                                                          // HWI-FEATURE(hyperspace-assembly)
+    }
+    // the sweep: the assembly's forward extent, never inside the exe's                HWI-FEATURE(hyperspace-assembly)
+    g->front = max(g->front, box.max.z);                                        // HWI-FEATURE(hyperspace-assembly)
+    g->back = min(g->back, box.min.z);                                          // HWI-FEATURE(hyperspace-assembly)
+    // the rectangle: the bounding rectangle of the exe's (centred on the collision sphere) and the union's, each with
+    //      hsRectangle's margin (HS_DIST_2 of a length either side of its centre)        HWI-FEATURE(hyperspace-assembly)
+    {
+        vector* cso = &sinfo->collsphereoffset;
+        real32 xlo = min(cso->x - HS_DIST_2 * g->up, 0.5f * (box.min.x + box.max.x) - HS_DIST_2 * (box.max.x - box.min.x));
+        real32 xhi = max(cso->x + HS_DIST_2 * g->up, 0.5f * (box.min.x + box.max.x) + HS_DIST_2 * (box.max.x - box.min.x));
+        real32 ylo = min(cso->y - HS_DIST_2 * g->right, 0.5f * (box.min.y + box.max.y) - HS_DIST_2 * (box.max.y - box.min.y));
+        real32 yhi = max(cso->y + HS_DIST_2 * g->right, 0.5f * (box.min.y + box.max.y) + HS_DIST_2 * (box.max.y - box.min.y));
+
+        // the exe's rectangle kept bit for bit when it already covers the union (the Kuun-Lan's, the beast's)
+        if ((xlo < cso->x - HS_DIST_2 * g->up) || (xhi > cso->x + HS_DIST_2 * g->up) ||  // HWI-FEATURE(hyperspace-assembly)
+            (ylo < cso->y - HS_DIST_2 * g->right) || (yhi > cso->y + HS_DIST_2 * g->right))
+        {
+            g->up = (xhi - xlo) / HS_DIST;                                      // HWI-FEATURE(hyperspace-assembly)
+            g->right = (yhi - ylo) / HS_DIST;                                   // HWI-FEATURE(hyperspace-assembly)
+            g->cx = 0.5f * (xlo + xhi) - cso->x;                                // HWI-FEATURE(hyperspace-assembly)
+            g->cy = 0.5f * (ylo + yhi) - cso->y;                                // HWI-FEATURE(hyperspace-assembly)
+        }
+    }
+}
+
+// the clip plane's model z at clipt over the sweep (the exe: clipt * forwardlength; exact for front = -back)
+static real32 hsGatePlaneZ(hsGateShape* g, real32 clipt)
+{
+    return 0.5f * (g->front + g->back) + clipt * (0.5f * (g->front - g->back));
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : hsAssemblyPartPending
+    Description : HWI-FEATURE(hyperspace-assembly): TRUE for a part (SOF_CatShipPart) that UpdateArrivingShip still holds
+                  hidden (SOF_Hide, SHIPHYPERSPACE_DECELERATE: its own wait of 3 x BASE + random runs) while its host is
+                  out and exiting (SHIPHYPERSPACE_DONE, shown): the main view draws it under the host's clip (render.c),
+                  so the whole assembly is present from the host's first exit frame. Reads only: the simulation keeps
+                  the part hidden and its wait, its own exit and every flag as the exe has them.
+----------------------------------------------------------------------------*/
+bool32 hsAssemblyPartPending(Ship* part)
+{
+    ShipSinglePlayerGameInfo* pinfo = part->shipSinglePlayerGameInfo;
+    Ship* host;
+
+    if (!hsAssemblyEnabled || (pinfo == NULL) || !bitTest(part->header.flags, SOF_CatShipPart) ||
+        bitTest(part->header.flags, SOF_Dead) || !bitTest(part->header.flags, SOF_Hide) ||
+        (pinfo->shipHyperspaceState != SHIPHYPERSPACE_DECELERATE) || (part->guidance.clampInfo == NULL))
+    {
+        return FALSE;
+    }
+    host = (Ship*)part->guidance.clampInfo->host;
+    if ((host == NULL) || (host->header.objtype != OBJ_ShipType) || bitTest(host->header.flags, SOF_Hide | SOF_Dead) ||
+        (host->shipSinglePlayerGameInfo == NULL))
+    {
+        return FALSE;
+    }
+    return (host->shipSinglePlayerGameInfo->shipHyperspaceState == SHIPHYPERSPACE_DONE);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : hsAssemblyLogStart
+    Description : HWI-TEST (M3-R2 hyperspace-assembly): at hsStart of a host of parts or of a part, one "hsgate:" line:
+                  the tick, the ship, into / out of, the core's box, the gate before (the tree's: boxScale not read), the
+                  exe's (boxScale) and the assembly's, the sweep and the union box. Reads only.
+----------------------------------------------------------------------------*/
+void hsAssemblyLogStart(Ship* ship, bool32 into)
+{
+    StaticCollInfo* sinfo = &ship->staticinfo->common.staticCollInfo;
+    hsGateShape g;
+    hsAssemblyBox box;
+    bool32 saved = hsAssemblyEnabled;
+    real32 exeUp, exeRight;
+
+    if (!bitTest(ship->header.flags, SOF_CatShipPart) &&
+        ((ship->guidance.clampInfo == NULL) || (ship->guidance.clampInfo->clampedObjs == NULL)))
+    {
+        return;
+    }
+    hsAssemblyEnabled = FALSE;
+    hsGateShapeGet(ship, &g, NULL);
+    exeUp = g.up;
+    exeRight = g.right;
+    hsAssemblyEnabled = saved;
+    hsGateShapeGet(ship, &g, &box);
+    dbgMessagef("hsgate: tick=%u ship=%s id=%u %s part=%d hsShouldDisplayEffect=%d core up=%.1f right=%.1f fwd=%.1f "
+                "boxScale=%.2f gate tree up=%.1f right=%.1f exe up=%.1f right=%.1f now up=%.1f right=%.1f c=(%.1f,%.1f) "
+                "sweep %.1f..%.1f (exe %.1f..%.1f) assembly parts=%d x %.1f..%.1f y %.1f..%.1f z %.1f..%.1f",
+                (unsigned)universe.univUpdateCounter, ShipTypeToStr(ship->shiptype), (unsigned)ship->shipID.shipNumber,
+                into ? "into" : "outof", bitTest(ship->header.flags, SOF_CatShipPart) ? 1 : 0,
+                hsShouldDisplayEffect(ship), sinfo->uplength, sinfo->rightlength, sinfo->forwardlength,
+                ship->staticinfo->hyperspaceBoxScale, sinfo->uplength, sinfo->rightlength, exeUp, exeRight, g.up, g.right,
+                g.cx, g.cy, g.front, g.back, sinfo->forwardlength, -sinfo->forwardlength, box.parts,
+                box.parts ? box.min.x : 0.0f, box.parts ? box.max.x : 0.0f, box.parts ? box.min.y : 0.0f,
+                box.parts ? box.max.y : 0.0f, box.parts ? box.min.z : 0.0f, box.parts ? box.max.z : 0.0f);
+}
+
+/*-----------------------------------------------------------------------------
     Name        : hsStartup
     Description :
     Inputs      :
@@ -84,8 +282,10 @@ void hsOrientEffect(Ship* ship)
     ShipSinglePlayerGameInfo* ssinfo = ship->shipSinglePlayerGameInfo;
     StaticCollInfo* sinfo = &ship->staticinfo->common.staticCollInfo;
     Effect* effect = ssinfo->hyperspaceEffect;
+    hsGateShape gate;
 
     dbgAssertOrIgnore(effect != NULL);
+    hsGateShapeGet(ship, &gate, NULL);
 
     for (index = 0; index < effect->iParticleBlock; index++)
     {
@@ -100,8 +300,11 @@ void hsOrientEffect(Ship* ship)
             part->wVel.y = -1.0f;
             part->wVel.z = 0.0f;
 
-            part->tumble[0] = HS_DIST * sinfo->uplength;
-            part->tumble[1] = HS_DIST * sinfo->rightlength;
+            // CAT: the up and right scales times hyperspaceBoxScale (hsOrientEffect 0x0048f070: boxScale * uplength * 1.08,
+            //      boxScale * rightlength * 1.08), the gate rectangle's lengths (hsGateShapeGet; the assembly's with
+            //      HWI-FEATURE(hyperspace-assembly): the particle's size only, a render value)
+            part->tumble[0] = gate.up * HS_DIST;
+            part->tumble[1] = gate.right * HS_DIST;
             part->tumble[2] = 0.25f * sinfo->forwardlength;
 
             switch (ssinfo->hsState)
@@ -168,6 +371,7 @@ void hsStart(Ship* ship, real32 cliptDelta, bool32 into, bool32 displayEffect)
     ssinfo->hyperspaceEffect = NULL;
 
     dmgStopEffect(ship, DMG_All);
+    hsAssemblyLogStart(ship, into);         // HWI-TEST (M3-R2 hyperspace-assembly): "hsgate:" (a host of parts or a part)
 
     if (!displayEffect)
     {
@@ -204,7 +408,8 @@ void hsStart(Ship* ship, real32 cliptDelta, bool32 into, bool32 displayEffect)
             floatUpScale = 0.0f;//HS_DIST * sinfo->uplength;
             intUpScale = Real32ToSdword(floatUpScale);
 
-            floatRightScale = HS_DIST * sinfo->rightlength;
+            // CAT: the right scale is staticinfo->hyperspaceBoxScale * rightlength * 1.08 (hsStart 0x0048f1c0)
+            floatRightScale = ship->staticinfo->hyperspaceBoxScale * sinfo->rightlength * HS_DIST;
             intRightScale = Real32ToSdword(floatRightScale);
 
             floatDepthScale = 0.25f * sinfo->forwardlength;
@@ -230,8 +435,14 @@ void hsGetEquation(Ship* ship, GLfloat equation[])
 void hsGetEquation(Ship* ship, GLdouble equation[])
 #endif
 {
-    StaticCollInfo* sinfo = &ship->staticinfo->common.staticCollInfo;
     ShipSinglePlayerGameInfo* ssinfo = ship->shipSinglePlayerGameInfo;
+    hsGateShape gate;
+
+    // CAT: the exe's planes (hsGetEquation 0x0048f320), POPUP_INTO among them (-1, +forwardlength: the whole ship kept
+    //      while the window opens; GoK had no case, so its default plane z >= 0 cut a part's back half while its host
+    //      popped up into hyperspace); the sweep is the gate's (hsGateShapeGet: the exe's +-forwardlength, the
+    //      assembly's with HWI-FEATURE(hyperspace-assembly))
+    hsGateShapeGet(ship, &gate, NULL);
 
     equation[0] = 0.0f;
     equation[1] = 0.0f;
@@ -240,25 +451,29 @@ void hsGetEquation(Ship* ship, GLdouble equation[])
 
     switch (ssinfo->hsState)
     {
+    case HS_POPUP_INTO:
+        equation[2] = -1.0f;
+        equation[3] = gate.front;
+        break;
     case HS_SLICING_INTO:
         equation[2] = -1.0f;
-        equation[3] = ssinfo->clipt * (sinfo->forwardlength);
+        equation[3] = hsGatePlaneZ(&gate, ssinfo->clipt);
         break;
     case HS_COLLAPSE_INTO:
         equation[2] = -1.0f;
-        equation[3] = -(sinfo->forwardlength);
+        equation[3] = gate.back;
         break;
     case HS_POPUP_OUTOF:
         equation[2] = 1.0f;
-        equation[3] = -(sinfo->forwardlength);
+        equation[3] = -gate.front;
         break;
     case HS_SLICING_OUTOF:
         equation[2] = 1.0f;
-        equation[3] = -ssinfo->clipt * (sinfo->forwardlength);
+        equation[3] = -hsGatePlaneZ(&gate, ssinfo->clipt);
         break;
     case HS_COLLAPSE_OUTOF:
         equation[2] = 1.0f;
-        equation[3] = (sinfo->forwardlength);
+        equation[3] = -gate.back;
     }
 }
 
@@ -278,13 +493,22 @@ void hsContinue(Ship* ship, bool32 displayEffect)
 #endif
     StaticCollInfo* sinfo = &ship->staticinfo->common.staticCollInfo;
     ShipSinglePlayerGameInfo* ssinfo = ship->shipSinglePlayerGameInfo;
+    hsGateShape gate;
 
     if (!displayEffect)
     {
         if (ship->guidance.clampInfo != NULL)
         {
-            dbgAssertOrIgnore(ship->guidance.clampInfo->host->header.objtype == OBJ_ShipType);
             Ship* host = (Ship*)ship->guidance.clampInfo->host;
+            // CAT: a clamped ship is clipped by its host's plane only while the host is in hyperspace (hsContinue
+            //      0x0048f400 at 0x0048f4a6: the host's hsState 0 disables GL_CLIP_PLANE0 instead); GoK clipped it by
+            //      its default plane (z >= 0 in the host's frame: the back half) once the host was out
+            if ((host != NULL) && (host->shipSinglePlayerGameInfo != NULL) &&
+                (host->shipSinglePlayerGameInfo->hsState == HS_INACTIVE))
+            {
+                glDisable(GL_CLIP_PLANE0);
+                return;
+            }
             if (host != NULL)// && host->shiptype == AdvanceSupportFrigate)
             {
                 //we're in NLIP'ed shipspace;
@@ -324,32 +548,35 @@ void hsContinue(Ship* ship, bool32 displayEffect)
         hsOrientEffect(ship);
     }
 
+    // the planes over the gate's sweep (hsGateShapeGet: the exe's +-forwardlength; the assembly's with
+    //      HWI-FEATURE(hyperspace-assembly), so a host's own clip uncovers its parts' extent too)
+    hsGateShapeGet(ship, &gate, NULL);
     switch (ssinfo->hsState)
     {
     case HS_POPUP_INTO:
         return;
     case HS_SLICING_INTO:
         equation[2] = -1.0f;
-        equation[3] = ssinfo->clipt * (sinfo->forwardlength);
+        equation[3] = hsGatePlaneZ(&gate, ssinfo->clipt);
         break;
     case HS_COLLAPSE_INTO:
         if (!singlePlayerGameInfo.hyperspaceFails)
         {
             equation[2] = -1.0f;
-            equation[3] = -(sinfo->forwardlength);
+            equation[3] = gate.back;
         }
         break;
     case HS_POPUP_OUTOF:
         equation[2] = 1.0f;
-        equation[3] = -(sinfo->forwardlength);//0.0f;
+        equation[3] = -gate.front;//0.0f;
         break;
     case HS_SLICING_OUTOF:
         equation[2] = 1.0f;
-        equation[3] = -ssinfo->clipt * (sinfo->forwardlength);
+        equation[3] = -hsGatePlaneZ(&gate, ssinfo->clipt);
         break;
     case HS_COLLAPSE_OUTOF:
         equation[2] = 1.0f;
-        equation[3] = (sinfo->forwardlength);
+        equation[3] = -gate.back;
         break;
     default:
         dbgFatalf(DBG_Loc, "unknown hyperspace state %d", ssinfo->hsState);
@@ -363,8 +590,8 @@ void hsContinue(Ship* ship, bool32 displayEffect)
         sdword    index;
         vector    vecToRotate, vecRotated;
 
-        vecToRotate.x = 0.0f;
-        vecToRotate.y = 0.0f;
+        vecToRotate.x = gate.cx;                        // HWI-FEATURE(hyperspace-assembly): the rectangle's centre (the exe: 0)
+        vecToRotate.y = gate.cy;                        // HWI-FEATURE(hyperspace-assembly)
         vecToRotate.z = -equation[2] * equation[3];
         
         {
@@ -624,6 +851,7 @@ void hsEnd(Ship* ship, bool32 displayEffect)
     bool32 lightEnabled, hasEffect;
     hmatrix hcoordsys;
     color c;
+    hsGateShape gate;
 
     glDisable(GL_CLIP_PLANE0);
 
@@ -686,18 +914,25 @@ void hsEnd(Ship* ship, bool32 displayEffect)
         c = hsDefaultColor;
     }
 
+    // CAT: the rectangle's lengths are the collision box's times hyperspaceBoxScale (hsEnd 0x0048fd10); its plane and
+    //      the sweep are the gate's (hsGateShapeGet: the assembly's with HWI-FEATURE(hyperspace-assembly), centred on
+    //      the rectangle the union needs: gate.cx / gate.cy, 0 for the exe's)
+    hsGateShapeGet(ship, &gate, NULL);
+    origin.x = gate.cx;                                 // HWI-FEATURE(hyperspace-assembly) (the exe: 0)
+    origin.y = gate.cy;                                 // HWI-FEATURE(hyperspace-assembly) (the exe: 0)
+
     switch (ssinfo->hsState)
     {
     case HS_POPUP_INTO:
     case HS_POPUP_OUTOF:
         //origin.z = hasEffect ? 0.0f : (sinfo->forwardlength);
         //test
-        origin.z = (sinfo->forwardlength);
+        origin.z = gate.front;
         t = 1.0f - ssinfo->clipt;
         //monkey with the effect origin so it scales properly and starts in proper spot
         origin.z *= ship->magnitudeSquared;
         origin.z -= sinfo->collsphereoffset.z;
-        hsRectangle(&origin, sinfo->rightlength, t * sinfo->uplength, 90, TRUE, c);
+        hsRectangle(&origin, gate.right, gate.up * t, 90, TRUE, c);
         if (ssinfo->hyperspaceEffect != NULL)
         {
             //monkey effect position
@@ -718,18 +953,18 @@ void hsEnd(Ship* ship, bool32 displayEffect)
         if (singlePlayerGameInfo.hyperspaceFails)
         {
             //origin.z = hasEffect ? 0.0f : (sinfo->forwardlength);
-            origin.z = (sinfo->forwardlength);
+            origin.z = gate.front;
         }
         else
         {
             //origin.z = hasEffect ? 0.0f : -(sinfo->forwardlength);
-            origin.z = -(sinfo->forwardlength);
+            origin.z = gate.back;
         }
         t = ssinfo->clipt;
         //monkey with the effect origin so it scales properly and starts in proper spot
         origin.z *= ship->magnitudeSquared;
         origin.z -= sinfo->collsphereoffset.z;
-        hsRectangle(&origin, sinfo->rightlength, t * sinfo->uplength, 90, TRUE, c);
+        hsRectangle(&origin, gate.right, gate.up * t, 90, TRUE, c);
 #if SECOND_RECT
         hsLine(&origin, sinfo->rightlength, 1.5f,
                (ubyte)(255.0f * (1.0f - t)), c);
@@ -739,11 +974,11 @@ void hsEnd(Ship* ship, bool32 displayEffect)
     case HS_SLICING_INTO:
     case HS_SLICING_OUTOF:
         //origin.z = hasEffect ? 0.0f : ssinfo->clipt * (sinfo->forwardlength);
-        origin.z = ssinfo->clipt * (sinfo->forwardlength);
+        origin.z = hsGatePlaneZ(&gate, ssinfo->clipt);
         //monkey with the effect origin so it scales properly and starts in proper spot
         origin.z *= ship->magnitudeSquared;
         origin.z -= sinfo->collsphereoffset.z;
-        hsRectangle(&origin, sinfo->rightlength, sinfo->uplength, 90, TRUE, c);
+        hsRectangle(&origin, gate.right, gate.up, 90, TRUE, c);
         break;
     }
 
@@ -770,6 +1005,13 @@ void hsFinish(Ship* ship)
     ssinfo->clipt = -2.0f;
     ssinfo->cliptDelta = 0.0f;
     ssinfo->hsState = (ssinfo->hsState == HS_COLLAPSE_INTO) ? HS_FINISHED : HS_INACTIVE;
+    if (bitTest(ship->header.flags, SOF_CatShipPart) ||                 // HWI-TEST (M3-R2 hyperspace-assembly)
+        ((ship->guidance.clampInfo != NULL) && (ship->guidance.clampInfo->clampedObjs != NULL)))
+    {
+        dbgMessagef("hsfinish: tick=%u ship=%s id=%u hsState=%s", (unsigned)universe.univUpdateCounter,
+                    ShipTypeToStr(ship->shiptype), (unsigned)ship->shipID.shipNumber,
+                    (ssinfo->hsState == HS_FINISHED) ? "FINISHED (into)" : "INACTIVE (out of)");
+    }
 
     if (ssinfo->hyperspaceEffect != NULL)
     {

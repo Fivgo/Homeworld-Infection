@@ -3256,6 +3256,7 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
     hmatrix coordMatrixForGL;
     GLdouble plane[4];
     bool32 deferred, renderNow, displayEffect = FALSE, rendered, again, cloakFlag;
+    bool32 hsPending = FALSE;                       // HWI-FEATURE(hyperspace-assembly)
     real32 cloakFade, fade;
     sdword pass, i, colorScheme, playerIndex;
     ShipSinglePlayerGameInfo *ssinfo;
@@ -3376,6 +3377,7 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
                     break;
                 case LT_Mesh:
                     displayEffect = hsShouldDisplayEffect(ship);
+                    hsPending = hsAssemblyPartPending(ship);        // HWI-FEATURE(hyperspace-assembly)
                     hmatMakeHMatFromMat(&coordMatrixForGL, &ship->rotatable.rotinfo.coordsys);
                     hmatPutVectIntoHMatrixCol4(obj->posinfo.position, coordMatrixForGL);
                     glMultMatrixf((GLfloat *)&coordMatrixForGL);
@@ -3647,7 +3649,10 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
                                 g_WireframeHack = TRUE;
                                 g_HiddenRemoval = FALSE;
                             }
-                            if (ssinfo != NULL && ssinfo->hsState != HS_INACTIVE && ssinfo->hsState != HS_FINISHED)
+                            // HWI-FEATURE(hyperspace-assembly): a pending part (hidden while its host exits) is clipped
+                            //      by its host's plane as a part in its own exit is (hsContinue's clamped path)
+                            if (ssinfo != NULL && ((ssinfo->hsState != HS_INACTIVE && ssinfo->hsState != HS_FINISHED) ||
+                                                   hsAssemblyPartPending(ship)))   // HWI-FEATURE(hyperspace-assembly)
                             {
                                 if (ssinfo->staticHyperspaceGate)
                                 {
@@ -3692,11 +3697,16 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
                                 //      when the exe's level is a mesh (the exe sets the bit in this mesh path only)
                                 //      [audit: M3-R1 full-detail: the guard added; a non-mesh exe level drawn at LOD 0
                                 //      set a bit the exe never sets]
-                                if ((cat_lodCurrentLevelGet(ship)->flags & LM_LODType) == LT_Mesh)   // HWI-FEATURE(full-detail)
+                                // HWI-FEATURE(hyperspace-assembly): a pending part is drawn but, as in the exe, not
+                                //      rendered for the simulation's readers (it is hidden there): no bit
+                                if (((cat_lodCurrentLevelGet(ship)->flags & LM_LODType) == LT_Mesh) &&  // HWI-FEATURE(full-detail)
+                                    !hsAssemblyPartPending(ship))                                   // HWI-FEATURE(hyperspace-assembly)
                                 {                                                                   // HWI-FEATURE(full-detail)
                                     obj->renderedLODs |= (ubyte)(1 << obj->currentLOD);
                                 }                                                                   // HWI-FEATURE(full-detail)
-                                if (pass == 0 && (!deferred || !renderNow || catRndSortMode == 2))
+                                // HWI-FEATURE(hyperspace-assembly): a pending part's lights (their blink state
+                                //      advances as they are drawn) start at its own exit, as in the exe
+                                if (pass == 0 && (!deferred || !renderNow || catRndSortMode == 2) && !hsPending)
                                 {
                                     RenderNAVLights(ship);
                                 }
@@ -3769,7 +3779,11 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
                     break;
             }
             g_ReplaceHack = FALSE;
-            for (i = 0; i < 2; i++)
+            // HWI-FEATURE(hyperspace-assembly): a pending part (hidden for the simulation) runs none of the render-time
+            //      paths whose state the simulation sees: its cloud lightning countdown and its edge effect (the
+            //      Beast-stun bolts draw the random stream 0) wait for its own exit, as in the exe
+            hsPending = hsAssemblyPartPending(ship);                                   // HWI-FEATURE(hyperspace-assembly)
+            for (i = 0; i < 2 && !hsPending; i++)                                     // HWI-FEATURE(hyperspace-assembly) (the exe: i < 2)
             {
                 l = (lightning *)ship->lightning[i];
                 if (l != NULL)
@@ -3788,7 +3802,10 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
             //      and segments, so a LOD-0 lightning would move stream 0 (Mission04 / 10 / 14). With FULL DETAIL
             //      drawing another level it is placed by the objects' rest matrices (the exe's level's animated
             //      binding matrices are only refreshed when that level is drawn)
-            if (catRndEdgeEffect && drawLOD != obj->currentLOD)                         // HWI-FEATURE(full-detail)
+            if (hsPending)                                                              // HWI-FEATURE(hyperspace-assembly)
+            {                                                                           // HWI-FEATURE(hyperspace-assembly)
+            }                                                                           // HWI-FEATURE(hyperspace-assembly)
+            else if (catRndEdgeEffect && drawLOD != obj->currentLOD)                    // HWI-FEATURE(full-detail)
             {                                                                           // HWI-FEATURE(full-detail)
                 lod *edgeLevel = cat_lodCurrentLevelGet(ship);                          // HWI-FEATURE(full-detail)
                 if ((edgeLevel->flags & LM_LODType) == LT_Mesh && edgeLevel->pData != NULL)   // HWI-FEATURE(full-detail)
@@ -3809,7 +3826,9 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
             }
             glPopMatrix();
             ssinfo = ship->shipSinglePlayerGameInfo;
-            if (ssinfo != NULL && ssinfo->hsState != HS_INACTIVE && ssinfo->hsState != HS_FINISHED)
+            // HWI-FEATURE(hyperspace-assembly): hsEnd ends a pending part's clip as it does a part's in its own exit
+            if (ssinfo != NULL && ((ssinfo->hsState != HS_INACTIVE && ssinfo->hsState != HS_FINISHED) ||
+                                   hsAssemblyPartPending(ship)))   // HWI-FEATURE(hyperspace-assembly)
             {
                 if (ssinfo->staticHyperspaceGate)
                 {
@@ -4269,6 +4288,60 @@ void rndMainViewRenderFunction(Camera *camera)
         }
     }
     while (!opNoLODVal && total > catLodTimeThreshold && ++pass < 11);
+    // HWI-FEATURE(hyperspace-assembly): a visible host's parts still hidden by their arrival wait (hsAssemblyPartPending)
+    //      join this frame's local list, after their host: they are drawn under its clip from its first exit frame. They
+    //      stay out of universe.RenderList (whose membership the guns, the damage effects and the sounds read), get
+    //      no view test (the host's set their magnitudeSquared; their selection circles stay as they were) and no
+    //      level-of-detail pass (currentLOD has simulation readers): the drawing is the only change
+    //      [audit: M3-R2 hyperspace-assembly: moved here from before the level-of-detail loop, which runs lodLevelGet on
+    //      every object of this list and so wrote a hidden part's currentLOD, cameraDistanceVector and
+    //      cameraDistanceSquared (UnivUpdate.c's render-list insertion, Gun.c, Damage.c read them) and added its time
+    //      to the frame budget's passes]
+    if (hsAssemblyEnabled)                                             // HWI-FEATURE(hyperspace-assembly): the block to its closing brace
+    {
+        Node *hostnode, *last = visible.tail;
+        static udword pendingLogTick = 0xffffffff;      // HWI-TEST (M3-R2 hyperspace-assembly): "hsassembly:" lines
+        sdword pendingDrawn = 0;                        // HWI-TEST
+        Ship *pendingHost = NULL;                       // HWI-TEST
+
+        for (hostnode = visible.head; hostnode != NULL; hostnode = hostnode->next)
+        {
+            Ship *host = (Ship *)listGetStructOfNode(hostnode);
+            CatClampedList *parts;
+            sdword i;
+
+            if ((host->header.objtype == OBJ_ShipType) && (host->guidance.clampInfo != NULL) &&
+                (host->guidance.clampInfo->host == NULL) && ((parts = host->guidance.clampInfo->clampedObjs) != NULL))
+            {
+                for (i = 0; i < parts->numShips; i++)
+                {
+                    Ship *part = parts->ShipPtr[i];
+
+                    if ((part != NULL) && (part->header.objtype == OBJ_ShipType) && hsAssemblyPartPending(part) &&
+                        !univSpaceObjInRenderList((SpaceObj *)part) && (part->shiptype <= CAT_RND_MAX_VISIBLE_SHIPTYPE) &&
+                        !part->header.catOmitFromRenderList)
+                    {
+                        listAddNode(&visible, &part->obj.catVisibleLink, part);
+                        pendingDrawn++;                 // HWI-TEST
+                        pendingHost = host;             // HWI-TEST
+                    }
+                }
+            }
+            if (hostnode == last)
+            {
+                break;
+            }
+        }
+        // HWI-TEST (M3-R2 hyperspace-assembly): the first main-view frame of each tick with pending parts drawn
+        if ((pendingDrawn > 0) && (pendingLogTick != universe.univUpdateCounter))
+        {
+            pendingLogTick = universe.univUpdateCounter;
+            dbgMessagef("hsassembly: tick=%u pending parts drawn=%d under host=%s id=%u hsState=%d clipt=%.4f",
+                        (unsigned)universe.univUpdateCounter, pendingDrawn, ShipTypeToStr(pendingHost->shiptype),
+                        (unsigned)pendingHost->shipID.shipNumber, pendingHost->shipSinglePlayerGameInfo->hsState,
+                        pendingHost->shipSinglePlayerGameInfo->clipt);
+        }
+    }
     catLodTestMainView(&visible);                           // HWI-TEST (M3-R1 full-detail): /catLodTest, /catLodStats
     catFrameSigMainView(universe.RenderList.num, visible.num);   // HWI-TEST (M3-R2 nis-flicker): /catFrameSig
 

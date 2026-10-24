@@ -47,6 +47,7 @@
 #include "TeamColourTest.h" // HWI-TEST (M3-R1 team-colours-warp)
 #include "MotionInterp.h"   // HWI-FEATURE(motion-interp): /noInterp, /noNISInterp
 #include "LOD.h"            // HWI-FEATURE(full-detail): /lodBands
+#include "HS.h"             // HWI-FEATURE(hyperspace-assembly): /noHsAssembly
 #include "ObjTypes.h"
 #include "Options.h"
 #include "OverlayIcons.h"
@@ -621,6 +622,14 @@ bool32 LodBandsSet(char *string)                    // HWI-FEATURE(full-detail)
     catLodBandsSwitch();                            // HWI-FEATURE(full-detail)
     return TRUE;                                    // HWI-FEATURE(full-detail)
 }                                                   // HWI-FEATURE(full-detail)
+// HWI-FEATURE(hyperspace-assembly): /noHsAssembly: this run only, a modular ship's hyperspace as the exe draws it (the
+//      gate and the clip's sweep from the core hull's box times hyperspaceBoxScale, a hidden part shown only at its own
+//      exit): an A/B for the captures and the user's comparison; no options-file row (HS.c hsAssemblyEnabled)
+bool32 NoHsAssemblySet(char *string)                // HWI-FEATURE(hyperspace-assembly)
+{                                                   // HWI-FEATURE(hyperspace-assembly)
+    hsAssemblyEnabled = FALSE;                      // HWI-FEATURE(hyperspace-assembly)
+    return TRUE;                                    // HWI-FEATURE(hyperspace-assembly)
+}                                                   // HWI-FEATURE(hyperspace-assembly)
 // HWI-TEST (M3-R1 full-detail): /catLodTest <tick>[:far][:fleet] and /catLodStats <from>-<to>[:fleet] (render.c: "lodtest:" / "lodstats:" lines)
 bool32 CatLodTestSet(char *string)
 {
@@ -1437,6 +1446,7 @@ commandoption commandOptions[] =
     entryFnParam("/catUiTest",          CatUiTestSet, " <ticks> - headless Mission01 run: the player's fleet selected, the popup menu opened, every cat_ui* command run once, the game-stats screen shown, logs uitest lines and quits."),
     entryFn("/noInterp",                NoInterpSet, " - render-time motion interpolation off (objects, camera and NIS; the Smooth motion option)."),   // HWI-FEATURE(motion-interp)
     entryFn("/noNISInterp",             NoNISInterpSet, " - render-time interpolation of NIS cutscenes off (gameplay interpolation stays)."),   // HWI-FEATURE(motion-interp)
+    entryFn("/noHsAssembly",            NoHsAssemblySet, " - this run only: a modular ship (the Kuun-Lan) hyperspaces as the exe draws it: the gate and the reveal sized from its core hull, its modules shown at their own exits."),   // HWI-FEATURE(hyperspace-assembly)
     entryFn("/lodBands",                LodBandsSet, " - this run only: FULL DETAIL off (the exe's levels of detail by size on screen and frame time; the options file's noLOD row keeps its value)."),   // HWI-FEATURE(full-detail)
     entryFnParam("/catLodTest",         CatLodTestSet, " <tick>[:far][:fleet] - log every object's level of detail (the exe's and the one drawn) in the main view's first frame of that universe tick (\"lodtest:\" lines); :far pulls the camera out to its farthest zoom, :fleet closes the sensors manager at tick 16 and focuses the camera on every ship."),   // HWI-TEST
     entryFn("/overlay",                 OverlaySet, " - this run only: the on-screen overlay on (frame time, universe tick, interpolation alpha, the settings, the vertices drawn; the console row overlay and the Menu key toggle it)."),   // HWI-FEATURE(instrumentation)

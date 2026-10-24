@@ -18,6 +18,14 @@ void hsUpdate(Ship* ship);
 void hsFinish(Ship* ship);
 bool32 hsShouldDisplayEffect(Ship* ship);
 
+// HWI-FEATURE(hyperspace-assembly): a modular ship (a host and its SOF_CatShipPart modules, as the Kuun-Lan) hyperspaces
+//      as one assembly: the gate and the clip plane's sweep cover the union of the host's and its parts' collision
+//      boxes, and a part still hidden while its host exits is drawn under the host's clip from the host's first exit
+//      frame (render-side only: no simulation timer, flag or draw changes). /noHsAssembly turns it off for the run.
+extern bool32 hsAssemblyEnabled;                    // HWI-FEATURE(hyperspace-assembly)
+bool32 hsAssemblyPartPending(Ship* part);           // HWI-FEATURE(hyperspace-assembly)
+void hsAssemblyLogStart(Ship* ship, bool32 into);   // HWI-TEST (M3-R2 hyperspace-assembly): the "hsgate:" line
+
 #define HS_STATIC_ACTIVE        1
 #define HS_STATIC_COLLAPSING    2
 #define HS_STATIC_EXPANDING     3

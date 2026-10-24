@@ -57,6 +57,14 @@
 #   console row         uiScale N   (the developer console's; as in cataclysm.exe no key opens that console)
 #   switch              -- /uiScale N   (this run only: the options file keeps its own uiScale row)
 #
+# Hyperspace of a modular ship (M3-R2, the Kuun-Lan): the gate is sized as cataclysm.exe sizes it (the .shp's
+# hyperspaceBoxScale: 6x the spine for the Kuun-Lan, so it spans the whole ship) and the modules are never cut away
+# after the jump (the M3-R1 builds cut the back modules for ~1 s at the end of an arrival and while a departure began).
+# On top (HWI-FEATURE(hyperspace-assembly)), the gate and the reveal cover every module, and a module still waiting to
+# appear is drawn under the hull's gate from its first frame. ON; no options-file row. The log's "hsgate:" /
+# "hsarrive:" / "hsassembly:" / "hsfinish:" lines record each modular ship's jump (read only).
+#   switch              -- /noHsAssembly   (this run only: the exe's look, the modules shown at their own exits)
+#
 # The window at 4K (M3-R1, HWI-FIX; the mouse that could not reach the bottom ~200 rows): a WINDOWED request as large as
 # the desktop (Cataclysm.cfg fullScreen 0 with screenWidth / screenHeight the display's size, or /window) now opens as a
 # borderless window covering the display (SDL fullscreen-desktop), so no title bar or panel hides its bottom rows; a
