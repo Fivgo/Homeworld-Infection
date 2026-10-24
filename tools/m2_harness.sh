@@ -492,12 +492,18 @@
 #   --frame-sig      any mode (M3-R2 nis-flicker, HWI-TEST, docs/m3-r2-nis-flicker.md): /catFrameSig <run>/frame.sig: one
 #                    line per rendered frame "F <n> tick=<t> seg=<level segment> dump=<dump frame|-> sig mv=<main views
 #                    drawn> rl=<render list> vis=<visible objects> lb=<late letterbox bars: -|full|fade> fd=<nisBlackFade>
-#                    nis=<NIS time|-> cut=<nisCameraCutTime> a=<the NIS task's period fraction|->" and, off the real
-#                    clock, a read-back's "bar=<non-black pixels in the bar rows> mid=<between them> lum=<mean luma>
+#                    nis=<NIS time|-> cut=<nisCameraCutTime> a=<the NIS task's period fraction|-> ft=<the frame's
+#                    wall-clock period, ms>" and, on the virtual clock (not with --real-clock), a read-back's "bar=<non-black pixels in the bar rows> mid=<between them> lum=<mean luma>
 #                    d1=<thumbnail difference to the previous frame> d2=<to the frame before>"; the motion / nis dump
 #                    lines get the same " sig ..." after crc= (only with this flag: the default dumps are unchanged). The
 #                    summary's "framesig:" line is tools/dump_outliers.py --oneline (the one-frame outliers: a frame that
-#                    differs from both neighbours while they match, or that loses its objects or its bars for one frame)
+#                    differs from both neighbours while they match, or that loses its objects or its bars for one frame;
+#                    and the short runs: 1..12 frames without the bars or the objects between frames that have them, a
+#                    state that lasts one universe tick being 9 frames at 144 Hz; full-black-fade frames excluded)
+#   --virtual-fps N  any virtual-clock mode (M3-R2 nis-flicker, HWI-TEST): /catVirtualFps N: N/16 frames a universe tick
+#                    instead of one (mission, missiontest, replay, ..), so the render-time interpolation runs between
+#                    ticks as in play (with --frame-sig: the NIS-first start's cutscenes at 144 Hz); a scan only: the
+#                    extra frames draw the shared random stream, so the run's .hwo is never a baseline
 #   --timeout N      seconds (default 60)
 #   --driver D       offscreen (default; falls back to dummy if the offscreen driver cannot set a video mode) | dummy
 #   --data DIR       HW_Data dir to use instead of the harness data dir. ONLY for isolation runs of one item while
@@ -570,7 +576,7 @@ conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0; mtmission=1; sav
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""; skticks=600; skmap=LiveFireExercise2
 warplevel=10; savesrc=""; training=0; recordname=""; recordstop=""; skbigotry=""; failjump=0
 shotspec=""; shotlb=0; res=""; cfgrows=(); teamcolour=0; lodtest=""; lodstats=""; scene=""; realclock=""
-modeto=1280x720; framelog=0; framesig=0
+modeto=1280x720; framelog=0; framesig=0; anyfps=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -628,6 +634,7 @@ while [[ $# -gt 0 ]]; do
 		--mode-to) modeto=$2; shift ;;
 		--frame-log) framelog=1 ;;
 		--frame-sig) framesig=1 ;;
+		--virtual-fps) anyfps=$2; shift ;;
 		--) shift; extra=("$@"); break ;;
 		*) echo "m2_harness: unknown option $1" >&2; exit 2 ;;
 	esac
@@ -802,6 +809,7 @@ fi
 [[ -n "$realclock" ]] && args+=(/catMotionRealClock "$realclock")   # M3-R1 motion-jitter
 [[ $framelog -eq 1 ]] && args+=(/frameLog "$out/frame.log")   # M3-R2 instrumentation
 [[ $framesig -eq 1 ]] && args+=(/catFrameSig "$out/frame.sig")   # M3-R2 nis-flicker
+[[ -n "$anyfps" ]] && args+=(/catVirtualFps "$anyfps")   # M3-R2 nis-flicker
 if [[ -n "$shotspec" ]]; then
 	args+=(/catShot "$shotspec" /catShotFile "$out/shot")
 	[[ $shotlb -eq 1 ]] && args+=(/catShotLetterbox)

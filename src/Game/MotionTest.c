@@ -109,6 +109,7 @@ static char mtLine[MT_LINE_MAX];
 static ubyte *mtPixels = NULL;
 static sdword mtShotFrame = -1;                     // /catMotionShot <frame>: that frame of the window saved as a PPM
 static bool32 sigOn = FALSE;                        // HWI-TEST (M3-R2 nis-flicker): /catFrameSig is on
+static bool32 mtFpsAny = FALSE;                     // HWI-TEST (M3-R2 nis-flicker): /catVirtualFps: N frames a tick in any mode
 static char sigText[320] = "";                      // HWI-TEST (M3-R2 nis-flicker): this frame's " sig ..." for the dump line
 static udword mtCrcTable[256];
 
@@ -210,6 +211,16 @@ void catMotionTestFpsSet(char *string)
     {
         mtFps = UNIVERSE_UPDATE_RATE;
     }
+}
+
+// HWI-TEST (M3-R2 nis-flicker): /catVirtualFps <fps>: the virtual frame rate in ANY virtual-clock run (the mission
+//      self-test's NIS-first start, a mission, a replay), not only the motion modes, so the render-time interpolation
+//      runs between ticks there (one frame a tick, every other run, draws alpha 1 only); a scan, never a baseline: the
+//      extra frames draw the shared random stream (trails, effects)
+void catVirtualFpsSet(char *string)
+{
+    catMotionTestFpsSet(string);
+    mtFpsAny = TRUE;
 }
 
 // M3-R1 motion-jitter: /catMotionScene <kind>[:<distance>[:<move>[:<ticks>[:<start>]]]]: the measured scene on the game another
@@ -318,7 +329,7 @@ bool32 catMotionTestRequested(void)
 
 udword catMotionTestFramesPerTick(void)
 {
-    if (mtMode == MT_MODE_NONE)
+    if (mtMode == MT_MODE_NONE && !mtFpsAny)        // HWI-TEST (M3-R2 nis-flicker): /catVirtualFps in any mode
     {
         return 0;
     }
@@ -1344,10 +1355,13 @@ void catMotionTestFrameEnd(void)
         rows> mid=<non-black pixels between them> lum=<mean luma> d1=<mean
         |luma| difference of the 16x16-block thumbnail to the previous frame>
         d2=<to the frame before that>]
-    The bracketed part needs a read-back (none on the real clock: those lines
-    end after a=). Nothing here is read by the game: the counters are written
-    by the render path and only read here; the read-back changes
-    GL_PACK_ALIGNMENT only (as /catShot).
+      ft=<the wall-clock period since the previous frame's line, ms>
+    The bracketed part needs a read-back, done only on the virtual clock (a
+    harness run): on the wall clock (--real-clock, or an attended run through
+    tools/play.sh "-- /catFrameSig <file>", where a full-window read-back per
+    frame would cost more than the frame) the lines end after ft=. Nothing here
+    is read by the game: the counters are written by the render path and only
+    read here; the read-back changes GL_PACK_ALIGNMENT only (as /catShot).
 =============================================================================*/
 #define SIG_BLOCK           16                      // thumbnail block (physical pixels)
 #define SIG_THUMB_MAX       (512 * 512)
@@ -1362,6 +1376,7 @@ static ubyte *sigPixels = NULL;
 static size_t sigPixelsSize = 0;
 static uword *sigThumb[3] = { NULL, NULL, NULL };   // this frame, the previous one, the one before
 static udword sigThumbN = 0, sigThumbs = 0;          // blocks; thumbnails held (0..3)
+static Uint64 sigLastStamp = 0;                     // the previous line's performance-counter stamp
 
 void catFrameSigSet(char *string)
 {
@@ -1413,7 +1428,7 @@ void catFrameSigEnd(void)
         }
         fprintf(sigFile, "# hwi-framesig v1 (HWI-TEST, M3-R2 nis-flicker) size=%dx%d logical=%dx%d letter=%d readback=%d\n",
                 (int)MAIN_WindowWidthActual, (int)MAIN_WindowHeightActual, (int)MAIN_WindowWidth,
-                (int)MAIN_WindowHeight, (int)NIS_LetterHeight, mtRealClock ? 0 : 1);
+                (int)MAIN_WindowHeight, (int)NIS_LetterHeight, (!mtRealClock && oracleVirtualFrameTicks() != 0) ? 1 : 0);
     }
     if (sigLastTick != 0xffffffff && tick < sigLastTick)
     {
@@ -1442,10 +1457,16 @@ void catFrameSigEnd(void)
         snprintf(nis, sizeof(nis), "-");
         snprintf(al, sizeof(al), "-");
     }
-    n = (size_t)snprintf(sigText, sizeof(sigText), " sig mv=%u rl=%u vis=%u lb=%s fd=%.3f nis=%s cut=%.4f a=%s",
-                         (unsigned)sigMainViews, (unsigned)sigListed, (unsigned)sigVisible, lb,
-                         (double)nisBlackFade, nis, (double)nisCameraCutTime, al);
-    if (!mtRealClock && n < sizeof(sigText))
+    {
+        Uint64 now = SDL_GetPerformanceCounter();   // the frame's wall-clock period (any clock; attended runs)
+        real64 ft = (sigLastStamp != 0) ? (real64)(now - sigLastStamp) * 1000.0 / (real64)SDL_GetPerformanceFrequency()
+                                        : 0.0;
+        sigLastStamp = now;
+        n = (size_t)snprintf(sigText, sizeof(sigText), " sig mv=%u rl=%u vis=%u lb=%s fd=%.3f nis=%s cut=%.4f a=%s ft=%.3f",
+                             (unsigned)sigMainViews, (unsigned)sigListed, (unsigned)sigVisible, lb,
+                             (double)nisBlackFade, nis, (double)nisCameraCutTime, al, ft);
+    }
+    if (!mtRealClock && oracleVirtualFrameTicks() != 0 && n < sizeof(sigText))   // the read-back: the virtual clock only
     {
         sdword w = MAIN_WindowWidthActual, h = MAIN_WindowHeightActual, x, y, bw, bh, barRows;
         size_t size = (size_t)w * (size_t)h * 4;

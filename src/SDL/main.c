@@ -693,6 +693,12 @@ bool32 CatFrameSigSet(char *string)
     catFrameSigSet(string);
     return TRUE;
 }
+// HWI-TEST (M3-R2 nis-flicker): /catVirtualFps <fps> (MotionTest.c catVirtualFpsSet: the virtual frame rate, any mode)
+bool32 CatVirtualFpsSet(char *string)
+{
+    catVirtualFpsSet(string);
+    return TRUE;
+}
 bool32 CatNisScissorOutSet(char *string)
 {
     catNisScissorOutSet(string);
@@ -1454,7 +1460,8 @@ commandoption commandOptions[] =
     entryFn("/catTeamColourTest",       CatTeamColourTestSet, " - log the player's team-colour state (\"teamcolour:\" lines) before / after each level change and check it (Game/TeamColourTest.c)."),   // HWI-TEST
     entryFnParam("/catTeamColourTicks", CatTeamColourTicksSet, " <ticks> - with /catTeamColourTest in the mission self-test: the ticks run in the next mission level (default 32)."),   // HWI-TEST
     entryFn("/catShotLetterbox",        CatShotLetterboxSet, " - /catShot: only the frames with the NIS / KAS letterbox up."),   // HWI-TEST
-    entryFnParam("/catFrameSig",        CatFrameSigSet, " <file> - one line per rendered frame: the main view's object counts, the late letterbox bars, the NIS fade / time / alpha and (off the real clock) a read-back's bar / mid pixel counts, luma and its difference to the two frames before (the one-frame outlier scan, tools/dump_outliers.py); the motion / nis dump lines get the same after crc=."),   // HWI-TEST (M3-R2 nis-flicker)
+    entryFnParam("/catFrameSig",        CatFrameSigSet, " <file> - one line per rendered frame: the main view's object counts, the late letterbox bars, the NIS fade / time / alpha, the frame's wall-clock period and (on the virtual clock only: never in an attended run or on /catMotionRealClock) a read-back's bar / mid pixel counts, luma and its difference to the two frames before (the one-frame outlier scan, tools/dump_outliers.py); the motion / nis dump lines get the same after crc=."),   // HWI-TEST (M3-R2 nis-flicker)
+    entryFnParam("/catVirtualFps",      CatVirtualFpsSet, " <fps> - any virtual-clock run (the mission self-test, a mission, a replay): <fps>/16 frames a universe tick instead of one, so the render-time interpolation runs between ticks (a scan: the extra frames draw the shared random stream)."),   // HWI-TEST (M3-R2 nis-flicker)
     entryFnParam("/catNisScissorOut",   CatNisScissorOutSet, " <tick>:<seconds> - /catNisMotionTest: the letterbox fades out from that universe tick as an NIS's ScissorOut event does (a capture of the fade; not for baselines)."),   // HWI-TEST
     entryFnParam("/catRenderTest",      CatRenderTestSet, " <frames> - headless Mission01 run through the Cataclysm object-list renderer with a lens flare source and a fog layer, logs the render counts, exit after <frames> ticks."),
     // CAT: port diagnostic, not a Cataclysm option (SpeechEvent.c catSoundRunSelfTest, M2-R5 sound) [audit: own comment]

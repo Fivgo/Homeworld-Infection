@@ -54,6 +54,7 @@ void catFrameSigSet(char *string);          // /catFrameSig <file>
 void catFrameSigMainView(udword listed, udword visible);   // render.c rndMainViewRenderFunction: the view was drawn
 void catFrameSigBars(real32 fade);          // render.c rndRenderTask: the late bars drawn (fade 0: full)
 void catFrameSigEnd(void);                  // render.c rndRenderTask, before catMotionTestFrameEnd
+void catVirtualFpsSet(char *string);        // HWI-TEST (M3-R2 nis-flicker): /catVirtualFps <fps>: N frames a tick, any mode
 
 extern bool32 catToggleSelfTest;            // /catToggleTest: the Smooth motion checkbox, the options file, the console
 void catToggleRunSelfTest(void);

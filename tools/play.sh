@@ -90,6 +90,15 @@
 #                       vertices drawn; give a full path, e.g. -- /frameLog ~/hwi-frame-$(date +%H%M).log)
 #   report              python3 -I tools/frame_log_report.py <file>   (the whole session's percentiles, the drift test,
 #                       the heap's growth a minute, the seconds over budget)
+# The per-frame signal (M3-R2 nis-flicker, HWI-TEST; docs/m3-r2-nis-flicker.md) [the cutscene one-frame flicker]:
+#   switch              -- /catFrameSig <file>   (this run only: ONE line per rendered frame to <file>: the main view
+#                       drawn (mv) and its objects (rl render list, vis visible), the letterbox bars drawn late (lb: -
+#                       none, full, or the fade), the NIS black fade (fd), the NIS time (nis) and blend (a), the frame's
+#                       wall-clock period in ms (ft); no pixel read-back in a play-test, so it costs next to nothing;
+#                       give a full path, e.g. -- /catFrameSig ~/hwi-sig-$(date +%H%M).txt; about 15 MB an hour at 144 Hz)
+#   report              python3 -I tools/dump_outliers.py <file>   (the frames that lost their objects or their bars for
+#                       up to 12 frames between frames that had them; "short runs=0" = the engine drew the bars and the
+#                       objects on every frame of the session)
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 build=release; bin=""; data="$root/original/scratch-m2/m2r2-harness/data"; home="$root/original/play-home"; drv=x11; rebuild=0
