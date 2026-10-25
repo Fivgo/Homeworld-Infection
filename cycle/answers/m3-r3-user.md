@@ -53,11 +53,18 @@ the overlay is readable and covers nothing needed (no layout change).
   Options-screen toggle is commented out (Options.c:1923-2021). The item reduces to: confirm the cfg row and the switch
   work at 4K (a capture pair), put it on the hwi-settings line, and decide whether to revive the Options toggle; no new
   feature. The user has not yet tried it: tell them `tools/play.sh -- /noFilter` or `texLinearFiltering 0` in the cfg.
-- Item 1 (Mission02's dust belts): every play log carries, at load,
-  `WARNING: Could not locate mex Resources/DustClouds/dustcloud0\Rl0\LOD0\dustcloud0.mex` (dustcloud0-3 and
-  Resources/Nebulae/nebula0 alike): the path keeps Windows backslashes, so the Linux lookup fails and the dust-cloud and
-  nebula meshes never load. Start there (the path join for the Resources/ tree; the exe's own path for these mex files);
-  the tactical-map draw of dust belts is the second question.
+- Item 1 (Mission02's dust belts), CORRECTED 2026-10-25: the start-up warning `Could not locate mex
+  Resources/DustClouds/dustcloud0\Rl0\LOD0\dustcloud0.mex` (dustcloud0-3, nebula0) is BENIGN: cataclysm.big holds only
+  resources\dustclouds\dustcloudN.{lod,shp} and resources\nebulae\nebula0.{lod,shp}, no .mex at all, so the exe takes the
+  same default-mex path (Universe.c loadMexDataCB; not a path-separator fault, the earlier note was wrong). The user
+  confirmed on the M3-R2 build (log play-20261025-150145, hwi-settings present) that the dust clouds still do not show
+  in Mission02. Starting points instead: (a) are they CREATED: mission02's resource volumes with DustCloud types
+  (singleplayer\mission02\dustcloud.dist is only the type-frequency table: types 1-3; LevelLoad.c:471 univAddDustCloud);
+  count the DustCloud objects in a headless mission-2 run (m3r2i-e-m2-a prints nothing about them); (b) are they DRAWN
+  in the 3D view (Clouds.c, the cloud system; render.c); (c) the tactical map: cat_smResourcesDraw (exe 0x0050ae00,
+  Sensors.c:1698) draws dust clouds "as points ... where the grid has seen them" with smResources TRUE; read the exe's
+  routine for whether dust belts are drawn as regions and whether they are exempt from the fog-of-war grid (the user's
+  "key elements that all players get to see through the fog of war"); a mission-2 capture pair against the exe's look.
 - The session of 2026-10-25 14:52 ran the 2026-10-21 07:43 release binary (no hwi-settings line in the log: nothing of
   M3-R2 was in it); tools/play.sh now rebuilds when the binary is older than the newest src/ commit.
 
