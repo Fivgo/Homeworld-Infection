@@ -46,6 +46,21 @@ the overlay is readable and covers nothing needed (no layout change).
 7. (missile corvette engine trails) "In mission 3, I noticed that missile corvettes only emit a single jet stream when
    they have 4 engines on the model. See if we can get 4 jet steams to emit from the direct centers of the circles"
 
+## Findings by the launching session (2026-10-25), for the producers of items 1 and 3
+- Item 3 (closest texture filtering): GoK already carries it. `texLinearFiltering` is a cfg row (the user's
+  Cataclysm.cfg row 11, value 1) and `/noFilter` a run-only switch (src/SDL/main.c:1225); texreg.c:1241-1251 selects
+  GL_LINEAR_MIPMAP_LINEAR / GL_LINEAR against GL_NEAREST_MIPMAP_LINEAR / GL_NEAREST, both with 8x anisotropy. The
+  Options-screen toggle is commented out (Options.c:1923-2021). The item reduces to: confirm the cfg row and the switch
+  work at 4K (a capture pair), put it on the hwi-settings line, and decide whether to revive the Options toggle; no new
+  feature. The user has not yet tried it: tell them `tools/play.sh -- /noFilter` or `texLinearFiltering 0` in the cfg.
+- Item 1 (Mission02's dust belts): every play log carries, at load,
+  `WARNING: Could not locate mex Resources/DustClouds/dustcloud0\Rl0\LOD0\dustcloud0.mex` (dustcloud0-3 and
+  Resources/Nebulae/nebula0 alike): the path keeps Windows backslashes, so the Linux lookup fails and the dust-cloud and
+  nebula meshes never load. Start there (the path join for the Resources/ tree; the exe's own path for these mex files);
+  the tactical-map draw of dust belts is the second question.
+- The session of 2026-10-25 14:52 ran the 2026-10-21 07:43 release binary (no hwi-settings line in the log: nothing of
+  M3-R2 was in it); tools/play.sh now rebuilds when the binary is older than the newest src/ commit.
+
 ## The orchestrator's notes (hypotheses, not findings; every item still starts from the exe)
 - 1, 2, 4, 6 are "is the recreation 1-to-1 with cataclysm.exe here?" questions first: read the exe's and the mission
   scripts' behaviour (the M02 dust-belt tactical-map draw and its fog-of-war exemption; the M02 hint-dialog trigger

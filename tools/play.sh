@@ -4,6 +4,7 @@
 #
 # Usage: tools/play.sh [--debug] [--bin PATH] [--data DIR] [--home DIR] [--driver x11|wayland] [--rebuild] [-- <engine switches>]
 #   build     release (build/release/hwi-engine; built with tools/build.sh --release if missing or --rebuild);
+#             (also rebuilt when older than the newest src/ commit or the tree has uncommitted src/ changes)
 #             --debug uses build/debug/hwi-engine (ASan: much slower, prints sanitizer reports);
 #             --bin PATH runs another engine binary (e.g. a fix branch's worktree build)
 #   data      --data DIR, default original/scratch-m2/m2r2-harness/data (symlinks into original/game, the
@@ -130,10 +131,29 @@ while [[ $# -gt 0 ]]; do
 		*) echo "play.sh: unknown option $1 (engine switches go after --)" >&2; exit 2 ;;
 	esac
 done
+bin_given="$bin"
 [[ -n "$bin" ]] || bin="$root/build/$build/hwi-engine"
-if [[ $rebuild = 1 || ! -x "$bin" ]]; then
-	echo "play.sh: building $build engine ..." >&2
+# Build when asked (--rebuild), when the binary is missing, when it is older than the newest commit that touched src/,
+# or when the tree has uncommitted src/ changes. (2026-10-25: a play-test ran a four-day-old binary because --rebuild
+# was not given; the newest play log had no hwi-settings line.) A binary given with --bin is used as it is.
+why=""
+if [[ -n "$bin_given" ]]; then
+	[[ $rebuild = 1 ]] && why="--rebuild (note: --bin given, building the default binary, not $bin)"
+elif [[ $rebuild = 1 ]]; then why="--rebuild"
+elif [[ ! -x "$bin" ]]; then why="no binary yet"
+else
+	newest_src=$(git -C "$root" log -1 --format=%ct -- src/ 2>/dev/null || echo 0)
+	if [[ $(stat -c %Y "$bin") -lt ${newest_src:-0} ]]; then
+		why="binary built $(date -r "$bin" +%F\ %H:%M), newest src/ commit $(date -d @"$newest_src" +%F\ %H:%M)"
+	elif [[ -n $(git -C "$root" status --porcelain -- src/ 2>/dev/null) ]]; then
+		why="uncommitted src/ changes"
+	fi
+fi
+if [[ -n "$why" ]]; then
+	echo "play.sh: building $build engine ($why) ..." >&2
 	"$root/tools/build.sh" "--$build" >&2
+else
+	echo "play.sh: $build engine up to date (built $(date -r "$bin" +%F\ %H:%M))" >&2
 fi
 [[ -e "$data/cataclysm.big" ]] || { echo "play.sh: no Cataclysm data at $data (run tools/m2_harness.sh --setup, or pass --data)" >&2; exit 1; }
 mkdir -p "$home/.homeworld" "$home/logs"
