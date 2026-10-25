@@ -20,6 +20,16 @@
 //      like any key, and its cat_kbKeyToString 0x0049b590 names it "]" (the '%c' fallback), so the exe's binding screen
 //      would take it], docs/m3-r2-instrumentation.md "Why the Menu key"
 #define HWI_OVERLAY_KEY         SDL_SCANCODE_APPLICATION        // HWI-FEATURE(instrumentation)
+// M3-R3 settings-and-keys (the user's decision of 2026-10-24: "let's dedicate a key from the F1-F12 suite"): F1, the one
+//      F key cataclysm.exe leaves unbound in the main game view: default_keys.cfg (v 84) binds plain F2..F12 (Tactics_*,
+//      Formation_*; F12 = Formation_Parade) and F1 only with Shift / Ctrl / Shift+Ctrl; the exe's WindowProc 0x00561f10
+//      special-cases only F11 / F12 key-ups; mrStartup 0x00563b50 gives every key to the bindings; no .fib atom has an F
+//      key as its hot key; the construction manager's detour (cmBuildHotKey 0x00458d40) takes F1 but its table builds
+//      nothing on it. F1 toggles the overlay only while it is free (KeyBindings.c hwiKbOverlayFKeyFree: no modifier
+//      held, no keys.cfg binding of plain F1, the key-binding screen not waiting for a key), so it never takes a binding
+//      the user gives F1; the key still goes on to the game as before (docs/m3-r3-settings-and-keys.md)
+#define HWI_OVERLAY_FKEY        SDL_SCANCODE_F1                 // HWI-FEATURE(instrumentation)
+#define HWI_OVERLAY_FKEY_VK     0x70                            // HWI-FEATURE(instrumentation): the exe's code for F1 (VK_F1)
 
 extern sdword hwiOverlay;               // HWI-FEATURE(instrumentation): 0 | 1, the console row "overlay" (default 0)
 
@@ -29,6 +39,7 @@ void hwiSettingsWindow(void);                      // HWI-FEATURE(instrumentatio
 void hwiSettingsConsole(const char *row);          // HWI-FEATURE(instrumentation): a console row was set (Console.c)
 void hwiSettingsAccepted(void);                    // HWI-FEATURE(instrumentation): the Options screen's Accept (Options.c)
 void hwiSettingsChanged(const char *why);          // HWI-FEATURE(instrumentation): the line again if anything changed
+void hwiSettingsPreset(const char *row, const char *why);  // HWI-FEATURE(sharp-textures): a preset changed the row (source "preset")
 const char *hwiSettingsLast(void);                 // HWI-FEATURE(instrumentation): the last line printed (the self-tests)
 sdword hwiSettingsLines(void);                     // HWI-FEATURE(instrumentation): lines printed so far
 
@@ -49,5 +60,10 @@ void hwiVertsDrawn(udword objects, udword verts);  // HWI-FEATURE(instrumentatio
 void hwiFrameLogSet(char *file);                   // HWI-TEST
 void hwiFrameLogClose(void);                       // HWI-TEST: the quit
 const char *hwiBuildVersion(void);                 // HWI-TEST: main.c: the build version (the frame log's header) [audit]
+
+// HWI-TEST (M3-R3 settings-and-keys): scripted inputs through the engine's own paths (no OS input), for the captures
+void hwiOverlayKeyAtSet(char *spec);               // HWI-TEST: /catOverlayKeyAt <tick>[,<tick>..]: F1 as an SDL_KEYDOWN / UP to HandleEvent
+void hwiConsoleAtSet(char *spec);                  // HWI-TEST: /catConsoleAt <tick>:<row>=<value>[,..]: a console row (cat_consoleRunCommand)
+void hwiFeScreenSet(char *spec);                   // HWI-TEST: /catFeScreen <screen>[@<tick>]: a front-end screen pushed (feScreenStart)
 
 #endif

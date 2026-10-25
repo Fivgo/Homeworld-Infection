@@ -103,6 +103,8 @@ void cat_kbReloadKeyBindings(bool32 resetToDefaults);                   // 0x005
 void cat_kbSaveKeyBindings(void);                                       // 0x0054e2d0
 void cat_kbSetNewKey(sdword command, udword vk);                        // 0x0054e410 (a virtual-key code)
 sdword cat_kbCommandsForKey(udword vk, sdword *commands);               // 0x0054e680 (a virtual-key code)
+sdword hwiKbPlainBindings(udword vk);                                    // HWI-FEATURE(instrumentation): bindings of the key with no modifier
+bool32 hwiKbOverlayFKeyFree(void);                                      // HWI-FEATURE(instrumentation): F1 may toggle the overlay (M3-R3)
 void cat_kbKeyPress(udword state, udword key);                          // 0x0054e7c0
 void cat_kbKeyRelease(udword state, udword key);                        // 0x0054e8c0
 void cat_kbBindingGet(sdword command, CatKbCommandBindings *bindings);  // 0x0054e910

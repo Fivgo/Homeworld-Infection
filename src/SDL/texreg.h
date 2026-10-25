@@ -407,6 +407,22 @@ extern sdword catTrCramLimit;
 
 //misc utility functions
 void trFilterEnable(sdword bEnable);
+// HWI-FEATURE(sharp-textures) (M3-R3 settings-and-keys, docs/m3-r3-settings-and-keys.md): SHARP TEXTURES = texLinearFiltering
+//      0 (the exe's own option: Video -> CUSTOM EFFECTS -> SURFACE FILTERING, utyFilterToggle 0x005a86d0); the run-only
+//      switch /noFilter (alias /sharpTextures), the registry's live textures kept on the flag's filter (trFilterSync)
+void trFilterSwitchSet(void);                       // HWI-FEATURE(sharp-textures): /noFilter, /sharpTextures (this run only)
+void trFilterSwitchEnd(void);                       // HWI-FEATURE(sharp-textures): a user's choice ends the switch's run-only state
+bool32 trFilterSwitchStands(void);                  // HWI-FEATURE(sharp-textures)
+void trFilterFileValues(bool32 begin);              // HWI-FEATURE(sharp-textures): utyOptionsFileWrite: the file's own value
+void trFilterSwitchStateSave(void);                 // HWI-FEATURE(sharp-textures): the options screens' Cancel copy
+void trFilterSwitchStateRestore(void);              // HWI-FEATURE(sharp-textures)
+void trFilterPresetApplied(void);                   // HWI-FEATURE(sharp-textures): opEffectsHelper set the flag from a preset
+void trFilterSync(void);                            // HWI-FEATURE(sharp-textures): the live textures on the flag's filter
+sdword trFilterLastTextures(void);                  // HWI-FEATURE(sharp-textures): the last pass's registry textures
+sdword trFilterLastObjects(void);                   // HWI-FEATURE(sharp-textures): ... and their GL objects
+sdword trFilterLastWrong(void);                     // HWI-TEST: ... read back on another filter (must be 0)
+sdword trFilterPasses(void);                        // HWI-FEATURE(sharp-textures): passes so far
+void trFilterListSet(char *match);                  // HWI-TEST: /catTexList <substring>: the matching live textures at each pass
 texreg *trStructureGet(trhandle handle);
 color *trImageScale(color *data, sdword width, sdword height, sdword newWidth, sdword newHeight, bool32 bFree);
 ubyte *trImageScaleIndexed(ubyte *data, sdword width, sdword height, sdword newWidth, sdword newHeight, bool32 bFree);

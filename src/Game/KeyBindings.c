@@ -21,6 +21,7 @@
 #include "StatScript.h"
 #include "prim2d.h"
 #include "utility.h"
+#include "Instrument.h"     // HWI-FEATURE(instrumentation): the overlay's F key (M3-R3)
 
 /*=============================================================================
     CAT (M2-R6 startup-keys): Cataclysm's key bindings. HW1's 19-command key table (kbBoundKeys, the per-language
@@ -909,6 +910,37 @@ void cat_kbSaveKeyBindings(void)
 #define CAT_KB_SHIFT_HELD()         catKeyVkIsHit(0x10)
 #define CAT_KB_ALT_HELD()           catKeyVkIsHit(0x12)
 #define CAT_KB_CTRL_HELD()          catKeyVkIsHit(0x11)
+
+/*-----------------------------------------------------------------------------
+    HWI-FEATURE(instrumentation) (M3-R3 settings-and-keys): the overlay's F key (Instrument.h HWI_OVERLAY_FKEY, F1)
+    toggles the overlay only while it is free, so it never takes a key the bindings use: no SHIFT / ALT / CTRL held (the
+    exe's defaults bind Shift+F1, Ctrl+F1 and Shift+Ctrl+F1), no binding of plain F1 in the table (default_keys.cfg
+    has none; a user's keys.cfg may add one: then F1 is that command's, and the Menu key and the console row stay), and
+    the key-binding screen is not waiting for a key (kbListWindowCB's capture)
+----------------------------------------------------------------------------*/
+sdword hwiKbPlainBindings(udword vk)                                    // HWI-FEATURE(instrumentation)
+{                                                                       // HWI-FEATURE(instrumentation)
+    sdword command, index, count = 0;                                   // HWI-FEATURE(instrumentation)
+                                                                        // HWI-FEATURE(instrumentation)
+    for (command = 0; command < CAT_KB_NUMBER_COMMANDS; command++)      // HWI-FEATURE(instrumentation)
+    {                                                                   // HWI-FEATURE(instrumentation)
+        for (index = 0; index < catKbBindings[command].count; index++)  // HWI-FEATURE(instrumentation)
+        {                                                               // HWI-FEATURE(instrumentation)
+            CatKbBinding *b = &catKbBindings[command].binding[index];   // HWI-FEATURE(instrumentation)
+            if (((ubyte)b->key == (ubyte)vk) && !b->shift && !b->alt && !b->ctrl)   // HWI-FEATURE(instrumentation)
+            {                                                           // HWI-FEATURE(instrumentation)
+                count++;                                                // HWI-FEATURE(instrumentation)
+            }                                                           // HWI-FEATURE(instrumentation)
+        }                                                               // HWI-FEATURE(instrumentation)
+    }                                                                   // HWI-FEATURE(instrumentation)
+    return count;                                                       // HWI-FEATURE(instrumentation)
+}                                                                       // HWI-FEATURE(instrumentation)
+
+bool32 hwiKbOverlayFKeyFree(void)                                       // HWI-FEATURE(instrumentation)
+{                                                                       // HWI-FEATURE(instrumentation)
+    return (kbCommandBeingSet == CAT_KB_NUMBER_COMMANDS) && !CAT_KB_SHIFT_HELD() && !CAT_KB_ALT_HELD() &&   // HWI-FEATURE(instrumentation)
+           !CAT_KB_CTRL_HELD() && (hwiKbPlainBindings(HWI_OVERLAY_FKEY_VK) == 0);   // HWI-FEATURE(instrumentation)
+}                                                                       // HWI-FEATURE(instrumentation)
 
 /*-----------------------------------------------------------------------------
     Name        : cat_kbSetNewKey                                   0x0054e410
@@ -2187,6 +2219,8 @@ void catKeysRunSelfTest(void)
     sdword rows = 0, known = 0, unknown = 0, mismatches = 0, command, index, count, defaultCount, savedCount;
     sdword boundCommands = 0, bindings = 0, named = 0, found = 0, unknownSaved, conflicts = 0, shares = 0, groups = 0;
     bool32 copied, savedSame, reloadSame, resetSame, newKeyKept, newKeyReset;
+    bool32 fkeyFreeBefore = FALSE, fkeyFreeBound = TRUE, fkeyFreeAfter = FALSE;   // HWI-FEATURE(instrumentation) (M3-R3)
+    sdword fkeyPlainF1 = -1, fkeyPlainF12 = -1;     // HWI-FEATURE(instrumentation) (M3-R3)
 
     dbgMessagef("keystest: start default=%s keys=%s loaded=%d", catKbDefaultPath(), catKbUserPath(), catKbBindingsLoaded);
     memset(expectedIndex, 0, sizeof(expectedIndex));
@@ -2298,9 +2332,13 @@ void catKeysRunSelfTest(void)
     dbgMessagef("keystest: reload same=%d reset same=%d", reloadSame, resetSame);
 
     // 5. a new key: F1 (VK 0x70) for Retire (3), saved and reloaded, then the defaults again
+    fkeyFreeBefore = hwiKbOverlayFKeyFree();        // HWI-FEATURE(instrumentation) (M3-R3): the overlay's F1 free by default,
+    fkeyPlainF1 = hwiKbPlainBindings(HWI_OVERLAY_FKEY_VK);   // HWI-FEATURE(instrumentation): no plain binding of F1,
+    fkeyPlainF12 = hwiKbPlainBindings(0x7b);        // HWI-FEATURE(instrumentation): F12's (Formation_Parade: why not F12)
     cat_kbSetNewKey(3, 0x70);
     cat_kbSaveKeyBindings();
     cat_kbReloadKeyBindings(FALSE);
+    fkeyFreeBound = hwiKbOverlayFKeyFree();         // HWI-FEATURE(instrumentation): a binding of F1 takes it from the overlay
     newKeyKept = (cat_kbCommandsForKey(0x70, commands) >= 1);
     for (index = 0, found = 0; index < cat_kbCommandsForKey(0x70, commands); index++)
     {
@@ -2309,6 +2347,7 @@ void catKeysRunSelfTest(void)
     newKeyKept = newKeyKept && found;
     cat_kbReloadKeyBindings(TRUE);
     newKeyReset = catKeysTablesEqual(loaded, catKbBindings);
+    fkeyFreeAfter = hwiKbOverlayFKeyFree();         // HWI-FEATURE(instrumentation): free again with the defaults
     if (!newKeyKept || !newKeyReset)
     {
         CAT_KEYS_FAIL("new key kept %d reset %d", newKeyKept, newKeyReset);
@@ -2391,6 +2430,18 @@ void catKeysRunSelfTest(void)
         if ((catKeyVkFromKey(HWI_OVERLAY_KEY) != 0) || (onKey != 0))
         {
             CAT_KEYS_FAIL("the overlay key: vk %u, %d bindings on VK_APPS", (unsigned)catKeyVkFromKey(HWI_OVERLAY_KEY), (int)onKey);
+        }
+        // HWI-FEATURE(instrumentation) (M3-R3): the overlay's F key: F1 (VK 0x70), no binding of plain F1 by default (its
+        //      modified bindings stay the commands'), free before, taken by a user's binding of F1, free after the reset;
+        //      F12 is the exe's Formation_Parade
+        dbgMessagef("keystest: overlay fkey F1 scancode=%d vk=0x%x plain bindings F1=%d F12=%d free=%d bound-free=%d reset-free=%d",
+                    (int)HWI_OVERLAY_FKEY, (unsigned)catKeyVkFromKey(HWI_OVERLAY_FKEY), (int)fkeyPlainF1, (int)fkeyPlainF12,
+                    (int)fkeyFreeBefore, (int)fkeyFreeBound, (int)fkeyFreeAfter);
+        if ((catKeyVkFromKey(HWI_OVERLAY_FKEY) != HWI_OVERLAY_FKEY_VK) || (fkeyPlainF1 != 0) || (fkeyPlainF12 < 1) ||
+            !fkeyFreeBefore || fkeyFreeBound || !fkeyFreeAfter)
+        {
+            CAT_KEYS_FAIL("the overlay's F key: plain F1 %d, F12 %d, free %d / %d / %d", (int)fkeyPlainF1, (int)fkeyPlainF12,
+                          (int)fkeyFreeBefore, (int)fkeyFreeBound, (int)fkeyFreeAfter);
         }
     }
     cat_kbSaveKeyBindings();                                // the run leaves keys.cfg as the start-up's save made it

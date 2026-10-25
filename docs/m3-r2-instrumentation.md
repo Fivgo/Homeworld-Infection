@@ -100,6 +100,16 @@ do not record them. From now on the line records them.
   - The run-only switch `/overlay`: `main.c OverlaySet` calls `hwiOverlaySwitch`.
   - The **Menu (Application) key**, `SDL_SCANCODE_APPLICATION` (`HWI_OVERLAY_KEY`). `main.c HandleEvent` handles it on
     `SDL_KEYDOWN` with `repeat == 0`. The key then goes on to `keyPressDown` as before.
+  - **[M3-R3 settings-and-keys] F1**, the user's choice of an F key (2026-10-24): `main.c HandleEvent` toggles the
+    overlay on `SDL_SCANCODE_F1` (`HWI_OVERLAY_FKEY`, VK 0x70) while `KeyBindings.c hwiKbOverlayFKeyFree()` holds: no
+    Shift / Alt / Ctrl held, no binding of plain F1 in the table, the key-binding screen not waiting for a key. F1 is the
+    one F key the exe leaves free in the game view: `default_keys.cfg` binds plain F2..F12 (Tactics_*, Formation_*; F12
+    = Formation_Parade, so not F12) and F1 only with modifiers; `WindowProc 0x00561f10` special-cases only the F11 / F12
+    key-ups; `mrStartup 0x00563b50` gives every key to the bindings; no `.fib` atom has an F key as its hot key; the
+    construction manager's `cmBuildHotKey 0x00458d40` takes F1 but its table builds nothing on it. The key goes on to
+    `keyPressDown` as before. The Menu key stays as a second toggle. Keys self-test: `keystest: overlay fkey F1
+    scancode=58 vk=0x70 plain bindings F1=0 F12=1 free=1 bound-free=0 reset-free=1` (rows / bindings still 197 / 149).
+    docs/m3-r3-settings-and-keys.md (a).
 - **Why the Menu key.** No default binding of cataclysm.exe uses it, and this tree cannot bind it [audit: said "It belongs
   to no part of cataclysm.exe's key handling". The exe's `WindowProc 0x00561f10` (WM_KEYDOWN 0x100) passes VK_APPS to
   `keyPressDown` and `cat_consoleKeyPress` like every key, and its `cat_kbKeyToString 0x0049b590` returns a name for

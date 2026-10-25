@@ -633,6 +633,15 @@ bool32 NoHsAssemblySet(char *string)                // HWI-FEATURE(hyperspace-as
 // HWI-FEATURE(mesh-batching): /meshImmediate: this run only, the CPU-lit mesh renderers submit their corners one GL call
 //      at a time (GoK's immediate mode) instead of in arrays (Mesh.c meshImmediate): the exact A/B of the batched path;
 //      no options-file row (the console row meshImmediate sets it for the run too)
+// HWI-FEATURE(sharp-textures): /noFilter (the exe's switch: "disable bi-linear filtering of textures") and its alias
+//      /sharpTextures: SHARP TEXTURES (texLinearFiltering 0) for this run only, run-only as /noInterp (texreg.c
+//      trFilterSwitchSet: the saves keep the file's texLinearFiltering row) and kept over the start's effects preset
+//      (opUpdateSettings -> opEffectsHelper's HIGH sets 1: in the exe the switch was lost at every start)
+bool32 NoFilterSet(char *string)                    // HWI-FEATURE(sharp-textures)
+{                                                   // HWI-FEATURE(sharp-textures)
+    trFilterSwitchSet();                            // HWI-FEATURE(sharp-textures)
+    return TRUE;                                    // HWI-FEATURE(sharp-textures)
+}                                                   // HWI-FEATURE(sharp-textures)
 bool32 MeshImmediateSet(char *string)               // HWI-FEATURE(mesh-batching)
 {                                                   // HWI-FEATURE(mesh-batching)
     meshImmediateSwitch();                          // HWI-FEATURE(mesh-batching)
@@ -656,6 +665,29 @@ bool32 OverlaySet(char *string)                     // HWI-FEATURE(instrumentati
     hwiOverlaySwitch();                             // HWI-FEATURE(instrumentation)
     return TRUE;                                    // HWI-FEATURE(instrumentation)
 }                                                   // HWI-FEATURE(instrumentation)
+// HWI-TEST (M3-R3 settings-and-keys): scripted inputs through the engine's own paths for the captures (Instrument.c):
+//      /catOverlayKeyAt <tick>[,..] (F1 to HandleEvent), /catConsoleAt <tick>:<row>=<value>[,..] (a console row),
+//      /catFeScreen <screen>[@<tick>] (a front-end screen pushed)
+bool32 CatOverlayKeyAtSet(char *string)
+{
+    hwiOverlayKeyAtSet(string);
+    return TRUE;
+}
+bool32 CatConsoleAtSet(char *string)
+{
+    hwiConsoleAtSet(string);
+    return TRUE;
+}
+bool32 CatFeScreenSet(char *string)
+{
+    hwiFeScreenSet(string);
+    return TRUE;
+}
+bool32 CatTexListSet(char *string)                  // HWI-TEST (M3-R3): /catTexList <substring> (texreg.c trFilterCount)
+{
+    trFilterListSet(string);
+    return TRUE;
+}
 // HWI-TEST (M3-R2 instrumentation): /frameLog <file>: one line a second of frame times, universe ticks, the heap and the
 //      vertices drawn (Instrument.c; tools/frame_log_report.py)
 bool32 FrameLogSet(char *string)
@@ -1222,7 +1254,7 @@ commandoption commandOptions[] =
     entryComment("DETAIL OPTIONS"), //-----------------------------------------------------
     entryFn("/rasterSkip",          EnableRasterSkip,                   " - enable interlaced display with software renderer."),
     entryVr("/noBG",                showBackgrounds, FALSE,             " - disable display of galaxy backgrounds."),
-    entryVr("/noFilter",            texLinearFiltering,FALSE,           " - disable bi-linear filtering of textures."),
+    entryFn("/noFilter",            NoFilterSet,                        " - disable bi-linear filtering of textures."),   // HWI-FEATURE(sharp-textures): run-only (the exe's entryVr: the start's effects preset undid it and the save kept the preset's)
     entryVr("/noSmooth",            enableSmoothing, FALSE,             " - do not use polygon smoothing."),
     // CAT: Cataclysm's switch (command-line table row 0x008b8a80, help string 0x008b9694)
     entryVr("/noCPV",               enableCPV, FALSE,                   " - do not use vertex CPV."),
@@ -1456,9 +1488,14 @@ commandoption commandOptions[] =
     entryFn("/noNISInterp",             NoNISInterpSet, " - render-time interpolation of NIS cutscenes off (gameplay interpolation stays)."),   // HWI-FEATURE(motion-interp)
     entryFn("/noHsAssembly",            NoHsAssemblySet, " - this run only: a modular ship (the Kuun-Lan) hyperspaces as the exe draws it: the gate and the reveal sized from its core hull, its modules shown at their own exits."),   // HWI-FEATURE(hyperspace-assembly)
     entryFn("/meshImmediate",           MeshImmediateSet, " - this run only: the ship meshes drawn one GL call per vertex (the old immediate-mode path) instead of in vertex arrays: the A/B of the mesh batching (the console row meshImmediate toggles it)."),   // HWI-FEATURE(mesh-batching)
+    entryFn("/sharpTextures",           NoFilterSet, " - this run only: SHARP TEXTURES (the ship, derelict and asteroid textures magnified as square texels: texLinearFiltering 0, as /noFilter; the options file keeps its row)."),   // HWI-FEATURE(sharp-textures)
     entryFn("/lodBands",                LodBandsSet, " - this run only: FULL DETAIL off (the exe's levels of detail by size on screen and frame time; the options file's noLOD row keeps its value)."),   // HWI-FEATURE(full-detail)
     entryFnParam("/catLodTest",         CatLodTestSet, " <tick>[:far][:fleet] - log every object's level of detail (the exe's and the one drawn) in the main view's first frame of that universe tick (\"lodtest:\" lines); :far pulls the camera out to its farthest zoom, :fleet closes the sensors manager at tick 16 and focuses the camera on every ship."),   // HWI-TEST
-    entryFn("/overlay",                 OverlaySet, " - this run only: the on-screen overlay on (frame time, universe tick, interpolation alpha, the settings, the vertices drawn; the console row overlay and the Menu key toggle it)."),   // HWI-FEATURE(instrumentation)
+    entryFn("/overlay",                 OverlaySet, " - this run only: the on-screen overlay on (frame time, universe tick, interpolation alpha, the settings, the vertices drawn; the console row overlay, F1 and the Menu key toggle it)."),   // HWI-FEATURE(instrumentation)
+    entryFnParam("/catOverlayKeyAt",    CatOverlayKeyAtSet, " <tick>[,<tick>..] - test: F1 (the overlay's key) handed to the event handler at those universe ticks."),   // HWI-TEST
+    entryFnParam("/catConsoleAt",       CatConsoleAtSet, " <tick>:<row>=<value>[,..] - test: a developer-console row set at those universe ticks."),   // HWI-TEST
+    entryFnParam("/catTexList",         CatTexListSet, " <substring> - test: at each texture-filter pass, list the live textures whose name has it (on-disk and loaded size)."),   // HWI-TEST
+    entryFnParam("/catFeScreen",        CatFeScreenSet, " <screen>[@<tick>] - test: a front-end screen pushed once (in the front end, or in game at the tick)."),   // HWI-TEST
     entryFnParam("/catModeQuitTest",    CatModeQuitTestSet, " <W>x<H> - test: once the front end is up, the Video screen's render switch to that resolution, then one quit."),   // HWI-TEST
     entryFnParam("/frameLog",           FrameLogSet, " <file> - test: one line a second to <file>: frame-time percentiles, frames over the refresh interval, universe ticks and their cost, the main heap, the vertices drawn."),   // HWI-TEST
     entryFnParam("/catLodStats",        CatLodStatsSet, " <from>-<to>[:fleet] - per frame of those universe ticks: the render time (to the flip, glFinish), the objects and the mesh vertices and polygons drawn (\"lodstats:\" lines, the median and 99th percentile at the end)."),   // HWI-TEST
@@ -2455,7 +2492,8 @@ void HandleEvent(SDL_Event const* pEvent) {
             }
             else                         //else it's a freshly-pressed key
             {
-                if (pEvent->key.keysym.scancode == HWI_OVERLAY_KEY)    // HWI-FEATURE(instrumentation): the overlay's key
+                if ((pEvent->key.keysym.scancode == HWI_OVERLAY_KEY) ||                // HWI-FEATURE(instrumentation): the overlay's keys: Menu,
+                    ((pEvent->key.keysym.scancode == HWI_OVERLAY_FKEY) && hwiKbOverlayFKeyFree()))   // HWI-FEATURE(instrumentation): and F1 while free (M3-R3)
                 {                                                       // HWI-FEATURE(instrumentation)
                     hwiOverlayKey();                                    // HWI-FEATURE(instrumentation)
                 }                                                       // HWI-FEATURE(instrumentation)

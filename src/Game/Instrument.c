@@ -54,6 +54,10 @@
 #include "uiscale.h"
 #include "Universe.h"
 #include "utility.h"
+#include "texreg.h"                                 // HWI-FEATURE(sharp-textures): texLinearFiltering, /noFilter's state
+#include "Console.h"                                // HWI-TEST: /catConsoleAt
+#include "FEFlow.h"                                 // HWI-TEST: /catFeScreen
+#include "mainrgn.h"                                // HWI-TEST: /catFeScreen (ghMainRegion)
 
 #if HWI_ORACLE
 #include "hwi_oracle_build.h"                       // HWI-TEST: the commit for the frame log's header
@@ -75,11 +79,12 @@ typedef enum
     HWI_SRC_SWITCH,                                 // a run-only switch overrides the row
     HWI_SRC_CONSOLE,                                // a developer-console row
     HWI_SRC_OPTIONS,                                // an Options-screen control (not saved yet)
-    HWI_SRC_KEY                                     // the overlay's key
+    HWI_SRC_KEY,                                    // the overlay's key
+    HWI_SRC_PRESET                                  // HWI-FEATURE(sharp-textures): an effects preset (opEffectsHelper: HIGH / LOW, also at the start)
 }
 HwiSource;
 
-static const char *hwiSourceNames[] = { "default", "cfg", "switch", "console", "options", "key" };
+static const char *hwiSourceNames[] = { "default", "cfg", "switch", "console", "options", "key", "preset" };
 
 // one row per HWI setting. A later producer adds its setting here (a value getter, its run-only switch's test and
 //      name, whether the options file has a row of that name); the line, the change detection and the sources follow
@@ -112,6 +117,8 @@ static const char *hwiSwNameLetterbox(void) { return "/letterboxBehind"; }
 static const char *hwiSwNameLod(void)       { return "/lodBands"; }
 static const char *hwiSwNameUiScale(void)   { static char name[24]; snprintf(name, sizeof(name), "/uiScale %d", (int)uiScale); return name; }
 static const char *hwiSwNameOverlay(void)   { return "/overlay"; }
+static sdword hwiValFilter(void)    { return texLinearFiltering ? 1 : 0; }   // HWI-FEATURE(sharp-textures): 0 = SHARP TEXTURES
+static const char *hwiSwNameFilter(void)    { return "/noFilter"; }        // HWI-FEATURE(sharp-textures): or /sharpTextures
 
 static const HwiSetting hwiSettings[] =
 {
@@ -122,6 +129,7 @@ static const HwiSetting hwiSettings[] =
     { "uiScale",         hwiValUiScale,   uiScaleSwitchStands,      hwiSwNameUiScale,   TRUE  },   // HWI-FEATURE(ui-scale)
     { "overlay",         hwiValOverlay,   hwiSwOverlay,             hwiSwNameOverlay,   FALSE },   // HWI-FEATURE(instrumentation)
     { "meshImmediate",   hwiValMeshImm,   hwiSwMeshImm,             hwiSwNameMeshImm,   FALSE },   // HWI-FEATURE(mesh-batching): no options-file row
+    { "texLinearFiltering", hwiValFilter, trFilterSwitchStands,     hwiSwNameFilter,    TRUE  },   // HWI-FEATURE(sharp-textures): 1 the original look, 0 SHARP TEXTURES
 };
 #define HWI_SETTINGS    ((sdword)(sizeof(hwiSettings) / sizeof(hwiSettings[0])))
 
@@ -328,6 +336,25 @@ void hwiSettingsChanged(const char *why)                        // HWI-FEATURE(i
     }
 }
 
+// HWI-FEATURE(sharp-textures): a preset (the effects level's HIGH / LOW, opEffectsHelper; at every start too) set the row:
+//      the source "preset" when it changed the value (and no switch stands: the switch keeps its label)
+void hwiSettingsPreset(const char *row, const char *why)        // HWI-FEATURE(sharp-textures)
+{
+    sdword i;
+
+    for (i = 0; i < HWI_SETTINGS; i++)
+    {
+        if (strcmp(row, hwiSettings[i].name) == 0 && hwiSettings[i].value() != hwiLastValue[i])
+        {
+            hwiPending[i] = HWI_SRC_PRESET;
+        }
+    }
+    if (hwiStarted)
+    {
+        hwiSettingsPrint(why, FALSE);
+    }
+}
+
 const char *hwiSettingsLast(void)                               // HWI-FEATURE(instrumentation)
 {
     return hwiLine;
@@ -460,6 +487,120 @@ void hwiUniverseCallEnd(void)                                   // HWI-FEATURE(i
     hwiTicksSecond++;
 }
 
+/*=============================================================================
+    HWI-TEST (M3-R3 settings-and-keys): scripted inputs for the captures, through the engine's own paths (no OS input):
+    /catOverlayKeyAt <tick>[,<tick>..] hands F1 to main.c HandleEvent as an SDL_KEYDOWN and an SDL_KEYUP (as SDL's event
+    loop does) at the first frame of each universe tick; /catConsoleAt <tick>:<row>=<value>[,..] runs a developer-console
+    row at that tick (cat_consoleRunCommand, the console's own command path); /catFeScreen <screen>[@<tick>] pushes a
+    front-end screen once (feScreenStart): without a tick once the front end shows Main_game_screen, with one in game
+    at that tick. One "hwiscript:" line each.
+=============================================================================*/
+#define HWI_SCRIPT_MAX  32
+static udword hwiKeyTicks[HWI_SCRIPT_MAX];
+static sdword hwiKeyTickN = 0, hwiKeyTickNext = 0;
+static udword hwiConTicks[HWI_SCRIPT_MAX];
+static char hwiConRow[HWI_SCRIPT_MAX][48], hwiConValue[HWI_SCRIPT_MAX][32];
+static sdword hwiConN = 0, hwiConNext = 0;
+static char hwiFeScreenName[64] = "";
+static sdword hwiFeScreenTick = -1;
+static bool32 hwiFeScreenDone = TRUE;
+
+void hwiOverlayKeyAtSet(char *spec)                             // HWI-TEST
+{
+    char *p = spec;
+
+    while (p != NULL && *p != '\0' && hwiKeyTickN < HWI_SCRIPT_MAX)
+    {
+        hwiKeyTicks[hwiKeyTickN++] = (udword)strtoul(p, &p, 10);
+        p = (*p == ',') ? p + 1 : NULL;
+    }
+}
+
+void hwiConsoleAtSet(char *spec)                                // HWI-TEST
+{
+    char *p = spec, *colon, *equals, *end;
+    size_t n;
+
+    while (p != NULL && *p != '\0' && hwiConN < HWI_SCRIPT_MAX)
+    {
+        hwiConTicks[hwiConN] = (udword)strtoul(p, &colon, 10);
+        equals = (*colon == ':') ? strchr(colon, '=') : NULL;
+        if (equals == NULL)
+        {
+            break;
+        }
+        end = strchr(equals, ',');
+        n = (size_t)(equals - colon - 1);
+        snprintf(hwiConRow[hwiConN], sizeof(hwiConRow[0]), "%.*s", (int)n, colon + 1);
+        n = (end != NULL) ? (size_t)(end - equals - 1) : strlen(equals + 1);
+        snprintf(hwiConValue[hwiConN], sizeof(hwiConValue[0]), "%.*s", (int)n, equals + 1);
+        hwiConN++;
+        p = (end != NULL) ? end + 1 : NULL;
+    }
+}
+
+void hwiFeScreenSet(char *spec)                                 // HWI-TEST
+{
+    char *at = strchr(spec, '@');
+
+    snprintf(hwiFeScreenName, sizeof(hwiFeScreenName), "%.*s", (int)((at != NULL) ? (size_t)(at - spec) : strlen(spec)), spec);
+    hwiFeScreenTick = (at != NULL) ? (sdword)strtol(at + 1, NULL, 10) : -1;
+    hwiFeScreenDone = FALSE;
+}
+
+static void hwiScriptKey(SDL_Scancode scancode)
+{
+    SDL_Event event;
+
+    memset(&event, 0, sizeof(event));
+    event.type = SDL_KEYDOWN;
+    event.key.keysym.scancode = scancode;
+    event.key.repeat = 0;
+    HandleEvent(&event);
+    memset(&event, 0, sizeof(event));
+    event.type = SDL_KEYUP;
+    event.key.keysym.scancode = scancode;
+    HandleEvent(&event);
+}
+
+static void hwiScriptFrame(void)
+{
+    udword tick = universe.univUpdateCounter;
+    char buffer[512] = "", line[96], *reply = buffer;
+
+    if (gameIsRunning)
+    {
+        while (hwiKeyTickNext < hwiKeyTickN && tick >= hwiKeyTicks[hwiKeyTickNext])
+        {
+            hwiScriptKey(HWI_OVERLAY_FKEY);
+            printf("hwiscript: tick=%u key F1 (scancode %d) overlay=%d\n", (unsigned)tick, (int)HWI_OVERLAY_FKEY, (int)hwiOverlay);
+            hwiKeyTickNext++;
+        }
+        while (hwiConNext < hwiConN && tick >= hwiConTicks[hwiConNext])
+        {
+            snprintf(line, sizeof(line), "%s %s", hwiConRow[hwiConNext], hwiConValue[hwiConNext]);
+            cat_consoleRunCommand(hwiConRow[hwiConNext], hwiConValue[hwiConNext], &reply, line);
+            printf("hwiscript: tick=%u console '%s'\n", (unsigned)tick, line);
+            hwiConNext++;
+        }
+    }
+    if (!hwiFeScreenDone && feStackIndex >= 0 && feStack[feStackIndex].screen != NULL &&
+        ((hwiFeScreenTick < 0) ? (!gameIsRunning && strcmp(feStack[feStackIndex].screen->name, "Main_game_screen") == 0)
+                               : (gameIsRunning && (sdword)tick >= hwiFeScreenTick)))
+    {
+        hwiFeScreenDone = TRUE;
+        feScreenStart(ghMainRegion, hwiFeScreenName);
+        printf("hwiscript: tick=%u screen %s pushed\n", (unsigned)tick, hwiFeScreenName);
+    }
+    else if (!hwiFeScreenDone && hwiFeScreenTick >= 0 && gameIsRunning && (sdword)tick >= hwiFeScreenTick)
+    {
+        hwiFeScreenDone = TRUE;
+        feScreenStart(ghMainRegion, hwiFeScreenName);
+        printf("hwiscript: tick=%u screen %s pushed\n", (unsigned)tick, hwiFeScreenName);
+    }
+    fflush(stdout);
+}
+
 void hwiFrameBegin(void)                                        // HWI-FEATURE(instrumentation)
 {
     if (hwiFreq == 0)
@@ -469,6 +610,7 @@ void hwiFrameBegin(void)                                        // HWI-FEATURE(i
     hwiTop = SDL_GetPerformanceCounter();
     hwiFrameHadView = FALSE;
     hwiFrameVerts = hwiFrameObjects = 0;
+    hwiScriptFrame();                               // HWI-TEST (M3-R3): /catOverlayKeyAt, /catConsoleAt, /catFeScreen
 }
 
 static void hwiHeap(sdword *used, sdword *pools, sdword *dupe)

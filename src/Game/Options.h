@@ -118,6 +118,10 @@ void opRestoreSavedSettings(void);                                         // HW
 void opSmoothMotionAtomsAdd(struct tagfibfileheader *header);              // HWI-FEATURE(motion-interp): added to the screens
 void opUiScale(char *name, struct tagfeatom *atom);                       // HWI-FEATURE(ui-scale): the UI SCALE radio buttons
 void opUiScaleAtomsAdd(struct tagfibfileheader *header);                   // HWI-FEATURE(ui-scale): added to the Video screens
+void opSharpTextures(char *name, struct tagfeatom *atom);                 // HWI-FEATURE(sharp-textures): the SHARP TEXTURES checkbox
+void opSharpTexturesAtomsAdd(struct tagfibfileheader *header);             // HWI-FEATURE(sharp-textures): added to the Video screens
+void opSharpTexturesShow(void);                                            // HWI-FEATURE(sharp-textures): the box shows the flag
+void opEffectsHelper(void);                                                // HWI-FEATURE(sharp-textures): declared for /catToggleTest (the presets)
 
 extern udword opPauseOrders;
 extern udword opShipRecoil;

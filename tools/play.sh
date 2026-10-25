@@ -48,6 +48,22 @@
 #   console row         meshImmediate 0|1   (the developer console's; as in cataclysm.exe no key opens that console)
 #   the settings line   "meshImmediate=0 (default)" (1 (switch) with -- /meshImmediate)
 #
+# Sharp textures (M3-R3, HWI-FEATURE(sharp-textures)): the ship, derelict and asteroid textures magnified as square texels
+# (GL_NEAREST) instead of the original game's smooth (linear) look. OFF by default: the default is the original look.
+# The effect sprites and the trails' billboard sprites stay smooth either way, as in cataclysm.exe (its particle drawing always filters
+# them) [audit: said "the ship, asteroid and effect textures"].
+#   Options -> Video    SHARP TEXTURES (the front end's Video screen, right column under UI SCALE; the Escape menu's
+#                       Video screen, top middle): ticked = sharp. The textures change at once (a live preview); Accept
+#                       saves it, Cancel puts it back. It is cataclysm.exe's own SURFACE FILTERING box (Video -> CUSTOM
+#                       EFFECTS) the other way round: ticking it makes the EFFECTS level CUSTOM, as that box does,
+#                       because the HIGH effects preset means filtering on and is re-applied at every start
+#   Cataclysm.cfg row   texLinearFiltering 0|1   (1 = the original look; 0 = sharp. NOTE: by hand it only holds with
+#                       effectsLevel 2 (CUSTOM): with effectsLevel 0 (HIGH) the game turns it back to 1 at every start,
+#                       exactly as cataclysm.exe does; the log then says "texLinearFiltering=1 (preset) [effects preset]")
+#   switch              -- /sharpTextures  or  -- /noFilter   (this run only, over any effects level; the file keeps its row)
+#   console row         texLinearFiltering 0|1   (the developer console's; as in cataclysm.exe no key opens that console)
+#   the log             "texfilter: filter=sharp|linear textures=N globjects=M wrong=0" at every change (wrong must be 0)
+#
 # Team colours (M3-R1 team-colours-warp): the colours picked in the front end's colour picker (Cataclysm.cfg rows
 # PlayerBaseColor / PlayerStripeColor / ColorsPicked) stay on the Kuun-Lan and the fleet through every level change
 # (the M2 builds lost them when the opening cutscene's level gave way to Mission01). No setting. To have the play log
@@ -83,11 +99,14 @@
 # The settings line (M3-R2, HWI-FEATURE(instrumentation)): the log's "hwi-settings:" line names every recreation setting
 # with its value and where it came from, once at start-up and again whenever one changes:
 #   hwi-settings: objInterpolate=1 (cfg) nisInterpolate=1 (cfg) letterboxBehind=0 (cfg) noLOD=1 (cfg)
-#                 uiScale=0->200% (cfg, auto) overlay=0 (default) meshImmediate=0 (default)
+#                 uiScale=0->200% (cfg, auto) overlay=0 (default) meshImmediate=0 (default) texLinearFiltering=1 (cfg)
 #                 fit=fullscreen-desktop (...) 3840x2160 switches=none [start]
 #   the source: default (Cataclysm.cfg has no row), cfg (its row, or the row Options -> Accept saved), switch (a -- switch
 #   overrides the row for this run), console (a developer-console row), options (an Options control, not yet accepted),
-#   key (the overlay key); [why]: start, options accept, console <row>, key overlay, window (a mode switch), frame.
+#   key (the overlay key), preset (M3-R3: the EFFECTS preset HIGH / LOW set it, also at every start); [why]: start,
+#   options accept, console <row>, key overlay, effects preset, window (a mode switch), frame.
+#   A console row under a switch keeps the label "switch" (the switch still keeps the options file's row) except for
+#   the overlay and meshImmediate, which have no row: there the console row ends the switch.
 #   So "objInterpolate=0 (cfg)" means Smooth motion is OFF because the options file says so.
 # The overlay (M3-R2, HWI-FEATURE(instrumentation)): OFF by default; a small panel in the top-left corner, drawn at the
 # UI scale over everything: FRAME (the last frame's period in ms, the last second's median and 99th percentile; at
@@ -95,8 +114,13 @@
 # how many ran), ALPHA (the motion-interpolation blend the frame was drawn with, -1 = none), the flags (OBJ / NIS
 # interpolation, LBB letterboxBehind, NOLOD = FULL DETAIL) and the switches, VERTS / OBJECTS (the vertices and objects
 # of the levels of detail drawn in the main view), FULL DETAIL and the UI scale.
+#   key                 F1 (M3-R3, the user's choice of an F key): toggles it. F1 is the one F key cataclysm.exe leaves
+#                       free in the game view (its default_keys.cfg binds F2..F12 to the tactics and formations, F12 =
+#                       Formation_Parade, and F1 only with Shift / Ctrl). F1 yields: with Shift, Ctrl or Alt held it is
+#                       the game's (Shift+F1 Leech_Spy, Ctrl+F1 the sensors' areas visited, Shift+Ctrl+F1 the LOD
+#                       drawing), and if you bind plain F1 to a command on the KEY BINDINGS screen it is that command's
 #   key                 the keyboard's Menu key (the "application" key, usually right of the right Windows key): toggles
-#                       it; no default key binding of cataclysm.exe uses it and this engine's keys.cfg cannot bind it
+#                       it too; no default key binding of cataclysm.exe uses it and this engine's keys.cfg cannot bind it
 #                       [audit: said "cataclysm.exe has no use for that key"]
 #   console row         overlay 0|1
 #   switch              -- /overlay   (on for this run; nothing is saved: the overlay has no Cataclysm.cfg row)

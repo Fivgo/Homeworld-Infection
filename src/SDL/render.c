@@ -5270,6 +5270,7 @@ DEFINE_TASK(rndRenderTask)
         primErrorMessagePrint();
         catLodStatsFrameBegin();                            // HWI-TEST (M3-R1 full-detail): /catLodStats
         hwiFrameBegin();                                    // HWI-FEATURE(instrumentation): the render task's top
+        trFilterSync();                                     // HWI-FEATURE(sharp-textures): a changed texLinearFiltering reaches the live textures; CAT-FIX: the exe's Cancel (opRestoreSavedSettings 0x004d7f80, opEffectsToVideoCancel 0x004d8990) restores the flag without trFilterEnable, so its live textures kept the cancelled filter while the flag and the saved row said the other
 
         speechEventUpdate();
         subTitlesUpdate();

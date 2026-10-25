@@ -7085,7 +7085,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "new first argument: the LOD's per-vertex mesh-state slots (cat_rndRenderObjectList passes the ship's +0x80 level slots, other callers 0); meshObjectRenderR gets the slots and a running pre-order slot index (its return value); no colour-scheme argument (2 parameters)",
-  "note": "M2-R4 univupdate audit: found modified (was IDENTICAL, edited by the univupdate port without a review); ported as cat_meshRenderState + the slot index in meshRender/meshObjectRenderR"
+  "note": "M2-R4 univupdate audit: found modified (was IDENTICAL, edited by the univupdate port without a review); ported as cat_meshRenderState + the slot index in meshRender/meshObjectRenderR | [review: M3-R3 settings-and-keys] relied on (SHARP TEXTURES): the PACO UV fixup follows texLinearFiltering at each draw (meshObjectFixupPacoUV with the flag; the exe's on = texLinearFiltering): as the tree, so a live change of the filter also moves the UV half-texel inset"
  },
  "0x004b4370": {
   "class": "MODIFIED",
@@ -8049,7 +8049,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "no auto-LOD read-back of the detail threshold; the device switch also compares the HardwareTransformLighting word; the Win32 RGL / 3dfx device paths",
-  "note": "[review: M2-R6 frontend] ported: the auto-LOD read-back dropped; the device code stays GoK's SDL path (decision 28), catOpHardwareTL kept",
+  "note": "[review: M2-R6 frontend] ported: the auto-LOD read-back dropped; the device code stays GoK's SDL path (decision 28), catOpHardwareTL kept | [review: M3-R3 settings-and-keys] edited (HWI-FEATURE(sharp-textures): trFilterSync before hwiSettingsAccepted: SHARP TEXTURES reaches every live texture at Accept); compared: as the tree",
   "sample": "port-R6-frontend"
  },
  "0x004d7e30": {
@@ -8189,7 +8189,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "also saves the dynamic CPV, lens flare, repair droid and LOD detail words",
-  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported | [review: M3-R3 settings-and-keys] edited (HWI-FEATURE(sharp-textures): trFilterSwitchStateSave next to savetexLinearFiltering); compared: as the tree",
   "sample": "port-R6-frontend"
  },
  "0x004d8d00": {
@@ -8357,14 +8357,14 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the high preset also sets the dynamic CPV, lens flares, repair droids and all four effect kinds; the low one clears the first three with the hit and fire effects; GL_POLYGON_STIPPLE on the rgl.dll device",
-  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported (the RGL stipple is decision 28)",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported (the RGL stipple is decision 28) | [review: M3-R3 settings-and-keys] relied on and edited (HWI-FEATURE(sharp-textures): trFilterPresetApplied, hwiSettingsPreset, opSharpTexturesShow): compared again: case 0 (HIGH) sets texLinearFiltering 1, case 1 (LOW) 0, every call ends with trFilterEnable; opUpdateSettings 0x004d71d0 calls it at every start and opEffects at every opening of the Video screens, so the options file's texLinearFiltering row (and /noFilter, an entryVr) holds only under effectsLevel 2 (CUSTOM): as the tree",
   "sample": "port-R6-frontend"
  },
  "0x004d9cc0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "keeps the OP_Effects radio's region (0x00a4cc60) for the effects slider's custom switch",
-  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported",
+  "note": "[review: M2-R6 frontend] reclassified from IDENTICAL; ported | [review: M3-R3 settings-and-keys] edited (HWI-FEATURE(sharp-textures): a click on HIGH / LOW / CUSTOM ends /noFilter's run-only state); compared: the first call shows the radio and calls opEffectsHelper (opening the screen re-applies the preset): as the tree",
   "sample": "port-R6-frontend"
  },
  "0x004d9d60": {
@@ -14402,7 +14402,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "HW1's key table gone: a key child for each of the 256 key ids, key down and up; the big font; no formation font",
-  "note": "[review: M2-R6 mainrgn-popup] ported",
+  "note": "[review: M2-R6 mainrgn-popup] ported | [review: M3-R3 settings-and-keys] relied on (the overlay's F key): compared (decompile 0x00563b50): a key child for each of the 256 key ids to mrRegionProcess, so every key goes to the bindings; no fixed F-key table (the tree's mrKeyFunction is HW1's dead table): as the tree",
   "sample": "port-R6-mainrgn-popup"
  },
  "0x00563c20": {
@@ -17302,7 +17302,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "edited IDENTICAL: virtual-key range test, the row test, a range key that builds nothing is taken; ported (CAT-FIX: the 0x91-row walk past the list's end)",
-  "note": "[review: M2-R6 managers] edited IDENTICAL: virtual-key range test, the row test, a range key that builds nothing is taken; ported (CAT-FIX: the 0x91-row walk past the list's end)",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: virtual-key range test, the row test, a range key that builds nothing is taken; ported (CAT-FIX: the 0x91-row walk past the list's end) | [review: M3-R3 settings-and-keys] relied on (the overlay's F key): its detour takes F1..F12 (0x70..0x7b) while the construction screen is up; the table (.data 0x00753ad0) builds on F4 / F5 / F7 / F11 / F12 only, so F1 builds nothing there: as the tree",
   "sample": "port-R6-managers"
  },
  "0x00458e70": {
@@ -18920,7 +18920,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "adds calls cat_kbKeyToString, feScreenStart; adds strings \"In_Game_Invalid_Key\"; \"Invalid_Key\"; calls with a changed parameter count: kbSetNewKey 1->2; globals +gameIsRunning; loops 3 -> 1",
-  "note": "[review: M2-R6 startup-keys] ported: the 150 commands, the captured key bound through cat_kbSetNewKey, the exe's invalid-key screen (KeyBindings.c)"
+  "note": "[review: M2-R6 startup-keys] ported: the 150 commands, the captured key bound through cat_kbSetNewKey, the exe's invalid-key screen (KeyBindings.c) | [review: M3-R3 settings-and-keys] relied on (the overlay's F key yields while the binding screen waits for a key: kbCommandBeingSet 0x00a44440): as the tree"
  },
  "0x0049be80": {
   "class": "MODIFIED",
@@ -19136,7 +19136,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "adds calls cat_consoleKeyPress, cat_glideIsLoaded, cat_glideShutdown, cat_overlayIconsDiscardGL, cat_rndFogLayerTextureUnload, cat_rndLensFlareTextureUnload (+4); drops calls to mouseLClick (absent from Cataclysm); adds strings \"couldn't initialize default rendering...\"; globals +MAIN_WindowDepth, MAIN_WindowHeight, MAIN_WindowWidth, glToSelect (+5) -dbgFatalErrorString, keyScanCode, mrDrawTactical, utyStartedBits; library calls +binkPause; switch cases 28 -> 48",
-  "note": "[review: M2-R6 startup-keys] compared with HandleEvent: every key down also to cat_consoleKeyPress (ported), Escape ends there (ported: GoK fell through), no caps-lock sync of the tactical overlay (ported); the Bink stop, the Shift+Ctrl+F11/F12 renderer resets and the rGL/Glide cases are GoK's SDL handling"
+  "note": "[review: M2-R6 startup-keys] compared with HandleEvent: every key down also to cat_consoleKeyPress (ported), Escape ends there (ported: GoK fell through), no caps-lock sync of the tactical overlay (ported); the Bink stop, the Shift+Ctrl+F11/F12 renderer resets and the rGL/Glide cases are GoK's SDL handling | [review: M3-R3 settings-and-keys] relied on (main.c HandleEvent edited, HWI-FEATURE(instrumentation): F1 toggles the overlay while no binding takes it): compared (decompile 0x00561f10): WM_KEYDOWN gives every key to keyPressDown and cat_consoleKeyPress; WM_KEYUP special-cases VK_ESCAPE, VK_F11 (no keyPressUp) and VK_F12 (the Shift+Ctrl renderer reload); no F1 handling"
  },
  "0x005631a0": {
   "class": "IDENTICAL",
@@ -19185,7 +19185,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "adds strings \"Cataclysm.cfg\"; \"SOFTWARE\\Sierra On-Line\\Cataclysm\"; \"deviceCRC\" (+3); fields -data, dataPtr, name, setVarCB (+1); library calls -strlen",
-  "note": "[review: M2-R6 startup-keys] ported: Cataclysm.cfg, \"%s    %d\" (0x008c2e7c); the registry rows N/A"
+  "note": "[review: M2-R6 startup-keys] ported: Cataclysm.cfg, \"%s    %d\" (0x008c2e7c); the registry rows N/A | [review: M3-R3 settings-and-keys] edited (HWI-FEATURE(sharp-textures): trFilterFileValues: /noFilter stays out of the file); compared: as the tree"
  },
  "0x005a8650": {
   "class": "IDENTICAL",
@@ -19203,13 +19203,13 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R6 startup-keys] compared: identical"
+  "note": "[review: M2-R6 startup-keys] compared: identical | [review: M3-R3 settings-and-keys] edited (HWI-FEATURE(sharp-textures): a click ends /noFilter's run-only state); compared again (disassembly 0x005a86d0): the first call shows the flag, saves the custom effects (0x004d8c40) and clears 0x00c30a60; a click sets texLinearFiltering from the box and shows VO_BitmapFilter; trFilterEnable; 0x00c30a60 = 1: identical. The SURFACE FILTERING box of Options_New (front_end.fib atom 9) / Custom_options (in_game_esc_menu.fib atom 7), reached by Video -> CUSTOM EFFECTS"
  },
  "0x005a8740": {
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "[review: M2-R6 startup-keys] compared: identical"
+  "note": "[review: M2-R6 startup-keys] compared: identical | [review: M3-R3 settings-and-keys] edited (HWI-FEATURE(sharp-textures): a click ends /noFilter's run-only state); compared again (decompile 0x005a8740): identical"
  },
  "0x005a8790": {
   "class": "IDENTICAL",
@@ -24811,5 +24811,23 @@
   "confidence": "high",
   "change": "",
   "note": "[review: M3-R2 hyperspace-assembly audit] relied on (the tree's hsFinish, which the port edited with an HWI-TEST hsfinish line, is inlined here in the exe): compared (decompile 0x0048fb60): the POPUP / COLLAPSE rate 2.5, the SLICING thresholds and scalars, HSF_WAIT, the gravwell and spHoldHyperspaceWindow (0x00a6ad7c) holds, and the inlined finish (clipt -2.0, cliptDelta 0, FINISHED after COLLAPSE_INTO else INACTIVE, the effect deleted): as the tree"
+ },
+ "0x005888e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M3-R3 settings-and-keys] compared (decompile 0x005888e0) with HW1 Win32/texreg.c:3370: the registry walk (allocated, not pending, not shared), per texture its GL objects (the handle, each palette's, or the no-palette pool's handles), min and mag both GL_LINEAR (bEnable) or GL_NEAREST with no mip-map filter, the rGL fast-bind bracket (0x8000 / 0x8001), the current texture cleared (0x008bb6a4 = -1), texLinearFiltering = bEnable: identical. The tree (GoK) sets the mip-mapped min filters of its creation (GL_*_MIPMAP_LINEAR; decision 28, GoK's GL backend); CAT: GoK's third branch set the min filter twice and left the mag filter linear (now GL_NEAREST as the exe); HWI-FEATURE(sharp-textures) trFilterCount (the pass counted and every GL object's filters read back: the \"texfilter:\" line)"
+ },
+ "0x005866a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M3-R3 settings-and-keys] relied on (the base of SHARP TEXTURES): compared (disassembly 0x005866a0): GL_REPEAT on s and t, then min and mag GL_LINEAR when texLinearFiltering (0x008bb69c) else GL_NEAREST, no mip maps, no anisotropy, the 8:1 aspect clamp: as HW1 Win32/texreg.c:1443-1453. The tree (GoK, decision 28) adds glGenerateMipmap, the *_MIPMAP_LINEAR min filters and 8x anisotropy: the magnification (the close-up look) is the exe's, the minification is GoK's; not ported (it would move every frame of every capture and dump): a look decision of the user's (docs/m3-r3-settings-and-keys.md)"
+ },
+ "0x00586500": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M3-R3 settings-and-keys] relied on: compared (decompile 0x00586500): as trRGBTextureCreate (GL_REPEAT, min / mag GL_LINEAR or GL_NEAREST by texLinearFiltering, no mip maps, no anisotropy), then the paletted upload or trCreateUnpalettedTexture; the tree (GoK) adds the mip maps and the anisotropy as there"
  }
 }

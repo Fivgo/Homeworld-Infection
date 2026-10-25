@@ -1287,6 +1287,7 @@ void opOptionsAcceptHelper(char* name, featom* atom, char* linkName)
     //      made (the reflow of a resolution change: uiscale.c uiScaleApply); in game, as the exe allows no render switch
     //      there (the return below), it is saved and takes effect at the next start
     uiScaleUpdate();                                // HWI-FEATURE(ui-scale)
+    trFilterSync();                                 // HWI-FEATURE(sharp-textures): SHARP TEXTURES on every live texture now
     hwiSettingsAccepted();                          // HWI-FEATURE(instrumentation): the settings line, the rows the save writes
 
     opOptionsEndHelper(linkName);
@@ -1438,6 +1439,8 @@ void opRestoreSavedCustomEffectsSettings(void)
     catLodDetail = catOpSaveLodDetail;
     opEffectsVal = opSaveEffectsVal;
     texLinearFiltering = savetexLinearFiltering;
+    trFilterSwitchStateRestore();                   // HWI-FEATURE(sharp-textures): and /noFilter's run-only state (the
+                                                    //      live textures follow at the next frame: render.c trFilterSync)
     showBackgrounds = saveshowBackgrounds;
     smInstantTransition = savesmInstantTransition;
     enableSmoothing = saveenableSmoothing;
@@ -1728,6 +1731,7 @@ void opOptionsSaveCustomEffectsSettings(void)
     catOpSaveLodDetail = catLodDetail;
     opSaveEffectsVal = opEffectsVal;
     savetexLinearFiltering = texLinearFiltering;
+    trFilterSwitchStateSave();                      // HWI-FEATURE(sharp-textures): and /noFilter's run-only state
     saveshowBackgrounds = showBackgrounds;
     savesmInstantTransition = smInstantTransition;
     saveenableSmoothing = enableSmoothing;
@@ -2396,7 +2400,13 @@ void opEffectsHelper(void)
         opEffectsVal = 2;   //in case someone edits their config file
     }
 
+    if (opEffectsVal != 2)                          // HWI-FEATURE(sharp-textures): a preset set texLinearFiltering (HIGH 1,
+    {                                               // HWI-FEATURE(sharp-textures):  LOW 0): a standing /noFilter keeps the
+        trFilterPresetApplied();                    // HWI-FEATURE(sharp-textures):  run sharp (the file keeps the preset's);
+        hwiSettingsPreset("texLinearFiltering", "effects preset");   // HWI-FEATURE(sharp-textures): the line's source
+    }                                               // HWI-FEATURE(sharp-textures)
     trFilterEnable(texLinearFiltering);
+    opSharpTexturesShow();                          // HWI-FEATURE(sharp-textures): the SHARP TEXTURES box follows the preset
 }
 
 // CAT: no opUpdateVideoSettings: opUpdateSettings 0x004d71d0 inlines the effects, the LOD frame rate, the gamma and
@@ -2422,6 +2432,10 @@ void opEffects(char* name, featom* atom)
         {
             catOpEffectsRegion = NULL;
         }
+        else                                                // HWI-FEATURE(sharp-textures): a click on HIGH / LOW / CUSTOM is
+        {                                                   // HWI-FEATURE(sharp-textures):  the user's choice: it ends a
+            trFilterSwitchEnd();                            // HWI-FEATURE(sharp-textures):  /noFilter's run-only state
+        }                                                   // HWI-FEATURE(sharp-textures)
         opEffectsVal = (ubyte)(memsize)atom->pData;         // CAT: the exe reads pData's low byte
     }
 
@@ -2709,6 +2723,137 @@ void opUiScaleAtomsAdd(fibfileheader *header)                           // HWI-F
         }                                                               // HWI-FEATURE(ui-scale)
     }                                                                   // HWI-FEATURE(ui-scale)
 }                                                                       // HWI-FEATURE(ui-scale)
+
+/*-----------------------------------------------------------------------------
+    HWI-FEATURE(sharp-textures) (M3-R3 settings-and-keys): the SHARP TEXTURES checkbox of Options -> Video (the front
+    end's Video_Options and the in-game Video screen), added in code as the Smooth motion checkbox is (the .fib files
+    are game data): a copy of the screen's own FULL DETAIL checkbox (OP_NoLOD) and of its label. Ticked = sharp =
+    texLinearFiltering 0 (the options file's row, the exe's own: the SURFACE FILTERING box of CUSTOM EFFECTS,
+    utyFilterToggle 0x005a86d0, is the same flag the other way round). A click is the user's choice: it ends a /noFilter
+    switch's run-only state and, when the HIGH or LOW effects preset no longer describes the flag, makes the effects
+    level CUSTOM as the exe's SURFACE FILTERING box does (utyFilterToggle -> opEffectsToVideoAccept 0x004d88a0:
+    effectsLevel 2), or the next start's preset (opUpdateSettings 0x004d71d0 -> opEffectsHelper 0x004d9b90) would
+    undo it. The live textures follow at the next frame (render.c trFilterSync) and at Accept (opOptionsAcceptHelper),
+    which saves the row with the others; Cancel restores it. Default: unticked (the original look, the exe's linear
+    filtering).
+----------------------------------------------------------------------------*/
+static char opSharpTexturesName[] = "OP_SharpTextures";                 // HWI-FEATURE(sharp-textures)
+static char opSharpTexturesText[] = "SHARP TEXTURES";                   // HWI-FEATURE(sharp-textures)
+
+static bool32 opAtomOnStack(char *name)                                 // HWI-FEATURE(sharp-textures): a screen on the stack has it
+{                                                                       // HWI-FEATURE(sharp-textures)
+    sdword iScreen;                                                     // HWI-FEATURE(sharp-textures)
+                                                                        // HWI-FEATURE(sharp-textures)
+    for (iScreen = feStackIndex; iScreen >= 0; iScreen--)               // HWI-FEATURE(sharp-textures)
+    {                                                                   // HWI-FEATURE(sharp-textures)
+        featom *atom = feAtomFindInScreen(feStack[iScreen].screen, name);   // HWI-FEATURE(sharp-textures)
+        if (atom != NULL && atom->region != NULL)                       // HWI-FEATURE(sharp-textures)
+        {                                                               // HWI-FEATURE(sharp-textures)
+            return TRUE;                                                // HWI-FEATURE(sharp-textures)
+        }                                                               // HWI-FEATURE(sharp-textures)
+    }                                                                   // HWI-FEATURE(sharp-textures)
+    return FALSE;                                                       // HWI-FEATURE(sharp-textures)
+}                                                                       // HWI-FEATURE(sharp-textures)
+
+void opSharpTexturesShow(void)                                          // HWI-FEATURE(sharp-textures): the box shows the flag
+{                                                                       // HWI-FEATURE(sharp-textures)
+    if (opAtomOnStack(opSharpTexturesName))                             // HWI-FEATURE(sharp-textures)
+    {                                                                   // HWI-FEATURE(sharp-textures)
+        feToggleButtonSet(opSharpTexturesName, texLinearFiltering ? FALSE : TRUE);   // HWI-FEATURE(sharp-textures)
+    }                                                                   // HWI-FEATURE(sharp-textures)
+}                                                                       // HWI-FEATURE(sharp-textures)
+
+void opSharpTextures(char* name, featom* atom)                          // HWI-FEATURE(sharp-textures)
+{                                                                       // HWI-FEATURE(sharp-textures)
+    if (FEFIRSTCALL(atom))                                              // HWI-FEATURE(sharp-textures)
+    {                                                                   // HWI-FEATURE(sharp-textures)
+        feToggleButtonSet(name, texLinearFiltering ? FALSE : TRUE);     // HWI-FEATURE(sharp-textures)
+    }                                                                   // HWI-FEATURE(sharp-textures)
+    else if (!FELASTCALL(atom))                                         // HWI-FEATURE(sharp-textures): a click only (the copy keeps
+    {                                                                   // HWI-FEATURE(sharp-textures):  OP_NoLOD's FAF_CallOnDelete)
+        trFilterSwitchEnd();                                            // HWI-FEATURE(sharp-textures): the user's choice
+        texLinearFiltering = FECHECKED(atom) ? FALSE : TRUE;            // HWI-FEATURE(sharp-textures)
+        if ((opEffectsVal == 0 && !texLinearFiltering) || (opEffectsVal == 1 && texLinearFiltering))   // HWI-FEATURE(sharp-textures)
+        {                                                               // HWI-FEATURE(sharp-textures): the preset no longer says it:
+            opEffectsVal = 2;                                           // HWI-FEATURE(sharp-textures):  CUSTOM, as SURFACE FILTERING's
+            if (opAtomOnStack("OP_Effects"))                            // HWI-FEATURE(sharp-textures)
+            {                                                           // HWI-FEATURE(sharp-textures)
+                feRadioButtonSet("OP_Effects", opEffectsVal);           // HWI-FEATURE(sharp-textures)
+            }                                                           // HWI-FEATURE(sharp-textures)
+        }                                                               // HWI-FEATURE(sharp-textures)
+    }                                                                   // HWI-FEATURE(sharp-textures)
+}                                                                       // HWI-FEATURE(sharp-textures)
+
+static featom *opSharpTexturesBlocks[OP_SMOOTH_BLOCKS];                 // HWI-FEATURE(sharp-textures): kept, never freed
+static sdword opSharpTexturesNumBlocks = 0;                             // HWI-FEATURE(sharp-textures)
+
+// the checkbox and its label behind the screen's atoms, at (dx, dy) from the OP_NoLOD checkbox and its "FULL DETAIL"
+// label in the file's 640x480 coordinates (the loaded positions carry the same centring, so the offsets move them)
+static void opSharpTexturesAddToScreen(fescreen *screen, sword boxDx, sword boxDy, sword labelDx, sword labelDy)   // HWI-FEATURE(sharp-textures)
+{                                                                       // HWI-FEATURE(sharp-textures)
+    featom *atoms, *box = NULL, *label = NULL;                          // HWI-FEATURE(sharp-textures)
+    sdword i, n = screen->nAtoms;                                       // HWI-FEATURE(sharp-textures)
+                                                                        // HWI-FEATURE(sharp-textures)
+    for (i = 0; i < n; i++)                                             // HWI-FEATURE(sharp-textures)
+    {                                                                   // HWI-FEATURE(sharp-textures)
+        if (screen->atoms[i].name != NULL && strcmp(screen->atoms[i].name, opSharpTexturesName) == 0)   // HWI-FEATURE(sharp-textures)
+        {                                                               // HWI-FEATURE(sharp-textures)
+            return;                                                     // HWI-FEATURE(sharp-textures): already there
+        }                                                               // HWI-FEATURE(sharp-textures)
+        if (screen->atoms[i].type == FA_CheckBox && screen->atoms[i].name != NULL &&   // HWI-FEATURE(sharp-textures)
+            strcmp(screen->atoms[i].name, "OP_NoLOD") == 0)             // HWI-FEATURE(sharp-textures)
+        {                                                               // HWI-FEATURE(sharp-textures)
+            box = &screen->atoms[i];                                    // HWI-FEATURE(sharp-textures)
+        }                                                               // HWI-FEATURE(sharp-textures)
+        if (screen->atoms[i].type == FA_StaticText && screen->atoms[i].pData != NULL &&   // HWI-FEATURE(sharp-textures)
+            strcmp((char *)screen->atoms[i].pData, "FULL DETAIL") == 0) // HWI-FEATURE(sharp-textures)
+        {                                                               // HWI-FEATURE(sharp-textures)
+            label = &screen->atoms[i];                                  // HWI-FEATURE(sharp-textures)
+        }                                                               // HWI-FEATURE(sharp-textures)
+    }                                                                   // HWI-FEATURE(sharp-textures)
+    if (box == NULL || label == NULL || opSharpTexturesNumBlocks >= OP_SMOOTH_BLOCKS ||   // HWI-FEATURE(sharp-textures)
+        (atoms = malloc((n + 2) * sizeof(featom))) == NULL)             // HWI-FEATURE(sharp-textures): not the game's pools
+    {                                                                   // HWI-FEATURE(sharp-textures)
+        return;                                                         // HWI-FEATURE(sharp-textures)
+    }                                                                   // HWI-FEATURE(sharp-textures)
+    memcpy(atoms, screen->atoms, n * sizeof(featom));                   // HWI-FEATURE(sharp-textures)
+    atoms[n] = *box;                                                    // HWI-FEATURE(sharp-textures)
+    atoms[n].name = opSharpTexturesName;                                // HWI-FEATURE(sharp-textures)
+    atoms[n].status = 0;                                                // HWI-FEATURE(sharp-textures)
+    atoms[n].region = NULL;                                             // HWI-FEATURE(sharp-textures)
+    atoms[n].x += boxDx; atoms[n].loadedX += boxDx;                     // HWI-FEATURE(sharp-textures)
+    atoms[n].y += boxDy; atoms[n].loadedY += boxDy;                     // HWI-FEATURE(sharp-textures)
+    atoms[n + 1] = *label;                                              // HWI-FEATURE(sharp-textures)
+    atoms[n + 1].pData = (ubyte *)opSharpTexturesText;                  // HWI-FEATURE(sharp-textures)
+    atoms[n + 1].region = NULL;                                         // HWI-FEATURE(sharp-textures)
+    atoms[n + 1].x += labelDx; atoms[n + 1].loadedX += labelDx;         // HWI-FEATURE(sharp-textures)
+    atoms[n + 1].y += labelDy; atoms[n + 1].loadedY += labelDy;         // HWI-FEATURE(sharp-textures)
+    atoms[n + 1].width += 24; atoms[n + 1].loadedWidth += 24;           // HWI-FEATURE(sharp-textures): the longer text
+    screen->atoms = atoms;                                              // HWI-FEATURE(sharp-textures)
+    screen->nAtoms = (uword)(n + 2);                                    // HWI-FEATURE(sharp-textures)
+    opSharpTexturesBlocks[opSharpTexturesNumBlocks++] = atoms;          // HWI-FEATURE(sharp-textures)
+}                                                                       // HWI-FEATURE(sharp-textures)
+
+// called for every loaded .fib (FEFlow.c feScreensImageLoad), after the UI SCALE buttons: the front end's Video_Options
+// (box at 500,364, label at 500,346: the right-hand column under UI SCALE, above the ACCEPT button) and the in-game Video
+// screen (box at 256,81, label at 250,64: between VIDEO SETTINGS and UI SCALE, above IN GAME BRIGHTNESS's slider)
+void opSharpTexturesAtomsAdd(fibfileheader *header)                     // HWI-FEATURE(sharp-textures)
+{                                                                       // HWI-FEATURE(sharp-textures)
+    fescreen *screen = (fescreen *)((ubyte *)header + FIB_ScreensOffset);   // HWI-FEATURE(sharp-textures)
+    sdword i;                                                           // HWI-FEATURE(sharp-textures)
+                                                                        // HWI-FEATURE(sharp-textures)
+    for (i = 0; i < header->nScreens; i++, screen++)                    // HWI-FEATURE(sharp-textures)
+    {                                                                   // HWI-FEATURE(sharp-textures)
+        if (strcmp(screen->name, "Video_Options") == 0)                 // HWI-FEATURE(sharp-textures): OP_NoLOD 244,303; FULL DETAIL 232,293
+        {                                                               // HWI-FEATURE(sharp-textures)
+            opSharpTexturesAddToScreen(screen, 500 - 244, 364 - 303, 500 - 232, 346 - 293);   // HWI-FEATURE(sharp-textures)
+        }                                                               // HWI-FEATURE(sharp-textures)
+        else if (strcmp(screen->name, "Video") == 0)                    // HWI-FEATURE(sharp-textures): OP_NoLOD 294,227; FULL DETAIL 294,215
+        {                                                               // HWI-FEATURE(sharp-textures)
+            opSharpTexturesAddToScreen(screen, 256 - 294, 81 - 227, 250 - 294, 64 - 215);   // HWI-FEATURE(sharp-textures)
+        }                                                               // HWI-FEATURE(sharp-textures)
+    }                                                                   // HWI-FEATURE(sharp-textures)
+}                                                                       // HWI-FEATURE(sharp-textures)
 
 void opDetailThreshold(char* name, featom* atom)
 {
@@ -4048,6 +4193,7 @@ void cat_opSetAllDefaults(sdword lowEnd)
         catOpTextureDetail = 50;
         cat_trTextureMemorySet(50);
         catLodDetail = 0;
+        trFilterSwitchEnd();                        // HWI-FEATURE(sharp-textures): a preset is the user's choice
         texLinearFiltering = 1;
         trFilterEnable(1);
         showBackgrounds = 1;
@@ -4092,6 +4238,7 @@ void cat_opSetAllDefaults(sdword lowEnd)
         catOpTextureDetail = 0;
         cat_trTextureMemorySet(0);
         catLodDetail = 2;
+        trFilterSwitchEnd();                        // HWI-FEATURE(sharp-textures): a preset is the user's choice
         texLinearFiltering = 0;
         trFilterEnable(0);
         showBackgrounds = 0;

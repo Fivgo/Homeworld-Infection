@@ -615,6 +615,7 @@ fecallback utyCallbacks[] =
     {opAutodockFuelValue,       "OP_Autodock_Fuel_Value"},
     {opNoLOD,                   "OP_NoLOD"},
     {opSmoothMotion,            "OP_SmoothMotion"},     // HWI-FEATURE(motion-interp): the Smooth motion checkbox (Options.c)
+    {opSharpTextures,           "OP_SharpTextures"},    // HWI-FEATURE(sharp-textures): the SHARP TEXTURES checkbox (Options.c)
     {opUiScale,                 "OP_UiScale"},          // HWI-FEATURE(ui-scale): the UI SCALE radio buttons (Options.c)
     {kbListWindowCB,            "OP_KeyBindingsList"},
     // CAT: no OP_KeyBindingsPoolList row (the exe has none: HW1's key-pool list window, kbPoolListWindowCB)
@@ -980,6 +981,7 @@ void utyOptionsFileWrite(void)
     rndLetterboxFileValues(TRUE);                   // HWI-FEATURE(letterbox-setting): /letterboxBehind stays out of the file
     catLodFileValues(TRUE);                         // HWI-FEATURE(full-detail): /lodBands stays out of the file
     uiScaleFileValues(TRUE);                        // HWI-FEATURE(ui-scale): /uiScale stays out; screenWidth / Height = the request
+    trFilterFileValues(TRUE);                       // HWI-FEATURE(sharp-textures): /noFilter, /sharpTextures stay out of the file
     for (index = 0; utyOptionsList[index].name != NULL; index++)
     {
         if (utyOptionsList[index].setVarCB == scriptSetUbyteCB) {
@@ -1007,6 +1009,7 @@ void utyOptionsFileWrite(void)
     rndLetterboxFileValues(FALSE);                  // HWI-FEATURE(letterbox-setting): the run's value back
     catLodFileValues(FALSE);                        // HWI-FEATURE(full-detail): the run's value back
     uiScaleFileValues(FALSE);                       // HWI-FEATURE(ui-scale): the run's value and the logical size back
+    trFilterFileValues(FALSE);                      // HWI-FEATURE(sharp-textures): the run's value back
     
     fileClose(cfgFile);
 }
@@ -1111,6 +1114,7 @@ void utyFilterToggle(char *name, featom *atom)
     }
     else
     {
+        trFilterSwitchEnd();                        // HWI-FEATURE(sharp-textures): a click is the user's choice, saved as it is
         if (FECHECKED(atom))
             texLinearFiltering = TRUE;
         else
@@ -1130,6 +1134,7 @@ void utyFilterBitmapToggle(char *name, featom *atom)
     }
     else
     {
+        trFilterSwitchEnd();                        // HWI-FEATURE(sharp-textures): a click is the user's choice, saved as it is
         if (FECHECKED(atom))
             texLinearFiltering = TRUE;
         else

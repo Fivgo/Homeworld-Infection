@@ -45,6 +45,7 @@
 #include "Options.h"        // HWI-FEATURE(full-detail): the noLOD row (opNoLODVal)
 #include "uiscale.h"         // HWI-FEATURE(ui-scale): the uiScale row
 #include "Instrument.h"      // HWI-FEATURE(instrumentation): the overlay row; the settings line
+#include "texreg.h"           // HWI-FEATURE(sharp-textures): the texLinearFiltering row
 
 #define CAT_CON_PROMPT              "]"                 // 0x0075501c
 #define CAT_CON_CURSOR              "|"                 // 0x00755044
@@ -111,7 +112,7 @@ static void cat_consoleExperienceShips(sdword type, void *data, void *value, cha
 // HWI-FEATURE(motion-interp): rows added by this tree have ids from here on; cat_consoleConfigFileSave leaves them out,
 //      so the console's config file keeps the exe's format (the options file keeps their values)
 #define CAT_CON_HWI_ROW_ID      0x1000                  // HWI-FEATURE(motion-interp)
-#define CAT_CON_HWI_ROWS        7                       // HWI-FEATURE(motion-interp): objInterpolate, nisInterpolate; HWI-FEATURE(letterbox-setting): letterboxBehind; HWI-FEATURE(full-detail): noLOD; HWI-FEATURE(ui-scale): uiScale; HWI-FEATURE(instrumentation): overlay; HWI-FEATURE(mesh-batching): meshImmediate (all settable)
+#define CAT_CON_HWI_ROWS        8                       // HWI-FEATURE(motion-interp): objInterpolate, nisInterpolate; HWI-FEATURE(letterbox-setting): letterboxBehind; HWI-FEATURE(full-detail): noLOD; HWI-FEATURE(ui-scale): uiScale; HWI-FEATURE(instrumentation): overlay; HWI-FEATURE(mesh-batching): meshImmediate; HWI-FEATURE(sharp-textures): texLinearFiltering (all settable)
 
 CatConsoleCommand catConsoleCommandTable[] =       // 0x008783c8
 {
@@ -151,6 +152,7 @@ CatConsoleCommand catConsoleCommandTable[] =       // 0x008783c8
     { 5, CAT_CON_HWI_ROW_ID + 4, &uiScale, "uiScale", NULL },              // HWI-FEATURE(ui-scale): the UI scale setting (not in the exe's table)
     { 5, CAT_CON_HWI_ROW_ID + 5, &hwiOverlay, "overlay", NULL },           // HWI-FEATURE(instrumentation): the overlay, 0 | 1 (not in the exe's table)
     { 5, CAT_CON_HWI_ROW_ID + 6, &meshImmediate, "meshImmediate", NULL },  // HWI-FEATURE(mesh-batching): 1 = the immediate-mode mesh path (not in the exe's table)
+    { 5, CAT_CON_HWI_ROW_ID + 7, &texLinearFiltering, "texLinearFiltering", NULL },   // HWI-FEATURE(sharp-textures): 0 = SHARP TEXTURES, 1 the original look (not in the exe's table; the live textures follow at the next frame)
     { -1, -1, NULL, NULL, NULL }
 };
 

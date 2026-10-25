@@ -78,6 +78,9 @@
 #include "utility.h"
 #include "Instrument.h"     // HWI-FEATURE(instrumentation): the toggle self-test's overlay and settings-line checks
 #include "Key.h"            // HWI-FEATURE(instrumentation): the overlay key has no virtual-key code
+#include "KeyBindings.h"    // HWI-FEATURE(instrumentation) (M3-R3): the overlay's F key is free
+#include "texreg.h"         // HWI-FEATURE(sharp-textures) (M3-R3): the toggle self-test's SHARP TEXTURES checks
+#include "Mesh.h"           // HWI-TEST (M3-R3): the switch-label checks (meshImmediate)
 
 /*=============================================================================
     Data:
@@ -134,7 +137,7 @@ static bool32 mtNisStarted = FALSE;
 #define MT_SCENE_MAX        16
 #define MT_SCENE_START      mtSceneStartTick    // pick the objects, focus, the zenith camera (default tick 16)
 #define MT_SCENE_ORDER      (mtSceneStartTick + 32) // the orders (the camera has settled)
-static char mtSceneKind[16] = "recon";              // recon: focus A (at rest); follow: focus B (the mover)
+static char mtSceneKind[16] = "recon";              // recon: focus A (at rest); follow: focus B (the mover); mothership: M (M3-R3)
 static real32 mtSceneDistance = 0.0f;               // the camera's distance (0: the focus zoom ccFocus picks)
 static real32 mtSceneMove = 500.0f;                 // B's move straight ahead (units)
 static sdword mtSceneTicks = 160;                   // the dump's window after the orders (ticks)
@@ -998,7 +1001,8 @@ static void mtSceneStart(void)
     mtSceneAdd(mtSceneNearest(&universe.ShipList, &pos, OBJ_ShipType, sWorker, player, TRUE), "W", "harvest");
     mtSceneAdd((SpaceObj *)mothership, "M", "mothership");
 
-    mtFocus((Ship *)(strcmp(mtSceneKind, "follow") == 0 ? b : a));
+    mtFocus((strcmp(mtSceneKind, "mothership") == 0) ? mothership :     // HWI-TEST (M3-R3 settings-and-keys): kind mothership:
+            (Ship *)(strcmp(mtSceneKind, "follow") == 0 ? b : a));       //      the Kuun-Lan close up (the textures' captures)
     entry = currentCameraStackEntry(&universe.mainCameraCommand);
     entry->remembercam.declination = DEG_TO_RAD(-85.0f);     // the eye straight above the focus (+z): the zenith
     universe.mainCameraCommand.actualcamera.declination = DEG_TO_RAD(-85.0f);
@@ -2084,25 +2088,71 @@ static bool32 mtToggleLineHas(const char *a, const char *b)
     return strstr(line, a) != NULL && (b == NULL || strstr(line, b) != NULL);
 }
 
-static void mtToggleKey(void)
+static void mtToggleKey(SDL_Scancode scancode)      // M3-R3: the Menu key or F1
 {
     SDL_Event event;
 
     memset(&event, 0, sizeof(event));
     event.type = SDL_KEYDOWN;
-    event.key.keysym.scancode = HWI_OVERLAY_KEY;
+    event.key.keysym.scancode = scancode;
     event.key.repeat = 0;
     HandleEvent(&event);
     memset(&event, 0, sizeof(event));
     event.type = SDL_KEYUP;
-    event.key.keysym.scancode = HWI_OVERLAY_KEY;
+    event.key.keysym.scancode = scancode;
     HandleEvent(&event);
+}
+
+// HWI-TEST (M3-R3 settings-and-keys): the settings line's switch-label rule for every row with a console row and a
+//      switch (Instrument.c hwiSettingsPrint / hwiSettingsConsole): a console row changes the run's value; a run-only
+//      switch over an options-file row (/noInterp, /noNISInterp, /letterboxBehind, /lodBands, /noFilter) keeps standing,
+//      so the saves keep the file's row and the line labels the row "switch"; a switch with no options-file row
+//      (/meshImmediate; /overlay above) ends on the console row ("console"). Each row is flipped and put back
+typedef struct { char *row; sdword *value; bool32 (*stands)(void); bool32 hasRow; } MtSwitchRow;
+static bool32 mtMeshImmStands(void) { return meshImmediateSwitched; }
+static void mtToggleSwitchLabels(void)
+{
+    MtSwitchRow rows[] =
+    {
+        { "objInterpolate",     (sdword *)&objInterpolate,  miSwitchObjStands,        TRUE  },
+        { "nisInterpolate",     (sdword *)&nisInterpolate,  miSwitchNisStands,        TRUE  },
+        { "letterboxBehind",    (sdword *)&letterboxBehind, rndLetterboxSwitchStands, TRUE  },
+        { "noLOD",              (sdword *)&opNoLODVal,      catLodSwitchStands,       TRUE  },
+        { "texLinearFiltering", &texLinearFiltering,        trFilterSwitchStands,     TRUE  },
+        { "meshImmediate",      (sdword *)&meshImmediate,   mtMeshImmStands,          FALSE },
+    };
+    char buffer[512] = "", *reply = buffer, value[8], expect[96], why[64];
+    sdword i, before;
+    bool32 standing, ok;
+
+    for (i = 0; i < (sdword)(sizeof(rows) / sizeof(rows[0])); i++)
+    {
+        before = *rows[i].value ? 1 : 0;
+        standing = rows[i].stands();
+        snprintf(value, sizeof(value), "%d", (int)!before);
+        cat_consoleRunCommand(rows[i].row, value, &reply, rows[i].row);
+        snprintf(expect, sizeof(expect), "%s=%d (%s)", rows[i].row, (int)!before,
+                 (rows[i].hasRow && standing) ? "switch" : "console");
+        snprintf(why, sizeof(why), "[console %s]", rows[i].row);
+        ok = mtToggleLineHas(expect, why) && (rows[i].stands() == (rows[i].hasRow && standing));
+        dbgMessagef("toggletest: switch label %s switch=%d -> expect '%s' line=%s", rows[i].row, (int)standing, expect,
+                    ok ? "yes" : "no");
+        mtToggleCheck(ok, "settings line: the switch-label rule (a row-backed switch stands over a console row)");
+        snprintf(value, sizeof(value), "%d", (int)before);
+        cat_consoleRunCommand(rows[i].row, value, &reply, rows[i].row);
+        if (!rows[i].hasRow && standing)
+        {
+            meshImmediateSwitch();                  // the run-only switch's state back (its console row ended it)
+        }
+        mtToggleCheck((*rows[i].value ? 1 : 0) == before && rows[i].stands() == standing, "settings line: the row and its switch back");
+    }
+    hwiSettingsChanged("toggletest switch labels");
 }
 
 static void mtToggleOverlay(bool32 switched)
 {
     sdword lines = hwiSettingsLines(), start = hwiOverlay;
-    char buffer[512] = "", *reply = buffer;
+    char buffer[512] = "", *reply = buffer, expect[64];
     bool32 ok;
 
     dbgMessagef("toggletest: overlay start=%d switch=%d (expected %d) line=%s", (int)hwiOverlay, (int)switched,
@@ -2115,21 +2165,35 @@ static void mtToggleOverlay(bool32 switched)
     dbgMessagef("toggletest: overlay console 1 -> %d lines=%d line=%s", (int)hwiOverlay, (int)(hwiSettingsLines() - lines),
                 ok ? "yes" : "no");
     mtToggleCheck(ok, "overlay: the console row's change prints the settings line with source console");
-    mtToggleKey();
+    mtToggleKey(HWI_OVERLAY_KEY);
     ok = (hwiOverlay == 0) && mtToggleLineHas("overlay=0 (key)", "[key overlay]");
     dbgMessagef("toggletest: overlay key (scancode %d, vk %u) -> %d line=%s", (int)HWI_OVERLAY_KEY,
                 (unsigned)catKeyVkFromKey(HWI_OVERLAY_KEY), (int)hwiOverlay, ok ? "yes" : "no");
     mtToggleCheck(ok, "overlay: the Menu key toggles it off and prints the line with source key");
     mtToggleCheck(catKeyVkFromKey(HWI_OVERLAY_KEY) == 0, "overlay: the key has no virtual-key code (keys.cfg cannot bind it)");
-    mtToggleKey();
+    mtToggleKey(HWI_OVERLAY_KEY);
     mtToggleCheck(hwiOverlay == 1, "overlay: the key toggles it on again");
+    // HWI-FEATURE(instrumentation) (M3-R3): F1, the overlay's F key, through the same event path
+    mtToggleKey(HWI_OVERLAY_FKEY);
+    ok = (hwiOverlay == 0) && mtToggleLineHas("overlay=0 (key)", "[key overlay]");
+    dbgMessagef("toggletest: overlay fkey F1 (scancode %d, vk 0x%x, free %d) -> %d line=%s", (int)HWI_OVERLAY_FKEY,
+                (unsigned)catKeyVkFromKey(HWI_OVERLAY_FKEY), (int)hwiKbOverlayFKeyFree(), (int)hwiOverlay, ok ? "yes" : "no");
+    mtToggleCheck(ok, "overlay: F1 toggles it off and prints the line with source key");
+    mtToggleKey(HWI_OVERLAY_FKEY);
+    mtToggleCheck(hwiOverlay == 1, "overlay: F1 toggles it on again");
     mtToggleConsole("overlay", "0", (bool32 *)&hwiOverlay, FALSE);
-    // another setting's console row: the line with source console
+    // another setting's console row: the line with source console, or switch while that row's run-only switch stands
+    //      (M3-R3: the rule of Instrument.c hwiSettingsPrint, as /noInterp's objInterpolate=1 (switch): a console row
+    //      changes the run's value and the switch keeps the options file's row, so the switch labels the row)
     cat_consoleRunCommand("letterboxBehind", letterboxBehind ? "0" : "1", &reply, "letterboxBehind");
-    ok = mtToggleLineHas(letterboxBehind ? "letterboxBehind=1 (console)" : "letterboxBehind=0 (console)", "[console letterboxBehind]");
-    dbgMessagef("toggletest: settings line console letterboxBehind -> %d line=%s", (int)letterboxBehind, ok ? "yes" : "no");
-    mtToggleCheck(ok, "settings line: a console row's change prints it with source console");
+    snprintf(expect, sizeof(expect), "letterboxBehind=%d (%s)", (int)(letterboxBehind ? 1 : 0),
+             rndLetterboxSwitchStands() ? "switch" : "console");
+    ok = mtToggleLineHas(expect, "[console letterboxBehind]");
+    dbgMessagef("toggletest: settings line console letterboxBehind -> %d expect '%s' line=%s", (int)letterboxBehind, expect,
+                ok ? "yes" : "no");
+    mtToggleCheck(ok, "settings line: a console row's change prints it with source console (switch while its switch stands)");
     cat_consoleRunCommand("letterboxBehind", letterboxBehind ? "0" : "1", &reply, "letterboxBehind");
+    mtToggleSwitchLabels();                         // HWI-TEST (M3-R3): the rule for every switch-backed row
     if (start)
     {
         hwiOverlaySwitch();                         // /overlay's state back
@@ -2221,6 +2285,183 @@ static void mtToggleFullDetail(sdword start, bool32 switched)  // start / switch
                   "fulldetail: the start-up's state and file row back");
 }
 
+// HWI-FEATURE(sharp-textures) (M3-R3 settings-and-keys): an options-file row's count and last value (-1: none)
+static sdword mtCfgRow(const char *row, sdword *count)
+{
+    char path[PATH_MAX], line[256], name[64];
+    FILE *f;
+    sdword value = -1;
+    int v;
+
+    *count = 0;
+    snprintf(path, sizeof(path), "%s", filePathPrepend("Cataclysm.cfg", FF_UserSettingsPath));
+    f = fopen(path, "r");
+    if (f != NULL)
+    {
+        while (fgets(line, sizeof(line), f) != NULL)
+        {
+            if (sscanf(line, "%63s %d", name, &v) == 2 && strcmp(name, row) == 0)
+            {
+                (*count)++;
+                value = v;
+            }
+        }
+        fclose(f);
+    }
+    return value;
+}
+
+// HWI-FEATURE(sharp-textures) (M3-R3 settings-and-keys): the SHARP TEXTURES option's surfaces: the start-up's save wrote
+//      the file's texLinearFiltering (a /noFilter switch: the file's own value), the Video_Options checkbox (copied from
+//      OP_NoLOD) and its label, the box shows the flag; a click to sharp sets texLinearFiltering 0 and, under the HIGH
+//      preset, the effects level CUSTOM (the OP_Effects radio shows it); the frame's poll labels it "options"; Accept's
+//      steps (trFilterSync, hwiSettingsAccepted, the save) re-filter every live texture (the "texfilter:" counts, none
+//      read back on the old filter), label it "cfg" and write texLinearFiltering 0 and effectsLevel 2, read back; the
+//      start's preset keeps a CUSTOM level's row; Cancel after a click restores it; the HIGH preset sets 1 ("preset");
+//      the switch is run-only (the save keeps the file's row) and outlives the HIGH preset; the in-game Video screen has
+//      the control; the start state back. "toggletest: sharp ..." lines; the failures count into the done line
+static void mtToggleSharp(sdword start, bool32 switched, sdword startEffects)
+{
+    sdword file, count, value, effects, effectsCount, passes, i;
+    fescreen *screen;
+    featom *box = NULL, *label = NULL, *custom = NULL;
+    char what[160];
+
+    trFilterFileValues(TRUE);                       // the value the options file keeps
+    file = texLinearFiltering ? 1 : 0;
+    trFilterFileValues(FALSE);
+    value = mtCfgRow("texLinearFiltering", &count);
+    dbgMessagef("toggletest: sharp start texLinearFiltering=%d switch=%d file=%d saved row=%d rows=%d effectsLevel=%d line='%s'",
+                (int)start, (int)switched, (int)file, (int)value, (int)count, (int)startEffects, hwiSettingsLast());
+    mtToggleCheck(count == 1 && value == file, "sharp: the saves wrote the options file's texLinearFiltering");
+    mtToggleCheck(switched ? (start == 0) : (start == file), "sharp: the original look by default (the switch: sharp over the file's row)");
+    trFilterSwitchEnd();                            // the round trip on the option itself
+    texLinearFiltering = file;
+    opEffectsVal = 0;                               // the HIGH effects preset (the harness file's effectsLevel 0)
+    trFilterSync();
+    // the checkbox on Video_Options
+    feScreenStart(ghMainRegion, "Video_Options");
+    screen = feScreenFind("Video_Options");
+    for (i = 0; screen != NULL && i < screen->nAtoms; i++)
+    {
+        if (screen->atoms[i].name != NULL && strcmp(screen->atoms[i].name, "OP_SharpTextures") == 0)
+        {
+            box = &screen->atoms[i];
+        }
+        if (screen->atoms[i].type == FA_StaticText && screen->atoms[i].pData != NULL &&
+            strcmp((char *)screen->atoms[i].pData, "SHARP TEXTURES") == 0)
+        {
+            label = &screen->atoms[i];
+        }
+        if (screen->atoms[i].type == FA_RadioButton && screen->atoms[i].name != NULL &&
+            strcmp(screen->atoms[i].name, "OP_Effects") == 0 && (sdword)(smemsize)screen->atoms[i].pData == 2)
+        {
+            custom = &screen->atoms[i];
+        }
+    }
+    dbgMessagef("toggletest: sharp checkbox=%s label=%s at %d,%d (label %d,%d) shown=%d", (box != NULL) ? "yes" : "no",
+                (label != NULL) ? "yes" : "no", (box != NULL) ? (int)box->x : -1, (box != NULL) ? (int)box->y : -1,
+                (label != NULL) ? (int)label->x : -1, (label != NULL) ? (int)label->y : -1,
+                (box != NULL) ? (int)(FECHECKED(box) ? 1 : 0) : -1);
+    mtToggleCheck(box != NULL && label != NULL && box->type == FA_CheckBox && box->region != NULL && label->region != NULL,
+                  "sharp: the SHARP TEXTURES checkbox and its label on Video_Options");
+    if (box != NULL && custom != NULL)
+    {
+        mtToggleCheck((FECHECKED(box) ? 1 : 0) == (texLinearFiltering ? 0 : 1), "sharp: the checkbox shows the flag (unticked: the original look)");
+        passes = trFilterPasses();
+        feToggleButtonSet("OP_SharpTextures", TRUE);    // the FE's checkbox: the state toggled, then the callback
+        opSharpTextures("OP_SharpTextures", box);
+        hwiSettingsChanged("toggletest click");        // the frame's poll (rndRenderTask: hwiFrameEnd)
+        dbgMessagef("toggletest: sharp click to 1: texLinearFiltering=%d effectsLevel=%d custom=%d line='%s'",
+                    (int)texLinearFiltering, (int)opEffectsVal, (int)(FECHECKED(custom) ? 1 : 0), hwiSettingsLast());
+        mtToggleCheck(texLinearFiltering == 0 && opEffectsVal == 2 && FECHECKED(custom), "sharp: the click sets 0 and the effects level CUSTOM");
+        mtToggleCheck(mtToggleLineHas("texLinearFiltering=0 (options)", NULL), "sharp: the click's line has source options");
+        // Accept's steps after the screen (opOptionsAcceptHelper: trFilterSync, hwiSettingsAccepted; the save)
+        feCurrentScreenDelete();
+        trFilterSync();
+        hwiSettingsAccepted();
+        opOptionsSaveSettings();
+        value = mtCfgRow("texLinearFiltering", &count);
+        effects = mtCfgRow("effectsLevel", &effectsCount);
+        dbgMessagef("toggletest: sharp accept passes=%d textures=%d globjects=%d wrong=%d row=%d rows=%d effectsLevel=%d line='%s'",
+                    (int)(trFilterPasses() - passes), (int)trFilterLastTextures(), (int)trFilterLastObjects(),
+                    (int)trFilterLastWrong(), (int)value, (int)count, (int)effects, hwiSettingsLast());
+        mtToggleCheck(trFilterPasses() == passes + 1 && trFilterLastWrong() == 0, "sharp: Accept re-filters every live texture (none left on the old filter)");
+        mtToggleCheck(count == 1 && value == 0 && effectsCount == 1 && effects == 2, "sharp: Accept writes texLinearFiltering 0 and effectsLevel 2");
+        mtToggleCheck(mtToggleLineHas("texLinearFiltering=0 (cfg)", "[options accept]"), "sharp: Accept's line has source cfg");
+        texLinearFiltering = 1;                         // scrambled: the file must set them back
+        opEffectsVal = 0;
+        catUtyOptionsFileReadBack();
+        dbgMessagef("toggletest: sharp read back texLinearFiltering=%d effectsLevel=%d", (int)texLinearFiltering, (int)opEffectsVal);
+        mtToggleCheck(texLinearFiltering == 0 && opEffectsVal == 2, "sharp: the rows read back");
+        opEffectsHelper();                              // the next start's preset (opUpdateSettings): CUSTOM keeps the row
+        mtToggleCheck(texLinearFiltering == 0, "sharp: the start's effects preset keeps a CUSTOM level's row");
+        // Cancel after a click: the flag back (the live textures follow at the next frame)
+        opOptionsSaveSettings();
+        feScreenStart(ghMainRegion, "Video_Options");
+        feToggleButtonSet("OP_SharpTextures", FALSE);
+        opSharpTextures("OP_SharpTextures", box);
+        opRestoreSavedSettings();                       // Cancel: the restore first,
+        feCurrentScreenDelete();                        // then the screen's deletion (its FAS_OnDelete calls)
+        trFilterSync();
+        dbgMessagef("toggletest: sharp cancel texLinearFiltering=%d effectsLevel=%d", (int)texLinearFiltering, (int)opEffectsVal);
+        mtToggleCheck(texLinearFiltering == 0 && opEffectsVal == 2, "sharp: Cancel after a click restores it");
+        // the HIGH preset: the original look
+        opEffectsVal = 0;
+        opEffectsHelper();
+        dbgMessagef("toggletest: sharp high preset texLinearFiltering=%d line='%s'", (int)texLinearFiltering, hwiSettingsLast());
+        mtToggleCheck(texLinearFiltering == 1 && mtToggleLineHas("texLinearFiltering=1 (preset)", "[effects preset]"),
+                      "sharp: the HIGH effects preset sets the original look (source preset)");
+        // the switch, run-only: the save keeps the file's 1, and the HIGH preset keeps the run sharp
+        trFilterSwitchSet();
+        opEffectsHelper();
+        opOptionsSaveSettings();
+        value = mtCfgRow("texLinearFiltering", &count);
+        dbgMessagef("toggletest: sharp switch run-only texLinearFiltering=%d row=%d rows=%d", (int)texLinearFiltering, (int)value,
+                    (int)count);
+        mtToggleCheck(texLinearFiltering == 0 && count == 1 && value == 1, "sharp: the switch is run-only and outlives the HIGH preset");
+        trFilterSwitchEnd();
+    }
+    else
+    {
+        feCurrentScreenDelete();
+    }
+    // the in-game Video screen has the control too (not pushed: no game runs)
+    box = label = NULL;
+    screen = feScreenFind("Video");
+    for (i = 0; screen != NULL && i < screen->nAtoms; i++)
+    {
+        if (screen->atoms[i].name != NULL && strcmp(screen->atoms[i].name, "OP_SharpTextures") == 0)
+        {
+            box = &screen->atoms[i];
+        }
+        if (screen->atoms[i].type == FA_StaticText && screen->atoms[i].pData != NULL &&
+            strcmp((char *)screen->atoms[i].pData, "SHARP TEXTURES") == 0)
+        {
+            label = &screen->atoms[i];
+        }
+    }
+    dbgMessagef("toggletest: sharp in-game Video screen checkbox=%s label=%s", (box != NULL) ? "yes" : "no",
+                (label != NULL) ? "yes" : "no");
+    mtToggleCheck(box != NULL && label != NULL && box->type == FA_CheckBox, "sharp: the in-game Video screen's checkbox");
+    // the start state back
+    texLinearFiltering = file;
+    opEffectsVal = startEffects;
+    if (switched)
+    {
+        trFilterSwitchSet();
+    }
+    opOptionsSaveSettings();
+    trFilterSync();
+    value = mtCfgRow("texLinearFiltering", &count);
+    effects = mtCfgRow("effectsLevel", &effectsCount);
+    snprintf(what, sizeof(what), "sharp: the start-up's state and file rows back");
+    dbgMessagef("toggletest: sharp end texLinearFiltering=%d switch=%d row=%d effectsLevel=%d", (int)texLinearFiltering,
+                (int)trFilterSwitchStands(), (int)value, (int)effects);
+    mtToggleCheck(texLinearFiltering == start && trFilterSwitchStands() == switched && count == 1 && value == file &&
+                  effects == startEffects, what);
+}
+
 void catToggleRunSelfTest(void)
 {
     bool32 startObj = objInterpolate, startNis = nisInterpolate;
@@ -2231,6 +2472,9 @@ void catToggleRunSelfTest(void)
     sdword startNoLOD = opNoLODVal;                 // HWI-FEATURE(full-detail)
     bool32 startLodSwitch = catLodSwitchStands();   // HWI-FEATURE(full-detail)
     bool32 startOverlay = hwiOverlay ? TRUE : FALSE;  // HWI-FEATURE(instrumentation): 1 only under /overlay
+    sdword startFilter = texLinearFiltering ? 1 : 0;  // HWI-FEATURE(sharp-textures): 0 only under /noFilter
+    bool32 startFilterSwitch = trFilterSwitchStands();  // HWI-FEATURE(sharp-textures)
+    sdword startEffects = opEffectsVal;             // HWI-FEATURE(sharp-textures)
 
     miOptionsFileValues(TRUE);                      // M2-R7 r6-leftovers: the values the options file keeps
     fileObj = objInterpolate;
@@ -2297,6 +2541,7 @@ void catToggleRunSelfTest(void)
     mtToggleLetterbox(startLetterbox);              // HWI-FEATURE(letterbox-setting)
     mtToggleFullDetail(startNoLOD, startLodSwitch); // HWI-FEATURE(full-detail)
     mtToggleOverlay(startOverlay);                  // HWI-FEATURE(instrumentation)
+    mtToggleSharp(startFilter, startFilterSwitch, startEffects);   // HWI-FEATURE(sharp-textures)
     dbgMessagef("toggletest: done start=%d/%d fails=%d result=%s", (int)startObj, (int)startNis, (int)mtToggleFails,
                 (mtToggleFails == 0) ? "PASS" : "FAIL");
 }

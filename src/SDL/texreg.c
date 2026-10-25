@@ -8,6 +8,8 @@
 
 #include "glinc.h"
 #include <stdio.h>
+#include <ctype.h>
+#include <string.h>
 #include <stdlib.h>
 #include "Debug.h"
 #include "Memory.h"
@@ -3570,6 +3572,8 @@ void trMakeCurrent(trhandle handle)
     }
 }
 
+static void trFilterCount(sdword bEnable);               // HWI-FEATURE(sharp-textures)
+
 /*-----------------------------------------------------------------------------
     Name        : trFilterEnable
     Description : Enables/disables texture filtering
@@ -3639,7 +3643,7 @@ void trFilterEnable(sdword bEnable)
                     else
                     {                                       //or point sampling
                         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
-                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);   // CAT: the mag filter (trFilterEnable 0x005888e0 sets min and mag on every branch; GoK set the min filter twice here, so a sharp switch left these textures magnified linearly)
                     }
                 }
             }
@@ -3648,6 +3652,204 @@ void trFilterEnable(sdword bEnable)
     texLinearFiltering = bEnable;                           //set new filter mode flag
 
     trClearCurrent();
+    trFilterCount(bEnable);                                 // HWI-FEATURE(sharp-textures): the pass counted and read back, the "texfilter:" line
+}
+
+/*-----------------------------------------------------------------------------
+    HWI-FEATURE(sharp-textures) (M3-R3 settings-and-keys, docs/m3-r3-settings-and-keys.md): SHARP TEXTURES.
+    The base is the exe's: texLinearFiltering (0x008bb69c; the options-file row "texLinearFiltering") picks the filter at
+    each texture's creation (trRGBTextureCreate 0x005866a0, trPalettedTextureCreate 0x00586500, trNoPalTexImage) and
+    trFilterEnable 0x005888e0 re-filters the registry's live textures; the exe's own control is SURFACE FILTERING on
+    Video -> CUSTOM EFFECTS (utyFilterToggle 0x005a86d0), its effects presets set it (opEffectsHelper 0x004d9b90:
+    HIGH 1, LOW 0, also at every start, opUpdateSettings 0x004d71d0), and /noFilter sets it to 0. The exe's filters are
+    GL_LINEAR / GL_NEAREST for both min and mag with no mip maps; this tree keeps GoK's creation (mip-mapped min filter,
+    8x anisotropy) for both settings, so the original look up close (magnification) is the exe's GL_LINEAR and the
+    sharp look is GL_NEAREST magnification. On top (HWI): /noFilter (and /sharpTextures) is run-only, as /noInterp
+    (the saves keep the file's row) and outlives the start's effects preset; every change of the flag reaches the
+    live textures (trFilterSync, every frame: the exe's Cancel restored the flag without a pass); every pass is
+    counted and read back ("texfilter:" line).
+----------------------------------------------------------------------------*/
+static sdword trFilterApplied = TRUE;               // HWI-FEATURE(sharp-textures): the filter the live textures carry (creation's default)
+static bool32 trFilterSwitched = FALSE;             // HWI-FEATURE(sharp-textures): /noFilter or /sharpTextures stands
+static sdword trFilterFileValue = TRUE;             // HWI-FEATURE(sharp-textures): the options file's value while it stands
+static sdword trFilterRunValue = TRUE;              // HWI-FEATURE(sharp-textures)
+static bool32 trFilterSavedSwitched = FALSE;        // HWI-FEATURE(sharp-textures): the Cancel copy of the switch state
+static sdword trFilterTexturesN = 0, trFilterObjectsN = 0, trFilterWrongN = 0, trFilterPassesN = 0;   // HWI-FEATURE(sharp-textures)
+static sdword trFilterScaledN = 0;                  // HWI-FEATURE(sharp-textures): live textures loaded smaller than on disk
+static char trFilterListMatch[64] = "";             // HWI-TEST: /catTexList <substring>: list those textures at each pass
+
+void trFilterListSet(char *match)                                   // HWI-TEST
+{
+    snprintf(trFilterListMatch, sizeof(trFilterListMatch), "%s", match);
+}
+
+static bool32 trFilterListMatches(const char *name)                 // HWI-TEST: the substring, case ignored
+{
+    size_t i, j, n = strlen(trFilterListMatch);
+
+    for (i = 0; name[i] != '\0'; i++)
+    {
+        for (j = 0; j < n && name[i + j] != '\0' && toupper((unsigned char)name[i + j]) == toupper((unsigned char)trFilterListMatch[j]); j++)
+        {
+        }
+        if (j == n)
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+// HWI-TEST: one GL object's filters read back against the pass's
+static void trFilterObjectCheck(udword glhandle, sdword bEnable) // HWI-TEST
+{
+    GLint minFilter = 0, magFilter = 0;
+
+    glBindTexture(GL_TEXTURE_2D, glhandle);
+    glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, &minFilter);
+    glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, &magFilter);
+    trFilterObjectsN++;
+    if ((minFilter != (bEnable ? GL_LINEAR_MIPMAP_LINEAR : GL_NEAREST_MIPMAP_LINEAR)) ||
+        (magFilter != (bEnable ? GL_LINEAR : GL_NEAREST)))
+    {
+        trFilterWrongN++;
+    }
+}
+
+// HWI-FEATURE(sharp-textures): after a pass of trFilterEnable: the textures it changed (the same walk: allocated, not
+//      pending, not shared), their GL objects, how many read back on another filter (HWI-TEST: must be 0)
+static void trFilterCount(sdword bEnable)                   // HWI-FEATURE(sharp-textures)
+{
+    sdword index, j;
+    texreg *reg;
+    nopalreg *np;
+
+    trFilterTexturesN = trFilterObjectsN = trFilterWrongN = trFilterScaledN = 0;
+    for (index = 0; index < TR_RegistrySize; index++)
+    {
+        if (trAllocated(index) && (!trPending(index)) && (trTextureRegistry[index].sharedFrom == TR_NotShared))
+        {
+            reg = &trTextureRegistry[index];
+            trFilterTexturesN++;
+            if (reg->scaledWidth < reg->diskWidth || reg->scaledHeight < reg->diskHeight)
+            {                                       // the TEXTURE MEMORY fitting shrank it (trCramRAMComputeAndScale)
+                trFilterScaledN++;
+            }
+            if (trFilterListMatch[0] != '\0' && reg->fileName != NULL && trFilterListMatches(reg->fileName))
+            {                                       // HWI-TEST: /catTexList
+                printf("texlist: %s disk=%dx%d loaded=%dx%d palettes=%d\n", reg->fileName, (int)reg->diskWidth,
+                       (int)reg->diskHeight, (int)reg->scaledWidth, (int)reg->scaledHeight, (int)reg->nPalettes);
+            }
+            if (bitTest(reg->flags, TRF_Paletted) || reg->nPalettes == 1)
+            {
+                if (bitTest(reg->flags, TRF_Paletted))
+                {
+                    if (trNoPalAllocated(reg->handle))
+                    {
+                        np = trNoPalStructure(reg->handle);
+                        for (j = 0; j < trNpNumHandles; j++)
+                        {
+                            if (np->glhandle[j] != 0)
+                            {
+                                trFilterObjectCheck(np->glhandle[j], bEnable);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    trFilterObjectCheck(reg->handle, bEnable);
+                }
+            }
+            else if (reg->palettes != NULL)
+            {
+                for (j = 0; j < reg->nPalettes; j++)
+                {
+                    trFilterObjectCheck(((udword *)reg->palettes)[j], bEnable);
+                }
+            }
+            else
+            {
+                trFilterObjectCheck(reg->handle, bEnable);
+            }
+        }
+    }
+    trClearCurrent();
+    trFilterApplied = bEnable ? TRUE : FALSE;
+    trFilterPassesN++;
+    printf("texfilter: filter=%s textures=%d globjects=%d wrong=%d scaled=%d pass=%d\n", bEnable ? "linear" : "sharp",
+           (int)trFilterTexturesN, (int)trFilterObjectsN, (int)trFilterWrongN, (int)trFilterScaledN, (int)trFilterPassesN);
+    fflush(stdout);
+}
+
+sdword trFilterLastTextures(void) { return trFilterTexturesN; }    // HWI-FEATURE(sharp-textures)
+sdword trFilterLastObjects(void)  { return trFilterObjectsN; }     // HWI-FEATURE(sharp-textures)
+sdword trFilterLastWrong(void)    { return trFilterWrongN; }       // HWI-TEST
+sdword trFilterPasses(void)       { return trFilterPassesN; }      // HWI-FEATURE(sharp-textures)
+
+// HWI-FEATURE(sharp-textures): the live textures follow the flag: a change nothing re-filtered (a console row, an Options
+//      click before Accept, a Cancel) is applied at the next frame (rndRenderTask) or at once (Accept)
+void trFilterSync(void)                                     // HWI-FEATURE(sharp-textures)
+{
+    if ((texLinearFiltering ? TRUE : FALSE) != trFilterApplied)
+    {
+        trFilterEnable(texLinearFiltering ? TRUE : FALSE);
+    }
+}
+
+// HWI-FEATURE(sharp-textures): /noFilter (the exe's switch, there a plain set of the flag that the start's HIGH preset
+//      undid and the start's save then wrote) and /sharpTextures: SHARP TEXTURES for this run only, as /noInterp
+//      (MotionInterp.c miSwitchOff): the saves write the options file's own row; a user's choice (the SHARP TEXTURES or
+//      SURFACE FILTERING box, an effects or frame-rate preset button) ends it; Cancel restores its state
+void trFilterSwitchSet(void)                                // HWI-FEATURE(sharp-textures)
+{
+    if (!trFilterSwitched)
+    {
+        trFilterFileValue = texLinearFiltering;
+        trFilterSwitched = TRUE;
+    }
+    texLinearFiltering = FALSE;
+}
+void trFilterSwitchEnd(void)                                // HWI-FEATURE(sharp-textures)
+{
+    trFilterSwitched = FALSE;
+}
+bool32 trFilterSwitchStands(void)                           // HWI-FEATURE(sharp-textures)
+{
+    return trFilterSwitched;
+}
+void trFilterFileValues(bool32 begin)                       // HWI-FEATURE(sharp-textures)
+{
+    if (begin)
+    {
+        trFilterRunValue = texLinearFiltering;
+        if (trFilterSwitched)
+        {
+            texLinearFiltering = trFilterFileValue;
+        }
+    }
+    else
+    {
+        texLinearFiltering = trFilterRunValue;
+    }
+}
+void trFilterSwitchStateSave(void)                          // HWI-FEATURE(sharp-textures)
+{
+    trFilterSavedSwitched = trFilterSwitched;
+}
+void trFilterSwitchStateRestore(void)                       // HWI-FEATURE(sharp-textures)
+{
+    trFilterSwitched = trFilterSavedSwitched;
+}
+// opEffectsHelper set the flag from the effects level (HIGH 1, LOW 0; also at the start, opUpdateSettings): while the
+//      switch stands, that is the value the file keeps, and the run stays sharp
+void trFilterPresetApplied(void)                            // HWI-FEATURE(sharp-textures)
+{
+    if (trFilterSwitched)
+    {
+        trFilterFileValue = texLinearFiltering;
+        texLinearFiltering = FALSE;
+    }
 }
 
 /*-----------------------------------------------------------------------------
