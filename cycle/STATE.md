@@ -1503,6 +1503,17 @@ play-test can start now with `tools/play.sh --rebuild`, the brief in the summary
     before a round closes: this step's `/letterboxBehind` toggle run failed one M3-R2 check nobody had run (the check's expectation,
     `src/Game/MotionTest.c:2128-2131`, against the settings line's documented switch rule; owner M3-R3, one line).
 
+## M3-R3: IN FLIGHT since 2026-10-25 (the third play-test fix round; run from the user's terminal session 38027cce, never the orchestrator)
+
+Run id wf_8a0247ed-904 (task wr55jil3n), script `cycle/workflows/m3-r3.js` at dae51e1, ROUND_BASE 7aa3111 (the M3-R2 integrate:
+the last commit touching src/). Five ports in sequence, each audited: settings-and-keys (item 0 the overlay's F key, the
+/letterboxBehind toggle-check fix, SHARP TEXTURES: the user's 2026-10-25 mandate, default = the original look), pause-freeze
+(item 5), mission02 (items 1 + 2: the dust belts, the Bushan-Re hint), mines (items 4 + 6), engine-trails (item 7); then the
+Fable integrate (the M3-R2 gates + the five fences, docs/m3-r3-summary.md, this file). The user's words are verbatim in
+`cycle/answers/m3-r3-user.md`. RESUME after a cut-off: `git -C <main> merge --ff-only m2`, then
+`Workflow({scriptPath: "<main>/cycle/workflows/m3-r3.js", resumeFromRunId: "wf_8a0247ed-904"})`; on a usage-limit
+failure, a one-shot "please continue your work" cron a few minutes past the reset (the user's standing rule).
+
 ## M2-R6: COMPLETE 2026-10-18 (run from the user's terminal session 38027cce, not from the orchestrator)
 
 cycle/workflows/m2-r6.js finished in session 38027cce (Fable, Remote Control): the "## M2" subsection "M2-R6: COMPLETE" above has the exit test and the seven ports. **M2-R7 also finished in that session on 2026-10-19** (cycle/workflows/m2-r7.js, run id wf_b238b029-e72; its integrate step was cut off by the weekly limit on 2026-10-18 and resumed on 2026-10-19 after the skirmish-start merge; "M2-R7: COMPLETE" above, docs/m2-r7-summary.md). **M2-R8 also finished in that session on 2026-10-19** (cycle/workflows/m2-r8.js, run id wf_74bcf42e-330; "M2-R8: COMPLETE" above, docs/m2-r8-summary.md). **M2-R9 also finished in that session on 2026-10-20** (cycle/workflows/m2-r9.js, run id wf_c0cd6893-248; "M2-R9: COMPLETE" above, docs/m2-r9-summary.md). **M2-R10 also finished in that session on 2026-10-20** (cycle/workflows/m2-r10.js, run id wf_dd85ad7e-70e; "M2-R10: COMPLETE" above, docs/m2-r10-summary.md). The orchestrator must relaunch none of them. Merges to main are handled by the user.
