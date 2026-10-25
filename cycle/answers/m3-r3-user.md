@@ -85,3 +85,22 @@ the overlay is readable and covers nothing needed (no layout change).
 - 7 is the engine-trail (nozzle) wiring: the missile corvette's mesh has four engine nozzles; check how many trail
   emitters the exe creates for that ship type (the ship static data's trail count and the nozzle positions from the
   mesh) against the recreation; an exe that also draws one trail makes this a recreation feature, not a fix.
+
+## The user's later words (2026-10-25), verbatim
+- The blur report (on the OLD binary built 2026-10-21 07:43, session play-20261025-145250.log): "after going back into
+  the game, the textures on the mother ship look more blurry. I forget, did I ask you to change the texture interpolation
+  to closest or is it still on linear" (answer given: still linear; nothing in that path changed since R9; the engine
+  already has `texLinearFiltering` / `/noFilter`).
+- On the M3-R2 build (session play-20261025-150145.log, the first with the hwi-settings line): "yeah doesn't look like
+  the dust clouds loaded in mission 2 again. Am I launching it correctly?" (yes: the log shows the new build and the
+  settings line; the dust clouds were never touched before this round).
+- THE MANDATE for this round: "yeah lets get r3 underway. also I want to implement a new option to support sharp
+  texture meshes or the original texture look". USER DECISION: item 3 becomes a real option (Options -> Video control +
+  the existing cfg row + the switch + the settings line), DEFAULT = the original look (the exe's linear filtering),
+  SHARP = the option. Producer 1 (settings-and-keys) owns it.
+
+## The round's shape (the launching session, 2026-10-25)
+Five ports in sequence: (1) settings-and-keys = item 0 (the overlay's F key) + M3-R2's /letterboxBehind toggle-check fix +
+item 3 (SHARP TEXTURES); (2) pause-freeze = item 5; (3) mission02 = items 1 + 2; (4) mines = items 4 + 6; (5) engine-trails
+= item 7. Open question for the user, not blocking: in Mission02, were the dust clouds missing everywhere (the 3D view
+too) or only on the tactical map?
