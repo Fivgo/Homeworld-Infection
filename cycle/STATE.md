@@ -1,6 +1,6 @@
 # Work cycle and resume point
 
-Last checkpoint: 2026-10-25 19:21
+Last checkpoint: 2026-10-26 07:55
 
 **Read this first when resuming.** It is the single source of truth for where the work stands.
 
@@ -27,10 +27,10 @@ Claude Code records no "approaching limit" signal: across a week of transcripts 
 
 <!-- qwen-status -->
 ```
-    claude limited : False (reset 19:10, seen 19:02)
-    gpu gate       : BLOCKED (a game is running)
+    claude limited : False
+    gpu gate       : free (GPU at 0%)
     model          : qwen3.6:27b ctx=8192
-    progress       : 12/0 functions proposed -> /home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/ghidra/proposals/qwen/naming.jsonl
+    progress       : 12/0 functions proposed -> /home/evanmedinger/Documents/GameDev/Homeworld-Infection/ghidra/proposals/qwen/naming.jsonl
 ```
 <!-- /qwen-status -->
 
@@ -1513,6 +1513,8 @@ Fable integrate (the M3-R2 gates + the five fences, docs/m3-r3-summary.md, this 
 `cycle/answers/m3-r3-user.md`. RESUME after a cut-off: `git -C <main> merge --ff-only m2`, then
 `Workflow({scriptPath: "<main>/cycle/workflows/m3-r3.js", resumeFromRunId: "wf_8a0247ed-904"})`; on a usage-limit
 failure, a one-shot "please continue your work" cron a few minutes past the reset (the user's standing rule).
+
+**RESUMED 2026-10-26 (session 38027cce restored after its end on 2026-10-25 ~20:30).** Ports 1-3 (settings-and-keys c8f97bb, pause-freeze 292a6da, mission02 96b0137) are audited and on main. The mines producer finished (journal: result cached; its report `docs/m3-r3-mines.md` and its src/ changes sit uncommitted in the m2 worktree); its auditor started 20:14 and was cut off by the session's end (its reverted-build scratch worktree `original/scratch-m2/wt-audit-m3r3-mines` removed on resume, diff kept in the session scratchpad). Relaunched with `resumeFromRunId wf_8a0247ed-904`: the cached chain replays, the mines audit re-runs from scratch, then engine-trails + audit, then the Fable integrate. The usage limit was not active at the relaunch.
 
 ## M2-R6: COMPLETE 2026-10-18 (run from the user's terminal session 38027cce, not from the orchestrator)
 
