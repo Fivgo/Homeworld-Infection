@@ -73,6 +73,7 @@
 #include "Universe.h"
 #include "ETG.h"            // CAT: /catEtgParseTest, /catEtgEffectTest (port diagnostics)
 #include "Mesh.h"           // CAT: /catMeshLoadTest (port diagnostic)
+#include "Trails.h"         // HWI-FEATURE(engine-trails): /exeTrails
 #include "AIShip.h"         // HWI-TEST (M3-R3 mines): /catMineLog
 #include "Dock.h"           // CAT: /catDockTest (port diagnostic, M2-R5 dock)
 #include "KeyBindings.h"    // CAT: /catKeysTest (port diagnostic, M2-R6 startup-keys)
@@ -656,6 +657,14 @@ bool32 MeshImmediateSet(char *string)               // HWI-FEATURE(mesh-batching
     meshImmediateSwitch();                          // HWI-FEATURE(mesh-batching)
     return TRUE;                                    // HWI-FEATURE(mesh-batching)
 }                                                   // HWI-FEATURE(mesh-batching)
+// HWI-FEATURE(engine-trails): /exeTrails: this run only, the missile corvettes' two ribbons as cataclysm.exe draws them
+//      (one per mex Eng chunk) instead of the four jet streams from the engine circles (Trails.c hwiEngineTrails); no
+//      options-file row (the console row engineTrails sets it for the run too)
+bool32 ExeTrailsSet(char *string)                   // HWI-FEATURE(engine-trails)
+{                                                   // HWI-FEATURE(engine-trails)
+    hwiEngineTrailsExeSwitch();                     // HWI-FEATURE(engine-trails)
+    return TRUE;                                    // HWI-FEATURE(engine-trails)
+}                                                   // HWI-FEATURE(engine-trails)
 // HWI-TEST (M3-R1 full-detail): /catLodTest <tick>[:far][:fleet] and /catLodStats <from>-<to>[:fleet] (render.c: "lodtest:" / "lodstats:" lines)
 bool32 CatLodTestSet(char *string)
 {
@@ -710,6 +719,11 @@ bool32 CatMineLogSet(char *string)                  // HWI-TEST (M3-R3 mines): /
 bool32 CatMineChaseSet(char *string)                // HWI-TEST (M3-R3 mines): /catMineChase <tick>[:<shiptype>] (AIShip.c)
 {
     catMineChaseSet(string);
+    return TRUE;
+}
+bool32 CatTrailViewSet(char *string)                // HWI-TEST (M3-R3 engine-trails): /catTrailView <tick>:<ShipType>[:d<distance>][:e<elevation>][:s<side>] (render.c)
+{
+    catTrailViewSet(string);
     return TRUE;
 }
 bool32 CatMineViewSet(char *string)                 // HWI-TEST (M3-R3 mines): /catMineView <tick>[:dropped][:<distance>] (render.c)
@@ -1523,6 +1537,7 @@ commandoption commandOptions[] =
     entryFn("/noNISInterp",             NoNISInterpSet, " - render-time interpolation of NIS cutscenes off (gameplay interpolation stays)."),   // HWI-FEATURE(motion-interp)
     entryFn("/noHsAssembly",            NoHsAssemblySet, " - this run only: a modular ship (the Kuun-Lan) hyperspaces as the exe draws it: the gate and the reveal sized from its core hull, its modules shown at their own exits."),   // HWI-FEATURE(hyperspace-assembly)
     entryFn("/meshImmediate",           MeshImmediateSet, " - this run only: the ship meshes drawn one GL call per vertex (the old immediate-mode path) instead of in vertex arrays: the A/B of the mesh batching (the console row meshImmediate toggles it)."),   // HWI-FEATURE(mesh-batching)
+    entryFn("/exeTrails",               ExeTrailsSet, " - this run only: the missile corvettes' two engine ribbons as cataclysm.exe draws them (one per mex Eng chunk) instead of the four jet streams from the engine circles (the console row engineTrails toggles it)."),   // HWI-FEATURE(engine-trails)
     entryFn("/sharpTextures",           NoFilterSet, " - this run only: SHARP TEXTURES (the ship, derelict and asteroid textures magnified as square texels: texLinearFiltering 0, as /noFilter; the options file keeps its row)."),   // HWI-FEATURE(sharp-textures)
     entryFn("/lodBands",                LodBandsSet, " - this run only: FULL DETAIL off (the exe's levels of detail by size on screen and frame time; the options file's noLOD row keeps its value)."),   // HWI-FEATURE(full-detail)
     entryFnParam("/catLodTest",         CatLodTestSet, " <tick>[:far][:fleet] - log every object's level of detail (the exe's and the one drawn) in the main view's first frame of that universe tick (\"lodtest:\" lines); :far pulls the camera out to its farthest zoom, :fleet closes the sensors manager at tick 16 and focuses the camera on every ship."),   // HWI-TEST
@@ -1532,6 +1547,7 @@ commandoption commandOptions[] =
     entryFnParam("/catTexList",         CatTexListSet, " <substring> - test: at each texture-filter pass, list the live textures whose name has it (on-disk and loaded size)."),   // HWI-TEST
     entryFnParam("/catMeshTexLog",      CatMeshTexLogSet, " <substring> - test: log the texture registration and the first draw per colour scheme of the meshes whose file name has it (meshtex: lines)."),   // HWI-TEST (M3-R3 mines)
     entryFnParam("/catMineView",        CatMineViewSet, " <tick>[:dropped][:<distance>] - test: from that universe tick close the sensors manager and keep the camera on the level mine (or with :dropped a laid mine) nearest the player's mothership, at that camera distance (mineview: lines)."),   // HWI-TEST (M3-R3 mines)
+    entryFnParam("/catTrailView",       CatTrailViewSet, " <tick>:<ShipType>[:d<distance>][:e<elevation>][:s<side>][:r<ratio>][:m<move>] - test: from that universe tick close the sensors manager and keep the camera behind the first ship of that type moving at over <ratio> (default 0.4; 0: any) of its top speed, :m orders it <move> units ahead (trailview: lines with each trail's head and engine circle on the screen)."),   // HWI-TEST (M3-R3 engine-trails)
     entryFnParam("/catMineLog",         CatMineLogSet, " <ticks> - test: log every mine state change with its reason and <ticks> ticks of state, target, distance and speeds for the first 8 mines that start an attack run on a target (minelog: lines)."),   // HWI-TEST (M3-R3 mines)
     entryFnParam("/catMineChase",       CatMineChaseSet, " <tick>[:<shiptype>] - test: at that universe tick order up to 4 of player 0's ships of that type (default sRecon) past the nearest level mine, 2000 beside it and 20000 beyond (minechase: line)."),   // HWI-TEST (M3-R3 mines)
     entryFnParam("/catFeScreen",        CatFeScreenSet, " <screen>[@<tick>] - test: a front-end screen pushed once (in the front end, or in game at the tick)."),   // HWI-TEST

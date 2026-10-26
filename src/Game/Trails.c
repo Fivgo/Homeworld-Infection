@@ -212,6 +212,99 @@ sdword trailInsertCount = 0;
 
 bool8 _afterburning;
 
+/*=============================================================================
+    HWI-FEATURE(engine-trails) (M3-R3, the user's play-test item 7: "missile corvettes only emit a single jet stream
+    when they have 4 engines on the model"). cataclysm.exe creates one ribbon per mex Eng chunk, Eng0..Eng3
+    (InitializeEngineTrails 0x00541f40), and its trail pass draws every slot (rndMainViewRenderFunction 0x005772dd):
+    two for each missile corvette, Eng0 / Eng1 at (0, -+17.854, -45.75) in ship space (x up, y right, z forward), each
+    between the upper and the lower engine circle of one side, its 42-unit width turned up by trailAngle 90 so one
+    ribbon spans both circles. The four circles are paint (engine_port.lif's two rings, mapped on the upper half of the
+    rear panel and mirrored on the lower): centres (+-11.5, -+17.891) at z -48.375 (docs/m3-r3-engine-trails.md).
+    On (the default): the exe's ribbon of each side is drawn from that side's upper circle and an added ribbon from the
+    lower one, each with the exe's parameters except the width across the pair, halved (21: the two cover the exe's
+    42; at 42 each they would overlap over 19 units and read as one); the engine glow stays the exe's, one sprite per
+    exe ribbon at the exe's nozzle. The added ribbons draw their jitter from their own generator (not the shared
+    random stream, which sees exactly the exe's draws), so no stream moves. /exeTrails (run-only) or the console row
+    engineTrails 0: the exe's two ribbons, pixel for pixel.
+=============================================================================*/
+sdword hwiEngineTrails = 1;                     // HWI-FEATURE(engine-trails): the console row engineTrails, the settings line
+bool32 hwiEngineTrailsSwitch = FALSE;           // HWI-FEATURE(engine-trails): /exeTrails given (run-only)
+
+typedef struct                                  // HWI-FEATURE(engine-trails)
+{
+    ShipType type;                         // HWI-FEATURE(engine-trails) [audit: tagged]
+    real32 up;                                  // the circles' distance above / below the exe's nozzle (ship x)
+    real32 right;                               // the circles' distance from the centre line (ship |y|)
+} HwiTrailSplit;                                 // HWI-FEATURE(engine-trails) [audit: tagged]
+
+static const HwiTrailSplit hwiTrailSplits[] =   // HWI-FEATURE(engine-trails): the meshes whose circles are known
+{
+    { bMissileCorvette,  11.5f, 17.891f },      // HWI-FEATURE(engine-trails): race_beast\bMissileCorvette lod0
+    { p1MissileCorvette, 11.5f, 17.891f },      // HWI-FEATURE(engine-trails): race_p1\P1MissileCorvette lod0 (the same mesh)
+};
+
+void hwiEngineTrailsExeSwitch(void)             // HWI-FEATURE(engine-trails): /exeTrails: the exe's two ribbons, this run only
+{                                               // HWI-FEATURE(engine-trails)
+    hwiEngineTrails = 0;                        // HWI-FEATURE(engine-trails)
+    hwiEngineTrailsSwitch = TRUE;               // HWI-FEATURE(engine-trails)
+}                                               // HWI-FEATURE(engine-trails)
+
+static bool32 hwiTrailPrivateRandom = FALSE;    // HWI-FEATURE(engine-trails): an added ribbon is being drawn
+static bool32 hwiTrailGlowHidden = FALSE;       // HWI-FEATURE(engine-trails): its glow sprite is not drawn (the exe's glow stays one per side)
+static udword hwiTrailRandomState = 0x2545f491u;    // HWI-FEATURE(engine-trails): its generator (xorshift32)
+
+// HWI-FEATURE(engine-trails): the trail code's random draw: the shared stream, or the added ribbons' own generator
+static udword trailRandom(sdword stream)   // HWI-FEATURE(engine-trails) [audit: tagged]
+{
+    if (hwiTrailPrivateRandom)                  // HWI-FEATURE(engine-trails)
+    {
+        hwiTrailRandomState ^= hwiTrailRandomState << 13;     // HWI-FEATURE(engine-trails)
+        hwiTrailRandomState ^= hwiTrailRandomState >> 17;     // HWI-FEATURE(engine-trails)
+        hwiTrailRandomState ^= hwiTrailRandomState << 5;      // HWI-FEATURE(engine-trails)
+        return hwiTrailRandomState;             // HWI-FEATURE(engine-trails)
+    }
+    return ranRandom(stream);
+}
+
+// HWI-FEATURE(engine-trails): the ribbon is drawn split (the feature on and the trail one of a split pair)
+static bool32 hwiTrailSplitOn(shiptrail *trail)   // HWI-FEATURE(engine-trails) [audit: tagged]
+{
+    return (hwiEngineTrails != 0) && (trail->hwiSplit != 0);    // HWI-FEATURE(engine-trails)
+}
+
+// HWI-FEATURE(engine-trails): after the exe's trails are made (InitializeEngineTrails), a listed type's two ribbons
+//      become split pairs: slot 2 / 3 get the added lower ribbons (trailNum 0 / 1: the exe's parameters of that side).
+//      Made whether or not the feature is on, so the console row can switch it in a running game
+void hwiEngineTrailsSplitCreate(void *vship, sdword numTrails)   // HWI-FEATURE(engine-trails) [audit: tagged]
+{
+    Ship *ship = (Ship *)vship;
+    ShipStaticInfo *statinfo = ship->staticinfo;
+    sdword row, i;
+
+    for (row = 0; row < (sdword)(sizeof(hwiTrailSplits) / sizeof(hwiTrailSplits[0])); row++)
+    {
+        if (hwiTrailSplits[row].type == ship->shiptype)
+        {
+            break;
+        }
+    }
+    if (row >= (sdword)(sizeof(hwiTrailSplits) / sizeof(hwiTrailSplits[0])) || numTrails != 2 ||
+        statinfo->trailStatic[0] == NULL || statinfo->trailStatic[2] == NULL || statinfo->trailStatic[3] == NULL ||
+        ship->trail[0] == NULL || ship->trail[1] == NULL ||
+        ship->trail[2] != NULL || ship->trail[3] != NULL)
+    {
+        return;
+    }
+    for (i = 0; i < 2; i++)
+    {
+        ship->trail[i]->hwiSplit = 1;                                                   // HWI-FEATURE(engine-trails)
+        ship->trail[i]->hwiSplitType = (ubyte)row;                                      // HWI-FEATURE(engine-trails)
+        ship->trail[2 + i] = trailNew(statinfo->trailStatic[2 + i], ship, 1, (ubyte)i); // HWI-FEATURE(engine-trails)
+        ship->trail[2 + i]->hwiSplit = -1;                                              // HWI-FEATURE(engine-trails)
+        ship->trail[2 + i]->hwiSplitType = (ubyte)row;                                  // HWI-FEATURE(engine-trails)
+    }
+}
+
 static void trailSegmentsRead(char *directory,char *field,void *dataToFillIn);
 static void trailGranularityRead(char *directory,char *field,void *dataToFillIn);
 static void trailColorRead(char *directory,char *field,void *dataToFillIn);
@@ -363,6 +456,8 @@ shiptrail *trailNew(trailstatic *staticInfo, void* vship, bool8 second, ubyte tr
     trail->trailNum = trailNum;
 
     trail->wobbly = FALSE;
+    trail->hwiSplit = 0;                        // HWI-FEATURE(engine-trails): the exe's trail
+    trail->hwiSplitType = 0;                    // HWI-FEATURE(engine-trails)
 
     ship = (Ship*)vship;
     shipstaticinfo = (ShipStaticInfo*)ship->staticinfo;
@@ -518,7 +613,8 @@ void trailInplaceShipToWorld(real32* vec, real32* coordsys, real32* position)
 }
 
 //convenience fn.  copies shipstaticinfo.enginenozzleoffset into provided vector
-void trailGetNozzleOffset(real32* vec, shiptrail* trail)
+// HWI-FEATURE(engine-trails): split = FALSE gives the exe's nozzle (the glow of a split pair)
+static void trailNozzleOffset(real32* vec, shiptrail* trail, bool32 split)   // HWI-FEATURE(engine-trails) [audit: tagged]: the exe's trailGetNozzleOffset 0x005a4cc0 body
 {
     Ship* ship = (Ship*)trail->vship;
     ShipStaticInfo *statinfo = (ShipStaticInfo*)ship->staticinfo;
@@ -534,10 +630,20 @@ void trailGetNozzleOffset(real32* vec, shiptrail* trail)
     nozzle.y = statinfo->engineNozzleOffset[trail->trailNum].y;
     nozzle.z = statinfo->engineNozzleOffset[trail->trailNum].z;
     nozzle.w = 1.0f;
+    if (split && (trail->hwiSplit != 0))        // HWI-FEATURE(engine-trails): the centre of the side's upper / lower circle
+    {
+        nozzle.x += (real32)trail->hwiSplit * hwiTrailSplits[trail->hwiSplitType].up;                            // HWI-FEATURE(engine-trails)
+        nozzle.y = (nozzle.y < 0.0f) ? -hwiTrailSplits[trail->hwiSplitType].right : hwiTrailSplits[trail->hwiSplitType].right;  // HWI-FEATURE(engine-trails)
+    }
     hmatMultiplyHMatByHVec(&out, &objectMatrix, &nozzle);
     vec[0] = out.x;
     vec[1] = out.y;
     vec[2] = out.z;
+}
+
+void trailGetNozzleOffset(real32* vec, shiptrail* trail)   // HWI-FEATURE(engine-trails) [audit: tagged]
+{
+    trailNozzleOffset(vec, trail, hwiTrailSplitOn(trail));  // HWI-FEATURE(engine-trails): the split nozzle when on
 }
 
 //convenience fn.  copies ship.coordsys into provided matrix
@@ -552,6 +658,40 @@ void trailGetTranslation(real32* trans, shiptrail* trail)
 {
     Ship* ship = (Ship*)trail->vship;
     VECCOPY(trans, &ship->obj.posinfo.position);
+}
+
+// HWI-TEST (M3-R3 engine-trails, /catTrailView): a trail's head in world space as trailDraw puts it (the nozzle 0.3 XADJ
+//      behind, times the N-LIPS factor, by the ship's pose): which = 0 the exe's nozzle, 1 the split nozzle (the circle's
+//      centre line, whether or not the feature is on), 2 the circle's centre on the rear panel (z = panelZ, unscaled)
+void hwiTrailHeadWorld(shiptrail *trail, sdword which, real32 panelZ, vector *world)   // HWI-TEST
+{
+    Ship *ship = (Ship *)trail->vship;
+    real32 pos[3], rot[9], trans[3];
+    real32 scale = ship->magnitudeSquared;
+    sdword i;
+
+    trailNozzleOffset(pos, trail, which != 0);
+    if (which == 2)
+    {
+        pos[2] = panelZ;
+    }
+    else
+    {
+        pos[2] -= 0.3f * XADJ;
+        if (!isnan((double)scale))
+        {
+            for (i = 0; i < 3; i++)
+            {
+                pos[i] *= scale;
+            }
+        }
+    }
+    trailGetCoordsys(rot, trail);
+    trailGetTranslation(trans, trail);
+    trailInplaceShipToWorld(pos, rot, trans);
+    world->x = pos[0];
+    world->y = pos[1];
+    world->z = pos[2];
 }
 
 //random real 0->n
@@ -774,17 +914,23 @@ color trailColorSaturate(color c, GLint inc)
 }
 
 //returns the ratio of trail height to width
+// HWI-FEATURE(engine-trails): a split ribbon spans half the exe's width (the two of a side cover the exe's one)
+static real32 hwiTrailWidth(shiptrail* trail)   // HWI-FEATURE(engine-trails) [audit: tagged]
+{
+    return (hwiTrailSplitOn(trail) && trail->width != -1.0f) ? 0.5f * trail->width : trail->width;   // HWI-FEATURE(engine-trails)
+}
+
 real32 trailHeightScalar(shiptrail* trail)
 {
     return (trail->height == -1.0f || trail->width == -1.0f)
             ? 0.25f
-            : trail->height / trail->width;
+            : trail->height / hwiTrailWidth(trail);     // HWI-FEATURE(engine-trails): the exe: trail->width
 }
 
 //returns half the trail width
 real32 trailHalfWidth(shiptrail* trail)
 {
-    return (trail->width == -1.0f) ? HALFWIDTH : 0.5f * trail->width;
+    return (trail->width == -1.0f) ? HALFWIDTH : 0.5f * hwiTrailWidth(trail);   // HWI-FEATURE(engine-trails): the exe: trail->width
 }
 
 //returns half the trail height
@@ -1108,7 +1254,7 @@ void trailDrawBillboardedSquareThingz(shiptrail* trail, trailsegment* seg, real3
 
     if (--trail->ranCounter < 0)
     {
-        real32 ran = 1.0f - ((real32)(ranRandom(RANDOM_TRAILS_1) % 1000) * (RANDOM_JITTER * 0.0001f));   // HWI-FEATURE(pause-freeze) [audit: tagged]
+        real32 ran = 1.0f - ((real32)(trailRandom(RANDOM_TRAILS_1) % 1000) * (RANDOM_JITTER * 0.0001f));   // HWI-FEATURE(pause-freeze) [audit: tagged] HWI-FEATURE(engine-trails): trailRandom
         // HWI-FEATURE(pause-freeze) (M3-R3): while the universe is paused the glow keeps the size it was drawn with
         //      (the exe's draw goes on, so the stream is drawn as in trailDrawBillboardedSquareThingz 0x005a5be0; only
         //      the new jitter is not shown: a paused glow stands still)
@@ -1140,6 +1286,11 @@ void trailDrawBillboardedSquareThingz(shiptrail* trail, trailsegment* seg, real3
 
     rad = (1.0f - GLOW_BASERADIALSCALE) * (GLOW_RADIALADJUST * velratio * rad * trail->ran)
           + GLOW_BASERADIALSCALE * rad;
+
+    if (hwiTrailGlowHidden)                     // HWI-FEATURE(engine-trails): an added ribbon: no sprite, the afterburn test below
+    {                                           // HWI-FEATURE(engine-trails)
+        goto hwiAccel;                          // HWI-FEATURE(engine-trails)
+    }                                           // HWI-FEATURE(engine-trails)
 
     rndLightingEnable(FALSE);
     glDisable(GL_CULL_FACE);
@@ -1174,6 +1325,7 @@ void trailDrawBillboardedSquareThingz(shiptrail* trail, trailsegment* seg, real3
     rndLightingEnable(TRUE);
     glDepthMask(GL_TRUE);
 
+hwiAccel:                                       // HWI-FEATURE(engine-trails)
     if (trailMeshes[TM_ACCEL] != NULL
         && (trail->lastvelsquared - trail->prevvelsquared > ACCELTHRESH)
         && (velratio > VELRATIO_ACCELTHRESH))
@@ -1700,22 +1852,22 @@ color trailSurpriseColorAdjust(sdword index, sdword max)
     {
         return colRGB(r,g,b);
     }
-    if ((sdword)(ranRandom(RANDOM_TRAILS_2) % 100) > COLORADJUST_FREQ)
+    if ((sdword)(trailRandom(RANDOM_TRAILS_2) % 100) > COLORADJUST_FREQ)   // HWI-FEATURE(engine-trails): trailRandom
     {
         return colRGB(r,g,b);
     }
 
-    randval = (ubyte)(ranRandom(RANDOM_TRAILS_3) % COLOR_ADJUST);
+    randval = (ubyte)(trailRandom(RANDOM_TRAILS_3) % COLOR_ADJUST);   // HWI-FEATURE(engine-trails): trailRandom
 
     // HWI-FEATURE(pause-freeze) (M3-R3): while the universe is paused the segments keep their own colour, without the
     //      per-frame random lightening / darkening (the streams are drawn as the exe draws them, trailSurpriseColorAdjust
     //      0x005a6c30: only the shimmer is not shown, so a paused trail stands still)
     if (miUniversePaused())                         // HWI-FEATURE(pause-freeze)
     {                                               // HWI-FEATURE(pause-freeze)
-        ranRandom(RANDOM_TRAILS_4);                 // HWI-FEATURE(pause-freeze): the exe's draw
+        trailRandom(RANDOM_TRAILS_4);               // HWI-FEATURE(pause-freeze): the exe's draw (HWI-FEATURE(engine-trails): trailRandom)
         return colRGB(r,g,b);                       // HWI-FEATURE(pause-freeze)
     }                                               // HWI-FEATURE(pause-freeze)
-    if (ranRandom(RANDOM_TRAILS_4) & 1)
+    if (trailRandom(RANDOM_TRAILS_4) & 1)           // HWI-FEATURE(engine-trails): trailRandom
     {
         r = MIN2(r+randval,255);
         g = MIN2(g+randval,255);
@@ -1930,7 +2082,28 @@ static bool32 cat_trailShouldDraw(Ship *ship, shiptrail *trail)
     return IS_MOVING_LINEARLY(ship->obj.posinfo.isMoving) ? TRUE : FALSE;
 }
 
+static void trailDrawBody(vector *current, shiptrail *trail, sdword LOD, sdword teamIndex);   // HWI-FEATURE(engine-trails) [audit: tagged]
+
+// HWI-FEATURE(engine-trails): an added ribbon is drawn only with the feature on, with its own random generator and no
+//      glow sprite; off, its queue is emptied so it starts fresh when the row turns it on again
 void trailDraw(vector *current, shiptrail *trail, sdword LOD, sdword teamIndex)
+{
+    if (trail->hwiSplit < 0)                    // HWI-FEATURE(engine-trails)
+    {                                           // HWI-FEATURE(engine-trails)
+        if (hwiEngineTrails == 0)               // HWI-FEATURE(engine-trails)
+        {                                       // HWI-FEATURE(engine-trails)
+            trailZeroLength(trail);             // HWI-FEATURE(engine-trails)
+            return;                             // HWI-FEATURE(engine-trails)
+        }                                       // HWI-FEATURE(engine-trails)
+        hwiTrailPrivateRandom = TRUE;           // HWI-FEATURE(engine-trails)
+        trailDrawBody(current, trail, LOD, teamIndex);  // HWI-FEATURE(engine-trails)
+        hwiTrailPrivateRandom = FALSE;          // HWI-FEATURE(engine-trails)
+        return;                                 // HWI-FEATURE(engine-trails)
+    }                                           // HWI-FEATURE(engine-trails)
+    trailDrawBody(current, trail, LOD, teamIndex);
+}
+
+static void trailDrawBody(vector *current, shiptrail *trail, sdword LOD, sdword teamIndex)   // HWI-FEATURE(engine-trails): trailDraw 0x005a7310's body
 {
     sdword index;
 //    sdword count;
@@ -2041,15 +2214,25 @@ void trailDraw(vector *current, shiptrail *trail, sdword LOD, sdword teamIndex)
     {
         real32 rad = ship->staticinfo->common.staticCollInfo.collspheresize;
         real32 team[3];
+        trailsegment *glowSegment = &lastSegment;   // HWI-FEATURE(engine-trails): the exe: &lastSegment
+        trailsegment exeSegment;                    // HWI-FEATURE(engine-trails)
 
         _afterburning = FALSE;
         // CAT: the engine glow sprite has the ship's team colour * 0.8 (0x005a7524: cat_shGetTeamColour, 0x0072a5d4)
+        if (hwiTrailSplitOn(trail))                 // HWI-FEATURE(engine-trails): the glow at the exe's nozzle, the added ribbon's hidden
+        {                                           // HWI-FEATURE(engine-trails)
+            trailCopySegment(&exeSegment, &lastSegment);                // HWI-FEATURE(engine-trails)
+            trailNozzleOffset(exeSegment.position, trail, FALSE);       // HWI-FEATURE(engine-trails)
+            glowSegment = &exeSegment;              // HWI-FEATURE(engine-trails)
+            hwiTrailGlowHidden = (trail->hwiSplit < 0);                 // HWI-FEATURE(engine-trails)
+        }                                           // HWI-FEATURE(engine-trails)
         cat_shGetTeamColour(team);
-        trailDrawBillboardedSquareThingz(trail, &lastSegment, rad, ship,
+        trailDrawBillboardedSquareThingz(trail, glowSegment, rad, ship,   // HWI-FEATURE(engine-trails) [audit: tagged]: the exe: &lastSegment
                                          colRGB(cat_trailColourByte(team[0] * 0.8f), cat_trailColourByte(team[1] * 0.8f),
                                                 cat_trailColourByte(team[2] * 0.8f)));
+        hwiTrailGlowHidden = FALSE;                 // HWI-FEATURE(engine-trails)
 
-        if (lastSegment.wide)
+        if (glowSegment->wide)                      // HWI-FEATURE(engine-trails): the exe: lastSegment.wide
         {
             trail->segments[trail->iHead].wide = TRUE;
         }

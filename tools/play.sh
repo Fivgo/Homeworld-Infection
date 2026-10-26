@@ -64,6 +64,14 @@
 #   console row         texLinearFiltering 0|1   (the developer console's; as in cataclysm.exe no key opens that console)
 #   the log             "texfilter: filter=sharp|linear textures=N globjects=M wrong=0" at every change (wrong must be 0)
 #
+# Engine trails (M3-R3, HWI-FEATURE(engine-trails)): the missile corvettes (the Beast's bMissileCorvette and the raiders'
+# P1MissileCorvette, Mission03 onward) draw FOUR jet streams, one from the centre of each of the four glowing engine
+# circles on their rear. ON by default. cataclysm.exe draws TWO (one per engine nozzle in the model's data, each wide
+# enough to cover an upper and a lower circle); every other ship keeps the exe's trails. The engine glow is the exe's.
+#   switch              -- /exeTrails   (this run only: the exe's two ribbons, for an A/B)
+#   console row         engineTrails 0|1   (the developer console's; as in cataclysm.exe no key opens that console)
+#   the settings line   "engineTrails=1 (default)" (0 (switch) with -- /exeTrails)
+#
 # Team colours (M3-R1 team-colours-warp): the colours picked in the front end's colour picker (Cataclysm.cfg rows
 # PlayerBaseColor / PlayerStripeColor / ColorsPicked) stay on the Kuun-Lan and the fleet through every level change
 # (the M2 builds lost them when the opening cutscene's level gave way to Mission01). No setting. To have the play log

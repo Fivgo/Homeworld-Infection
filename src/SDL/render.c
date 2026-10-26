@@ -60,6 +60,7 @@
 #include "Blast.h"
 #include "Cloak.h"
 #include "CommandLayer.h"
+#include "CommandWrap.h"      // HWI-TEST (M3-R3 engine-trails): /catTrailView :m (clWrapMove)
 #include "Dissolve.h"
 #include "Dreadnought.h"
 #include "FormationDefs.h"
@@ -91,6 +92,8 @@
 #include "StringsOnly.h"
 #include "Subtitle.h"
 #include "Switches.h"
+#include "Randy.h"          // HWI-TEST (M3-R3 engine-trails): /catTrailView rs=
+#include "Trails.h"         // HWI-TEST (M3-R3 engine-trails): /catTrailView, hwiTrailHeadWorld
 #include "Tactical.h"
 #include "Task.h"
 #include "Teams.h"
@@ -5259,6 +5262,7 @@ void rndDrawScissorBars(bool32 scissorEnabled)
 ----------------------------------------------------------------------------*/
 static void catLodStatsFrameBegin(void);                    // HWI-TEST (M3-R1 full-detail)
 static void catLodStatsFrameEnd(void);                      // HWI-TEST (M3-R1 full-detail)
+static void catTrailViewFrameEnd(void);                     // HWI-TEST (M3-R3 engine-trails): /catTrailView
 DEFINE_TASK(rndRenderTask)
 {
     static sdword index;
@@ -5550,6 +5554,7 @@ DEFINE_TASK(rndRenderTask)
         primErrorMessagePrint();
 afterTheSwap:
         catLodStatsFrameEnd();                              // HWI-TEST (M3-R1 full-detail): /catLodStats
+        catTrailViewFrameEnd();                             // HWI-TEST (M3-R3 engine-trails): /catTrailView
         hwiFrameEnd();                                      // HWI-FEATURE(instrumentation): the frame's clocks, /frameLog
 
 #if RND_GL_STATE_DEBUG
@@ -7299,6 +7304,249 @@ static void catMineViewFrame(void)                                          // H
                 (int)best->FORCE_DROPPED, (best->owner != NULL) ? ShipTypeToStr(best->owner->shiptype) : "-");
 }
 
+// HWI-TEST (M3-R3 engine-trails): /catTrailView <tick>:<ShipType>[:d<distance>][:e<elevation>][:s<side>]: from universe
+//      tick <tick> the sensors manager is closed and the camera stays on the first ship of that type (ShipList order)
+//      moving at over <ratio> (:r, default 0.4; 0: any ship of the type) of its top speed (:m<move>: ordered <move> units
+//      straight ahead through the command layer at the focus, clWrapMove), at <distance> (default 500) behind it along its heading, raised by
+//      <elevation> degrees (default 20) and turned <side> degrees (default 30) about the world's z axis; every frame
+//      after the flip one "trailview: tick=.. ship=..#id .. h<slot>=x,y n<slot>=x,y c<slot>=x,y" line: the physical pixel
+//      of each trail's head as drawn (h), its split nozzle (n: the circle's centre line) and the circle's centre on the
+//      rear panel (c, z -48.375), projected with the frame's matrices. Changes the view only (a capture run, no stream
+//      reference)
+extern ranstream ranStream[RANDOM_NUMBER_STREAMS];                         // HWI-TEST: Randy.c, the trail view's rs= column
+static sdword catTrailViewTick = -1;                                        // HWI-TEST
+static ShipType catTrailViewType = DefaultShip;                             // HWI-TEST
+static real32 catTrailViewDistance = 500.0f, catTrailViewElev = 20.0f, catTrailViewSide = 30.0f;   // HWI-TEST
+static real32 catTrailViewRatio = 0.4f, catTrailViewMove = 0.0f;           // HWI-TEST: :r<speed ratio> (0: any), :m<move ahead>
+static Ship *catTrailViewShip = NULL;                                       // HWI-TEST
+static bool32 catTrailViewFocused = FALSE;                                  // HWI-TEST
+
+void catTrailViewSet(char *string)                                          // HWI-TEST
+{
+    char name[64];
+    char *c;
+    size_t n;
+
+    catTrailViewTick = (sdword)strtol(string, NULL, 10);
+    c = strchr(string, ':');
+    if (c == NULL)
+    {
+        return;
+    }
+    n = strcspn(c + 1, ":");
+    if (n >= sizeof(name))
+    {
+        n = sizeof(name) - 1;
+    }
+    memcpy(name, c + 1, n);
+    name[n] = 0;
+    catTrailViewType = StrToShipType(name);
+    for (c = strchr(c + 1, ':'); c != NULL; c = strchr(c + 1, ':'))
+    {
+        switch (c[1])
+        {
+            case 'd': catTrailViewDistance = (real32)strtod(c + 2, NULL); break;
+            case 'e': catTrailViewElev = (real32)strtod(c + 2, NULL); break;
+            case 's': catTrailViewSide = (real32)strtod(c + 2, NULL); break;
+            case 'r': catTrailViewRatio = (real32)strtod(c + 2, NULL); break;
+            case 'm': catTrailViewMove = (real32)strtod(c + 2, NULL); break;
+            default: break;
+        }
+    }
+}
+
+static bool32 catTrailViewAlive(Ship *ship)                                 // HWI-TEST
+{
+    Node *node;
+
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        if ((Ship *)listGetStructOfNode(node) == ship)
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+static void catTrailViewFrame(void)                                         // HWI-TEST
+{
+    sdword tick = (sdword)universe.univUpdateCounter;
+    Node *node;
+    vector heading, o;
+    real32 angle, decl, horiz;
+    CameraStackEntry *entry;
+
+    if (catTrailViewTick < 0 || !gameIsRunning || nisIsRunning || tick < catTrailViewTick)
+    {
+        return;
+    }
+    if (catTrailViewShip != NULL && !catTrailViewAlive(catTrailViewShip))
+    {
+        catTrailViewShip = NULL;
+        catTrailViewFocused = FALSE;
+    }
+    if (catTrailViewShip == NULL)
+    {
+        for (node = universe.ShipList.head; node != NULL; node = node->next)
+        {
+            Ship *ship = (Ship *)listGetStructOfNode(node);
+            real32 maxvel;
+
+            if (ship->shiptype != catTrailViewType)
+            {
+                continue;
+            }
+            maxvel = ship->staticinfo->common.maxvelocity;
+            if ((catTrailViewRatio <= 0.0f) ||
+                (maxvel > 0.0f && fsqrt(vecMagnitudeSquared(ship->obj.posinfo.velocity)) > catTrailViewRatio * maxvel))
+            {
+                catTrailViewShip = ship;
+                break;
+            }
+        }
+        if (catTrailViewShip == NULL)
+        {
+            if ((tick % 32) == 0)
+            {
+                sdword count = 0;
+                real32 best = 0.0f;
+                for (node = universe.ShipList.head; node != NULL; node = node->next)
+                {
+                    Ship *ship = (Ship *)listGetStructOfNode(node);
+                    real32 maxvel = ship->staticinfo->common.maxvelocity, r;
+                    if (ship->shiptype != catTrailViewType || maxvel <= 0.0f)
+                    {
+                        continue;
+                    }
+                    count++;
+                    r = fsqrt(vecMagnitudeSquared(ship->obj.posinfo.velocity)) / maxvel;
+                    best = (r > best) ? r : best;
+                }
+                dbgMessagef("trailview: none tick=%u type=%s(%d) count=%d bestSpeedRatio=%.3f", (unsigned)tick,
+                            ShipTypeToStr(catTrailViewType), (int)catTrailViewType, (int)count, (double)best);
+            }
+            return;
+        }
+    }
+    if (!catTrailViewFocused)
+    {
+        FocusCommand *focus = memAlloc(sizeofSelectCommand(1), "trailviewfocus", 0);
+
+        catTrailViewFocused = TRUE;
+        if (smSensorsActive)
+        {
+            smSensorsCloseForGood();
+        }
+        focus->numShips = 1;
+        focus->ShipPtr[0] = catTrailViewShip;
+        ccCameraTimeoutOverride = TRUE;
+        ccFocusGeneral(&universe.mainCameraCommand, focus, FALSE);
+        memFree(focus);
+        universe.mainCameraCommand.actualcamera.catScriptedDistance = catTrailViewDistance;
+        if (catTrailViewMove > 0.0f)                    // :m: a move order straight ahead (the command layer, no input)
+        {
+            SelectCommand *sel = memAlloc(sizeofSelectCommand(1), "trailviewsel", 0);
+            vector dest;
+
+            matGetVectFromMatrixCol3(heading, catTrailViewShip->rotatable.rotinfo.coordsys);
+            vecScalarMultiply(dest, heading, catTrailViewMove);
+            vecAddTo(dest, catTrailViewShip->obj.posinfo.position);
+            sel->numShips = 1;
+            sel->ShipPtr[0] = catTrailViewShip;
+            clWrapMove(&universe.mainCommandLayer, sel, 0, catTrailViewShip->obj.posinfo.position, 1, &dest);
+            memFree(sel);
+        }
+        dbgMessagef("trailview: focus tick=%u ship=%s#%u trails=%d,%d,%d,%d engineTrails=%d", (unsigned)tick,
+                    ShipTypeToStr(catTrailViewShip->shiptype), (unsigned)catTrailViewShip->shipID.shipNumber,
+                    (int)(catTrailViewShip->trail[0] != NULL), (int)(catTrailViewShip->trail[1] != NULL),
+                    (int)(catTrailViewShip->trail[2] != NULL), (int)(catTrailViewShip->trail[3] != NULL),
+                    (int)hwiEngineTrails);
+    }
+    // the eye behind the ship along its heading, raised and turned
+    matGetVectFromMatrixCol3(heading, catTrailViewShip->rotatable.rotinfo.coordsys);
+    vecScalarMultiply(o, heading, -1.0f);
+    horiz = fsqrt(o.x * o.x + o.y * o.y);
+    angle = (real32)atan2((double)o.y, (double)o.x) + DEG_TO_RAD(catTrailViewSide);
+    decl = -(real32)atan2((double)o.z, (double)horiz) - DEG_TO_RAD(catTrailViewElev);
+    if (decl > DEG_TO_RAD(85.0f)) decl = DEG_TO_RAD(85.0f);
+    if (decl < DEG_TO_RAD(-85.0f)) decl = DEG_TO_RAD(-85.0f);
+    entry = currentCameraStackEntry(&universe.mainCameraCommand);
+    entry->remembercam.angle = angle;
+    entry->remembercam.declination = decl;
+    entry->remembercam.distance = catTrailViewDistance;
+    universe.mainCameraCommand.actualcamera.angle = angle;
+    universe.mainCameraCommand.actualcamera.declination = decl;
+    universe.mainCameraCommand.actualcamera.catScriptedDistance = catTrailViewDistance;
+    universe.mainCameraCommand.actualcamera.catSnapToFocus = TRUE;
+}
+
+// the physical pixel of a world point with the matrices of the frame just drawn
+static void catTrailViewProject(vector *pos, char *out, size_t size, const char *name)   // HWI-TEST
+{
+    hvector world, eye, clip;
+
+    world.x = pos->x;
+    world.y = pos->y;
+    world.z = pos->z;
+    world.w = 1.0f;
+    hmatMultiplyHMatByHVec(&eye, &rndCameraMatrix, &world);
+    hmatMultiplyHMatByHVec(&clip, &rndProjectionMatrix, &eye);
+    if (clip.w <= 0.0f)
+    {
+        snprintf(out, size, " %s=nan,nan", name);
+        return;
+    }
+    snprintf(out, size, " %s=%.2f,%.2f", name, (double)((clip.x / clip.w + 1.0f) * 0.5f * (real32)MAIN_WindowWidthActual),
+             (double)((1.0f - clip.y / clip.w) * 0.5f * (real32)MAIN_WindowHeightActual));
+}
+
+static void catTrailViewFrameEnd(void)                                      // HWI-TEST
+{
+    char line[1024], part[64], name[8];
+    size_t len;
+    sdword i, which;
+    vector w;
+    Ship *ship = catTrailViewShip;
+
+    if (ship == NULL || !catTrailViewFocused || !gameIsRunning || !catTrailViewAlive(ship))
+    {
+        return;
+    }
+    snprintf(line, sizeof(line), "trailview: tick=%u ship=%s#%u pos=(%.0f %.0f %.0f) speed=%.1f nlips=%.4f engineTrails=%d "
+             "camera=%.0f", (unsigned)universe.univUpdateCounter, ShipTypeToStr(ship->shiptype),
+             (unsigned)ship->shipID.shipNumber, (double)ship->obj.posinfo.position.x, (double)ship->obj.posinfo.position.y,
+             (double)ship->obj.posinfo.position.z, (double)fsqrt(vecMagnitudeSquared(ship->obj.posinfo.velocity)),
+             (double)ship->magnitudeSquared, (int)hwiEngineTrails, (mrCamera != NULL) ? (double)mrCamera->distance : -1.0);
+    for (i = 0; i < MAX_NUM_TRAILS; i++)
+    {
+        if (ship->trail[i] == NULL)
+        {
+            continue;
+        }
+        for (which = 0; which < 3; which++)
+        {
+            if (which > 0 && ship->trail[i]->hwiSplit == 0)
+            {
+                continue;
+            }
+            hwiTrailHeadWorld(ship->trail[i], which, -48.375f, &w);
+            snprintf(name, sizeof(name), "%c%d", "hnc"[which], (int)i);
+            catTrailViewProject(&w, part, sizeof(part), name);
+            len = strlen(line);
+            snprintf(line + len, sizeof(line) - len, "%s", part);
+        }
+    }
+    len = strlen(line);                             // every random stream's state: which draws a run makes
+    snprintf(line + len, sizeof(line) - len, " rs=");
+    for (i = 0; i < RANDOM_NUMBER_STREAMS; i++)
+    {
+        len = strlen(line);
+        snprintf(line + len, sizeof(line) - len, "%s%08x", (i > 0) ? "," : "", (unsigned)ranStream[i].x);
+    }
+    dbgMessagef("%s", line);
+}
+
 // the render task's top and its end after the flip (rndRenderTask)
 static void catLodStatsFrameBegin(void)
 {
@@ -7306,6 +7554,7 @@ static void catLodStatsFrameBegin(void)
 
     catLodFleetFocusTick();
     catMineViewFrame();                             // HWI-TEST (M3-R3 mines): /catMineView
+    catTrailViewFrame();                            // HWI-TEST (M3-R3 engine-trails): /catTrailView
     catLodStatsActive = (catLodStatsFrom >= 0 && !catLodStatsDone && gameIsRunning && tick >= catLodStatsFrom &&
                          tick <= catLodStatsTo);
     if (catLodStatsActive)

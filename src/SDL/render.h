@@ -270,6 +270,7 @@ void catRenderSelfTestTick(void);
 void catLodTestSet(char *string);
 void catLodStatsSet(char *string);
 void catMineViewSet(char *string);                  // HWI-TEST (M3-R3 mines): /catMineView <tick>[:dropped][:<distance>]
+void catTrailViewSet(char *string);                 // HWI-TEST (M3-R3 engine-trails): /catTrailView <tick>:<ShipType>[:d<distance>][:e<elevation>][:s<side>]
 
 // CAT: lens flare sources (particle systems of type PART_LENSFLARES own one per particle; Particle.h). The list and
 //      its add/remove are ported with the particles; the lens flare renderer (cat_rndLensFlaresRender 0x0057bec0)

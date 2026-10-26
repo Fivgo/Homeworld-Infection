@@ -1797,6 +1797,7 @@ void InitializeEngineTrails(Ship *newship)
             }
         }
     }
+    hwiEngineTrailsSplitCreate(newship, numTrails);     // HWI-FEATURE(engine-trails): the missile corvettes' added ribbons
 }
 
 void univResetNewGimbleGun(Gun *gun)

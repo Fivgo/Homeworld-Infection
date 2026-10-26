@@ -369,6 +369,14 @@
 #                    distance and speeds for the first 8 mines that start an attack run; "-- /catMineChase
 #                    <tick>[:<shiptype>]" orders up to 4 of player 0's ships of that type (default sRecon) past the
 #                    nearest level mine through the command layer (a test scene: no stream reference)
+#                    M3-R3 engine-trails (HWI-TEST, docs/m3-r3-engine-trails.md), any mode that plays a game (ai,
+#                    skirmish, missiontest): "-- /catTrailView <tick>:<ShipType>[:d<distance>][:e<elevation>][:s<side>]
+#                    [:r<ratio>][:m<move>]" closes the sensors manager from that tick and keeps the camera <distance>
+#                    (500) behind the first ship of the type moving over <ratio> (0.4; 0: any) of its top speed, raised
+#                    <elevation> (20) and turned <side> (30) degrees (:m: ordered <move> units ahead, command layer); per
+#                    frame "trailview: tick=.. h<slot>=x,y n<slot>=x,y c<slot>=x,y rs=.." (each trail's head, split
+#                    nozzle and engine circle on the physical screen; the 27 random streams' states). With --shot: the
+#                    trail captures (changes the view: no stream reference). The feature's A/B: "-- /exeTrails"
 #                    warpstart: /catMissionTest <ticks> /catWarpStartTest /oracleDump <run>/run.hwo (M2-R9 missions-10-17):
 #                    the exe's warp start (cat_spWarpToLevel 0x0051b9c0) from a TEST COPY of the install's warp.script
 #                    supplied to this run only, as loadgame supplies its save: the run gets its own data dir

@@ -55,6 +55,7 @@
 #include "Universe.h"
 #include "utility.h"
 #include "texreg.h"                                 // HWI-FEATURE(sharp-textures): texLinearFiltering, /noFilter's state
+#include "Trails.h"                                 // HWI-FEATURE(engine-trails): hwiEngineTrails, /exeTrails' state
 #include "Console.h"                                // HWI-TEST: /catConsoleAt
 #include "FEFlow.h"                                 // HWI-TEST: /catFeScreen
 #include "mainrgn.h"                                // HWI-TEST: /catFeScreen (ghMainRegion)
@@ -119,6 +120,9 @@ static const char *hwiSwNameUiScale(void)   { static char name[24]; snprintf(nam
 static const char *hwiSwNameOverlay(void)   { return "/overlay"; }
 static sdword hwiValFilter(void)    { return texLinearFiltering ? 1 : 0; }   // HWI-FEATURE(sharp-textures): 0 = SHARP TEXTURES
 static const char *hwiSwNameFilter(void)    { return "/noFilter"; }        // HWI-FEATURE(sharp-textures): or /sharpTextures
+static sdword hwiValEngTrails(void) { return hwiEngineTrails ? 1 : 0; }    // HWI-FEATURE(engine-trails): 1 the four jet streams, 0 the exe's two
+static bool32 hwiSwEngTrails(void)  { return hwiEngineTrailsSwitch; }      // HWI-FEATURE(engine-trails)
+static const char *hwiSwNameEngTrails(void) { return "/exeTrails"; }       // HWI-FEATURE(engine-trails)
 
 static const HwiSetting hwiSettings[] =
 {
@@ -130,6 +134,7 @@ static const HwiSetting hwiSettings[] =
     { "overlay",         hwiValOverlay,   hwiSwOverlay,             hwiSwNameOverlay,   FALSE },   // HWI-FEATURE(instrumentation)
     { "meshImmediate",   hwiValMeshImm,   hwiSwMeshImm,             hwiSwNameMeshImm,   FALSE },   // HWI-FEATURE(mesh-batching): no options-file row
     { "texLinearFiltering", hwiValFilter, trFilterSwitchStands,     hwiSwNameFilter,    TRUE  },   // HWI-FEATURE(sharp-textures): 1 the original look, 0 SHARP TEXTURES
+    { "engineTrails",    hwiValEngTrails, hwiSwEngTrails,           hwiSwNameEngTrails, FALSE },   // HWI-FEATURE(engine-trails): no options-file row
 };
 #define HWI_SETTINGS    ((sdword)(sizeof(hwiSettings) / sizeof(hwiSettings[0])))
 
@@ -296,6 +301,10 @@ void hwiSettingsConsole(const char *row)                        // HWI-FEATURE(i
             {                                                   // HWI-FEATURE(mesh-batching)
                 meshImmediateSwitched = FALSE;                  // HWI-FEATURE(mesh-batching): the console's choice ends /meshImmediate's
             }                                                   // HWI-FEATURE(mesh-batching)
+            if (i == 8)                                         // HWI-FEATURE(engine-trails)
+            {                                                   // HWI-FEATURE(engine-trails)
+                hwiEngineTrailsSwitch = FALSE;                  // HWI-FEATURE(engine-trails): the console's choice ends /exeTrails'
+            }                                                   // HWI-FEATURE(engine-trails)
         }
     }
     snprintf(why, sizeof(why), "console %s", row);

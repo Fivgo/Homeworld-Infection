@@ -100,6 +100,8 @@ typedef struct
     real32 scalecap;
     sdword grainCounter;                //counter to reflect if the trail should be updated this time around
     sdword iHead, iTail, nLength;       //circular queue members
+    sbyte  hwiSplit;                    // HWI-FEATURE(engine-trails): 0 the exe's trail; +1 the exe's trail split to its upper circle; -1 the added lower one
+    ubyte  hwiSplitType;                // HWI-FEATURE(engine-trails): the row of hwiTrailSplits[] (Trails.c)
     trailsegment segments[1];           //trail segments
 }
 shiptrail;
@@ -158,6 +160,19 @@ void trailMove(shiptrail* trail, vector *delta);
 
 //cause a trail or glow to enter/exit its "wobbly" state
 void trailMakeWobbly(void* vship, bool32 state);
+
+// HWI-FEATURE(engine-trails) (M3-R3): the missile corvettes' four jet streams. cataclysm.exe draws one ribbon per mex Eng
+//      chunk (InitializeEngineTrails 0x00541f40): two for bMissileCorvette / p1MissileCorvette, each centred between the
+//      upper and lower engine circle of one side. On (the default) each of the two is drawn from its side's upper circle
+//      and a second ribbon from the lower one, each half the exe's 42-unit span; /exeTrails (run-only) and the console row
+//      engineTrails 0 give the exe's two (docs/m3-r3-engine-trails.md)
+extern sdword hwiEngineTrails;                                  // HWI-FEATURE(engine-trails): on by default (1); the console row engineTrails
+extern bool32 hwiEngineTrailsSwitch;                            // HWI-FEATURE(engine-trails): /exeTrails given
+void hwiEngineTrailsSplitCreate(void *vship, sdword numTrails); // HWI-FEATURE(engine-trails): InitializeEngineTrails' added ribbons
+void hwiEngineTrailsExeSwitch(void);                            // HWI-FEATURE(engine-trails): /exeTrails
+void trailGetNozzleOffset(real32* vec, shiptrail* trail);
+void hwiTrailHeadWorld(shiptrail *trail, sdword which, real32 panelZ, vector *world);   // HWI-TEST (M3-R3 engine-trails): /catTrailView
+void trailInplaceShipToWorld(real32* vec, real32* coordsys, real32* position);
 
 //parse a ship definition file and create a trailstatic structure
 trailstatic *trailStaticInfoParse(char *directory, char *fileName);

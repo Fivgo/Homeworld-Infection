@@ -13044,7 +13044,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "capital-ship engine glows: trail style 2 for Beast and Taiidan ships (shiprace 1 or 3), 3 otherwise (HW1: style 2 for R2 only)",
-  "note": "M2-R4 univupdate: found modified (was IDENTICAL); ported"
+  "note": "M2-R4 univupdate: found modified (was IDENTICAL); ported | [review: M3-R3 engine-trails] compared again (decompile 0x00541f40): the Eng0..Eng3 lookup (numTrails = the highest chunk found + 1), the four slots cleared, a ribbon per chunk (trailNew(trailStatic[i], ship, i != 0, i)) or the capital glow (style 2 for race 1 / 3, else 3): as the tree; the tree adds one HWI-FEATURE(engine-trails) call after the loops (hwiEngineTrailsSplitCreate: the missile corvettes' added ribbons in slots 2 / 3)"
  },
  "0x00542040": {
   "class": "IDENTICAL",
@@ -16158,7 +16158,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] same",
+  "note": "[review: M2-R5 render] same | [review: M3-R3 engine-trails] edited (two HWI-FEATURE(engine-trails) lines: hwiSplit / hwiSplitType cleared); compared again (decompile 0x005a4b40): the allocation (nSegments * 100 + 0xB0, or 0x114 with no static), the fields, the capital branch (ribbon adjust 1.28 default, trailLength / width, style second + 1 or 5, exponent 4, state CONTRACTED, scale cap) and the ribbon branch (width, height, the angle in radians or -1, ribbon adjust, style): identical",
   "sample": "port-R5-render"
  },
  "0x005a4cb0": {
@@ -16172,7 +16172,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the nozzle moves with its mesh object (cat_shipNozzleInfoGet, cat_meshObjectMatrixGet)",
-  "note": "[review: M2-R5 render] ported before M2-R5 (Trails.c); compared",
+  "note": "[review: M2-R5 render] ported before M2-R5 (Trails.c); compared | [review: M3-R3 engine-trails] compared again (decompile 0x005a4cc0): the nozzle offset of trailNum (static +0x2B0 + 12 * trailNum) times the matrix of the mesh object its Eng chunk names (static +0x2E0 [currentLOD][trailNum], cat_shipNozzleInfoGet, cat_meshObjectMatrixGet): as the tree, whose body is now trailNozzleOffset (split = FALSE is the exe's); the tree adds the HWI-FEATURE(engine-trails) split nozzle (the circle's centre) for a split pair while the feature is on",
   "sample": "port-R5-render"
  },
  "0x005a4d90": {
@@ -16186,7 +16186,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] same",
+  "note": "[review: M2-R5 render] same | [review: M3-R3 engine-trails] relied on (each ribbon's queue takes trailGetNozzleOffset); compared again (decompile 0x005a4e10): style < 3: the grain counter, the nozzle, the ship's coordsys and position, the head in world space, horizontal = the y axis and vertical = the x axis turned by the angle about z then into world space, the head / length update; else the capital glow's exponent (trailRealRand) and state machine: identical",
   "sample": "port-R5-render"
  },
  "0x005a5210": {
@@ -16214,7 +16214,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "top speed with the speed multiplier; below VELRATIO_THRESH the glow keeps the smallest size instead of not being drawn",
-  "note": "[review: M2-R5 render] ported (Trails.c)",
+  "note": "[review: M2-R5 render] ported (Trails.c) | [review: M3-R3 engine-trails] edited (HWI-FEATURE(engine-trails): the jitter through trailRandom, the shared stream unless an added ribbon is drawn; an added ribbon skips the sprite and keeps the afterburn test); the exe's body otherwise unchanged",
   "sample": "port-R5-render"
  },
  "0x005a5e90": {
@@ -16249,7 +16249,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "no colour argument: the team colour faded from head to tail, then HW1's random adjust",
-  "note": "[review: M2-R5 render] ported (Trails.c)",
+  "note": "[review: M2-R5 render] ported (Trails.c) | [review: M3-R3 engine-trails] edited (HWI-FEATURE(engine-trails): the three draws through trailRandom, the shared stream unless an added ribbon is drawn); the exe's body otherwise unchanged",
   "sample": "port-R5-render"
  },
  "0x005a6e30": {
@@ -16284,7 +16284,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "cat_trailShouldDraw 0x005a7240 decides whether a trail is drawn (clamped Leech, dissolving, SOF_DontDrawTrails / SOF_Disabled, being built, the ramming frigate's inactive trail; moving or pushing); the glow sprite and the segments take the ship's team colour",
-  "note": "[review: M2-R5 render] ported (Trails.c)",
+  "note": "[review: M2-R5 render] ported (Trails.c) | [review: M3-R3 engine-trails] edited (HWI-FEATURE(engine-trails): trailDraw is a wrapper over the body trailDrawBody: an added ribbon is drawn only with the feature on, with its own generator; a split pair's glow sprite at the exe's nozzle); with the feature off or for any other trail the exe's body as before; the exe's trail pass (rndMainViewRenderFunction 0x005772dd) calls it for each of the four slots",
   "sample": "port-R5-render"
  },
  "0x005a7a40": {
