@@ -1,6 +1,6 @@
 # Work cycle and resume point
 
-Last checkpoint: 2026-10-26 10:51
+Last checkpoint: 2026-10-26 15:09
 
 **Read this first when resuming.** It is the single source of truth for where the work stands.
 
@@ -28,7 +28,7 @@ Claude Code records no "approaching limit" signal: across a week of transcripts 
 <!-- qwen-status -->
 ```
     claude limited : False
-    gpu gate       : BLOCKED (a game is running)
+    gpu gate       : free (GPU at 1%)
     model          : qwen3.6:27b ctx=8192
     progress       : 12/0 functions proposed -> /home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/ghidra/proposals/qwen/naming.jsonl
 ```
@@ -731,7 +731,7 @@ line; the other six toggle runs PASS):
 Delta map after the round: IDENTICAL 2,757 / MODIFIED 1,580 / REWRITTEN 83 (producer 3's five edited `HS.c` bodies IDENTICAL ->
 MODIFIED), 3,579 reviewed rows (M3-R1: 3,573); 210 MODIFIED / REWRITTEN rows still unflagged (118 outside `TitanInterface.cpp`).
 
-**The plan for M3-R3 and the rest of M3** (docs/m3-r2-summary.md "Plan for M3-R3"; supersedes M3-R1's M3 plan table above; the
+**The plan for M3-R3 and the rest of M3** (**superseded 2026-10-26 by M3-R3's plan table in the M3-R3 subsection below**; docs/m3-r2-summary.md "Plan for M3-R3"; supersedes M3-R1's M3 plan table above; the
 play-test can start now with `tools/play.sh --rebuild`, the brief in the summary; the overlay's F key is M3-R3's first item):
 
 | # | step | scope | done when |
@@ -741,6 +741,89 @@ play-test can start now with `tools/play.sh --rebuild`, the brief in the summary
 | 2 | **the Windows 11 test** (the user's day + a producer; M3-R1's row 1) | the untested win64 zip `ce95fec5…` (eb5f7e3's source) per docs/m3-windows-build.md, then a rebuild from this round's tree (`tools/release_win64.sh --engine <commit>`); the harness modes the gate needs; the libm dependence measured first | release + debug on Windows 11 with 0 warnings; the self-tests PASS there once; the Mission01 stream, both replays and a mission stream IDENTICAL to Linux (or every difference localised to a libm call); a save and a recording cross-load |
 | 3 | **the one-hour 4K@144 soak, no gamescope** (producer + the user's hour; M3-R1's row 2, now instrumented) | the headless `sp` hour with `/frameLog` (the drift test, the heap growth ~4 MB/min, the `dupe` blocks 912 by Mission06), the task clock, the `DEADLYSIGNAL`, FULL DETAIL's p99 re-measured on a quiet machine, then the attended hour with the overlay | no drift over the attended hour; no growth heap in the headless hour or every growth attributed and fixed; the task clock at the exe's rate or its difference stated |
 | 4 | **the oracle's rung** (M3 oracle physics; unchanged) | 10-17 2823 / 10-18 2871, the three `CAT-TODO(M3 oracle physics)`, the `frandom` sites, Mission17's KAS teams, `hsStart`'s `GL_BLEND` test; mode B and the fourth recording if made | IDENTICAL beyond 2823 / 2871 or the next divergences localised and owned |
+| then | **stage 5** (decision 9) | the 23 `CAT-TODO(stage 5 ...)` sites + the modular mothership's multiplayer arrival | LAN interop nice-to-have; the wire format not broken |
+
+### M3-R3: COMPLETE 2026-10-26 (the third play-test fix round: the overlay's F key F1 + the toggle check + SHARP TEXTURES, the pause freeze, Mission02's dust belts + the Bushan-Re hint (both the exe's), Mission03's white mines (an x86-64 layout fault) + the mine AI (the exe's), the missile corvette's four trails; presentation only, no simulation field moved)
+
+Summary, exit test, the five fences and the refreshed play-test brief: [docs/m3-r3-summary.md](../docs/m3-r3-summary.md).
+Workflow `cycle/workflows/m3-r3.js` (dae51e1; run id `wf_8a0247ed-904`, `ROUND_BASE 7aa3111`), launched 2026-10-25 15:24 on the
+user's word from the user's terminal session 38027cce (Fable), not from the orchestrator; cut off by the session's end on 2026-10-25
+~20:30 during the mines audit and resumed on 2026-10-26 with the same run id; 11 agents (five ports in sequence with their audits, each
+checkpointing its port: settings-and-keys `c8f97bb` 0.94, pause-freeze `292a6da` 0.78, mission02 `96b0137` 0.94, mines `4ae7d91` 0.95,
+engine-trails `6ad69ec` 0.944, all PASS-WITH-FIXES; integrate). The user's answers: `cycle/answers/m3-r3-user.md` (the mandate: SHARP
+TEXTURES as an option with the original look the default; the overlay's key from the F1-F12 suite: F1; the GPU free 2026-10-26; the
+third play-test's seven items, each now either the exe's or fixed).
+
+**M3-R3 exit test: MET** (the integrate step, clean builds of `6ad69ec` (`[274/274]`, 0 warnings: debug `e4e1137e86218ae1`, release
+`77c3861e6f74ea3d`, copied aside), plain harness, silent, 225 runs `m3r3i-e-*` in ten correctness chains + the GPU chain H after them
+(the user's game on the CPU and GPU through the correctness chains, load average 21-38 through the step); `runs.txt` lines 4822-5046; ASan 0 in
+all); two statements beside the verdict: the two `universePause` dumps differ from producer 2's final dumps in the paused frames' `crc` / `crcv` alone, the commit id of the build text `rndRenderTask` draws while paused (render.c:5461; chain X's captures: 71 px at the bottom right, `Emergence 1 6ad69ec` vs `Emergence 1 4ae7d91`, the object columns equal), and the 4K cost was measured after the user's game released the GPU (the GPU batch waited from 11:49 to 14:55 for the user's game to release the GPU (`gpuwait`: nvidia-smi every 10 s until 120 s at or under 40 %), then ran its eight runs on the idle GPU in two batches of four, the second after a two-minute wait on a 50 % sample; `claude-ping` fired 2 times (11:49:21, 14:57:12): the library pings once per `gpuwait` call, not once per gate, a deviation from the user's rule to fix in `chains/lib.sh` before M3-R4):
+- **Mission01 headless**: pairs byte-identical, debug `c20ccda7fdae0f66` / release `316025e5c47989e1` (IDENTICAL to each other), MISSION TEST
+  PASS in both (perturb at 3000 `rng10`, flip at 4000); M3-R2's list (`/noInterp`, `/noNISInterp`, `/oracleLibmSqrt`, `letterboxBehind
+  1` row and switch, `/lodBands`, `noLOD 0`, `/uiScale 200`, `uiScale 150`, the three opt-outs together, `/overlay`, `--frame-log`,
+  `/meshImmediate`, `/noHsAssembly`) and this round's (`texLinearFiltering 0` alone and under `effectsLevel 2`, `/sharpTextures`,
+  `/noFilter`, `/exeTrails`, the console rows `engineTrails` and `texLinearFiltering` flipped live, the F key pressed at 100 / 200) all
+  byte-identical to A (29 variants); **IDENTICAL in every one of the 21 fields to M3-R1's `1ae66610c3f02410`** and so to R10's
+  `5bd51234405ea0d8` (decision 44 unchanged) and to every producer's and audit's Mission01 run.
+- **The rung unchanged**: 10-17 IDENTICAL through 2822, first divergent **2823 `ships_vel`**; 10-18 through 2870, **2871
+  `ships_vel`**; with `/oracleLibmSqrt` 177 / 118; the exclusions `rng6` at 161 in both, `real` at 2 in 10-18; the release replay equal
+  to the debug on every field but `rng_all` (6377, as M3-R1 / M3-R2); both replays IDENTICAL in every field to `m3r2i-e-r17-a` /
+  `m3r2i-e-r18-a` (= M3-R1's); the hwirec01 / hwirec02 playbacks IDENTICAL to M3-R2's. **Mode B not run** (no
+  `original/oracle/hwirec*-play-*`), no fourth recording (the newest `oracle01-rec-*` is 20261019-143530; decision 48 open).
+- **Missions 01-17**: 17 / 17 PASS with every objective in order, all 17 pairs byte-identical, ASan 0 in all 34 runs; **every stream
+  IDENTICAL in every field to M3-R2's `m3r2i-e-mN-a`** (Mission17's milestone `the game's end (credits)`); Mission02's hint check
+  (`hint skill=2 timer=360 ... found=1152 ... expected=no fired=no result=PASS`) and Mission03's mine checks (`level objects tick=1 mines=199 ... objectives=5/5 result=PASS`) in their lines; the Tutorial1 leg, the lesson load, the warp start, the
+  failed-jump pair, loadgame, the skirmishes, build, ai and the 4,000-tick soak (20 fields; `rng_all` exempt, decision 84, and
+  `rng_all` alone) all IDENTICAL to M3-R2's.
+- **The sp gate**: the 1,200 s `sp` reaches Mission12 at 1024x768 (12 levels, 126 golden-shot points, 23,331 file loads, ASan 0, no unsuppressed leak) and Mission11 at 3840x2160 (119 points, 22,327 loads), both rc 124 at the timeout by design; **fe** Main_game_screen at 1024x768 and at 3840x2160 (`uiscale: ... scale 200% (auto, uiScale 0)
+  logical 1920x1080`); no `DEADLYSIGNAL` line in either `sp` run's timeout-kill quit, nor in any of the 225 runs.
+- **Self-tests** all PASS (statics x2, meshes, textures, oracle + the release SELFTEST pair, etg, dock, command, render, sound, hud, ui,
+  fescreens `options=35` with the SHARP TEXTURES control (`optionstest: done options=35 startdefaults=35 readback=35 result=PASS`, `screens=195 ... wrong=0`), strings 1,705 / 1,705, keys 197 / 149 + the F-key line
+  (`overlay fkey F1 scancode=58 vk=0x70 plain bindings F1=0 F12=1 free=1 bound-free=0 reset-free=1`), console `tablerows=486 shown=38 set=31` (producer 1's and 5's rows), build pair, nisparse, modequit (PASS), **toggle
+  10 of 10** (plain, `/noInterp`, `/noNISInterp`, `/letterboxBehind`, `/lodBands`, `/overlay`, `/meshImmediate`,
+  `/noFilter`, `/sharpTextures`, `/exeTrails`: the switch-label rule PASS under every one, M3-R2's one failing check closed), **uiscale
+  x9** (45 / 45 checks each), missiontest pair, loadgame pair, warp pair, tload pair, Tutorial1 pair 12 / 12, ai pair + soak, skirmish
+  pair + Armed8, the team colours (the user's scheme and a red one into Mission02, 7 / 7 checks; Mission03 into Mission04, 6 / 6),
+  lodtest (on + `/lodBands`); every quitting run rc 0 (the nine fe-mode / sp runs at their timeouts by design); layout32 OK; the generators `--check`
+  current; the win64 zip `20261026-6ad69ec` built (sha256 `3d41aaef…`).
+- **The dumps** (decisions 46 / 118 / 129 stand: **no default dump moved this round**): motion `/noInterp` `c503c869f0dc9cdb` /
+  `3016280e9e0dd3c8`, flags-on `c0e411662fa2f527` / `428ef41479eb5749`, nis `/noInterp` `86cb155acffc180e` / `196bab32d244f614`, flags-on
+  `0307f3be2044c29c` / `a5de13a44b8d264f` (whole / crc-stripped; 1,431 / 1,440 frames), byte-equal to M3-R2's and M3-R1's files; the
+  opt-outs together byte-equal to R10's `r10i-motion-noi` / `r10i-nis-noi`; the `/meshImmediate` twins equal; the two stated crc-only
+  moves are the options themselves: `/sharpTextures` (`motion-sharp` / `nis-sharp` `1a2227d966ec9712` / `871eac333fd603d0` whole, crc-stripped equal to `motion-on` / `nis-on`: 1,431 / 1,439 lines differ whole, 0 crc-stripped, byte-equal to producer 1's `m3r3-sk-motion-sharp` / `-nis-sharp`), `/exeTrails` (`motion-exe` = `motion-on` and `nis-exe` = `nis-on` byte for byte (no missile corvette in either scene), `motion-exe` byte-equal to producer 5's `m3r3-et-motion-exe`); **the paused dumps** hold every
+  column (0 of 71 paired changes in the key and `universePause` runs, 0 of 40 in the mid-tick one, 0 of 71 in the NIS pause (its one `crc` / `crcv` change the trail stop), `crcv` 0 and `crc` 67 (the SU blink) in the key / univ runs; the scene run's 24 of 71 are the camera's one-ulp chase (`CameraChase`, the exe's: the world columns 0 of 71, the screen columns <= 0.0019 px)).
+- **The five fences** rerun with numbers (the summary's tables): (1) the keys self-test's F-key line and F1 toggling the overlay in the
+  ai scene (t160 `differ=14400 bbox=2,2,227,66`, t140 / t210 0), the toggle self-test under all 10 switch sets, the sharp captures (the ai scene sharp vs linear 2,685 / 2,674 px (t200 / t240), 20,864 at 4K; the
+  Kuun-Lan's closest zoom 113,372 px at 1024x768, 890,954 at 4K; the cfg row alone 0 px (the exe's preset undoes it); the live flip t200 = the switch's frame, t240 = the linear frame, 0 px each), every capture byte-equal to producer 1's
+  (the Kuun-Lan, Mission01 4K and in-game Video screen frames byte-equal; the ai-scene frames differ in the corvettes' four ribbons only (chain X), the front-end Video screen in the build-identity text); (2) the paused dumps (0 of 71 paired changes in the key and `universePause` runs, 0 of 40 in the mid-tick one, 0 of 71 in the NIS pause (its one `crc` / `crcv` change the trail stop), `crcv` 0 and `crc` 67 (the SU blink) in the key / univ runs; the scene run's 24 of 71 are the camera's one-ulp chase (`CameraChase`, the exe's: the world columns 0 of 71, the screen columns <= 0.0019 px); the scene recipe 72 paused frames (F701..F772): no world column (`Aw`..`Mw`, the objects' world positions) moves in any of the 71 pairs; the camera's eye alternates by one float32 ulp (`5830.0688` / `5830.0693`) in 24 of 71 pairs, with `crcv` moving in those 24 and the objects' screen columns following the camera by at most 0.0019 px (`CameraChase`'s easing at a converged camera, the exe's; the audit measured the same); the NIS shots F602 -> F603 `differ=0` (F601 -> F602 16,179 px: the one `crc` change, the simulation's trail stop)), byte-equal to
+  producer 2's dumps (7 of 9 byte-equal; the two `universePause` dumps the version string's commit id alone); (3) Mission02's 486 Dust points in every sensors frame (`sensors scenes=1794 dustpoints=871884` in `m2-a`, 0 with `ShowAsteriod0 0`), the on / off captures
+  247-261 px at 1024x768, 269-275 at 4K, 0 in the 3D view, the hint at tick 5824 on NORMAL with the scout held, VERY EASY found at 1152 before the 120 s due at 1922, `expected=no fired=no PASS`, HARD `timer=-1 due=-1 ... expected=no fired=no PASS` (no timer on HARD; the self-test's player does not finish: 4 / 6), the captures byte-equal
+  to producer 3's (11 of 12 frames per run; the t6272 3D-view frame 33 px at the right edge: the mines fix's missile colour); (4) the mines' textures (level `textures=11 bound=11 white=0`, laid `textures=4 bound=4 white=0`; the regions 10,657 / 10,582 and 970 / 977 colours (the BEFORE captures 19 / 6);
+  batched = immediate 0 px on nine frames; vs the producer's BEFORE captures 25,389 / 25,401 / 1,341 / 1,332 px), the Recon chase (mine 63 acquired 1295, `faster-away` 1376, re-acquired 1391, `faster-away` 1392; mine 62 1294 / 1397), the Acolyte
+  chase (mine 63 acquires `sAcolyte#11` at 1535, mine 66 `cleared` 1753, re-acquires 1762, its log ends 1833 (the 5 s lifetime)), the Mission03 log (199 level mines start, 30 laid, six `4->3` on the Mimic 14138-14171, four `cleared` 14391, their logs end 14470 / 14471, two level mines acquire Recons 16871 / 16875; 5 / 5 at 17,825); (5) the four ribbons (3-4 runs on the first scanline where `/exeTrails` draws 2, at 1024x768 and 4K, both corvette types; every frame byte-equal to producer 5's; the nozzles within 1.6 px of the rings' centres at 1024x768, 3.8 / 1.0 px at 4K), the random streams
+  13-17 equal at every frame (0 of 321 frames differ in streams 13-17, stream 11 alone from tick 245), `/exeTrails` frames byte-equal to producer 5's (every capture byte-equal; the `/exeTrails` frames byte-equal to the audit's reverted build's), the 4K cost on the idle GPU
+  after the correctness chains (the default (four ribbons) medians 3.743 / 3.422 ms (p99 5.643 / 4.886), `/exeTrails` 3.483 / 3.240 (p99 5.043 / 5.061): **the trails' 4K cost +0.221 ms on the median against a run-to-run spread of 0.321 ms**; `/meshImmediate` 8.096 / 8.003 (p99 11.699 / 13.076: the batching's gain stands), `/sharpTextures` 3.472 / 3.184 (p99 5.054 / 5.036: the same as the default within the spread)).
+- **Tags**: `CAT-(TODO|PROVISIONAL)\([^)]*M3-R3` empty (BTG.c:1151 re-targeted to `CAT-TODO(M3-R4)`, comment-only, rebuilt clean with 0
+  warnings); 37 `CAT-TODO` lines, 28 owner tags (stage 5 23, M3 oracle physics 3, M3 soak 1, M3-R4 1), 4 `CAT-PROVISIONAL`; `HWI-FEATURE`
+  motion-interp 486 / letterbox-setting 37 / full-detail 179 / ui-scale 300 / instrumentation 141 / hyperspace-assembly 55 /
+  mesh-batching 160 / **sharp-textures 196 / pause-freeze 90 / engine-trails 113**; `HWI-FIX` 76 (62 at the round base), `HWI-TEST` 461
+  (286), `CAT-FIX` 196 (195).
+- **UBSan kinds** (all non-fatal): 9 kinds, the same nine as M3-R2's / M3-R1's / R10's, no new kind (the misaligned particle / ETG / BTG accesses; the first report of every universe run `BTG.c:389:35`); 52 runs report nothing; ASan 0 and no unsuppressed leak in all 225.
+
+Delta map after the round: IDENTICAL 2,757 / MODIFIED 1,580 / REWRITTEN 83 (no class change), 3,582 reviewed rows (M3-R2: 3,579; 28
+`[review: M3-R3 ...]` notes merged); 210 MODIFIED / REWRITTEN rows still unflagged (118 outside `TitanInterface.cpp`).
+
+**The plan for M3-R4 and the rest of M3** (docs/m3-r3-summary.md "Plan for M3-R4"; supersedes M3-R2's M3 plan table above; the
+play-test can start now with `tools/play.sh` (it rebuilds itself), the brief in the summary; **no queue for M3-R4 yet**: it exists when
+the play-test reports something or the user picks "the exe's" on an open look question):
+
+| # | step | scope | done when |
+|---|---|---|---|
+| 0 | **the user's next play-test** (now; the refreshed brief) | the five items re-checked (F1 in the game, the sensors manager and the build screen; SHARP TEXTURES at the Kuun-Lan's closest zoom and TEXTURE MEMORY HI at 4K; the pause with P and the Escape menu over moving ships; Mission02's Dust points at 4K and the hint on NORMAL; Mission03's textured mines, the faster-away rule, the four streams), then M3-R2's four unreported checks (the overlay's numbers and the quit at 4K, the cutscene's `frame.sig`, the hyperspace arrival, FULL DETAIL batched vs `/meshImmediate`), then M3-R1's and R10's open items | a report per item and the `frame.sig` handed over; M3-R4 sized from it (or not needed) |
+| 1 | **M3-R4: the fourth fix round** (one producer + auditor per item; only if row 0 reports items or the user picks "the exe's") | the play-test's new items; the look decisions if answered the exe's way: the BTG star size (`CAT-TODO(M3-R4)`), the letter height, the additive state, the sensors points at the UI scale, TEXTURE MEMORY HI, the unfiltered minification, the pause's float behind a setting; the flicker's verdict from the `frame.sig`; a wall-clock pause capture if motion is still seen while paused | every item shown 1-to-1 with the exe or fixed with a fence; every stream IDENTICAL; the play-test's items re-played |
+| 2 | **the Windows 11 test** (the user's day + a producer; M3-R1's row 1, M3-R2's row 2) | the fresh win64 zip `20261026-6ad69ec` (this round's tree) per docs/m3-windows-build.md "What the user must test"; the harness modes the gate needs; the libm dependence measured first | release + debug on Windows 11 with 0 warnings; the self-tests PASS there once; the Mission01 stream, both replays and a mission stream IDENTICAL to Linux (or every difference localised to a libm call); a save and a recording cross-load |
+| 3 | **the one-hour 4K@144 soak, no gamescope** (producer + the user's hour; M3-R1's row 2, M3-R2's row 3) | the headless `sp` hour with `/frameLog` (the drift test, the heap growth ~4 MB/min, the `dupe` blocks, O4), the task clock, the `DEADLYSIGNAL`, FULL DETAIL's p99 on a quiet machine (this step's idle-GPU figures the baseline), then the attended hour with the overlay (F1) | no drift over the attended hour; no growth heap in the headless hour or every growth attributed and fixed; the task clock at the exe's rate or its difference stated |
+| 4 | **the oracle's rung** (M3 oracle physics; unchanged) | 10-17 2823 / 10-18 2871, the three `CAT-TODO(M3 oracle physics)`, the `frandom` sites, Mission17's KAS teams, `hsStart`'s `GL_BLEND` test, the non-ship statics' layout audit; mode B and the fourth recording if made | IDENTICAL beyond 2823 / 2871 or the next divergences localised and owned |
 | then | **stage 5** (decision 9) | the 23 `CAT-TODO(stage 5 ...)` sites + the modular mothership's multiplayer arrival | LAN interop nice-to-have; the wire format not broken |
 
 ### Decisions the user owns
@@ -901,6 +984,7 @@ play-test can start now with `tools/play.sh --rebuild`, the brief in the summary
     chain of the round's hashes (`1028375d20f15d75`, `be3e5030cebbea0b`, `dc2fb8ce71c0d26b`, `fd82fafbcd9011fc`: the same
     content, the header's build identity only) is in docs/m2-r9-summary.md. **M2-R10: the content is unchanged** (the integrate's `5bd51234405ea0d8`, release `a44d585d71233c4a`, IDENTICAL in every field to `553845b65e87f3b5`: no ship flies in the headless Mission01 run, the flight / combat ports do not reach it); every other guard rail re-baselined in docs/m2-r10-summary.md. **M3-R1: the content is unchanged** (the integrate's `1ae66610c3f02410`, release `234bcccfb948ab98`, IDENTICAL in every field to `5bd51234405ea0d8`; presentation only: no simulation field of any stream of the round moved; decision 119).
     **M3-R2 (2026-10-24): the content is unchanged** (decision 128): the integrate's `2131271d771f2056` (release `ce30c53259f034c8`) is IDENTICAL in all 21 fields over ticks 0-6000 to M3-R1's `1ae66610c3f02410` and so to R10's `5bd51234405ea0d8` (the header's build identity only), with every setting of the round flipped; the rung 2823 / 2871 unchanged.
+    **M3-R3 (2026-10-26): the content is unchanged** (decision 140): the integrate's `c20ccda7fdae0f66` (release `316025e5c47989e1`) is IDENTICAL in all 21 fields over ticks 0-6000 to M3-R1's `1ae66610c3f02410` and so to R10's `5bd51234405ea0d8` (the header's build identity only), with every setting of the round flipped (the sharp row, the switches, the console rows, the F key); the rung 2823 / 2871 unchanged.
 45. **Cataclysm's 18 animatics are 30 fps**; GoK's player assumed 15 (every animatic played at half speed until R6).
 46. **Motion interpolation**: `objInterpolate` / `nisInterpolate` both 1 (`Cataclysm.cfg` rows, `/noInterp`,
     `/noNISInterp`, console rows, the Smooth motion checkbox added in code to `Video_Options` and the in-game `Video`
@@ -914,6 +998,7 @@ play-test can start now with `tools/play.sh --rebuild`, the brief in the summary
     in the formations and the NIS's sorted paths: producer 1's stated physics); flags-on `428fff6c765ab81b` /
     `6a4c1850799187ac`. **M3-R1: re-baselined** (decision 118): the default dumps are now motion `/noInterp` `c503c869f0dc9cdb` / flags-on `c0e411662fa2f527`, nis `/noInterp` `86cb155acffc180e` / flags-on `0307f3be2044c29c` (crc-stripped `3016280e9e0dd3c8` / `428ef41479eb5749` / `196bab32d244f614` / `a5de13a44b8d264f`): the `crc=` column moved for the bars in front (producer 1, the nis pair: the sRecon's two passes through the bottom bar) and for the LOD-0 meshes (producer 3, all four), the nis flags-on dump's positions for the NIS task's alpha fix (producer 4, fix 1); the opt-outs `letterboxBehind 1` + `/lodBands` + `/noInterp` reproduce `183681235a3fdc7b` / `13ca70eea998e5de` byte for byte (`cmp` against `r10i-motion-noi` / `r10i-nis-noi`); no position column of a `/noInterp` dump moved in the round (the crc-stripped `3016280e9e0dd3c8` / `196bab32d244f614` are R10's).
     **M3-R2 (2026-10-24): unchanged** (decision 129): the four dumps byte-equal to M3-R1's references (decision 118) and the opt-outs together to R10's; the `/meshImmediate` twins byte-equal to the batched path's; no producer moved a dump.
+    **M3-R3 (2026-10-26): unchanged** (decision 141): the four dumps byte-equal to M3-R2's references (decision 129) and the opt-outs together to R10's; the two stated crc-only moves are the round's options (`/sharpTextures`, `/exeTrails`); the paused dumps of the pause freeze a gate.
 47. **Oracle mode A's exclusions**: `ships_rot` (the DLL offset defect), `rng_all`, `fpcw`, `players` (the stock
     record / playback difference at tick 93; `rng6`'s at 161: the playback skips the AI). The comparison is the
     simulation field list over ticks 1..9600. **M2-R9**: unchanged (`rng6` at 161, `players` at 93 / 272 in the 10-18
@@ -1141,6 +1226,7 @@ play-test can start now with `tools/play.sh --rebuild`, the brief in the summary
     `/oracleResave`, `/catVirtualAudio`, `/oracleLibmSqrt`. Never edit `tools/m2_harness.sh` while a run is in flight.
     `hwo_compare.py` wants `--from-tick 1` between a record run and a playback. Count tags with `/bin/grep`. **M2-R10**: `--fail-jump` (missiontest, with `--mission N`), `--skirmish-bigotry N`, the `animatics:` summary line; switches `/catMissionTestFailJump`, `/catSkirmishBigotry`; still 29 modes (decision 110). **M3-R1**: mode `uiscale` (30 modes), the flags `--shot`, `--shot-letterbox`, `--res`, `--cfg`, `--player-colours`, `--teamcolour`, `--lodtest`, `--lodstats`, `--scene`, `--real-clock`, the capture / colour / LOD / scene / UI-scale switches and tools (decision 117).
     **M3-R2 (2026-10-24): extended again** (decision 127): 31 modes with `modequit` (`--mode-to WxH`); `--frame-log`, `--frame-sig`, `--virtual-fps N`; the `settings:` summary line; each step prefixes its labels (the harness replaces an existing label's directory).
+    **M3-R3 (2026-10-26)**: decision 139 (this round's switches through `--`, the `mothership` scene kind, the `preset` source).
 93. **The Tutorial1 leg on the virtual audio clock** (`/catVirtualAudio`, set by `/catMissionTestTutorial`: no device, no
     stream thread; `soundVirtualAdvance` mixes 22,050 samples per second of task time in 256-sample blocks); the narration
     takes its game-time length, the leg ends at 10,444 ticks, byte-identical run to run; the 12 lesson saves written and
@@ -1364,6 +1450,7 @@ play-test can start now with `tools/play.sh --rebuild`, the brief in the summary
     tags with `/bin/grep`; GPU measurements on an idle GPU only (nvidia-smi before and after; the CPU load stated:
     this step 12-20 from the user's ripgrep); `tools/play.sh`'s header documents every setting of this round.
     **M3-R2 (2026-10-24): extended** (decision 127): mode `modequit` (`/catModeQuitTest`, `--mode-to`); flags `--frame-log` (`/frameLog`), `--frame-sig` (`/catFrameSig`), `--virtual-fps N` (`/catVirtualFps`); `/overlay`, `/noHsAssembly`, `/meshImmediate` through `--`; the `settings:` line in every summary.
+    **M3-R3 (2026-10-26)**: decision 139.
 118. **The guard-rail dumps re-baselined** (decision 46 updated; the integrate's `m3r1i-motion-*` / `-nis-*`): the references are
     now motion `/noInterp` `c503c869f0dc9cdb` (crc-stripped `3016280e9e0dd3c8`), motion flags-on `c0e411662fa2f527` (`428ef41479eb5749`),
     nis `/noInterp` `86cb155acffc180e` (`196bab32d244f614`), nis flags-on `0307f3be2044c29c` (`a5de13a44b8d264f`), every one EQUAL to
@@ -1378,6 +1465,7 @@ play-test can start now with `tools/play.sh --rebuild`, the brief in the summary
     crc-stripped hashes are R10's). The rule stands: a dump moves only with a stated reason, and the next round's integrate checks
     these four and the opt-out pair.
     **M3-R2 (2026-10-24): the references stand** (decision 129): the integrate's four dumps byte-equal to these hashes, whole and crc-stripped (1,431 / 1,440 frames); the `/meshImmediate` twins too; nothing re-baselined.
+    **M3-R3 (2026-10-26): the references still stand** (decision 141): the integrate's `m3r3i-e-motion-*` / `-nis-*` byte-equal to these files.
 119. **Decision 44 unchanged, the rung unchanged** (the integrate step, from clean builds of `58df92d`): the headless
     Mission01 stream `1ae66610c3f02410` (release `234bcccfb948ab98`) is IDENTICAL in all 21 fields over ticks 0-6000 to
     R10's `5bd51234405ea0d8` / `a44d585d71233c4a` (and to R9's `553845b65e87f3b5`), with `/noInterp`, `/noNISInterp`,
@@ -1458,6 +1546,7 @@ play-test can start now with `tools/play.sh --rebuild`, the brief in the summary
     run's `hwi-settings:` lines: their count and the first) in every run; the switches `/overlay`, `/noHsAssembly`, `/meshImmediate`
     pass through `--`. The harness replaces an existing label's directory, so each step prefixes its labels uniquely (this integrate
     `m3r2i-e-*` beside producer 1's `m3r2i-*`). Never edit `tools/m2_harness.sh` while a run is in flight.
+    **M3-R3 (2026-10-26)**: extended again by decision 139 (31 modes; the round's switches: `/catMotionPause`, `/catMotionShot`, `/catOverlayKeyAt`, `/catConsoleAt`, `/catFeScreen`, `/catTexList`, `/catMissionTestHoldScout`, `/catMeshTexLog`, `/catMineView`, `/catMineLog`, `/catMineChase`, `/catTrailView`, `/exeTrails`, `/sharpTextures`; `tools/play.sh` rebuilds a stale binary itself).
 128. **Decision 44 unchanged, the rung unchanged** (the integrate step, from clean builds of `47922ff`): the headless Mission01 stream
     `2131271d771f2056` (release `ce30c53259f034c8`) is IDENTICAL in all 21 fields over ticks 0-6000 to M3-R1's `1ae66610c3f02410` /
     `234bcccfb948ab98` and so to R10's `5bd51234405ea0d8`, with `/noInterp`, `/noNISInterp`, `/oracleLibmSqrt`, `letterboxBehind 1`
@@ -1477,6 +1566,7 @@ play-test can start now with `tools/play.sh --rebuild`, the brief in the summary
     files and to producer 4's final references (`m3r2-mbf-*`); the opt-outs together (`letterboxBehind 1` + `/lodBands` + `/noInterp`)
     byte-equal to R10's `r10i-motion-noi` / `r10i-nis-noi`; the batched and the immediate path's dumps byte-equal (`motion-on` =
     `motion-on-imm`, `nis-on` = `nis-on-imm`). No producer moved a dump: nothing re-baselined.
+    **M3-R3 (2026-10-26): unchanged again** (decision 141): the same four hashes whole and crc-stripped; the `/meshImmediate` twins equal; `/sharpTextures` and `/exeTrails` the two stated crc-only variants.
 130. **Tags and the delta map after M3-R2**: no `CAT-TODO` / `CAT-PROVISIONAL` names M3-R2 (`src/Game/BTG.c:1151`'s star size, M3-R1's
     look question the user has not answered, re-targeted by this step to `CAT-TODO(M3-R3)`: a comment-only edit, rebuilt from clean with
     0 warnings); 37 `CAT-TODO` lines (37), 28 owner tags: stage 5 23 (plain 8, multiplayer options 8, LAN 6, multiplayer 1), M3 oracle
@@ -1502,9 +1592,140 @@ play-test can start now with `tools/play.sh --rebuild`, the brief in the summary
     user's game holds it, `claude-gpu-done` after the last one. A gate self-test is run under every switch combination the gate names
     before a round closes: this step's `/letterboxBehind` toggle run failed one M3-R2 check nobody had run (the check's expectation,
     `src/Game/MotionTest.c:2128-2131`, against the settings line's documented switch rule; owner M3-R3, one line).
+    **M3-R3 (2026-10-26): kept by every producer, audit and the integrate** (decision 144 carries the rules into M3-R4 with four more: every producer-added setting flipped on the Mission01 stream, a paused dump as a gate, the ports' captures compared byte for byte, the GPU batch after the correctness chains); the toggle self-test ran under all ten switch sets this time (PASS).
+133. **The overlay's key F1 and the switch-label rule** (M3-R3 producer 1, `HWI-FEATURE(instrumentation)` 102 -> 141 lines; `src/SDL/main.c`
+    `HandleEvent`, `src/Game/KeyBindings.c hwiKbOverlayFKeyFree`): the overlay toggles on plain **F1** while the key is free (no modifier
+    held, no binding of plain F1 in `keys.cfg`, the binding screen not waiting) and the key still goes on to the game; the Menu key stays a
+    second toggle; F12 (M3-R2's candidate) was wrong: the exe's `default_keys.cfg` binds plain F12 to Formation_Parade and F2..F11 to the
+    tactics / formations, F1 only with modifiers (Shift+F1 Leech_Spy, Ctrl+F1 the sensors' areas visited); the keys self-test's F-key line
+    `overlay fkey F1 ... plain bindings F1=0 F12=1 free=1 bound-free=0 reset-free=1`. **The switch-label rule** (M3-R2's failing toggle
+    check closed): a console row under a standing run-only switch that overrides an options-file row (`/noInterp`, `/noNISInterp`,
+    `/letterboxBehind`, `/lodBands`, `/uiScale`, `/noFilter`) keeps the switch standing and the label `switch` (the saves keep the file's
+    row); a switch with no options-file row (`/overlay`, `/meshImmediate`) ends on its console row (`console`); the toggle self-test
+    checks it for every such row and is PASS under every switch of the gate (10 toggle runs this step). HWI-TEST:
+    `/catOverlayKeyAt <ticks>`, `/catConsoleAt <tick>:<row>=<value>,...`, `/catFeScreen <screen>[@tick]`, `/catTexList`.
+134. **SHARP TEXTURES** (producer 1, `HWI-FEATURE(sharp-textures)`, 196 lines; `Options.c`, `FEFlow.c`, `texreg.c`, `render.c`, `Console.c`,
+    `Instrument.c`): the exe's base texture filter is `GL_LINEAR` (the original look) or `GL_NEAREST` min and mag with no mip maps
+    (`trRGBTextureCreate` 0x005866a0, `trFilterEnable` 0x005888e0; the exe's own SURFACE FILTERING box on CUSTOM EFFECTS; `opEffectsHelper`
+    0x004d9b90 re-applies the effects preset at every start, so HIGH resets `texLinearFiltering` to 1 and the cfg row alone is undone, as
+    in the exe). On top: the Options -> Video checkbox SHARP TEXTURES (`OP_SharpTextures`, on `Video_Options` and the in-game Video
+    screen; a click makes the effects level CUSTOM; Accept re-filters every live texture), the store is the existing row
+    `texLinearFiltering` (1 = the original look = **the default**; 0 = sharp; by hand it needs `effectsLevel 2`), the run-only `/noFilter`
+    and its alias `/sharpTextures` (they outlive the start's preset), the console row `texLinearFiltering` (HWI rows 8), the settings
+    line's row with the new source `preset`, the `texfilter:` log line (`filter=sharp textures=N globjects=N wrong=0`); the sharp look is
+    `GL_NEAREST` magnification over GoK's `GL_NEAREST_MIPMAP_LINEAR` minification (the mip maps and 8x anisotropy kept in both looks,
+    decision 28: the user's question 2). A `CAT` fix (`trFilterEnable`'s third branch sets the mag filter) and a `CAT-FIX` (the live
+    textures follow the flag at the next frame; the exe's Cancel left them on the cancelled filter). The 4K blur the user reported: the
+    Kuun-Lan's LOD-0 hull textures are 32x16 .. 256x128 and TEXTURE MEMORY's middle (`TextureDetail 50`, the exe's 6 MB fitting) halves
+    462 of Mission01's 2,343 live textures, 35 of the Kuun-Lan's 58 LOD-0 ones (HI shrinks none): the user's question 1; the default stays
+    the exe's middle. Gate: the ai scene sharp against linear 2,685 px at 1024x768 / 20,864 at 4K, the Kuun-Lan's closest zoom 113,372 /
+    890,954, the cfg row alone 0 px, the live console flip, the sharp dumps crc-only moves, every stream IDENTICAL.
+135. **The pause freeze** (producer 2, `HWI-FEATURE(pause-freeze)`, 90 lines, `src/Game/MotionInterp.c`; always on, no setting): the
+    user's pause is the P key's flag 0x00a6ed74 (`Pause 80`: the exe's frame-step flag), not `universePause` 0x00a6c5b4 (the Escape
+    menu's and the console's); the jitter was M3-R1's Smooth motion replaying the last tick's blend with a moving alpha (a reverted build:
+    71 / 71 paired paused frames moved). While the universe is paused (`miUniversePaused()`: `universePause`, or the P flag with no frame
+    step left) every object draws at the pose the last frame drew (the alpha held), the camera float's clocks hold (the exe stops them for
+    `universePause` only), the engine glows keep their size and the trail segments their colour (the random streams drawn as the exe
+    draws them), the NIS's own pause holds the NIS render time; the first capture after a pause blends from the held pose (no step at the
+    pause or at the unpause); the HUD's real-time animations (the SU blink, the upgrade pulse, the ship view, a hit flash's fade) run on
+    as in the exe; the exe's `universePause` float restart (one frame of float time) is kept. HWI-TEST: `/catMotionPause
+    <frame>:<frames>:key|univ|nis` (motion, nis and `--scene` runs), `/catMotionShot <frames>`, the dump tokens ` pause=` and ` crcv=`
+    (the crc with the HUD's SU blink rect blanked). Gate: every paused pair equal in every world column, the camera's own chase stated (0 of 71 and 0 of 40 paired changes in
+    the motion runs, the NIS pause's one `crc` change the simulation's own trail stop, the scene recipe's camera alternating by one
+    float32 ulp in 24 of 71 pairs: `CameraChase`'s easing, 0.005 px); the default dumps EQUAL. The exe's camera float and glow shimmer
+    during P are held still: the user's question 3 (a setting if the exe's look is wanted back).
+136. **Mission02's dust belts and the BUSHAN-RE hint are the exe's** (producer 3; nothing ported): the belts are the decorative Asteroid0
+    (486 from the `decorations` sphere's 97 cylinders; the "Dust" view option `OP_Dust` / cfg `ShowAsteriod0`, on by default), drawn by
+    the exe's sensors scene (`cat_smViewportRenderScene` 0x0050b4b0) as 1-pixel `primPoint3` in 0xff788ea2 with **no fog-of-war test**,
+    where the harvestable asteroids, the dust clouds and the crates (`cat_smResourcesDraw` 0x0050ae00) appear only in visited grid
+    squares; the tree does the same (`Sensors.c` 1843-1938, 1698-1742); Mission02 has no dust cloud in either view (Missions 04 / 06 / 08
+    have 2 / 63 / 5). The hint is `Init_Mission02` 0x005e05a0's difficulty timer (table 0x005e0b9c: 120 / 180 / 360 s of game time on
+    VERY EASY / EASY / NORMAL, **none on HARD / VERY HARD**), cancelled for good when she is found (global 0x849928e4,
+    `Watch_Mission02_Destroyer_Find` 0x005df130); the user plays HARD (`DifficultySetting 3`), so it cannot play; the tree's generated
+    code matches line by line. HWI-TEST: `/catMissionTestHoldScout <tick>`, the Mission02 hint checks (`catMtHintWatch` /
+    `catMtHintJudge`, the `speech:` log), the sensors draw counters, the resources / dust-cloud logs. Gate: 486 Dust points in every
+    sensors frame, the captures on / off 247-261 px at 1024x768 (269-275 at 4K), the hint at tick 5824 on NORMAL with the scout held and
+    never on HARD (VERY EASY: found first), proven non-vacuous by two mutations; every stream IDENTICAL. The sensors points' size at 4K
+    (1 physical pixel as the exe, or the UI scale's 2x2) is the user's question 4; the Mission02 self-test's scripted player does not
+    finish on HARD (SalvagePod; the self-tests play NORMAL).
+137. **The mines' textures (an x86-64 layout fault) and the mine AI as the exe's** (producer 4, `HWI-FIX meshStaticTeamColor`, +14
+    `HWI-FIX` lines in `src/Game/Mesh.c` and its callers): the white mines and missiles came from the four team-colour reads casting every
+    static through `ShipStaticInfo`, whose colour-scheme row sits at another offset in the 64-bit layout (the exe reads +0xF0 of every
+    static kind), so a mine's / missile's static read a wrong row; now a missile / mine static gives its own row: the level mine
+    `textures=11 bound=11 white=0` (was `bound=0 white=11`), the laid mine `textures=4 bound=4 white=0` (was `unregistered`); FileLoads
+    3,170 -> 3,174 (the Taiidan mine's `PAGE0` LOD0-3); the captures 19 / 6 flat colours -> 10,657 / 970; batched = `/meshImmediate` 0 px.
+    The mine AI is the exe's (`aishipGuideMine` 0x00416410, `aishipFlyMineToTarget` 0x00415fa0; nothing ported): the user's "3 s then
+    stop" is the **faster-away rule** (a mine gives up a target flying away faster than itself and brakes x0.5 a tick) plus the
+    once-a-second search; the laid mines (600 u/s) give up on every Somtaaw strike craft flying away, the level mines (1,000 u/s) catch
+    Acolytes (825) but not Recons (1,050); a mine whose target is destroyed or leaves lives 5 s more (0x008b5c68). HWI-TEST:
+    `/catMeshTexLog <substring>`, `/catMineView <tick>[:dropped][:<distance>]`, `/catMineLog <ticks>`, `/catMineChase <tick>[:<shiptype>]`.
+    The Beast mine has no texture in the game data (plain in the exe too); the other x86-64 casts of a non-ship static through
+    `ShipStaticInfo` are M3 oracle physics' layout audit.
+138. **The missile corvettes' four trails** (producer 5, `HWI-FEATURE(engine-trails)`, 113 lines, `src/Game/Trails.c`; **default ON**): the
+    exe draws one ribbon per mex Eng chunk (`InitializeEngineTrails` 0x00541f40; the trail pass 0x005772dd draws all four slots): two for
+    each missile corvette (`bMissileCorvette` / `p1MissileCorvette`: 2 Eng chunks, nozzles (0, +-17.854, -45.75)), each centred between
+    an upper and a lower painted circle; no type has more Eng chunks than the exe draws; the tree matched the exe. The feature draws four
+    ribbons, one from the centre of each painted engine circle (up +-11.5, right +-17.891, the Eng chunk's z), each half the exe's
+    42-unit width across the pair, the exe's other parameters and glow; `/exeTrails` (run-only), the console row `engineTrails` (HWI rows
+    9: console shown 38 / set 31), the settings line's `engineTrails`; no cfg row, no Options control, no key; the added ribbons draw
+    their render jitter from their own generator, never the shared random stream (the trail streams 13-17 equal at every frame on /
+    off / reverted). **Decision 84 sharpened**: the run-to-run `rng_all` noise is stream 11 (`RANDOM_SOUND_GAME_THREAD`) alone. HWI-TEST:
+    `/catTrailView <tick>:<ShipType>[:d][:e][:s][:r][:m]`. Gate: four ribbons from the four circles at 1024x768 and 4K for both types
+    (the exe's two with `/exeTrails`), the nozzles within 0.8 px (3.3 at 4K) of their rings' centres, `/exeTrails` byte for byte the
+    reverted build, every stream IDENTICAL, the dumps EQUAL (`motion-exe` = `motion-on`), the 4K cost nothing above the run-to-run
+    spread on the idle GPU (medians default 3.743 / 3.422 ms against `/exeTrails` 3.483 / 3.240 at 3840x2160, cost 0.221 ms against a spread of 0.321; p99 5.643 at most). The user's look at the four streams: the brief.
+139. **The harness** (decisions 92 / 117 / 127 extended; `tools/m2_harness.sh`, 31 modes, +36 header lines): this round's engine switches
+    through `--` (`/catOverlayKeyAt`, `/catConsoleAt`, `/catFeScreen`, `/catTexList`, `/sharpTextures` / `/noFilter`, `/catMotionPause`,
+    `/catMotionShot`, `/catMissionTestHoldScout`, `/catMeshTexLog`, `/catMineView`, `/catMineLog`, `/catMineChase`, `/catTrailView`,
+    `/exeTrails`), the `--scene` kind `mothership:<distance>`, `--cfg` rows with the settings line's `(cfg)` and `(preset)` sources;
+    `tools/play.sh` rebuilds a stale release binary itself (`c698dd5`: when the binary is older than the newest `src/` commit;
+    `--rebuild`, `--debug`) and documents `/sharpTextures`, `/exeTrails`, `/catMineLog`, `/catFrameSig`.
+140. **The Mission01 stream and the rung unchanged** (decision 44 stands, as decisions 128 / 140): this step's `c20ccda7fdae0f66` (release
+    `316025e5c47989e1`) is IDENTICAL in all 21 fields over ticks 0-6000 to M3-R1's `1ae66610c3f02410` and so to R10's `5bd51234405ea0d8` (the
+    header's build identity only), with every setting of the round flipped (29 variants: the cfg row alone and under `effectsLevel
+    2`, `/sharpTextures`, `/noFilter`, `/exeTrails`, the console rows `engineTrails` and `texLinearFiltering` flipped live, the F key
+    pressed twice; and M3-R2's list), and so is every producer's and audit's Mission01 run of the round; the rung 2823 / 2871 (177 / 118
+    with `/oracleLibmSqrt`), the release replay equal on all but `rng_all` (6377); the hwirec01 / hwirec02 playbacks, 17 / 17 missions,
+    the guard rails IDENTICAL to M3-R2's, which are M3-R1's and R10's. **Presentation only** held for the whole round: no simulation
+    field of any stream moved.
+141. **The guard-rail dumps unchanged** (decisions 46 / 118 / 129 stand): the four default dumps byte-equal to M3-R2's references (motion
+    `/noInterp` `c503c869f0dc9cdb` / `3016280e9e0dd3c8`, flags-on `c0e411662fa2f527` / `428ef41479eb5749`, nis `/noInterp`
+    `86cb155acffc180e` / `196bab32d244f614`, flags-on `0307f3be2044c29c` / `a5de13a44b8d264f`: whole / crc-stripped), the opt-outs
+    together byte-equal to R10's `183681235a3fdc7b` / `13ca70eea998e5de`, the `/meshImmediate` twins equal; the two **stated crc-only
+    moves** are the options themselves: `/sharpTextures` (`motion-sharp` / `nis-sharp` `1a2227d966ec9712` / `871eac333fd603d0` whole, crc-stripped equal to `motion-on` / `nis-on`: 1,431 / 1,439 lines differ whole, 0 crc-stripped, byte-equal to producer 1's `m3r3-sk-motion-sharp` / `-nis-sharp`) and `/exeTrails` (`motion-exe` = `motion-on` and `nis-exe` = `nis-on` byte for byte (no missile corvette in either scene), `motion-exe` byte-equal to producer 5's `m3r3-et-motion-exe`); the paused dumps a gate (every
+    paused pair equal in every column). Producers 2, 3 and 4 moved no dump.
+142. **Tags and the delta map after M3-R3**: `CAT-(TODO|PROVISIONAL)\([^)]*M3-R3` empty (`src/Game/BTG.c:1151`'s star size, M3-R1's
+    question 5 unanswered through three rounds, re-targeted by this step to `CAT-TODO(M3-R4)`: comment-only, rebuilt from clean with 0
+    warnings); 37 `CAT-TODO` lines (37), 28 owner tags: stage 5 23 (plain 8, multiplayer options 8, LAN 6, multiplayer 1), M3 oracle
+    physics 3, M3 soak 1, **M3-R4 1**; 4 `CAT-PROVISIONAL`; `HWI-FEATURE(motion-interp)` 486 (486), `letterbox-setting` 37, `full-detail`
+    179, `ui-scale` 300, **`instrumentation` 141 (102)**, `hyperspace-assembly` 55, `mesh-batching` 160, **new `sharp-textures` 196,
+    `pause-freeze` 90, `engine-trails` 113** (1,748 `HWI-FEATURE(` lines; 1,314 at the round base); `CAT-FIX` 196 (195), `HWI-TEST` 461
+    (286), `HWI-FIX` 76 (62: the 14 lines of `meshStaticTeamColor`), `CAT:` 4,476 (4,475). The delta map: IDENTICAL 2,757 / MODIFIED 1,580
+    / REWRITTEN 83 (no class change), 3,582 reviewed rows (3,579); 210 MODIFIED / REWRITTEN rows unflagged (118 outside
+    `TitanInterface.cpp`); review notes `[review: M3-R3 <port>]` 28 (settings-and-keys 15, mines 6, engine-trails 7), merged. Round size:
+    53 files, +5,784 / -120 (`src/` 33 files, +2,455 / -52; no new `src/` file; the builds `[274/274]`).
+143. **The user's decisions of M3-R3 and the open questions** (`cycle/answers/m3-r3-user.md`): the mandate ("a new option to support
+    sharp texture meshes or the original texture look": SHARP TEXTURES, the original look the default), the overlay's key "from the F1-F12
+    suite" (F1, verified against the exe's key tables; M3-R2's F12 candidate was wrong), the GPU free on the user's word (the idle check
+    applied all the same); the third play-test's seven items each either the exe's, shown from its machine code (the dust points, the
+    hint's timer, the mine AI), or fixed with a fence (the F key, SHARP TEXTURES, the pause, the mines' textures, the four trails);
+    M3-R2's four checks and M3-R1's questions 2-5 / 7-10 unanswered: the defaults stand; **this round's five open questions** (TEXTURE
+    MEMORY's default, the minification look, the pause's float and shimmer, the sensors points' size with the dust-belt / backdrop
+    question, the four streams' look): the defaults in the tree until answered; **M3-R4 exists only when the next play-test reports
+    something or the user picks "the exe's" on a look question** (the BTG star size, the letter height, the additive state, the sensors
+    points, TEXTURE MEMORY HI, the unfiltered minification, the pause's float).
+144. **The exit-test rules carried into M3-R4** (this step): decisions 121 and 132's rules, and: every producer-added setting is flipped on
+    the Mission01 stream by the integrate (the cfg row, the switch, the console row live, the key); a paused dump is a gate
+    (`/catMotionPause` in the motion, nis and scene runs: every paused pair equal in every world column, the camera's own chase stated); a port's captures are compared byte
+    for byte with the integrate's (every PPM of the five fences); the GPU batch runs after the correctness chains so the CPU is quiet
+    (the GPU batch waited from 11:49 to 14:55 for the user's game to release the GPU (`gpuwait`: nvidia-smi every 10 s until 120 s at or under 40 %), then ran its eight runs on the idle GPU in two batches of four, the second after a two-minute wait on a 50 % sample; `claude-ping` fired 2 times (11:49:21, 14:57:12): the library pings once per `gpuwait` call, not once per gate, a deviation from the user's rule to fix in `chains/lib.sh` before M3-R4); a frame-time p99 is quoted with the load average; a "USER:" question of a report is quoted verbatim in the summary;
+    the user's answers file is read first and again before the report.
 
-## M3-R3: IN FLIGHT since 2026-10-25 (the third play-test fix round; run from the user's terminal session 38027cce, never the orchestrator)
+## M3-R3: COMPLETE 2026-10-26 (the third play-test fix round; run from the user's terminal session 38027cce, never the orchestrator)
 
+cycle/workflows/m3-r3.js (dae51e1; run id `wf_8a0247ed-904`, `ROUND_BASE 7aa3111`) finished in session 38027cce (Fable): the "## M2" subsection "M3-R3: COMPLETE" above has the exit test, the five ports and the plan for M3-R4; docs/m3-r3-summary.md the full report and the refreshed play-test brief. The run was cut off by the session's end on 2026-10-25 ~20:30 during the mines audit and resumed on 2026-10-26 with the same run id (the mines audit re-run from scratch, then engine-trails and its audit, then the integrate, itself continued across a context restore); the five audits checkpointed `c8f97bb` 0.94, `292a6da` 0.78, `96b0137` 0.94, `4ae7d91` 0.95, `6ad69ec` 0.944 (all PASS-WITH-FIXES); the integrate's checkpoint is the commit after `6ad69ec`. Exit test MET from clean builds of `6ad69ec` (225 runs `m3r3i-e-*`, ASan 0 in all; every self-test PASS, the toggle self-test under every switch; presentation only: the Mission01 stream IDENTICAL to M3-R1's `1ae66610c3f02410` with every setting of the round flipped, the rung 2823 / 2871, 17 / 17 missions IDENTICAL, the default dumps byte-equal; the five fences rerun with numbers, the 4K cost on the idle GPU after the correctness chains). The user's decisions recorded as 133-144; the five open look questions and M3-R2's four unreported checks are in the brief; no queue for M3-R4 until the play-test reports or a look question is answered the exe's way. The launching session updates the workflow table row.
+
+**As launched (2026-10-25 15:24):** 
 Run id wf_8a0247ed-904 (task wr55jil3n), script `cycle/workflows/m3-r3.js` at dae51e1, ROUND_BASE 7aa3111 (the M3-R2 integrate:
 the last commit touching src/). Five ports in sequence, each audited: settings-and-keys (item 0 the overlay's F key, the
 /letterboxBehind toggle-check fix, SHARP TEXTURES: the user's 2026-10-25 mandate, default = the original look), pause-freeze
