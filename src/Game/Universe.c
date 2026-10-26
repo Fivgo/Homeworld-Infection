@@ -3075,6 +3075,7 @@ void catShipStaticsRunSelfTest(void)
             memset(&mineScratch, 0, sizeof(mineScratch));
             InitStatMineInfo(&mineScratch, race);
             catSelfTestLogOther("mine", path);
+            hwiSmPointsStaticLog("mine", path, &mineScratch.common, 1.0f);    // HWI-TEST (M3-R4 sensors-points)
             CloseStatMineInfo(&mineScratch);
         }
     }
@@ -3086,6 +3087,7 @@ void catShipStaticsRunSelfTest(void)
             memset(&asteroidScratch, 0, sizeof(asteroidScratch));
             InitStatAsteroidInfo(&asteroidScratch, (AsteroidType)i);
             catSelfTestLogOther("asteroid", path);
+            hwiSmPointsStaticLog("asteroid", path, &asteroidScratch.common, 1.0f);   // HWI-TEST (M3-R4 sensors-points): Cataclysm's asteroids never shrink (ResCollect.c)
             CloseStatAsteroidInfo(&asteroidScratch);
         }
     }
@@ -3097,6 +3099,8 @@ void catShipStaticsRunSelfTest(void)
             memset(&dustcloudScratch, 0, sizeof(dustcloudScratch));
             InitStatDustCloudInfo(&dustcloudScratch, (DustCloudType)i);
             catSelfTestLogOther("dustcloud", path);
+            hwiSmPointsStaticLog("dustcloud", path, &dustcloudScratch.common,                                  // HWI-TEST (M3-R4 sensors-points)
+                                 dustcloudScratch.dustcloudCanShrink ? dustcloudScratch.dustcloudMinShrink : 1.0f);   // HWI-TEST (M3-R4 sensors-points): HandleDustCloudScaling's floor
             CloseStatDustCloudInfo(&dustcloudScratch);
         }
     }
@@ -3123,6 +3127,10 @@ void catShipStaticsRunSelfTest(void)
             memset(&derelictScratch, 0, sizeof(derelictScratch));
             InitStatDerelictInfo(&derelictScratch, (DerelictType)i);
             catSelfTestLogOther("derelict", path);
+            if ((DerelictType)i == Crate)                                   // HWI-TEST (M3-R4 sensors-points): the sensors' crate marker
+            {                                                               // HWI-TEST (M3-R4 sensors-points)
+                hwiSmPointsStaticLog("crate", path, &derelictScratch.common, 1.0f);    // HWI-TEST (M3-R4 sensors-points)
+            }                                                               // HWI-TEST (M3-R4 sensors-points)
             CloseStatDerelictInfo(&derelictScratch);
         }
     }

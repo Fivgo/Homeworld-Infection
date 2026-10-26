@@ -244,9 +244,19 @@ typedef struct
     udword scenes, rangeCircles, shipPoints, meshes, icons, slipgatePaths, hotkeyNumbers, resources, mines,
            boundsFrames, compassFrames;
     udword dustPoints;      // HWI-TEST (M3-R3 mission02): the decorative Asteroid0 points (the minor list) drawn
+    udword markerSizes[4];  // HWI-TEST (M3-R4 sensors-points): the resource / meteor / mine / crate points drawn at 1, 2, 3 px ([0]: other)
+    udword dustSize;        // HWI-TEST (M3-R4 sensors-points): the Dust's point size in the last scene that drew it
 
 } CatSmDrawCounts;
 extern CatSmDrawCounts catSmDrawCounts;
+
+// HWI-FEATURE(sensors-points) (M3-R4): the sensors manager's Dust points 2 px (the exe's 1) and resource / meteor / mine /
+//      crate markers 3 px (the exe's 2, or 1 at or under the collision radius 45); /exePoints (run-only) and the console
+//      row sensorsPoints 0 give the exe's sizes (Sensors.c, docs/m3-r4-sensors-points.md)
+extern sdword hwiSensorsPoints;                     // HWI-FEATURE(sensors-points): on by default (1); the console row sensorsPoints
+extern bool32 hwiSensorsPointsSwitch;               // HWI-FEATURE(sensors-points): /exePoints given
+void hwiSensorsPointsExeSwitch(void);               // HWI-FEATURE(sensors-points): /exePoints
+void hwiSmPointsStaticLog(const char *kind, const char *path, StaticInfo *info, real32 minShrink);   // HWI-TEST (M3-R4 sensors-points): the statics mode's "sensorspoints: static" lines
 
 /*=============================================================================
     Functions:

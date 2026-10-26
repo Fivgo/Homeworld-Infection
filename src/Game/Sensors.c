@@ -1112,12 +1112,63 @@ extern bool8 g_WireframeHack;                       // Mesh.c (0x00a4c456)
 #define CAT_SM_BIG_POINT_RADIUS     45.0f           // 0x0072b0e4: a collision sphere above draws a 2-pixel point
 #define CAT_TYPEFLAG_Slipgate       0x00004000      // StaticInfo.catTypeFlags (as Tactical.c)
 
+// HWI-FEATURE(sensors-points) (M3-R4, the user's decision of 2026-10-26: "double the dust particle size and increase the
+//      resource markers by 50% to ensure a difference in size"): ON by default. The exe's sizes (the base, unchanged
+//      below): the decorative "Dust" (the minor list's Asteroid0) 1 physical pixel (primPoint3 0x00572a50 sets no size;
+//      cat_smViewportRenderScene 0x0050b4b0), a resource, meteor, mine or crate 2 pixels above the collision radius 45
+//      and 1 at or under it (catSmBigPoint, inlined at 0x0050ae00 / 0x0050b380 / 0x0050b4b0), a ship 2. On: the Dust
+//      2 pixels (2x), every marker 3 (1.5x the exe's 2; a 1-pixel marker also 3, not ceil(1.5) = 2, so that no marker is
+//      the Dust's size), and a mimic posing as a resource (drawn by the exe in the asteroid colour at the ships' 2) 3,
+//      so the disguise stays a big asteroid's size as in the exe. Fixed physical pixels, not scaled by the UI scale (the
+//      user's factors). Non-antialiased points are rounded to an integer size by the driver, so the sizes are set as
+//      integers. Off (/exePoints, run-only; the console row sensorsPoints 0): the exe's sizes and GL calls exactly
+sdword hwiSensorsPoints = 1;                        // HWI-FEATURE(sensors-points): the console row sensorsPoints, the settings line
+bool32 hwiSensorsPointsSwitch = FALSE;              // HWI-FEATURE(sensors-points): /exePoints given (run-only)
+#define HWI_SM_DUST_POINT       2.0f                // HWI-FEATURE(sensors-points): the exe's 1 x 2
+#define HWI_SM_MARKER_POINT     3.0f                // HWI-FEATURE(sensors-points): the exe's 2 x 1.5 (and its 1: see above)
+
+void hwiSensorsPointsExeSwitch(void)                // HWI-FEATURE(sensors-points): /exePoints: the exe's sizes, this run only
+{                                                   // HWI-FEATURE(sensors-points)
+    hwiSensorsPoints = 0;                           // HWI-FEATURE(sensors-points)
+    hwiSensorsPointsSwitch = TRUE;                  // HWI-FEATURE(sensors-points)
+}                                                   // HWI-FEATURE(sensors-points)
+
+// HWI-FEATURE(sensors-points): the size a marker of the exe's size is drawn at (the exe's own size when off)
+static real32 hwiSmMarkerSize(real32 exeSize)       // HWI-FEATURE(sensors-points)
+{                                                   // HWI-FEATURE(sensors-points)
+    return hwiSensorsPoints ? HWI_SM_MARKER_POINT : exeSize;    // HWI-FEATURE(sensors-points)
+}                                                   // HWI-FEATURE(sensors-points)
+
+// HWI-TEST (M3-R4 sensors-points): the markers drawn per point size (1..3) and the Dust's size in the last scene
+static void hwiSmCountMarker(real32 size)           // HWI-TEST (M3-R4 sensors-points)
+{                                                   // HWI-TEST (M3-R4 sensors-points)
+    sdword i = (sdword)size;                        // HWI-TEST (M3-R4 sensors-points)
+
+    catSmDrawCounts.markerSizes[(i >= 1 && i <= 3) ? i : 0]++;  // HWI-TEST (M3-R4 sensors-points)
+}                                                   // HWI-TEST (M3-R4 sensors-points)
+
+// HWI-TEST (M3-R4 sensors-points): one line per static the markers can draw (the statics mode loads every one of the
+//      install): its collision radius, the exe's point size and the feature's
+void hwiSmPointsStaticLog(const char *kind, const char *path, StaticInfo *info, real32 minShrink)   // HWI-TEST (M3-R4 sensors-points)
+{                                                   // HWI-TEST (M3-R4 sensors-points)
+    real32 r = info->staticCollInfo.collspheresize; // HWI-TEST (M3-R4 sensors-points)
+    real32 exe = (r > CAT_SM_BIG_POINT_RADIUS) ? 2.0f : 1.0f;   // HWI-TEST (M3-R4 sensors-points)
+    real32 rMin = r * minShrink;                    // HWI-TEST (M3-R4 sensors-points): a dust cloud shrinks to minShrink as it is harvested
+
+    dbgMessagef("sensorspoints: static %s %s collsphere=%.3f min=%.3f exe=%dpx exemin=%dpx feature=%dpx",    // HWI-TEST (M3-R4 sensors-points)
+                kind, path, (double)r, (double)rMin, (int)exe,                                                  // HWI-TEST (M3-R4 sensors-points)
+                (int)((rMin > CAT_SM_BIG_POINT_RADIUS) ? 2 : 1), (int)HWI_SM_MARKER_POINT);                     // HWI-TEST (M3-R4 sensors-points)
+}                                                   // HWI-TEST (M3-R4 sensors-points)
+
 // the point size of a resource, mine or crate: 2 pixels above the collision sphere radius 45 (inlined by the exe)
 static void catSmBigPoint(SpaceObj *obj, color c)
 {
-    glPointSize((obj->staticinfo->staticCollInfo.collspheresize > CAT_SM_BIG_POINT_RADIUS) ? 2.0f : 1.0f);
+    real32 size = hwiSmMarkerSize((obj->staticinfo->staticCollInfo.collspheresize > CAT_SM_BIG_POINT_RADIUS) ? 2.0f : 1.0f);   // HWI-FEATURE(sensors-points): the exe's size (its glPointSize argument) through hwiSmMarkerSize
+
+    glPointSize(size);                              // HWI-FEATURE(sensors-points): the exe's call with the size above
     primPoint3(&obj->posinfo.position, c);
     glPointSize(1.0f);
+    hwiSmCountMarker(size);                         // HWI-TEST (M3-R4 sensors-points)
 }
 
 /*-----------------------------------------------------------------------------
@@ -1459,6 +1510,7 @@ void cat_smShipsDraw(hmatrix *modelView, hmatrix *projection)
     toicon *icon;
     real32 scale;
     ShipType apparent;
+    bool32 hwiAsResource;                           // HWI-FEATURE(sensors-points): a mimic posing as a resource
 
     flashOn = (fmod((double)cat_taskRealTimeElapsed, (double)smSelectedFlashSpeed) > smSelectedFlashSpeed * 0.5);
     for (node = universe.ShipList.head; node != NULL; node = node->next)
@@ -1562,6 +1614,7 @@ void cat_smShipsDraw(hmatrix *modelView, hmatrix *projection)
         }
         if (needPoint)
         {
+            hwiAsResource = FALSE;                  // HWI-FEATURE(sensors-points)
             if (ship->playerowner == universe.curPlayerPtr)
             {
                 if (bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20))
@@ -1589,6 +1642,7 @@ void cat_smShipsDraw(hmatrix *modelView, hmatrix *projection)
                     continue;                           // a mimic posing as a resource: nothing in a multiplayer game
                 }
                 c = catSmAsteroidColor;
+                hwiAsResource = TRUE;               // HWI-FEATURE(sensors-points): drawn at the resource markers' size
             }
             else if (bitTest(ship->header.catFlags18, CAT_SHIPFLAG_KasDerelict))
             {
@@ -1598,7 +1652,7 @@ void cat_smShipsDraw(hmatrix *modelView, hmatrix *projection)
             {
                 c = catSmEnemyColor;
             }
-            glPointSize(2.0f);
+            glPointSize(hwiAsResource ? hwiSmMarkerSize(2.0f) : 2.0f);    // HWI-FEATURE(sensors-points): the exe's 2.0f; a mimic posing as a resource at the markers' size
             primPoint3(&ship->obj.posinfo.position, c);
             glPointSize(1.0f);
             catSmDrawCounts.shipPoints++;
@@ -1884,11 +1938,20 @@ void cat_smViewportRenderScene(hmatrix *modelView, hmatrix *projection)
     }
     if (catSmViewDecorativeAsteroids)
     {
+        if (hwiSensorsPoints)                               // HWI-FEATURE(sensors-points): the exe sets no size (1 pixel)
+        {                                                   // HWI-FEATURE(sensors-points)
+            glPointSize(HWI_SM_DUST_POINT);                 // HWI-FEATURE(sensors-points): 2 pixels
+        }                                                   // HWI-FEATURE(sensors-points)
         for (node = universe.MinorSpaceObjList.head; node != NULL; node = node->next)
         {
             primPoint3(&((SpaceObj *)listGetStructOfNode(node))->posinfo.position, catSmAsteroidDustColor);
             catSmDrawCounts.dustPoints++;                   // HWI-TEST (M3-R3 mission02)
         }
+        catSmDrawCounts.dustSize = hwiSensorsPoints ? (udword)HWI_SM_DUST_POINT : 1;   // HWI-TEST (M3-R4 sensors-points)
+        if (hwiSensorsPoints)                               // HWI-FEATURE(sensors-points)
+        {                                                   // HWI-FEATURE(sensors-points)
+            glPointSize(1.0f);                              // HWI-FEATURE(sensors-points): the size every other point of the scene expects
+        }                                                   // HWI-FEATURE(sensors-points)
     }
     cat_smMinesDraw(modelView, projection);
     if (universe.numCratesInWorld != 0)

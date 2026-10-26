@@ -1,6 +1,6 @@
 # Work cycle and resume point
 
-Last checkpoint: 2026-10-26 16:20
+Last checkpoint: 2026-10-26 16:54
 
 **Read this first when resuming.** It is the single source of truth for where the work stands.
 
@@ -28,9 +28,9 @@ Claude Code records no "approaching limit" signal: across a week of transcripts 
 <!-- qwen-status -->
 ```
     claude limited : False
-    gpu gate       : BLOCKED (a game is running)
+    gpu gate       : free (GPU at 3%)
     model          : qwen3.6:27b ctx=8192
-    progress       : 12/0 functions proposed -> /home/evanmedinger/Documents/GameDev/Homeworld-Infection/ghidra/proposals/qwen/naming.jsonl
+    progress       : 12/0 functions proposed -> /home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/ghidra/proposals/qwen/naming.jsonl
 ```
 <!-- /qwen-status -->
 
@@ -1720,6 +1720,11 @@ the play-test reports something or the user picks "the exe's" on an open look qu
     for byte with the integrate's (every PPM of the five fences); the GPU batch runs after the correctness chains so the CPU is quiet
     (the GPU batch waited from 11:49 to 14:55 for the user's game to release the GPU (`gpuwait`: nvidia-smi every 10 s until 120 s at or under 40 %), then ran its eight runs on the idle GPU in two batches of four, the second after a two-minute wait on a 50 % sample; `claude-ping` fired 2 times (11:49:21, 14:57:12): the library pings once per `gpuwait` call, not once per gate, a deviation from the user's rule to fix in `chains/lib.sh` before M3-R4); a frame-time p99 is quoted with the load average; a "USER:" question of a report is quoted verbatim in the summary;
     the user's answers file is read first and again before the report.
+
+## M3-R4, ad hoc items landed between rounds (2026-10-26, the user's terminal session 38027cce)
+
+- **sensors-points** (HWI-FEATURE(sensors-points), docs/m3-r4-sensors-points.md): the user's decision "double the dust particle size and increase the resource markers by 50%": the sensors manager's Dust points 2 px (the exe's 1), the resource / meteor / mine / crate markers 3 px (the exe's 2, or 1 for the smallest), a mimic posing as an asteroid 3; `/exePoints` run-only, console row `sensorsPoints`, the settings line; the toggle self-test gained the `engineTrails` row M3-R3 missed. One Opus producer, reviewed by the session (Fable) instead of an auditor: Mission01 stream IDENTICAL in every field, Mission02 sensors captures 275 -> 1,100 Dust pixels at 4K (4.00x), markers 2.25x, every /exePoints capture byte-equal to M3-R3's, hud / console / toggle x3 / fescreens / statics PASS, ASan 0. Decisions (the reviewer's): the small mines at 3 px, the mimic at the markers' size, fixed pixels not scaled by the UI scale.
+- **speech_probe** (tools/formats/speech_probe.py, 5c5e4ea): speech event id -> phrase offsets in the race's .vce + subtitle text; used to answer the user's Mission02 dialog question (the BUSHAN-RE hint 0x10002169 is a difficulty timer: 120 / 180 / 360 s on VERY EASY / EASY / NORMAL, never on HARD / VERY HARD; the only other difficulty-gated lines in the campaign: Mission01's "They are going after our Workers" and Mission13's "Incoming capital ships", both EASY and below).
 
 ## M3-R3: COMPLETE 2026-10-26 (the third play-test fix round; run from the user's terminal session 38027cce, never the orchestrator)
 

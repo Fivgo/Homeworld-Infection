@@ -56,6 +56,7 @@
 #include "utility.h"
 #include "texreg.h"                                 // HWI-FEATURE(sharp-textures): texLinearFiltering, /noFilter's state
 #include "Trails.h"                                 // HWI-FEATURE(engine-trails): hwiEngineTrails, /exeTrails' state
+#include "Sensors.h"                                // HWI-FEATURE(sensors-points): hwiSensorsPoints, /exePoints' state
 #include "Console.h"                                // HWI-TEST: /catConsoleAt
 #include "FEFlow.h"                                 // HWI-TEST: /catFeScreen
 #include "mainrgn.h"                                // HWI-TEST: /catFeScreen (ghMainRegion)
@@ -123,6 +124,9 @@ static const char *hwiSwNameFilter(void)    { return "/noFilter"; }        // HW
 static sdword hwiValEngTrails(void) { return hwiEngineTrails ? 1 : 0; }    // HWI-FEATURE(engine-trails): 1 the four jet streams, 0 the exe's two
 static bool32 hwiSwEngTrails(void)  { return hwiEngineTrailsSwitch; }      // HWI-FEATURE(engine-trails)
 static const char *hwiSwNameEngTrails(void) { return "/exeTrails"; }       // HWI-FEATURE(engine-trails)
+static sdword hwiValSmPoints(void)  { return hwiSensorsPoints ? 1 : 0; }   // HWI-FEATURE(sensors-points): 1 Dust 2 px / markers 3 px, 0 the exe's 1 / 2
+static bool32 hwiSwSmPoints(void)   { return hwiSensorsPointsSwitch; }     // HWI-FEATURE(sensors-points)
+static const char *hwiSwNameSmPoints(void)  { return "/exePoints"; }       // HWI-FEATURE(sensors-points)
 
 static const HwiSetting hwiSettings[] =
 {
@@ -135,6 +139,7 @@ static const HwiSetting hwiSettings[] =
     { "meshImmediate",   hwiValMeshImm,   hwiSwMeshImm,             hwiSwNameMeshImm,   FALSE },   // HWI-FEATURE(mesh-batching): no options-file row
     { "texLinearFiltering", hwiValFilter, trFilterSwitchStands,     hwiSwNameFilter,    TRUE  },   // HWI-FEATURE(sharp-textures): 1 the original look, 0 SHARP TEXTURES
     { "engineTrails",    hwiValEngTrails, hwiSwEngTrails,           hwiSwNameEngTrails, FALSE },   // HWI-FEATURE(engine-trails): no options-file row
+    { "sensorsPoints",   hwiValSmPoints,  hwiSwSmPoints,            hwiSwNameSmPoints,  FALSE },   // HWI-FEATURE(sensors-points): no options-file row
 };
 #define HWI_SETTINGS    ((sdword)(sizeof(hwiSettings) / sizeof(hwiSettings[0])))
 
@@ -305,6 +310,10 @@ void hwiSettingsConsole(const char *row)                        // HWI-FEATURE(i
             {                                                   // HWI-FEATURE(engine-trails)
                 hwiEngineTrailsSwitch = FALSE;                  // HWI-FEATURE(engine-trails): the console's choice ends /exeTrails'
             }                                                   // HWI-FEATURE(engine-trails)
+            if (i == 9)                                         // HWI-FEATURE(sensors-points)
+            {                                                   // HWI-FEATURE(sensors-points)
+                hwiSensorsPointsSwitch = FALSE;                 // HWI-FEATURE(sensors-points): the console's choice ends /exePoints'
+            }                                                   // HWI-FEATURE(sensors-points)
         }
     }
     snprintf(why, sizeof(why), "console %s", row);

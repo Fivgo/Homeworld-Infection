@@ -665,6 +665,15 @@ bool32 ExeTrailsSet(char *string)                   // HWI-FEATURE(engine-trails
     hwiEngineTrailsExeSwitch();                     // HWI-FEATURE(engine-trails)
     return TRUE;                                    // HWI-FEATURE(engine-trails)
 }                                                   // HWI-FEATURE(engine-trails)
+// HWI-FEATURE(sensors-points): /exePoints: this run only, the sensors manager's points at cataclysm.exe's sizes (the Dust
+//      1 pixel, the resource / meteor / mine / crate markers 2 above the collision radius 45 and 1 under it) instead of
+//      the Dust 2 and the markers 3 (Sensors.c hwiSensorsPoints); no options-file row (the console row sensorsPoints
+//      sets it for the run too)
+bool32 ExePointsSet(char *string)                   // HWI-FEATURE(sensors-points)
+{                                                   // HWI-FEATURE(sensors-points)
+    hwiSensorsPointsExeSwitch();                    // HWI-FEATURE(sensors-points)
+    return TRUE;                                    // HWI-FEATURE(sensors-points)
+}                                                   // HWI-FEATURE(sensors-points)
 // HWI-TEST (M3-R1 full-detail): /catLodTest <tick>[:far][:fleet] and /catLodStats <from>-<to>[:fleet] (render.c: "lodtest:" / "lodstats:" lines)
 bool32 CatLodTestSet(char *string)
 {
@@ -1538,6 +1547,7 @@ commandoption commandOptions[] =
     entryFn("/noHsAssembly",            NoHsAssemblySet, " - this run only: a modular ship (the Kuun-Lan) hyperspaces as the exe draws it: the gate and the reveal sized from its core hull, its modules shown at their own exits."),   // HWI-FEATURE(hyperspace-assembly)
     entryFn("/meshImmediate",           MeshImmediateSet, " - this run only: the ship meshes drawn one GL call per vertex (the old immediate-mode path) instead of in vertex arrays: the A/B of the mesh batching (the console row meshImmediate toggles it)."),   // HWI-FEATURE(mesh-batching)
     entryFn("/exeTrails",               ExeTrailsSet, " - this run only: the missile corvettes' two engine ribbons as cataclysm.exe draws them (one per mex Eng chunk) instead of the four jet streams from the engine circles (the console row engineTrails toggles it)."),   // HWI-FEATURE(engine-trails)
+    entryFn("/exePoints",               ExePointsSet, " - this run only: the sensors manager's points at cataclysm.exe's sizes (the Dust 1 pixel, the resource, mine and crate markers 2) instead of the Dust 2 and the markers 3 (the console row sensorsPoints toggles it)."),   // HWI-FEATURE(sensors-points)
     entryFn("/sharpTextures",           NoFilterSet, " - this run only: SHARP TEXTURES (the ship, derelict and asteroid textures magnified as square texels: texLinearFiltering 0, as /noFilter; the options file keeps its row)."),   // HWI-FEATURE(sharp-textures)
     entryFn("/lodBands",                LodBandsSet, " - this run only: FULL DETAIL off (the exe's levels of detail by size on screen and frame time; the options file's noLOD row keeps its value)."),   // HWI-FEATURE(full-detail)
     entryFnParam("/catLodTest",         CatLodTestSet, " <tick>[:far][:fleet] - log every object's level of detail (the exe's and the one drawn) in the main view's first frame of that universe tick (\"lodtest:\" lines); :far pulls the camera out to its farthest zoom, :fleet closes the sensors manager at tick 16 and focuses the camera on every ship."),   // HWI-TEST

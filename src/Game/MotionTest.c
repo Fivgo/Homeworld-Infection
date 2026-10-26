@@ -82,6 +82,7 @@
 #include "KeyBindings.h"    // HWI-FEATURE(instrumentation) (M3-R3): the overlay's F key is free
 #include "texreg.h"         // HWI-FEATURE(sharp-textures) (M3-R3): the toggle self-test's SHARP TEXTURES checks
 #include "Mesh.h"           // HWI-TEST (M3-R3): the switch-label checks (meshImmediate)
+#include "Trails.h"         // HWI-TEST (M3-R4 sensors-points): the M3-R3 switch the table missed (engineTrails, /exeTrails)
 #include "UnivUpdate.h"     // HWI-TEST (M3-R3 pause-freeze): catUnivFrameStep, the Pause key's flag
 
 /*=============================================================================
@@ -2229,19 +2230,24 @@ static void mtToggleKey(SDL_Scancode scancode)      // M3-R3: the Menu key or F1
 //      switch (Instrument.c hwiSettingsPrint / hwiSettingsConsole): a console row changes the run's value; a run-only
 //      switch over an options-file row (/noInterp, /noNISInterp, /letterboxBehind, /lodBands, /noFilter) keeps standing,
 //      so the saves keep the file's row and the line labels the row "switch"; a switch with no options-file row
-//      (/meshImmediate; /overlay above) ends on the console row ("console"). Each row is flipped and put back
-typedef struct { char *row; sdword *value; bool32 (*stands)(void); bool32 hasRow; } MtSwitchRow;
+//      (/meshImmediate, /exePoints, /exeTrails; /overlay above) ends on the console row ("console"). Each row is flipped and put back
+//      (a no-row switch's state by its own switch function, restore)
+typedef struct { char *row; sdword *value; bool32 (*stands)(void); bool32 hasRow; void (*restore)(void); } MtSwitchRow;  // HWI-TEST (M3-R4 sensors-points): + restore
 static bool32 mtMeshImmStands(void) { return meshImmediateSwitched; }
+static bool32 mtSmPointsStands(void) { return hwiSensorsPointsSwitch; }   // HWI-FEATURE(sensors-points) (M3-R4): /exePoints
+static bool32 mtEngTrailsStands(void) { return hwiEngineTrailsSwitch; }  // HWI-TEST (M3-R4 sensors-points): the M3-R3 switch the table missed (/exeTrails)
 static void mtToggleSwitchLabels(void)
 {
     MtSwitchRow rows[] =
     {
-        { "objInterpolate",     (sdword *)&objInterpolate,  miSwitchObjStands,        TRUE  },
-        { "nisInterpolate",     (sdword *)&nisInterpolate,  miSwitchNisStands,        TRUE  },
-        { "letterboxBehind",    (sdword *)&letterboxBehind, rndLetterboxSwitchStands, TRUE  },
-        { "noLOD",              (sdword *)&opNoLODVal,      catLodSwitchStands,       TRUE  },
-        { "texLinearFiltering", &texLinearFiltering,        trFilterSwitchStands,     TRUE  },
-        { "meshImmediate",      (sdword *)&meshImmediate,   mtMeshImmStands,          FALSE },
+        { "objInterpolate",     (sdword *)&objInterpolate,  miSwitchObjStands,        TRUE,  NULL },
+        { "nisInterpolate",     (sdword *)&nisInterpolate,  miSwitchNisStands,        TRUE,  NULL },
+        { "letterboxBehind",    (sdword *)&letterboxBehind, rndLetterboxSwitchStands, TRUE,  NULL },
+        { "noLOD",              (sdword *)&opNoLODVal,      catLodSwitchStands,       TRUE,  NULL },
+        { "texLinearFiltering", &texLinearFiltering,        trFilterSwitchStands,     TRUE,  NULL },
+        { "meshImmediate",      (sdword *)&meshImmediate,   mtMeshImmStands,          FALSE, meshImmediateSwitch },
+        { "sensorsPoints",      &hwiSensorsPoints,          mtSmPointsStands,         FALSE, hwiSensorsPointsExeSwitch },   // HWI-FEATURE(sensors-points) (M3-R4)
+        { "engineTrails",       &hwiEngineTrails,           mtEngTrailsStands,        FALSE, hwiEngineTrailsExeSwitch },    // HWI-TEST (M3-R4 sensors-points): the M3-R3 switch the table missed
     };
     char buffer[512] = "", *reply = buffer, value[8], expect[96], why[64];
     sdword i, before;
@@ -2264,7 +2270,7 @@ static void mtToggleSwitchLabels(void)
         cat_consoleRunCommand(rows[i].row, value, &reply, rows[i].row);
         if (!rows[i].hasRow && standing)
         {
-            meshImmediateSwitch();                  // the run-only switch's state back (its console row ended it)
+            rows[i].restore();                      // the run-only switch's state back (its console row ended it); HWI-TEST (M3-R4 sensors-points): was meshImmediateSwitch()
         }
         mtToggleCheck((*rows[i].value ? 1 : 0) == before && rows[i].stands() == standing, "settings line: the row and its switch back");
     }

@@ -3201,6 +3201,9 @@ void catHudSelfTestTick(void)
                     catSmDrawCounts.scenes, catSmDrawCounts.rangeCircles, catSmDrawCounts.shipPoints, catSmDrawCounts.meshes,
                     catSmDrawCounts.icons, catSmDrawCounts.slipgatePaths, catSmDrawCounts.hotkeyNumbers,
                     catSmDrawCounts.resources, catSmDrawCounts.mines, catSmDrawCounts.boundsFrames, catSmDrawCounts.compassFrames);
+        dbgMessagef("hudtest: sensorspoints markers 1px=%u 2px=%u 3px=%u dust=%u dustsize=%u sensorsPoints=%d",   // HWI-TEST (M3-R4 sensors-points)
+                    catSmDrawCounts.markerSizes[1], catSmDrawCounts.markerSizes[2], catSmDrawCounts.markerSizes[3],   // HWI-TEST (M3-R4 sensors-points)
+                    catSmDrawCounts.dustPoints, catSmDrawCounts.dustSize, (int)hwiSensorsPoints);                     // HWI-TEST (M3-R4 sensors-points)
         dbgMessagef("hudtest: counts frames=%u statusbars=%u bars=%u icons=%u infopanels=%u infolines=%u",
                     catHudCounts.frames, catHudCounts.statusBars, catHudCounts.bars, catHudCounts.icons,
                     catHudCounts.infoPanels, catHudCounts.infoLines);

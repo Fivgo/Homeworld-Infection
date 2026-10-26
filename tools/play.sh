@@ -75,6 +75,16 @@
 #   console row         engineTrails 0|1   (the developer console's; as in cataclysm.exe no key opens that console)
 #   the settings line   "engineTrails=1 (default)" (0 (switch) with -- /exeTrails)
 #
+# Sensors points (M3-R4, HWI-FEATURE(sensors-points)): in the sensors manager (Space) the "Dust" (the faint tan-grey dots
+# of the decorative asteroid belts, e.g. Mission02's arcs; the sensors menu's "Dust" option) are 2 pixels instead of
+# cataclysm.exe's 1, and the resource, meteor, mine and crate markers 3 pixels instead of the exe's 2 (1 for the smallest
+# ones), so every marker is bigger than the Dust. ON by default. Fixed screen pixels (the UI scale does not change them);
+# the ship blips keep the exe's 2 (a mimic hidden as an asteroid is drawn at the markers' 3, as the exe draws it at a
+# big asteroid's size).
+#   switch              -- /exePoints   (this run only: the exe's 1 / 2 pixel points, for an A/B)
+#   console row         sensorsPoints 0|1   (the developer console's; as in cataclysm.exe no key opens that console)
+#   the settings line   "sensorsPoints=1 (default)" (0 (switch) with -- /exePoints)
+#
 # Team colours (M3-R1 team-colours-warp): the colours picked in the front end's colour picker (Cataclysm.cfg rows
 # PlayerBaseColor / PlayerStripeColor / ColorsPicked) stay on the Kuun-Lan and the fleet through every level change
 # (the M2 builds lost them when the opening cutscene's level gave way to Mission01). No setting. To have the play log

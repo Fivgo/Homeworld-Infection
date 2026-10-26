@@ -113,7 +113,7 @@ static void cat_consoleExperienceShips(sdword type, void *data, void *value, cha
 // HWI-FEATURE(motion-interp): rows added by this tree have ids from here on; cat_consoleConfigFileSave leaves them out,
 //      so the console's config file keeps the exe's format (the options file keeps their values)
 #define CAT_CON_HWI_ROW_ID      0x1000                  // HWI-FEATURE(motion-interp)
-#define CAT_CON_HWI_ROWS        9                       // HWI-FEATURE(motion-interp): objInterpolate, nisInterpolate; HWI-FEATURE(letterbox-setting): letterboxBehind; HWI-FEATURE(full-detail): noLOD; HWI-FEATURE(ui-scale): uiScale; HWI-FEATURE(instrumentation): overlay; HWI-FEATURE(mesh-batching): meshImmediate; HWI-FEATURE(sharp-textures): texLinearFiltering; HWI-FEATURE(engine-trails): engineTrails (all settable)
+#define CAT_CON_HWI_ROWS        10                      // HWI-FEATURE(motion-interp): objInterpolate, nisInterpolate; HWI-FEATURE(letterbox-setting): letterboxBehind; HWI-FEATURE(full-detail): noLOD; HWI-FEATURE(ui-scale): uiScale; HWI-FEATURE(instrumentation): overlay; HWI-FEATURE(mesh-batching): meshImmediate; HWI-FEATURE(sharp-textures): texLinearFiltering; HWI-FEATURE(engine-trails): engineTrails; HWI-FEATURE(sensors-points): sensorsPoints (all settable)
 
 CatConsoleCommand catConsoleCommandTable[] =       // 0x008783c8
 {
@@ -155,6 +155,7 @@ CatConsoleCommand catConsoleCommandTable[] =       // 0x008783c8
     { 5, CAT_CON_HWI_ROW_ID + 6, &meshImmediate, "meshImmediate", NULL },  // HWI-FEATURE(mesh-batching): 1 = the immediate-mode mesh path (not in the exe's table)
     { 5, CAT_CON_HWI_ROW_ID + 7, &texLinearFiltering, "texLinearFiltering", NULL },   // HWI-FEATURE(sharp-textures): 0 = SHARP TEXTURES, 1 the original look (not in the exe's table; the live textures follow at the next frame)
     { 5, CAT_CON_HWI_ROW_ID + 8, &hwiEngineTrails, "engineTrails", NULL },   // HWI-FEATURE(engine-trails): 1 the missile corvettes' four jet streams, 0 the exe's two (not in the exe's table)
+    { 5, CAT_CON_HWI_ROW_ID + 9, &hwiSensorsPoints, "sensorsPoints", NULL }, // HWI-FEATURE(sensors-points): 1 the sensors manager's Dust 2 px and markers 3 px, 0 the exe's 1 / 2 px (not in the exe's table)
     { -1, -1, NULL, NULL, NULL }
 };
 

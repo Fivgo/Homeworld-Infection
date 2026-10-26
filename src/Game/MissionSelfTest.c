@@ -3869,6 +3869,9 @@ static void catMtMissionEnd(void)
     //      fog-of-war test: every one in every frame) against the resource points (only where the grid has seen them)
     dbgMessagef("missiontest: sensors scenes=%u dustpoints=%u resourcepoints=%u minor=%u", catSmDrawCounts.scenes,
                 catSmDrawCounts.dustPoints, catSmDrawCounts.resources, (unsigned)universe.MinorSpaceObjList.num);
+    dbgMessagef("missiontest: sensorspoints markers 1px=%u 2px=%u 3px=%u dustsize=%u sensorsPoints=%d",   // HWI-TEST (M3-R4 sensors-points)
+                catSmDrawCounts.markerSizes[1], catSmDrawCounts.markerSizes[2], catSmDrawCounts.markerSizes[3],   // HWI-TEST (M3-R4 sensors-points)
+                catSmDrawCounts.dustSize, (int)hwiSensorsPoints);                                                 // HWI-TEST (M3-R4 sensors-points)
     if (catMtMission == 2)
     {
         // HWI-TEST (M3-R3 mission02): the BUSHAN-RE hint fired exactly under the exe's conditions
