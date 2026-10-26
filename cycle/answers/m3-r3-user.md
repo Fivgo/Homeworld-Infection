@@ -104,3 +104,8 @@ Five ports in sequence: (1) settings-and-keys = item 0 (the overlay's F key) + M
 item 3 (SHARP TEXTURES); (2) pause-freeze = item 5; (3) mission02 = items 1 + 2; (4) mines = items 4 + 6; (5) engine-trails
 = item 7. Open question for the user, not blocking: in Mission02, were the dust clouds missing everywhere (the 3D view
 too) or only on the tactical map?
+
+## The user's words (2026-10-26 10:2x, during the engine-trails audit), verbatim
+- "okay you can use the gpu now if its needed": the GPU is free for this round's measurements and captures (the 4K
+  FULL DETAIL figures, the trail captures at 3840x2160, the integrate's soak-style checks). The idle check in the
+  harness still applies; at the time of the note the GPU sat at 5% with only Steam's helpers running, no game.
