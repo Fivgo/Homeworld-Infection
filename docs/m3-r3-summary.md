@@ -1130,9 +1130,13 @@ harness data dir; the private home `original/play-home`, whose `.homeworld/Catac
 engine switches after `--`; the log under `original/play-home/logs/play-<timestamp>.log`; **no gamescope**):
 
 ```
-cd ~/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2
+cd ~/Documents/GameDev/Homeworld-Infection          # the main checkout (main = m2 at 48c5a23)
 tools/play.sh                          # 3840x2160 borderless fullscreen-desktop; rebuilds itself; switches after --
 ```
+
+[2026-10-26, after the round: the brief first said the m2 worktree; a worktree's `original/` has no game data and no play
+home, so a launch from there rebuilt the engine and stopped at "no Cataclysm data". `tools/play.sh` now falls back to the
+main checkout's `original/` from a worktree, so either directory works; the main checkout is the plain way.]
 
 Report per item:
 

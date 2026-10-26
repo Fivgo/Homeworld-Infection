@@ -8,7 +8,10 @@
 #             --debug uses build/debug/hwi-engine (ASan: much slower, prints sanitizer reports);
 #             --bin PATH runs another engine binary (e.g. a fix branch's worktree build)
 #   data      --data DIR, default original/scratch-m2/m2r2-harness/data (symlinks into original/game, the
-#             unmodified GOG install; tools/m2_harness.sh --setup creates it)
+#             unmodified GOG install; tools/m2_harness.sh --setup creates it). Run from the MAIN checkout
+#             (~/Documents/GameDev/Homeworld-Infection) or from a worktree: a worktree's original/ has no data, so the
+#             script then uses the main checkout's original/ for the data and the home (the engine binary stays the
+#             worktree's own build)
 #   home      --home DIR, default original/play-home: a private HOME so the recreation's Cataclysm.cfg, keys.cfg,
 #             saved games, recordings and screenshots live there and never touch ~/ or the GOG install. Seeded on
 #             first use with TutorialNeeded 0 and PlayIntros 0 (edit .homeworld/Cataclysm.cfg there to change).
@@ -156,7 +159,15 @@
 #                       draw of each mine mesh per colour scheme; white=0 = every textured material bound)
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
-build=release; bin=""; data="$root/original/scratch-m2/m2r2-harness/data"; home="$root/original/play-home"; drv=x11; rebuild=0
+# The game data and the play home live under the MAIN checkout's original/ (gitignored; a worktree such as
+# .claude/worktrees/m2 has an original/ of its own with neither). From a worktree, fall back to the main checkout's
+# (2026-10-26: a launch from the m2 worktree rebuilt the engine, then stopped at "no Cataclysm data").
+orig="$root/original"
+if [[ ! -e "$orig/scratch-m2/m2r2-harness/data/cataclysm.big" ]]; then
+	common=$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+	[[ -n "$common" && -e "${common%/.git}/original/scratch-m2/m2r2-harness/data/cataclysm.big" ]] && orig="${common%/.git}/original"
+fi
+build=release; bin=""; data="$orig/scratch-m2/m2r2-harness/data"; home="$orig/play-home"; drv=x11; rebuild=0
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--debug) build=debug; shift ;;
