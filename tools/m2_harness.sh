@@ -358,6 +358,17 @@
 #                    off once the BUSHAN-RE is found). Pass "-- /catMissionTestHoldScout <tick>" with --mission 2 to
 #                    hold the FindDestroyer recon until <tick> (6400 lets the NORMAL timer run out: the speech at 5824);
 #                    --cfg 'DifficultySetting N' for another difficulty (the self-test's player is built for NORMAL)
+#                    M3-R3 mines (HWI-TEST, docs/m3-r3-mines.md), any mode that plays a game, e.g. --mission 3:
+#                    "-- /catMeshTexLog <substring>" logs the texture wiring of the meshes whose file name has it
+#                    ("meshtex: register load .. static= teamColor= handles=" per textured material at the mesh load;
+#                    "meshtex: draw .. scheme= textures= bound= white= [..]" at the first draw per colour scheme; e.g.
+#                    /MINE/RL); "-- /catMineView <tick>[:dropped][:<distance>]" closes the sensors manager and snaps the
+#                    camera to the level mine (:dropped: a laid mine) nearest the player's mothership from that tick
+#                    (with --shot: the mine captures; changes the view); "-- /catMineLog <ticks>" logs every mine state
+#                    change with its reason ("minelog: change .. state=A->B why=..") and <ticks> ticks of state, target,
+#                    distance and speeds for the first 8 mines that start an attack run; "-- /catMineChase
+#                    <tick>[:<shiptype>]" orders up to 4 of player 0's ships of that type (default sRecon) past the
+#                    nearest level mine through the command layer (a test scene: no stream reference)
 #                    warpstart: /catMissionTest <ticks> /catWarpStartTest /oracleDump <run>/run.hwo (M2-R9 missions-10-17):
 #                    the exe's warp start (cat_spWarpToLevel 0x0051b9c0) from a TEST COPY of the install's warp.script
 #                    supplied to this run only, as loadgame supplies its save: the run gets its own data dir

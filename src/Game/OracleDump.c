@@ -61,6 +61,7 @@
 #include "UnivUpdate.h"
 #include "utility.h"
 #include "MissionSelfTest.h"   // HWI-TEST (M2-R8 kas-runtime-mission01)
+#include "AIShip.h"            // HWI-TEST (M3-R3 mines): /catMineChase
 
 /*=============================================================================
     Data:
@@ -1248,6 +1249,12 @@ bool32 oracleUnivUpdate(real32 phystimeelapsed)
     {                                                                           // HWI-FEATURE(motion-interp)
         catMotionTestTick();                                                    // HWI-FEATURE(motion-interp)
     }                                                                           // HWI-FEATURE(motion-interp)
+
+    // HWI-TEST (M3-R3 mines): /catMineChase's order (AIShip.c)
+    if (catMineChaseRequested() && (universe.univUpdateCounter != before))
+    {
+        catMineChaseTick();
+    }
 
     if ((oracleFileName[0] != '\0' || oracleInSelfTest) && universe.univUpdateCounter != before)
     {

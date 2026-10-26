@@ -138,6 +138,9 @@ void aishipStatsCloseFunc();
 #endif  // AISHIP_STATS
 
 
+void catMineLogSet(char *string);                   // HWI-TEST (M3-R3 mines): /catMineLog <ticks>
+void catMineChaseSet(char *string);                 // HWI-TEST (M3-R3 mines): /catMineChase <tick>[:<shiptype>]
+bool32 catMineChaseRequested(void);                 // HWI-TEST
+void catMineChaseTick(void);                        // HWI-TEST
+
 #endif
-
-

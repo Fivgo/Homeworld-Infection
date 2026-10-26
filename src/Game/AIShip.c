@@ -31,6 +31,9 @@
 #include "Tactics.h"
 #include "Tweak.h"
 #include "Universe.h"
+#include <math.h>           // HWI-TEST (M3-R3 mines): /catMineLog distances (log only)
+#include "CommandWrap.h"    // HWI-TEST (M3-R3 mines): /catMineChase (clWrapMove)
+#include "Select.h"         // HWI-TEST (M3-R3 mines): sizeofSelectCommand
 
 
 #define DEBUG_AISHIP    0
@@ -2049,6 +2052,189 @@ bool32 aishipGuideMissile(Missile *missile)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    HWI-TEST (M3-R3 mines): /catMineLog <ticks>: the mines' state machine in the log (the user's play-test item 6).
+    Every state change of every mine, "minelog: change tick=.. id=.. race=.. state=A->B why=.. target=.." (why: the
+    attack run's exit path: the target flew out of the range test, became fully cloaked or disabled, flew away faster
+    than the mine, or was cleared elsewhere: died / left / docked), and for the first CAT_MINELOG_MAX mines that start
+    an attack run, <ticks> universe ticks of "minelog: tick=.. id=.. state=.. target=.. dist=.. speed=.. tspeed=.."
+    lines from that tick (an attack run that starts with a target). Read only: no simulation field, no random draw.
+-----------------------------------------------------------------------------*/
+sdword catMineLogTicks = 0;                                                 // HWI-TEST
+static const char *catMineLogWhy = "-";                                     // HWI-TEST
+#define CAT_MINELOG_MAX 8                                                   // HWI-TEST
+static sdword catMineLogN = 0;                                              // HWI-TEST
+static uword catMineLogId[CAT_MINELOG_MAX];                                 // HWI-TEST
+static udword catMineLogFrom[CAT_MINELOG_MAX];                              // HWI-TEST
+
+void catMineLogSet(char *string)                                            // HWI-TEST
+{
+    catMineLogTicks = (sdword)strtol(string, NULL, 10);
+}
+
+static void catMineLogTarget(char *out, size_t n, SpaceObjRotImpTarg *t)   // HWI-TEST
+{
+    if (t == NULL)
+    {
+        snprintf(out, n, "none");
+    }
+    else if (t->header.objtype == OBJ_ShipType)
+    {
+        snprintf(out, n, "%s#%u", ShipTypeToStr(((Ship *)t)->shiptype), (unsigned)((Ship *)t)->shipID.shipNumber);
+    }
+    else
+    {
+        snprintf(out, n, "objtype%d", (int)t->header.objtype);
+    }
+}
+
+static void catMineLogStep(Missile *mine, udword oldState, SpaceObjRotImpTarg *oldTarget)  // HWI-TEST
+{
+    char tn[64];
+    sdword i, k = -1;
+    udword tick = universe.univUpdateCounter;
+    vector d;
+    double dist = -1.0, tspeed = -1.0, speed;
+
+    if (catMineLogTicks <= 0)
+    {
+        return;
+    }
+    speed = sqrt((double)vecMagnitudeSquared(mine->obj.posinfo.velocity));
+    if (mine->target != NULL)
+    {
+        vecSub(d, mine->target->impactable.collInfo.collPosition, mine->obj.posinfo.position);
+        dist = sqrt((double)vecMagnitudeSquared(d));
+        tspeed = sqrt((double)vecMagnitudeSquared(mine->target->obj.posinfo.velocity));
+    }
+    if (mine->mineAIState != oldState)
+    {
+        catMineLogTarget(tn, sizeof(tn), (mine->target != NULL) ? mine->target : oldTarget);
+        dbgMessagef("minelog: change tick=%u id=%u race=%d forced=%d state=%u->%u why=%s target=%s speed=%.1f",
+                    (unsigned)tick, (unsigned)mine->missileID.missileNumber, (int)mine->race, (int)mine->FORCE_DROPPED,
+                    (unsigned)oldState, (unsigned)mine->mineAIState,
+                    (mine->mineAIState == MINE_ATTACK_RUN) ? ((mine->target != NULL) ? "acquired" : "start") : catMineLogWhy,
+                    tn, speed);
+    }
+    for (i = 0; i < catMineLogN; i++)
+    {
+        if (catMineLogId[i] == mine->missileID.missileNumber)
+        {
+            k = i;
+        }
+    }
+    if (k < 0 && mine->mineAIState == MINE_ATTACK_RUN && mine->target != NULL && catMineLogN < CAT_MINELOG_MAX)
+    {
+        k = catMineLogN++;
+        catMineLogId[k] = mine->missileID.missileNumber;
+        catMineLogFrom[k] = tick;
+    }
+    if (k >= 0 && tick - catMineLogFrom[k] < (udword)catMineLogTicks)
+    {
+        catMineLogTarget(tn, sizeof(tn), mine->target);
+        dbgMessagef("minelog: tick=%u id=%u state=%u target=%s dist=%.0f speed=%.1f tspeed=%.1f pos=(%.0f %.0f %.0f)",
+                    (unsigned)tick, (unsigned)mine->missileID.missileNumber, (unsigned)mine->mineAIState, tn, dist,
+                    speed, tspeed, (double)mine->obj.posinfo.position.x, (double)mine->obj.posinfo.position.y,
+                    (double)mine->obj.posinfo.position.z);
+    }
+    catMineLogWhy = "-";
+}
+
+/*-----------------------------------------------------------------------------
+    HWI-TEST (M3-R3 mines): /catMineChase <tick>[:<shiptype>]: at that universe tick up to four of player 0's ships of
+    the type (default sRecon) are ordered through the command layer (clWrapMove, no input) on a straight pass 2,000
+    units beside the level mine (race Derelict) nearest the first of them and 20,000 units beyond it: the scene of the
+    user's report (a mine field that strike craft fly past), for /catMineLog. Changes the game: a test run only
+-----------------------------------------------------------------------------*/
+static sdword catMineChaseAt = -1;                                          // HWI-TEST
+static ShipType catMineChaseType = sRecon;                                  // HWI-TEST
+static bool32 catMineChaseDone = FALSE;                                     // HWI-TEST
+
+void catMineChaseSet(char *string)                                          // HWI-TEST
+{
+    char *c = strchr(string, ':');
+    ShipType type;
+
+    catMineChaseAt = (sdword)strtol(string, NULL, 10);
+    if (c != NULL && (type = StrToShipType(c + 1)) != (ShipType)0xffffffff)
+    {
+        catMineChaseType = type;
+    }
+}
+
+bool32 catMineChaseRequested(void)                                         // HWI-TEST
+{
+    return (catMineChaseAt >= 0) && !catMineChaseDone;
+}
+
+void catMineChaseTick(void)                                                 // HWI-TEST
+{
+    SelectCommand *sel;
+    Node *node;
+    Missile *best = NULL;
+    real32 bestDist = REALlyBig, dist;
+    vector d, side, dest, up = {0.0f, 0.0f, 1.0f};
+
+    if ((sdword)universe.univUpdateCounter < catMineChaseAt || !gameIsRunning)
+    {
+        return;
+    }
+    catMineChaseDone = TRUE;
+    sel = memAlloc(sizeofSelectCommand(4), "minechase", 0);
+    sel->numShips = 0;
+    for (node = universe.ShipList.head; node != NULL && sel->numShips < 4; node = node->next)
+    {
+        Ship *ship = (Ship *)listGetStructOfNode(node);
+
+        if (ship->playerowner == &universe.players[0] && ship->shiptype == catMineChaseType &&
+            !(ship->header.flags & SOF_Dead))
+        {
+            sel->ShipPtr[sel->numShips++] = ship;
+        }
+    }
+    for (node = universe.MissileList.head; node != NULL && sel->numShips > 0; node = node->next)
+    {
+        Missile *mis = (Missile *)listGetStructOfNode(node);
+
+        if (mis->missileType != MISSILE_Mine || mis->race != RACE_Derelict)
+        {
+            continue;
+        }
+        vecSub(d, mis->obj.posinfo.position, sel->ShipPtr[0]->obj.posinfo.position);
+        dist = vecMagnitudeSquared(d);
+        if (dist < bestDist)
+        {
+            bestDist = dist;
+            best = mis;
+        }
+    }
+    if (best == NULL)
+    {
+        dbgMessagef("minechase: tick=%u ships=%d type=%s no level mine or no ship: nothing ordered",
+                    (unsigned)universe.univUpdateCounter, (int)sel->numShips, ShipTypeToStr(catMineChaseType));
+        memFree(sel);
+        return;
+    }
+    vecSub(d, best->obj.posinfo.position, sel->ShipPtr[0]->obj.posinfo.position);
+    vecNormalize(&d);
+    vecCrossProduct(side, d, up);
+    if (vecMagnitudeSquared(side) < 0.01f)
+    {
+        side.x = 1.0f; side.y = 0.0f; side.z = 0.0f;
+    }
+    vecNormalize(&side);
+    dest.x = best->obj.posinfo.position.x + side.x * 2000.0f + d.x * 20000.0f;
+    dest.y = best->obj.posinfo.position.y + side.y * 2000.0f + d.y * 20000.0f;
+    dest.z = best->obj.posinfo.position.z + side.z * 2000.0f + d.z * 20000.0f;
+    clWrapMove(&universe.mainCommandLayer, sel, 0, sel->ShipPtr[0]->obj.posinfo.position, 1, &dest);
+    dbgMessagef("minechase: tick=%u ships=%d type=%s#%u.. mine id=%u at (%.0f %.0f %.0f) distance=%.0f dest=(%.0f %.0f %.0f)",
+                (unsigned)universe.univUpdateCounter, (int)sel->numShips, ShipTypeToStr(catMineChaseType),
+                (unsigned)sel->ShipPtr[0]->shipID.shipNumber, (unsigned)best->missileID.missileNumber,
+                (double)best->obj.posinfo.position.x, (double)best->obj.posinfo.position.y,
+                (double)best->obj.posinfo.position.z, sqrt((double)bestDist), (double)dest.x, (double)dest.y, (double)dest.z);
+    memFree(sel);
+}
+
 bool32 aishipFlyMineToTarget(Missile *mine,SpaceObjRotImpTarg *target)
 {
     MissileStaticInfo *minestaticinfo = (MissileStaticInfo *)mine->staticinfo;
@@ -2077,6 +2263,7 @@ bool32 aishipFlyMineToTarget(Missile *mine,SpaceObjRotImpTarg *target)
     {
         //target flew out of range.
         mine->target = NULL;
+        catMineLogWhy = "range";                                            // HWI-TEST (M3-R3 mines)
         return(FALSE);
     }
     else if(mine->target != NULL)
@@ -2084,6 +2271,7 @@ bool32 aishipFlyMineToTarget(Missile *mine,SpaceObjRotImpTarg *target)
         // CAT: a fully cloaked target is lost (cat_shipIsCloakedFully 0x00436110; aishipFlyMineToTarget 0x00415fa0)
         if (cat_shipIsCloakedFully((Ship *)mine->target) || (mine->target->header.flags & SOF_Disabled))
         {
+            catMineLogWhy = (mine->target->header.flags & SOF_Disabled) ? "disabled" : "cloaked";   // HWI-TEST (M3-R3 mines)
             mine->target = NULL;
             return FALSE;
         }
@@ -2097,6 +2285,7 @@ bool32 aishipFlyMineToTarget(Missile *mine,SpaceObjRotImpTarg *target)
         {
             //target is flying faster than mine can go so don't follow it!
             mine->target = NULL;
+            catMineLogWhy = "faster-away";                                  // HWI-TEST (M3-R3 mines)
             return(FALSE);
         }
     }
@@ -2417,6 +2606,8 @@ bool32 aishipGuideMine(Missile *mine)
     vector dist;
     real32 distsqr;
     MinelayerCorvetteStatics *minelayercorvettestatics;
+    udword catMineLogOld = mine->mineAIState;                               // HWI-TEST (M3-R3 mines)
+    SpaceObjRotImpTarg *catMineLogOldTarget = mine->target;                 // HWI-TEST
 
     if (mine->header.flags & SOF_Dead)
     {
@@ -2494,6 +2685,7 @@ bool32 aishipGuideMine(Missile *mine)
     case MINE_ATTACK_RUN:
         if(mine->target == NULL)
         {   //Lost target...so stop, reform wall and search for new target
+            catMineLogWhy = "cleared";                                      // HWI-TEST (M3-R3 mines): died / left / docked
             //check if too far from formation location
             if(mine->formationinfo == NULL)
             {
@@ -2522,6 +2714,7 @@ bool32 aishipGuideMine(Missile *mine)
     }
 
     SET_MOVING_LINEARLY(mine->obj.posinfo.isMoving);
+    catMineLogStep(mine, catMineLogOld, catMineLogOldTarget);               // HWI-TEST (M3-R3 mines): /catMineLog
 
     // all mines, including force dropped ones, now expire
     mine->timelived += universe.phystimeelapsed;

@@ -73,6 +73,7 @@
 #include "Universe.h"
 #include "ETG.h"            // CAT: /catEtgParseTest, /catEtgEffectTest (port diagnostics)
 #include "Mesh.h"           // CAT: /catMeshLoadTest (port diagnostic)
+#include "AIShip.h"         // HWI-TEST (M3-R3 mines): /catMineLog
 #include "Dock.h"           // CAT: /catDockTest (port diagnostic, M2-R5 dock)
 #include "KeyBindings.h"    // CAT: /catKeysTest (port diagnostic, M2-R6 startup-keys)
 #include "Console.h"        // CAT: the developer console's keys, /catConsoleTest (M2-R6 startup-keys)
@@ -694,6 +695,26 @@ bool32 CatFeScreenSet(char *string)
 bool32 CatTexListSet(char *string)                  // HWI-TEST (M3-R3): /catTexList <substring> (texreg.c trFilterCount)
 {
     trFilterListSet(string);
+    return TRUE;
+}
+bool32 CatMeshTexLogSet(char *string)               // HWI-TEST (M3-R3 mines): /catMeshTexLog <substring> (Mesh.c)
+{
+    catMeshTexLogSet(string);
+    return TRUE;
+}
+bool32 CatMineLogSet(char *string)                  // HWI-TEST (M3-R3 mines): /catMineLog <ticks> (AIShip.c)
+{
+    catMineLogSet(string);
+    return TRUE;
+}
+bool32 CatMineChaseSet(char *string)                // HWI-TEST (M3-R3 mines): /catMineChase <tick>[:<shiptype>] (AIShip.c)
+{
+    catMineChaseSet(string);
+    return TRUE;
+}
+bool32 CatMineViewSet(char *string)                 // HWI-TEST (M3-R3 mines): /catMineView <tick>[:dropped][:<distance>] (render.c)
+{
+    catMineViewSet(string);
     return TRUE;
 }
 // HWI-TEST (M3-R2 instrumentation): /frameLog <file>: one line a second of frame times, universe ticks, the heap and the
@@ -1509,6 +1530,10 @@ commandoption commandOptions[] =
     entryFnParam("/catOverlayKeyAt",    CatOverlayKeyAtSet, " <tick>[,<tick>..] - test: F1 (the overlay's key) handed to the event handler at those universe ticks."),   // HWI-TEST
     entryFnParam("/catConsoleAt",       CatConsoleAtSet, " <tick>:<row>=<value>[,..] - test: a developer-console row set at those universe ticks."),   // HWI-TEST
     entryFnParam("/catTexList",         CatTexListSet, " <substring> - test: at each texture-filter pass, list the live textures whose name has it (on-disk and loaded size)."),   // HWI-TEST
+    entryFnParam("/catMeshTexLog",      CatMeshTexLogSet, " <substring> - test: log the texture registration and the first draw per colour scheme of the meshes whose file name has it (meshtex: lines)."),   // HWI-TEST (M3-R3 mines)
+    entryFnParam("/catMineView",        CatMineViewSet, " <tick>[:dropped][:<distance>] - test: from that universe tick close the sensors manager and keep the camera on the level mine (or with :dropped a laid mine) nearest the player's mothership, at that camera distance (mineview: lines)."),   // HWI-TEST (M3-R3 mines)
+    entryFnParam("/catMineLog",         CatMineLogSet, " <ticks> - test: log every mine state change with its reason and <ticks> ticks of state, target, distance and speeds for the first 8 mines that start an attack run on a target (minelog: lines)."),   // HWI-TEST (M3-R3 mines)
+    entryFnParam("/catMineChase",       CatMineChaseSet, " <tick>[:<shiptype>] - test: at that universe tick order up to 4 of player 0's ships of that type (default sRecon) past the nearest level mine, 2000 beside it and 20000 beyond (minechase: line)."),   // HWI-TEST (M3-R3 mines)
     entryFnParam("/catFeScreen",        CatFeScreenSet, " <screen>[@<tick>] - test: a front-end screen pushed once (in the front end, or in game at the tick)."),   // HWI-TEST
     entryFnParam("/catModeQuitTest",    CatModeQuitTestSet, " <W>x<H> - test: once the front end is up, the Video screen's render switch to that resolution, then one quit."),   // HWI-TEST
     entryFnParam("/frameLog",           FrameLogSet, " <file> - test: one line a second to <file>: frame-time percentiles, frames over the refresh interval, universe ticks and their cost, the main heap, the vertices drawn."),   // HWI-TEST

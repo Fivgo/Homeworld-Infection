@@ -6952,14 +6952,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 render] same (GetShipStaticInfo takes the type alone in the exe; the tree's race argument is ignored there)",
+  "note": "[review: M2-R5 render] same (GetShipStaticInfo takes the type alone in the exe; the tree's race argument is ignored there) | [review: M3-R3 mines] relied on: MISSILE -> 0x00ba0f40 + race * 300, MINE -> 0x00b3abe0 + race * 300 (the backslash-only split of the exe vs the tree's backslash-or-slash: the same for the registry's names); as the tree",
   "sample": "port-R5-render"
  },
  "0x004ae910": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "trTextureRegister gets the new 4th argument (1) at both calls",
-  "note": "callee arity change (audit sample #8); rest as HW1 | [review: M3-R1 team-colours-warp] compared: one trTextureRegister per player whose static teamColor byte is set, with teColorSchemes[i] (0x00bb3020 + 0x30 * i) and 4th argument 1; no static: one registration with no colour; 0xffffffff when nothing was registered (the tree returns NULL and its callers test NULL: the same). GoK's extra condition utyShipsAlwaysUseOwnerColors is not in the exe (the option row ShipsAlwaysUseOwnerColors is FALSE by default and in the user's options file: not changed here)",
+  "note": "callee arity change (audit sample #8); rest as HW1 | [review: M3-R1 team-colours-warp] compared: one trTextureRegister per player whose static teamColor byte is set, with teColorSchemes[i] (0x00bb3020 + 0x30 * i) and 4th argument 1; no static: one registration with no colour; 0xffffffff when nothing was registered (the tree returns NULL and its callers test NULL: the same). GoK's extra condition utyShipsAlwaysUseOwnerColors is not in the exe (the option row ShipsAlwaysUseOwnerColors is FALSE by default and in the user's options file: not changed here) | [review: M3-R3 mines] compared again: the colour-scheme row is read at +0xF0 of whatever static meshNameToStaticInfo returned (lea ebx,[eax+0xf0] at 0x004ae94f), right in the exe for ships, derelicts, missiles and mines alike; the x86-64 tree's ship cast read a MissileStaticInfo row 4 bytes early (ShipStaticInfo row at +0xFC, MissileStaticInfo at +0x100): Mission03's mines registered for the wrong schemes or none and were drawn untextured. HWI-FIX meshStaticTeamColor (Mesh.c): the static's own row, as the exe's +0xF0",
   "sample": "reread-R2"
  },
  "0x004ae9c0": {
@@ -7001,7 +7001,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "trTextureRegister gets a 4th argument (push 1)",
-  "note": "callee arity, M2-R2 startup report; was IDENTICAL/medium | [review: M3-R1 team-colours-warp] compared the recolour passes (a handle whose palette holds another needed team's colours drops all handles; removals of unneeded schemes; trTextureColorsUpdate for kept ones, trTextureRegister / trRegisterAddition for new ones): as the tree",
+  "note": "callee arity, M2-R2 startup report; was IDENTICAL/medium | [review: M3-R1 team-colours-warp] compared the recolour passes (a handle whose palette holds another needed team's colours drops all handles; removals of unneeded schemes; trTextureColorsUpdate for kept ones, trTextureRegister / trRegisterAddition for new ones): as the tree | [review: M3-R3 mines] the three recolour passes read the row at +0xF0 (0x004af4e3, 0x004af576, 0x004af5a8): the same x86-64 misread for missile / mine statics in the tree; HWI-FIX meshStaticTeamColor at the three reads",
   "sample": "port-R3"
  },
  "0x004af710": {
@@ -12697,7 +12697,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the race/player team-colour table is filled by tutorial / multiplayer / single-player mission number (a switch over currentMission); HW1 sets fixed slots for Traders, P1, P2 and P3",
-  "note": "per-player race slots and the ship/missile/derelict copies as HW1",
+  "note": "per-player race slots and the ship/missile/derelict copies as HW1 | [review: M3-R3 mines] relied on: Mission03's rows (Sect 11000000, Beast 01000000, Taiidan 00000100, P1 10000100, Derelict 11000000) copied to every ship, missileStaticInfos[r] (+0xF0 = 0x00ba1030) and mineStaticInfos[r] (+0xF0 = 0x00b3acd0) of the 7 races; as the tree (traced at levelPreInit)",
   "sample": "reread-R2"
  },
  "0x0053ccd0": {
@@ -19600,7 +19600,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "adds calls cat_shipIsCloakedFully; fields +belongto, force, formationLink, next (+4) -FORCE_DROPPED, MINE_RANGESQR, MINE_RANGESQR_FORCED, collMyBlob (+7)",
-  "note": "[review: M2-R7 oracle-rung-aiship] whole body read: identical but the target test is cat_shipIsCloakedFully || SOF_Disabled (ported, AIShip.c); bobAddObjToSpecificBlob is collAddSpaceObjToSpecificBlob",
+  "note": "[review: M2-R7 oracle-rung-aiship] whole body read: identical but the target test is cat_shipIsCloakedFully || SOF_Disabled (ported, AIShip.c); bobAddObjToSpecificBlob is collAddSpaceObjToSpecificBlob | [review: M3-R3 mines] compared again: speed +0x10C (FORCE_DROPPED +0x230) else +0x28, the range argument MINE_RANGESQR_FORCED (+0x108), cloak / 0x800000, then the faster-away drop ((target - mine) . targetVelocity > 0.0 and |v|^2 > speed^2, 0x00416062 .. 0x004160b3): as the tree; the user's 'travel 3 s then stop' is this drop (shown by /catMineLog)",
   "sample": "port-R7-oracle-rung-aiship"
  },
  "0x004162c0": {
@@ -19614,7 +19614,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "a mine that loses its target while flying at it stops and searches when it has no formation (MINE_SEARCH_AND_STOP), else reforms the wall",
-  "note": "[review: M2-R7 oracle-rung-aiship] found modified: a mine whose fly-to-target fails goes to MINE_SEARCH_AND_STOP without a formation (0x00416783: state 4 with formationinfo else 2), where HW1 always reformed the wall; the fake target clears staticinfo; ported (AIShip.c)",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: a mine whose fly-to-target fails goes to MINE_SEARCH_AND_STOP without a formation (0x00416783: state 4 with formationinfo else 2), where HW1 always reformed the wall; the fake target clears staticinfo; ported (AIShip.c) | [review: M3-R3 mines] compared again with the machine code (the user's play-test item 6): states 0..4, the target-type clear (objtype 2/3/5/8), the friction (static +0x100, components in [-1.0, 1.0] zeroed), the search tick (counter & 15 == missileNumber & 15, MINE_DO_SEARCH_MASK 0x008ac564), the formation move (10.0) and the exits of state 3 (4 with a formation, else 2): as the tree; nothing ported",
   "sample": "port-R7-oracle-rung-aiship"
  },
  "0x004183f0": {

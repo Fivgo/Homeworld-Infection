@@ -339,6 +339,35 @@ StaticInfo *meshNameToStaticInfo(char *fileName)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : meshStaticTeamColor
+    Description : HWI-FIX (M3-R3 mines): the colour-scheme row of a static meshNameToStaticInfo returned.
+                  cataclysm.exe reads it at +0xF0 of whatever static it got (meshTextureRegisterAllPlayers 0x004ae910
+                  through the ship cast, meshRecolorize 0x004af3a0 likewise): in its ILP32 layout a ship's, a
+                  derelict's, a missile's and a mine's rows all lie at +0xF0 (universeDefaultTeamColors 0x0053c940
+                  writes ships at 0x00b3b510 + type * 0x458, missiles at 0x00ba1030 and mines at 0x00b3acd0, each +0xF0
+                  of its static; m2_layout32.sh pins it). In this x86-64 build ShipStaticInfo's row is at +0xFC and
+                  MissileStaticInfo's at +0x100 (StaticInfoHealthGuidance is padded to 0x100 for its pointers), so the
+                  ship cast read a missile's or a mine's row 4 bytes early (4 bytes of padding and the row's first
+                  half): Mission03's level mines (Derelict row 11000000) registered their textures for schemes 4 and 5
+                  only and are drawn with scheme 0, the minelayer's mines (Taiidan row 00000100) registered none, so
+                  both were drawn untextured (the user's "completely white" mines, play-test item 4). A missile's or
+                  a mine's static now gives its own row, as the exe's +0xF0 does
+    Inputs      : info - a static from meshNameToStaticInfo (not NULL)
+    Return      : its row of MAX_MULTIPLAYER_PLAYERS flags
+----------------------------------------------------------------------------*/
+static bool8 *meshStaticTeamColor(StaticInfo *info)                         // HWI-FIX (M3-R3 mines)
+{
+    memsize p = (memsize)info;                                              // HWI-FIX
+
+    if ((p >= (memsize)&missileStaticInfos[0] && p < (memsize)&missileStaticInfos[NUM_RACES]) ||   // HWI-FIX
+        (p >= (memsize)&mineStaticInfos[0] && p < (memsize)&mineStaticInfos[NUM_RACES]))           // HWI-FIX
+    {                                                                       // HWI-FIX
+        return ((MissileStaticInfo *)info)->teamColor;                      // HWI-FIX
+    }                                                                       // HWI-FIX
+    return ((ShipStaticInfo *)info)->shipOrDerelict.teamColor;              // HWI-FIX: ships and derelicts
+}                                                                           // HWI-FIX
+
+/*-----------------------------------------------------------------------------
     Name        : meshTextureRegisterAllPlayers
     Description : Register the named texture for each player who is of a certain race.
     Inputs      : fullName - name of texture.
@@ -371,7 +400,7 @@ trhandle * meshTextureRegisterAllPlayers(char *fullName, void *meshReference)
             dbgAssertOrIgnore(index < MAX_MULTIPLAYER_PLAYERS);
             handleList[index] = TR_Invalid;
 
-            if (utyShipsAlwaysUseOwnerColors || ((ShipStaticInfo *)info)->shipOrDerelict.teamColor[index])
+            if (utyShipsAlwaysUseOwnerColors || meshStaticTeamColor(info)[index])   // HWI-FIX (M3-R3 mines): the static's own row
             {                                               //if this player can build this ship
                 handleList[index] = trTextureRegister(fullName, //register in this players's colors
                         &teColorSchemes[index].textureColor, meshReference, TRUE);  // CAT: 4th arg 1 (0x004ae910)
@@ -389,6 +418,159 @@ trhandle * meshTextureRegisterAllPlayers(char *fullName, void *meshReference)
     }
 
     return NULL;
+}
+
+/*-----------------------------------------------------------------------------
+    HWI-TEST (M3-R3 mines): /catMeshTexLog <substring>: the texture wiring of the meshes whose file name has the
+    substring (case ignored), e.g. "MINE": one "meshtex: register ..." line per textured material a mesh load
+    registers (the static the name maps to, its team-colour row, the handle of each colour scheme) and one
+    "meshtex: draw ..." line the first time an object of such a mesh is drawn with a colour scheme (per material:
+    the scheme's handle and its registry entry: loaded with its size, pending, or no handle: drawn untextured,
+    "white"). Read only: no simulation field, no random draw, no pixel.
+-----------------------------------------------------------------------------*/
+static char catMeshTexLogMatch[64] = "";                                    // HWI-TEST
+#define CAT_MESHTEX_SEEN    64                                              // HWI-TEST
+static void *catMeshTexSeenMesh[CAT_MESHTEX_SEEN];                          // HWI-TEST
+static sdword catMeshTexSeenScheme[CAT_MESHTEX_SEEN];                       // HWI-TEST
+static sdword catMeshTexSeenN = 0;                                          // HWI-TEST
+
+void catMeshTexLogSet(char *match)                                          // HWI-TEST
+{
+    snprintf(catMeshTexLogMatch, sizeof(catMeshTexLogMatch), "%s", match);
+}
+
+bool32 catMeshTexLogMatches(const char *name)                               // HWI-TEST
+{
+    size_t i, j, n = strlen(catMeshTexLogMatch);
+
+    if (n == 0 || name == NULL)
+    {
+        return FALSE;
+    }
+    for (i = 0; name[i] != '\0'; i++)
+    {
+        for (j = 0; j < n && name[i + j] != '\0' &&
+             toupper((unsigned char)name[i + j]) == toupper((unsigned char)catMeshTexLogMatch[j]); j++)
+        {
+        }
+        if (j == n)
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+// HWI-TEST: one registration (meshLoad / meshRecolorize): the static, its team-colour row, the handles
+static void catMeshTexLogRegister(const char *where, const char *fullName, trhandle *handles)
+{
+    StaticInfo *info;
+    char row[MAX_MULTIPLAYER_PLAYERS + 1], hs[MAX_MULTIPLAYER_PLAYERS * 11 + 1];
+    sdword i, n = 0;
+
+    if (!catMeshTexLogMatches(fullName))
+    {
+        return;
+    }
+    info = meshNameToStaticInfo((char *)fullName);
+    for (i = 0; i < MAX_MULTIPLAYER_PLAYERS; i++)
+    {
+        row[i] = (info != NULL && meshStaticTeamColor(info)[i]) ? '1' : '0';
+        n += snprintf(hs + n, sizeof(hs) - (size_t)n, "%s%x", i ? "," : "",
+                      (handles != NULL) ? (unsigned)handles[i] : 0xffffffffu);
+    }
+    row[MAX_MULTIPLAYER_PLAYERS] = '\0';
+    dbgMessagef("meshtex: register %s tick=%u %s static=%s teamColor=%s handles=%s", where,
+                (unsigned)universe.univUpdateCounter, fullName, (info != NULL) ? "found" : "none",
+                (info != NULL) ? row : "-", (handles != NULL) ? hs : "none (nothing registered)");
+}
+
+// HWI-TEST: the first draw of an object of a matching mesh with a colour scheme
+void catMeshTexLogDraw(void *spaceobj, meshdata *mesh, sdword iColorScheme)
+{
+    SpaceObj *obj = (SpaceObj *)spaceobj;
+    sdword i, m, textures = 0, bound = 0, white = 0;
+    char detail[256];
+    size_t n = 0;
+
+    if (catMeshTexLogMatch[0] == '\0' || mesh == NULL || !catMeshTexLogMatches(mesh->fileName))
+    {
+        return;
+    }
+    for (i = 0; i < catMeshTexSeenN; i++)
+    {
+        if (catMeshTexSeenMesh[i] == (void *)mesh && catMeshTexSeenScheme[i] == iColorScheme)
+        {
+            return;
+        }
+    }
+    if (catMeshTexSeenN < CAT_MESHTEX_SEEN)
+    {
+        catMeshTexSeenMesh[catMeshTexSeenN] = (void *)mesh;
+        catMeshTexSeenScheme[catMeshTexSeenN++] = iColorScheme;
+    }
+    detail[0] = '\0';
+    for (m = 0; m < mesh->nLocalMaterials + mesh->nPublicMaterials; m++)
+    {
+        materialentry *mat = &mesh->localMaterial[m];
+        const char *state;
+        char buf[96];
+
+        if (mat->textureNameSave == NULL)
+        {
+            continue;                                       // an untextured material (none in the mine meshes)
+        }
+        textures++;
+        if (!mat->bTexturesRegistered || mat->texture == NULL || mat->texture == (trhandle *)TR_Invalid)
+        {
+            state = "unregistered";
+            snprintf(buf, sizeof(buf), "%s", state);
+        }
+        else
+        {
+            trhandle h = ((trhandle *)mat->texture)[iColorScheme];
+            texreg *reg;
+
+            if (h == TR_Invalid)
+            {
+                snprintf(buf, sizeof(buf), "no-handle-for-scheme");
+            }
+            else
+            {
+                reg = trStructureGet(h);
+                if (!bitTest(reg->flags, TRF_Allocated))
+                {
+                    snprintf(buf, sizeof(buf), "free");
+                }
+                else if (bitTest(reg->flags, TRF_Pending))
+                {
+                    snprintf(buf, sizeof(buf), "pending");
+                }
+                else
+                {
+                    bound++;
+                    snprintf(buf, sizeof(buf), "loaded %dx%d", (int)reg->diskWidth, (int)reg->diskHeight);
+                }
+            }
+        }
+        if (strncmp(buf, "loaded", 6) != 0)
+        {
+            white++;
+        }
+        if (n < sizeof(detail) - 1)
+        {
+            n += (size_t)snprintf(detail + n, sizeof(detail) - n, "%s%d:%s=%s", n ? " " : "", (int)m,
+                                  mat->textureNameSave, buf);
+            if (n > sizeof(detail) - 1)
+            {
+                n = sizeof(detail) - 1;
+            }
+        }
+    }
+    dbgMessagef("meshtex: draw tick=%u type=%d race=%d scheme=%d mesh %s textures=%d bound=%d white=%d [%s]",
+                (unsigned)universe.univUpdateCounter, (int)obj->header.objtype,
+                (obj->header.objtype == OBJ_MissileType) ? (int)((Missile *)obj)->race : -1, (int)iColorScheme,
+                mesh->fileName, (int)textures, (int)bound, (int)white, detail);
 }
 
 /*-----------------------------------------------------------------------------
@@ -1152,6 +1334,10 @@ meshdata *meshLoad(char *inFileName)
                 mesh->localMaterial[index].texture = handles;
                 mesh->localMaterial[index].bTexturesRegistered = TRUE;
             }
+            if (catMeshTexLogMatch[0] != '\0')                                  // HWI-TEST: /catMeshTexLog
+            {                                                                   // HWI-TEST
+                catMeshTexLogRegister("load", fullName, handles);               // HWI-TEST
+            }                                                                   // HWI-TEST
         }
 /*
         else
@@ -1283,7 +1469,7 @@ void meshRecolorize(meshdata *mesh)
                     {                                       //if this texture allocated
     				    for (k = 0; k < MAX_MULTIPLAYER_PLAYERS; k++)
     					{
-                            if (((ShipStaticInfo *)info)->shipOrDerelict.teamColor[k])
+                            if (meshStaticTeamColor(info)[k])        // HWI-FIX (M3-R3 mines): the static's own row
                             {                               //if this team color will be loaded
                                 if (k != j && trColorsEqual(&teColorSchemes[k].textureColor, trIndex(handles[j])) == trPaletteIndex(handles[j]))
                                 {                           //if this handle's color is in some other team's desired color
@@ -1315,7 +1501,7 @@ void meshRecolorize(meshdata *mesh)
                 //third pass: removals of unused color schemes
                 for (j = 0; j < MAX_MULTIPLAYER_PLAYERS; j++)
                 {                                           //for all players
-                    if (!((ShipStaticInfo *)info)->shipOrDerelict.teamColor[j])
+                    if (!meshStaticTeamColor(info)[j])          // HWI-FIX (M3-R3 mines): the static's own row
                     {                                       //if this player does not need this mesh
                         if (handles[j] != TR_Invalid)
                         {                                   //this texture no longer needed
@@ -1329,7 +1515,7 @@ doneDeletingAllOldTextures:
                 //fourth pass: additions and updates of color schemes
                 for (j = 0; j < MAX_MULTIPLAYER_PLAYERS; j++)
                 {                                           //for all players
-                    if (((ShipStaticInfo *)info)->shipOrDerelict.teamColor[j])
+                    if (meshStaticTeamColor(info)[j])           // HWI-FIX (M3-R3 mines): the static's own row
                     {                                       //if this player needs this mesh
                         if (handles[j] != TR_Invalid)
                         {                                   //if texture was loaded properly before

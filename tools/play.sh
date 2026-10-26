@@ -139,6 +139,13 @@
 #   report              python3 -I tools/dump_outliers.py <file>   (the frames that lost their objects or their bars for
 #                       up to 12 frames between frames that had them; "short runs=0" = the engine drew the bars and the
 #                       objects on every frame of the session)
+# The mines (M3-R3 mines, docs/m3-r3-mines.md) [audit: added]: the mines' and missiles' textures are now loaded for the
+# colour scheme they are drawn with (an x86-64 fault, HWI-FIX; no setting); the mine AI is cataclysm.exe's, unchanged.
+#   switch              -- /catMineLog <ticks>   (HWI-TEST, read only: "minelog: change ... state=A->B why=..." for every
+#                       mine state change, why = acquired / faster-away / range / cloaked / disabled / cleared, and
+#                       <ticks> ticks of distance and speeds for the first 8 mines that start a chase, e.g. 480)
+#   switch              -- /catMeshTexLog MINE   (HWI-TEST, read only: "meshtex: draw ... bound= white=" at the first
+#                       draw of each mine mesh per colour scheme; white=0 = every textured material bound)
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 build=release; bin=""; data="$root/original/scratch-m2/m2r2-harness/data"; home="$root/original/play-home"; drv=x11; rebuild=0

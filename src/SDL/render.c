@@ -3978,6 +3978,7 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
                         rndNormalization = TRUE;
                         glScalef(s, s, s);
                     }
+                    catMeshTexLogDraw(obj, (meshdata *)level->pData, colorScheme);     // HWI-TEST (M3-R3 mines): /catMeshTexLog
                     cat_meshRenderState(NULL, (meshdata *)level->pData, colorScheme);
                     // HWI-FEATURE(full-detail): the exe's level (KAS RenderedDerelictType reads it), and only when the exe's
                     //      level is a mesh: the planet derelicts' level 1 is SubPixel (derelicts/*.lod), which the exe
@@ -7189,12 +7190,122 @@ static void catLodTestMainView(LinkedList *visible)
     }
 }
 
+// HWI-TEST (M3-R3 mines): /catMineView <tick>[:dropped]: from universe tick <tick> the sensors manager is closed and
+//      the camera snaps to the mine nearest the player's mothership (":<distance>": at that camera distance): a level's
+//      mine (race Derelict, no owner ship: cat_scriptSetMineCB) or, with ":dropped", a mine a minelayer laid (an owner
+//      ship or another race); while the
+//      focused mine lives the camera stays, when it is gone (or none was found) the next tick that is a multiple of 16
+//      looks again. Changes the view only (a capture run, no stream reference)
+static sdword catMineViewTick = -1;                                         // HWI-TEST
+static bool32 catMineViewDropped = FALSE;                                   // HWI-TEST
+static Missile *catMineViewMine = NULL;                                     // HWI-TEST
+static sdword catMineViewLastTry = -1;                                      // HWI-TEST
+
+static real32 catMineViewDistance = 0.0f;                                   // HWI-TEST: 0: the focus zoom
+
+void catMineViewSet(char *string)                                           // HWI-TEST
+{
+    char *c;
+
+    catMineViewTick = (sdword)strtol(string, NULL, 10);
+    catMineViewDropped = (strstr(string, ":dropped") != NULL);
+    for (c = strchr(string, ':'); c != NULL; c = strchr(c + 1, ':'))
+    {
+        if (c[1] >= '0' && c[1] <= '9')
+        {
+            catMineViewDistance = (real32)strtod(c + 1, NULL);
+        }
+    }
+}
+
+static void catMineViewFrame(void)                                          // HWI-TEST
+{
+    sdword tick = (sdword)universe.univUpdateCounter;
+    Node *node;
+    Missile *best = NULL;
+    real32 bestDist = REALlyBig;
+    vector from = {0.0f, 0.0f, 0.0f};
+    FocusCommand *focus;
+
+    if (catMineViewTick < 0 || !gameIsRunning || nisIsRunning || tick < catMineViewTick)
+    {
+        return;
+    }
+    for (node = universe.MissileList.head; node != NULL && catMineViewMine != NULL; node = node->next)
+    {
+        if ((Missile *)listGetStructOfNode(node) == catMineViewMine)
+        {
+            return;                                         // the focused mine still lives
+        }
+    }
+    catMineViewMine = NULL;
+    if (tick == catMineViewLastTry || ((tick % 16) != 0 && catMineViewLastTry >= 0))
+    {
+        return;
+    }
+    catMineViewLastTry = tick;
+    if (universe.curPlayerPtr != NULL && universe.curPlayerPtr->PlayerMothership != NULL)
+    {
+        from = universe.curPlayerPtr->PlayerMothership->obj.posinfo.position;
+    }
+    for (node = universe.MissileList.head; node != NULL; node = node->next)
+    {
+        Missile *mis = (Missile *)listGetStructOfNode(node);
+        bool32 dropped;
+        vector d;
+        real32 dist;
+
+        if (mis->missileType != MISSILE_Mine)
+        {
+            continue;
+        }
+        dropped = (mis->race != RACE_Derelict) || (mis->owner != NULL);
+        if (dropped != catMineViewDropped)
+        {
+            continue;
+        }
+        vecSub(d, mis->obj.posinfo.position, from);
+        dist = vecMagnitudeSquared(d);
+        if (dist < bestDist)
+        {
+            bestDist = dist;
+            best = mis;
+        }
+    }
+    if (best == NULL)
+    {
+        return;
+    }
+    catMineViewMine = best;
+    if (smSensorsActive)
+    {
+        smSensorsCloseForGood();
+    }
+    focus = memAlloc(sizeofSelectCommand(1), "mineviewfocus", 0);
+    focus->numShips = 1;
+    focus->ShipPtr[0] = (Ship *)best;
+    ccCameraTimeoutOverride = TRUE;
+    ccFocusGeneral(&universe.mainCameraCommand, focus, FALSE);
+    memFree(focus);
+    if (catMineViewDistance > 0.0f)
+    {
+        universe.mainCameraCommand.actualcamera.catScriptedDistance = catMineViewDistance;
+    }
+    universe.mainCameraCommand.actualcamera.catSnapToFocus = TRUE;
+    dbgMessagef("mineview: focus tick=%u kind=%s race=%d id=%u pos=(%.0f %.0f %.0f) state=%u forced=%d owner=%s",
+                (unsigned)tick, catMineViewDropped ? "dropped" : "level", (int)best->race,
+                (unsigned)best->missileID.missileNumber, (double)best->obj.posinfo.position.x,
+                (double)best->obj.posinfo.position.y, (double)best->obj.posinfo.position.z, (unsigned)best->mineAIState,
+                (int)best->FORCE_DROPPED, (best->owner != NULL) ? ShipTypeToStr(best->owner->shiptype) : "-");
+}
+
 // the render task's top and its end after the flip (rndRenderTask)
 static void catLodStatsFrameBegin(void)
 {
     sdword tick = (sdword)universe.univUpdateCounter;
 
     catLodFleetFocusTick();
+    catMineViewFrame();                             // HWI-TEST (M3-R3 mines): /catMineView
     catLodStatsActive = (catLodStatsFrom >= 0 && !catLodStatsDone && gameIsRunning && tick >= catLodStatsFrom &&
                          tick <= catLodStatsTo);
     if (catLodStatsActive)

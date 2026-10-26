@@ -456,6 +456,9 @@ void meshHierarchyWalk(meshdata *mesh, meshcallback preMesh, meshcallback postCa
 //CAT: port diagnostic, not in the exe: /catMeshLoadTest <listfile> loads every mesh in the list (docs/m2-r2-mesh.md)
 extern char catMeshSelfTestList[];
 void catMeshRunSelfTest(void);
+void catMeshTexLogSet(char *match);                 // HWI-TEST (M3-R3 mines): /catMeshTexLog <substring>
+bool32 catMeshTexLogMatches(const char *name);      // HWI-TEST
+void catMeshTexLogDraw(void *spaceobj, meshdata *mesh, sdword iColorScheme);  // HWI-TEST: a SpaceObj
 
 //CAT: 8 fade channels (meshSetFade 0x004ae700); see Mesh.c
 #define MESH_FADE_CHANNELS          8
