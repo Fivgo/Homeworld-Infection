@@ -4485,6 +4485,7 @@ static sdword kasfSpeechLink = -1;          // 0x00a43fe4 (name chosen here)
 
 void kasfSpeechEvent(sdword event, sdword variable)
 {
+    catMissionSelfTestSpeech(event);        // HWI-TEST (M3-R3 mission02): the mission test's "speech:" line (logs only)
     subMessageEnded = 0;
     kasfSpeechLink = -1;
     kasfSpeechLink = speechEventQueue(NULL, event, variable, -1, -1, universe.curPlayerIndex, -1, -1.0f, -1);

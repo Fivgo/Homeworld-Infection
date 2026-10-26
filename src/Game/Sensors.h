@@ -243,6 +243,8 @@ typedef struct
 {
     udword scenes, rangeCircles, shipPoints, meshes, icons, slipgatePaths, hotkeyNumbers, resources, mines,
            boundsFrames, compassFrames;
+    udword dustPoints;      // HWI-TEST (M3-R3 mission02): the decorative Asteroid0 points (the minor list) drawn
+
 } CatSmDrawCounts;
 extern CatSmDrawCounts catSmDrawCounts;
 

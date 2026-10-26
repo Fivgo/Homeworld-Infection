@@ -72,6 +72,7 @@
 #include "NomadMoon.h"
 #include "TradeMgr.h"
 #include "TeamColourTest.h"   // HWI-TEST (M3-R1 team-colours-warp): the team-colour checks and the longer run
+#include "Attributes.h"       // HWI-TEST (M3-R3 mission02): CAT_ATTRIBUTES_KillerCollision (the meteors)
 #ifdef _WIN32
 #undef near     // HWI-FIX(win64): <windows.h> (through SDL) defines near as an empty macro; the self-tests use it as a name
 #endif
@@ -94,6 +95,8 @@ static bool32 catMtNisletEnded = FALSE, catMtArrived = FALSE;
 //      start, 2 .. 17 from the warp start) and the flow of a mission after the first: the next level's load after the jump
 static sdword catMtMission = 1;
 static sdword catMtNextLevelTick = -1;
+// HWI-TEST (M3-R3 mission02): the tick the mission's KAS script started (the "kas start missionNN" flow event)
+static sdword catMtKasStartTick = -1;
 // HWI-TEST (M3-R1 team-colours-warp): with /catTeamColourTest the run goes on past its jump to the next MISSION level
 //      (Mission01: Mission02; mission N: Mission N+1 after its opening NIS's staging level, if it has one) and ends 32
 //      ticks (/catTeamColourTicks N: N) after that level has loaded, so the team colours are checked after a jump and
@@ -231,6 +234,10 @@ void catMissionSelfTestEvent(const char *what)
             snprintf(name, sizeof(name), "kas start mission%02d", (int)catMtMission);
             if (strcmp(what, name) == 0)
             {
+                if (!catMtKasStarted)
+                {
+                    catMtKasStartTick = (sdword)universe.univUpdateCounter;     // HWI-TEST (M3-R3 mission02)
+                }
                 catMtKasStarted = TRUE;
             }
             // M2-R9 missions-10-17: the mission's own end (MissionCompleted) and the credits after it
@@ -1053,6 +1060,115 @@ static sdword catMtVar(udword scope, udword name)
                        is empty; the raiders come for the pod after it appears)
       Hyperspace       the hyperspace button
 -----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    HWI-TEST (M3-R3 mission02): the BUSHAN-RE hint (the user's play-test item 2), cataclysm.exe's Mission02 script
+    (src/Missions/SinglePlayer/Mission02.c, generated from the exe and verified against its machine code):
+      Init_Mission02 0x005e05a0: kasfMissionSkillGet 0x00493b90 (catSpDifficultySetting 0x008941a0, the single-player
+          difficulty 0 VERY EASY .. 4 VERY HARD) through the jump table 0x005e0b9c: skill 0 (0x005e084d) starts the
+          timer 0x0004ce34 at 120 s, skill 1 (0x005e08b1) at 180 s, skill 2 (0x005e08f5) at 360 s; skill 3
+          (0x005e0929) and 4 (ja 0x005e093c past the table) create no timer
+      Watch_Mission02 0x005e0bb0 (0x005e1102 .. 0x005e1155): once (the global 0x443ccb8), while the global 0x849928e4
+          is 0 (Watch_Mission02_Destroyer_Find 0x005df130 sets it when HasShipBeenDiscovered is 1) and the timer has
+          expired (TimerExpiredDestroy 0x004920a0; a timer that does not exist never expires): message 0x0004ce34 to
+          FleetIntel (0x0a8a880c)
+      Watch_Mission02_FleetIntel_WaitMessage 0x005dbac0: 0x0004ce34: WideScreenInDontCloseSensors, a 3 s wait, message
+          0x004ce352 to itself; 0x004ce352: the other scripts and the universe paused, the sensors manager opened,
+          PingHint1 on the BUSHAN-RE and PingHint2 / PingHint3 at random points within 20000 of it, the sensors' look-at
+          on her, speech event 0x10002169
+    So the hint is a timer (no direction or distance test): 2, 3 or 6 minutes of game time after the mission's script
+    starts on VERY EASY, EASY or NORMAL, if no ship of the player's has found her by then; never on HARD or VERY HARD.
+    /catMissionTestHoldScout <tick>: the FindDestroyer recon waits until <tick> (a path on which the timer runs out).
+    The judgement (catMtHintJudge): the speech fires if and only if the skill has a timer and the BUSHAN-RE was not
+    found by the timer's end, and not before that end. "speech: event=.. tick=.." lines (catMissionSelfTestSpeech, from
+    kasfSpeechEvent: the mission test runs with speech off, so the call is logged, not the sound)
+-----------------------------------------------------------------------------*/
+#define CAT_MT_HINT_SPEECH  0x10002169
+#define CAT_MT_FOUND_VAR    0x049928e4      // the global 0x849928e4 (the high bit: the mission scope)
+static sdword catMtHoldScoutTick = -1;      // /catMissionTestHoldScout <tick>
+static sdword catMtHintSpeechTick = -1;     // the first speech event 0x10002169 of Mission02's level
+static sdword catMtDestroyerFoundTick = -1; // the first tick the global 0x849928e4 is set
+static sdword catMtHintDueTick = -1;        // the first tick the hint timer's time has run out
+static sdword catMtSpeechEvents = 0;
+
+void catMissionSelfTestHoldScoutSet(char *string)
+{
+    catMtHoldScoutTick = (sdword)strtol(string, NULL, 10);
+}
+
+// kasfSpeechEvent's call (KASFunc.c): every speech event of a mission test run, logged with its tick
+void catMissionSelfTestSpeech(sdword event)
+{
+    if ((catMissionTestTicks <= 0) || catMissionTestDone)
+    {
+        return;
+    }
+    catMtSpeechEvents++;
+    dbgMessagef("speech: event=0x%08x tick=%u (kasfSpeechEvent)", (unsigned)event, (unsigned)universe.univUpdateCounter);
+    if ((catMtMission == 2) && (event == CAT_MT_HINT_SPEECH) && (catMtHintSpeechTick < 0) && (catMtNextLevelTick < 0))
+    {
+        catMtHintSpeechTick = (sdword)universe.univUpdateCounter;
+        dbgMessagef("missiontest: hint speech tick=%u (FleetIntel 0x004ce352: sensors open on the BUSHAN-RE, PingHint1-3)",
+                    (unsigned)universe.univUpdateCounter);
+    }
+}
+
+// the hint's seconds for the difficulty (Init_Mission02 0x005e05a0's jump table 0x005e0b9c), -1: no timer
+static sdword catMtHintSeconds(void)
+{
+    switch (catSpDifficultySetting)
+    {
+        case 0: return 120;
+        case 1: return 180;
+        case 2: return 360;
+        default: return -1;
+    }
+}
+
+// every universe tick of Mission02's level: the found flag and the timer's end, observed (nothing is changed)
+static void catMtHintWatch(void)
+{
+    static real32 startTime = -1.0f;
+    sdword seconds = catMtHintSeconds();
+
+    if (!catMtKasStarted || (catMtNextLevelTick >= 0))
+    {
+        return;
+    }
+    if (startTime < 0.0f)
+    {
+        startTime = universe.totaltimeelapsed;
+    }
+    if ((catMtDestroyerFoundTick < 0) && (catMtVar(0, CAT_MT_FOUND_VAR) != 0))
+    {
+        catMtDestroyerFoundTick = (sdword)universe.univUpdateCounter;
+        dbgMessagef("missiontest: hint watch tick=%u the BUSHAN-RE found (the global 0x849928e4 set)",
+                    (unsigned)universe.univUpdateCounter);
+    }
+    if ((seconds > 0) && (catMtHintDueTick < 0) && (universe.totaltimeelapsed - startTime >= (real32)seconds))
+    {
+        catMtHintDueTick = (sdword)universe.univUpdateCounter;
+        dbgMessagef("missiontest: hint watch tick=%u the hint timer's %d s have run out (skill %u)",
+                    (unsigned)universe.univUpdateCounter, (int)seconds, (unsigned)catSpDifficultySetting);
+    }
+}
+
+// the judgement at the mission's end (catMtMissionEnd)
+static bool32 catMtHintJudge(void)
+{
+    sdword seconds = catMtHintSeconds();
+    bool32 expected, fired, pass;
+
+    expected = (seconds > 0) && (catMtHintDueTick >= 0) &&
+               ((catMtDestroyerFoundTick < 0) || (catMtDestroyerFoundTick > catMtHintDueTick));
+    fired = (catMtHintSpeechTick >= 0);
+    pass = (expected == fired) && (!fired || (catMtHintSpeechTick >= catMtHintDueTick));
+    dbgMessagef("missiontest: hint skill=%u timer=%d kasstart=%d due=%d found=%d hold=%d speech=%d expected=%s fired=%s"
+                " speechevents=%d result=%s", (unsigned)catSpDifficultySetting, (int)seconds, (int)catMtKasStartTick,
+                (int)catMtHintDueTick, (int)catMtDestroyerFoundTick, (int)catMtHoldScoutTick, (int)catMtHintSpeechTick,
+                expected ? "yes" : "no", fired ? "yes" : "no", (int)catMtSpeechEvents, pass ? "PASS" : "FAIL");
+    return pass;
+}
+
 static const CatMtObjective catMtMission02[] =
 {
     { "FindDestroyer",   CAT_MT_CUSTOM,     { 0 }, 0 },
@@ -1069,11 +1185,14 @@ static void catMtPlayMission02(void)
     GrowSelection *team;
     SelectCommand *workers;
 
+    catMtHintWatch();                                       // HWI-TEST (M3-R3 mission02)
     if ((universe.univUpdateCounter % 16) != 8)
     {
         return;
     }
-    if (catMtStands("FindDestroyer") && ((team = catMtTeam(0x0893b502)) != NULL) && ((universe.univUpdateCounter % 64) == 8))
+    // HWI-TEST (M3-R3 mission02): /catMissionTestHoldScout <tick>: the recon waits until <tick>
+    if (catMtStands("FindDestroyer") && ((team = catMtTeam(0x0893b502)) != NULL) && ((universe.univUpdateCounter % 64) == 8) &&
+        ((sdword)universe.univUpdateCounter >= catMtHoldScoutTick))
     {
         catMtScout("FindDestroyer", &team->selection->ShipPtr[0]->obj.posinfo.position);
     }
@@ -3618,6 +3737,83 @@ static void catMtTutorialLeg(void)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    HWI-TEST (M3-R3 mission02): the level's resources once the level is up (the user's play-test item 1, the dust
+    belts): the asteroids on the resource list by type (the meteors, CAT_ATTRIBUTES_KillerCollision, apart), the
+    decorative Asteroid0 on the minor list (univAddAsteroid: never on the resource list; the sensors manager draws
+    them as points with no fog-of-war test, cat_smViewportRenderScene 0x0050b4b0), the dust clouds and gas clouds by
+    type, the nebula tendrils, and each dust cloud's type and position (read only)
+-----------------------------------------------------------------------------*/
+static void catMtResourcesLog(void)
+{
+    Node *node;
+    sdword asteroids[NUM_ASTEROIDTYPES] = { 0 }, dust[NUM_DUSTCLOUDTYPES] = { 0 }, gas[NUM_GASCLOUDTYPES] = { 0 };
+    sdword meteors = 0, minor0 = 0, minorOther = 0, nebulae = 0, other = 0, listed = 0;
+    char dustText[96];
+
+    for (node = universe.ResourceList.head; node != NULL; node = node->next)
+    {
+        SpaceObj *obj = (SpaceObj *)listGetStructOfNode(node);
+
+        switch (obj->header.objtype)
+        {
+            case OBJ_AsteroidType:
+                if (bitTest(obj->attributes, CAT_ATTRIBUTES_KillerCollision))
+                {
+                    meteors++;
+                }
+                else if (((Asteroid *)obj)->asteroidtype < NUM_ASTEROIDTYPES)
+                {
+                    asteroids[((Asteroid *)obj)->asteroidtype]++;
+                }
+                break;
+            case OBJ_DustType:
+                if (((DustCloud *)obj)->dustcloudtype < NUM_DUSTCLOUDTYPES)
+                {
+                    dust[((DustCloud *)obj)->dustcloudtype]++;
+                }
+                if (listed < 32)
+                {
+                    listed++;
+                    dbgMessagef("missiontest: dustcloud type=%d pos=(%.0f, %.0f, %.0f)", (int)((DustCloud *)obj)->dustcloudtype,
+                                obj->posinfo.position.x, obj->posinfo.position.y, obj->posinfo.position.z);
+                }
+                break;
+            case OBJ_GasType:
+                if (((GasCloud *)obj)->gascloudtype < NUM_GASCLOUDTYPES)
+                {
+                    gas[((GasCloud *)obj)->gascloudtype]++;
+                }
+                break;
+            case OBJ_NebulaType:
+                nebulae++;
+                break;
+            default:
+                other++;
+                break;
+        }
+    }
+    for (node = universe.MinorSpaceObjList.head; node != NULL; node = node->next)
+    {
+        SpaceObj *obj = (SpaceObj *)listGetStructOfNode(node);
+
+        if ((obj->header.objtype == OBJ_AsteroidType) && (((Asteroid *)obj)->asteroidtype == Asteroid0))
+        {
+            minor0++;
+        }
+        else
+        {
+            minorOther++;
+        }
+    }
+    snprintf(dustText, sizeof(dustText), "%d/%d/%d/%d", (int)dust[0], (int)dust[1], (int)dust[2], (int)dust[3]);
+    dbgMessagef("missiontest: resources tick=%u asteroids=%d/%d/%d/%d/%d meteors=%d minor asteroid0=%d other=%d dustclouds=%s"
+                " gasclouds=%d nebulae=%d other=%d volumes=%u", (unsigned)universe.univUpdateCounter, (int)asteroids[0],
+                (int)asteroids[1], (int)asteroids[2], (int)asteroids[3], (int)asteroids[4], (int)meteors, (int)minor0,
+                (int)minorOther, dustText, (int)(gas[0] + gas[1]), (int)nebulae, (int)other,
+                (unsigned)universe.ResourceVolumeList.num);
+}
+
 // M2-R9 missions-02-09: the judgement of a mission after the first: its level loaded by the warp start, its KAS
 //      script started, the fleet arrived, every objective of its table created and completed in order (the last, the
 //      jump, by the hyperspace command), no mission loss, the jump begun and the next level loaded
@@ -3668,6 +3864,17 @@ static void catMtMissionEnd(void)
     else
     {
         pass = pass && (catMtHyperspaceTick >= 0) && (catMtNextLevelTick >= 0);
+    }
+    // HWI-TEST (M3-R3 mission02): the sensors manager's frames over the run: the decorative Asteroid0 points (no
+    //      fog-of-war test: every one in every frame) against the resource points (only where the grid has seen them)
+    dbgMessagef("missiontest: sensors scenes=%u dustpoints=%u resourcepoints=%u minor=%u", catSmDrawCounts.scenes,
+                catSmDrawCounts.dustPoints, catSmDrawCounts.resources, (unsigned)universe.MinorSpaceObjList.num);
+    if (catMtMission == 2)
+    {
+        // HWI-TEST (M3-R3 mission02): the BUSHAN-RE hint fired exactly under the exe's conditions
+        bool32 hint = catMtHintJudge();
+
+        pass = pass && hint;
     }
     if (catMtFailJump)
     {
@@ -3808,6 +4015,7 @@ void catMissionSelfTestTick(void)
             }
             dbgMessagef("missiontest: level objects tick=%u mines=%d slipgates=%d ships=%u", (unsigned)universe.univUpdateCounter,
                         (int)mines, (int)gates, (unsigned)universe.ShipList.num);
+            catMtResourcesLog();                            // HWI-TEST (M3-R3 mission02)
         }
     }
     // M2-R9 missions-10-17: the warp start's self-test: the record against the fleet once it has arrived, the end 64

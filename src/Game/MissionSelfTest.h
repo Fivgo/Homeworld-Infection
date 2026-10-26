@@ -39,6 +39,11 @@ void catMissionSelfTestTraceSet(void);
 //      ticks later (no second jump: case 10 does not give playerCanHyperspace back) [audit: M2-R10 tests-leftovers: was
 //      "then the test jumps again for real and the mission ends as usual", which the code does not do]
 void catMissionSelfTestFailJumpSet(void);
+// HWI-TEST (M3-R3 mission02): /catMissionTestHoldScout <tick> with /catMissionTest <ticks> /catMissionTestMission 2: the
+//      FindDestroyer recon waits until <tick>, so Mission02's BUSHAN-RE hint timer can run out (MissionSelfTest.c
+//      catMtHintJudge); catMissionSelfTestSpeech: kasfSpeechEvent's call, a "speech: event=.. tick=.." line per event
+void catMissionSelfTestHoldScoutSet(char *string);
+void catMissionSelfTestSpeech(sdword event);
 // HWI-TEST (M2-R9 missions-10-17): /catWarpStartTest with /catMissionTest <ticks> (harness mode warpstart): the warp
 //      start from a test copy of warp.script (WarpEnabled 1, LevelToWarpTo N) in the run's data dir: the level's record
 //      against the fleet in the ether (cat_spWarpStartSelfTestCheck), then the level, its KAS script and the fleet's

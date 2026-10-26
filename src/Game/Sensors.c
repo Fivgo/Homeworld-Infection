@@ -1887,6 +1887,7 @@ void cat_smViewportRenderScene(hmatrix *modelView, hmatrix *projection)
         for (node = universe.MinorSpaceObjList.head; node != NULL; node = node->next)
         {
             primPoint3(&((SpaceObj *)listGetStructOfNode(node))->posinfo.position, catSmAsteroidDustColor);
+            catSmDrawCounts.dustPoints++;                   // HWI-TEST (M3-R3 mission02)
         }
     }
     cat_smMinesDraw(modelView, projection);

@@ -486,6 +486,14 @@ bool32 CatMissionTestFailJumpSet(char *string)
     return TRUE;
 }
 
+// HWI-TEST (M3-R3 mission02): /catMissionTestHoldScout <tick> with /catMissionTest <ticks> /catMissionTestMission 2:
+//      the FindDestroyer recon waits until <tick> (MissionSelfTest.c: the BUSHAN-RE hint's timer can run out)
+bool32 CatMissionTestHoldScoutSet(char *string)
+{
+    catMissionSelfTestHoldScoutSet(string);
+    return TRUE;
+}
+
 // HWI-TEST (M2-R9 missions-10-17): /catWarpStartTest with /catMissionTest <ticks>: the warp start from the test copy of
 //      warp.script the harness puts in the run's data dir (MissionSelfTest.c, SinglePlayer.c cat_spWarpStartSelfTestCheck)
 bool32 CatWarpStartTestSet(char *string)
@@ -1473,6 +1481,7 @@ commandoption commandOptions[] =
     entryFnParam("/catMissionTestMission", CatMissionTestMissionSet, " <N> - with /catMissionTest: mission N (2 .. 17) from the exe's warp start (Warp.script's level N record) through its KAS objectives and the jump to the next level."),
     entryFn("/catWarpStartTest",      CatWarpStartTestSet, " - with /catMissionTest: the warp start of the data dir's warp.script (WarpEnabled 1) checked against its record, through the fleet's arrival."),
     entryFn("/catMissionTestTrace",   CatMissionTestTraceSet, " - with /catMissionTest: every new KAS message logged (missiontest: msg lines; a diagnostic)."),
+    entryFnParam("/catMissionTestHoldScout", CatMissionTestHoldScoutSet, " <tick> - with /catMissionTest and /catMissionTestMission 2: the FindDestroyer recon waits until universe tick <tick> (the BUSHAN-RE hint's timer can run out; missiontest: hint lines)."),
     entryFn("/catMissionTestFailJump", CatMissionTestFailJumpSet, " - with /catMissionTest and /catMissionTestMission N (a roll-call jump): the first jump fails (DisablePlayerHyperspace through the console's KAS call), its return is judged and the run ends 32 ticks later (no second jump)."),
     entryFn("/catVirtualAudio",       CatVirtualAudioSet, " - with a virtual-clock run: the mixer and the speech stream advanced by the virtual clock on the game thread (the tutorial test sets it)."),
     entryFnParam("/catMissionTestTutorial", CatMissionTestTutorialSet, " <ticks> - headless tutorial start: Tutorial1's KAS script runs until its first prompt shows, logs missiontest lines, exit."),

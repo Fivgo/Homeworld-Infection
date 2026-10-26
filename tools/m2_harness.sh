@@ -348,6 +348,16 @@
 #                    MissionCompleted, the quit and the credits, "missiontest: game end ..."; no next level); a lost
 #                    mission ends the run at once (result=FAIL). Pass "-- /catMissionTestTrace" for a diagnostic
 #                    "missiontest: msg" line per new KAS message (not for gate runs)
+#                    M3-R3 mission02 (HWI-TEST, docs/m3-r3-mission02.md): every mission run logs "speech: event=0x..
+#                    tick=N" per KAS speech event and, after the first mission, "missiontest: resources ..." (the
+#                    level's asteroids by type, meteors, the decorative Asteroid0 of the minor list, dust / gas clouds,
+#                    nebulae), "missiontest: dustcloud type=.. pos=(..)" (up to 32) and "missiontest: sensors scenes=..
+#                    dustpoints=.. resourcepoints=.." at the end; Mission02 judges the BUSHAN-RE hint ("missiontest:
+#                    hint watch|speech ..", "missiontest: hint skill=.. expected=.. fired=.. result=PASS|FAIL", part of
+#                    the done line's result: the exe's timer, 120 / 180 / 360 s on difficulty 0 / 1 / 2, none on 3 / 4,
+#                    off once the BUSHAN-RE is found). Pass "-- /catMissionTestHoldScout <tick>" with --mission 2 to
+#                    hold the FindDestroyer recon until <tick> (6400 lets the NORMAL timer run out: the speech at 5824);
+#                    --cfg 'DifficultySetting N' for another difficulty (the self-test's player is built for NORMAL)
 #                    warpstart: /catMissionTest <ticks> /catWarpStartTest /oracleDump <run>/run.hwo (M2-R9 missions-10-17):
 #                    the exe's warp start (cat_spWarpToLevel 0x0051b9c0) from a TEST COPY of the install's warp.script
 #                    supplied to this run only, as loadgame supplies its save: the run gets its own data dir
