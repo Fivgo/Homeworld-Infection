@@ -784,6 +784,11 @@ bool32 CatMotionSceneSet(char *string)              // HWI-FEATURE(motion-interp
     catMotionSceneSet(string);                      // HWI-FEATURE(motion-interp)
     return TRUE;                                    // HWI-FEATURE(motion-interp)
 }                                                   // HWI-FEATURE(motion-interp)
+bool32 CatMotionPauseSet(char *string)              // HWI-TEST (M3-R3 pause-freeze): /catMotionPause (MotionTest.c)
+{                                                   // HWI-TEST
+    catMotionPauseSet(string);                      // HWI-TEST
+    return TRUE;                                    // HWI-TEST
+}                                                   // HWI-TEST
 bool32 CatMotionRealClockSet(char *string)          // HWI-FEATURE(motion-interp)
 {                                                   // HWI-FEATURE(motion-interp)
     catMotionRealClockSet(string);                  // HWI-FEATURE(motion-interp)
@@ -1511,6 +1516,7 @@ commandoption commandOptions[] =
     entryFnParam("/catMotionFps",       CatMotionFpsSet, " <fps> - the virtual frame rate of /catMotionTest and /catNisMotionTest (default 144)."),   // HWI-FEATURE(motion-interp)
     entryFnParam("/catMotionScene",     CatMotionSceneSet, " <kind>[:<distance>[:<move>[:<ticks>[:<start>]]]] - with another mode's game (e.g. the skirmish test): the camera on a Recon at its zenith, a second Recon moved <move> units ahead (recon; follow: the camera on the mover), the object kinds tracked, per-frame screen positions to /catMotionDump."),   // HWI-FEATURE(motion-interp)
     entryFnParam("/catMotionRealClock", CatMotionRealClockSet, " <fps> - a motion measurement on the wall clock, each frame paced to <fps> (the dump gets the frame times, the task ticks and alpha)."),   // HWI-FEATURE(motion-interp)
+    entryFnParam("/catMotionPause",     CatMotionPauseSet, " <frame>:<frames>[:key|univ|nis] - /catMotionTest, /catNisMotionTest: after dump frame <frame> the game is paused (key: the Pause key P; univ: universePause, as the console / Escape menu; nis: the NIS's nisPause) and <frames> dump frames later released; the dump lines end with pause=<universePause><Pause key><nisPaused>."),   // HWI-TEST (M3-R3 pause-freeze)
     entryFnParam("/catShot",            CatShotSet, " <spec> - save frames as PPM (the physical framebuffer before the flip, top row first): <spec> = comma list of <tick>[:<frame>] or <from>-<to>[/<step>][:<frame>] (universe ticks, the n-th frame of the tick)."),   // HWI-TEST
     entryFnParam("/catShotFile",        CatShotFileSet, " <prefix> - /catShot's files are <prefix>.<tick>.<frame>.ppm (default shot in the settings path)."),   // HWI-TEST
     entryFn("/catTeamColourTest",       CatTeamColourTestSet, " - log the player's team-colour state (\"teamcolour:\" lines) before / after each level change and check it (Game/TeamColourTest.c)."),   // HWI-TEST

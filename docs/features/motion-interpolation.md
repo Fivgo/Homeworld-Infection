@@ -72,3 +72,17 @@ lock on the focus cancels the focus's angular motion and nobody else's, which is
    render's alpha takes the clock's sub-millisecond part (Task.c `taskClockSample`, SDL's performance counter); the
    scheduler's ticks are unchanged. A ship clamped to a host during a tick (a dock's latch) slides there over that tick.
    Measurement: harness `--scene` (the user's skirmish recipe and the object kinds) and `--real-clock FPS`.
+7. **M3-R3 (pause-freeze, docs/m3-r3-pause-freeze.md): the pause.** The user pauses with the P key (the key binding
+   Pause, catKbPause 0x00550640), which toggles the exe's frame-step flag 0x00a6ed74 (`catUnivFrameStep`): univUpdate
+   0x0054c3f0 returns at once, but the universe task keeps running, so before M3-R3 the lerp kept blending between the
+   last tick's start and end with an alpha still cycling every 62.5 ms (every moving ship and the camera replayed the
+   last tick 16 times a second). Now (HWI-FEATURE(pause-freeze), always on, no setting): while the universe is paused
+   (`miUniversePaused()`: universePause, or the P key's flag with no frame step left) every object is drawn at the pose
+   the frame before the pause drew (the alpha held; the camera's focus with it), the camera float's clocks stand still
+   (the exe stops them for universePause only), the engine glows keep their size and the trail segments their colour
+   (the random streams are still drawn as the exe draws them), and the NIS's own pause (nisPaused, NIS_TIME_CONTROLS)
+   holds the NIS's render time. On the unpause the hold lasts until the next tick's capture, which starts that tick's
+   blend from the held pose: no step back or forward, the pose catches up over that one tick. The HUD's real-time
+   animations (the over-cap SU blink, the upgrade pulse, the ship view) run on as in the exe. Measurement: the HWI-TEST
+   switch `/catMotionPause <frame>:<frames>[:key|univ|nis]` in the motion / nis / scene runs (dump tokens ` pause=` and
+   ` crcv=`, the CRC with the SU blink blanked).

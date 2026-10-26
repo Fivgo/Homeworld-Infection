@@ -28,6 +28,7 @@ void catMotionTestShotSet(char *string);    // /catMotionShot <frame>: that fram
 // M3-R1 motion-jitter: the scene mode and the real clock (MotionTest.c "the scene mode")
 void catMotionSceneSet(char *string);       // /catMotionScene <kind>[:<distance>[:<move>[:<ticks>[:<start>]]]]: recon | follow
 void catMotionRealClockSet(char *string);   // /catMotionRealClock <fps>: the wall clock, each frame paced to <fps>
+void catMotionPauseSet(char *string);       // HWI-TEST (M3-R3 pause-freeze): /catMotionPause <frame>:<frames>[:key|univ|nis]
 bool32 catMotionRealClock(void);            // utyTasksDispatch: take the wall clock in a virtual-clock run
 udword catMotionRealClockFps(void);         // HWI-TEST (M3-R2 instrumentation): the --real-clock rate (0: none)
 void catMotionRealClockPace(void);          // utyTasksDispatch, before the clock is read: wait for the frame's slot

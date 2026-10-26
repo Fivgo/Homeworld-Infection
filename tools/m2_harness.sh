@@ -142,6 +142,13 @@
 #                    at the origin at --fps; the frames between NIS times FROM and TO are dumped (the camera pose and every
 #                    NIS-driven object's screen position, as motion; with /noSpeech, since the speech subtitles follow
 #                    the audio thread's wall clock); "motiontest:" lines; quits after TO
+#                    M3-R3 pause-freeze (HWI-TEST, docs/m3-r3-pause-freeze.md): motion, nis and --scene runs take
+#                    "-- /catMotionPause <frame>:<frames>[:key|univ|nis]": after dump frame <frame> the game is paused
+#                    (key: the P key as an SDL key event to HandleEvent, the exe's frame-step flag; univ: universePause,
+#                    as the console / Escape menu; nis: nisPause) and <frames> dump frames later released; the dump
+#                    lines then end with " pause=<universePause><P flag><nisPaused> crcv=<the CRC with the HUD's blinking
+#                    SU value blanked>" ("motiontest: pause on|off" log lines); "-- /catMotionShot F1,F2,.." saves up
+#                    to 9 frames
 #                    toggle: /catToggleTest (M2-R6 motion-interp): after the start-up, in the front end (no input): the
 #                    Smooth motion checkbox on Video_Options shows the flags at its first call and a click (its callback
 #                    with the toggled state) sets both; Cancel's opRestoreSavedSettings puts them back; Accept's

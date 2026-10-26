@@ -253,6 +253,7 @@ static sdword catMoBottomTop = 0;                   // 0x00a4b8b8: top of the bo
 static sdword catMoBottomY = 0;                     // 0x00a4b888: the bottom panel's current top (slides)
 static bool32 catMoBottomShown = FALSE;             // 0x00a4b884: the mouse brought the HW taskbar in
 static real32 catMoSupportBlinkTime = 0.0f;         // 0x00a4b968
+rectangle catHudSupportBlinkRect = {0, 0, 0, 0};    // HWI-TEST (M3-R3 pause-freeze): the blinking SU value drawn this frame
 // CAT (M2-R6 startup-keys): 0x00a6ed74 is the Pause key's flag (UnivUpdate.c catUnivFrameStep; it was named after
 //      cat_kasWideScreenIn here): the overlay prints "paused" while it is set and hides the objectives pointer
 #define catMoWideScreen             catUnivFrameStep
@@ -1423,6 +1424,13 @@ void cat_moSupportUnitsDraw(void)
             sprintf(text, "%d", player->supportUnitsUsed);
             fontPrint(labelWidth + x, y, c, text);
             valueWidth = fontWidth(text);
+            if (percent > 100.0)                            // HWI-TEST (M3-R3 pause-freeze): where the blink is drawn
+            {                                               // HWI-TEST
+                catHudSupportBlinkRect.x0 = labelWidth + x; // HWI-TEST
+                catHudSupportBlinkRect.y0 = y;              // HWI-TEST
+                catHudSupportBlinkRect.x1 = labelWidth + x + valueWidth;   // HWI-TEST
+                catHudSupportBlinkRect.y1 = y + fontHeight(text);          // HWI-TEST
+            }                                               // HWI-TEST
             sprintf(text, " / %d", player->supportUnitsMax);
             fontPrint(labelWidth + x + valueWidth, y, catMoSupportValueColour, text);
             y += fontHeight("");

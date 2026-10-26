@@ -76,11 +76,13 @@
 #include "Universe.h"
 #include "UnivUpdate.h"
 #include "utility.h"
+#include "InfoOverlay.h"    // HWI-TEST (M3-R3 pause-freeze): the SU blink's rect
 #include "Instrument.h"     // HWI-FEATURE(instrumentation): the toggle self-test's overlay and settings-line checks
 #include "Key.h"            // HWI-FEATURE(instrumentation): the overlay key has no virtual-key code
 #include "KeyBindings.h"    // HWI-FEATURE(instrumentation) (M3-R3): the overlay's F key is free
 #include "texreg.h"         // HWI-FEATURE(sharp-textures) (M3-R3): the toggle self-test's SHARP TEXTURES checks
 #include "Mesh.h"           // HWI-TEST (M3-R3): the switch-label checks (meshImmediate)
+#include "UnivUpdate.h"     // HWI-TEST (M3-R3 pause-freeze): catUnivFrameStep, the Pause key's flag
 
 /*=============================================================================
     Data:
@@ -111,10 +113,19 @@ static bool32 mtSampled = FALSE;                    // this frame's main view wa
 static char mtLine[MT_LINE_MAX];
 static ubyte *mtPixels = NULL;
 static sdword mtShotFrame = -1;                     // /catMotionShot <frame>: that frame of the window saved as a PPM
+static sdword mtShotFrames[8], mtShotCount = 0;     // HWI-TEST (M3-R3 pause-freeze): /catMotionShot <frame>,<frame>,.. (up to 8)
 static bool32 sigOn = FALSE;                        // HWI-TEST (M3-R2 nis-flicker): /catFrameSig is on
 static bool32 mtFpsAny = FALSE;                     // HWI-TEST (M3-R2 nis-flicker): /catVirtualFps: N frames a tick in any mode
 static char sigText[320] = "";                      // HWI-TEST (M3-R2 nis-flicker): this frame's " sig ..." for the dump line
 static udword mtCrcTable[256];
+// HWI-TEST (M3-R3 pause-freeze): /catMotionPause <frame>:<frames>[:key|univ|nis]: a scripted pause in the dump window
+#define MT_PAUSE_KEY        0                       // the Pause key (default_keys.cfg "Pause 80": P): catKbPause 0x00550640
+#define MT_PAUSE_UNIV       1                       // universePause 0x00a6c5b4 (the console, the Escape menu, game stats)
+#define MT_PAUSE_NIS        2                       // nisPaused (NIS.c nisPause; the debug build's NIS time control)
+static sdword mtPauseFrame = -1;                    // HWI-TEST: the dump frame after which the pause is applied
+static sdword mtPauseFrames = 0;                    // HWI-TEST: dump frames later it is released
+static sdword mtPauseKind = MT_PAUSE_KEY;           // HWI-TEST
+static char mtPauseText[48] = "";                   // HWI-TEST: this frame's " pause=<universePause><Pause key><nisPaused>"
 
 // motion
 static Ship *mtShip[MT_NUM_SHIPS];
@@ -204,7 +215,14 @@ void catMotionTestDumpSet(char *string)
 
 void catMotionTestShotSet(char *string)
 {
-    mtShotFrame = (sdword)strtol(string, NULL, 10);
+    char *end = string;                             // HWI-TEST (M3-R3 pause-freeze): a comma list (one number: as before)
+
+    mtShotFrame = (sdword)strtol(string, &end, 10);
+    mtShotCount = 0;
+    while (*end == ',' && mtShotCount < 8)
+    {
+        mtShotFrames[mtShotCount++] = (sdword)strtol(end + 1, &end, 10);
+    }
 }
 
 void catMotionTestFpsSet(char *string)
@@ -224,6 +242,66 @@ void catVirtualFpsSet(char *string)
 {
     catMotionTestFpsSet(string);
     mtFpsAny = TRUE;
+}
+
+// HWI-TEST (M3-R3 pause-freeze): /catMotionPause <frame>:<frames>[:key|univ|nis]: after dump frame <frame> the game is
+//      paused and <frames> dump frames later released: key (default) the user's Pause key (P, default_keys.cfg "Pause
+//      80": catKbPause 0x00550640 toggles 0x00a6ed74, catUnivFrameStep) as an SDL_KEYDOWN / UP to main.c HandleEvent, as
+//      SDL's event loop hands it (no OS input); univ universePause 0x00a6c5b4 (what the console, the Escape menu and the
+//      game-stats screen set); nis nisPause (the NIS's own pause, NIS.c). Every dump line then ends with " pause=UKN"
+//      (universePause, the Pause key's flag, nisPaused as the frame was drawn); without the switch the dumps are unchanged
+void catMotionPauseSet(char *string)
+{
+    char *end;
+
+    mtPauseFrame = (sdword)strtol(string, &end, 10);
+    mtPauseFrames = 0;
+    if (*end == ':')
+    {
+        mtPauseFrames = (sdword)strtol(end + 1, &end, 10);
+        if (*end == ':')
+        {
+            mtPauseKind = (strcmp(end + 1, "univ") == 0) ? MT_PAUSE_UNIV :
+                          (strcmp(end + 1, "nis") == 0) ? MT_PAUSE_NIS : MT_PAUSE_KEY;
+        }
+    }
+    if (mtPauseFrames < 1)
+    {
+        mtPauseFrames = 72;                         // 8 universe ticks at 144 fps
+    }
+}
+
+static void mtPauseKey(void)                        // HWI-TEST: the P key down and up (mtToggleKey's way)
+{
+    SDL_Event event;
+
+    memset(&event, 0, sizeof(event));
+    event.type = SDL_KEYDOWN;
+    event.key.keysym.scancode = SDL_SCANCODE_P;
+    HandleEvent(&event);
+    memset(&event, 0, sizeof(event));
+    event.type = SDL_KEYUP;
+    event.key.keysym.scancode = SDL_SCANCODE_P;
+    HandleEvent(&event);
+}
+
+static void mtPauseApply(bool32 on)                 // HWI-TEST
+{
+    switch (mtPauseKind)
+    {
+        case MT_PAUSE_UNIV:
+            universePause = on;
+            break;
+        case MT_PAUSE_NIS:
+            nisPause(on);
+            break;
+        default:
+            mtPauseKey();                           // a toggle: the second press releases it
+            break;
+    }
+    dbgMessagef("motiontest: pause %s kind=%s frame=%u tick=%u", on ? "on" : "off",
+                (mtPauseKind == MT_PAUSE_UNIV) ? "univ" : (mtPauseKind == MT_PAUSE_NIS) ? "nis" : "key",
+                (unsigned)mtFrame, (unsigned)universe.univUpdateCounter);
 }
 
 // M3-R1 motion-jitter: /catMotionScene <kind>[:<distance>[:<move>[:<ticks>[:<start>]]]]: the measured scene on the game another
@@ -1291,6 +1369,12 @@ void catMotionTestFrameSample(struct Camera *camera)
             n += strlen(mtLine + n);
         }
     }
+    if (mtPauseFrame >= 0)                          // HWI-TEST (M3-R3 pause-freeze): the pauses the frame was drawn with
+    {
+        snprintf(mtPauseText, sizeof(mtPauseText), " pause=%d%d%d", (int)(universePause != FALSE),
+                 (int)(catUnivFrameStep != FALSE), (int)(nisPaused != FALSE));
+        catHudSupportBlinkRect.x0 = catHudSupportBlinkRect.x1 = 0;   // the HUD (drawn after the main view) sets it
+    }
     mtSampled = TRUE;
 }
 
@@ -1314,7 +1398,36 @@ void catMotionTestFrameEnd(void)
         glPixelStorei(GL_PACK_ALIGNMENT, 1);
         glReadPixels(0, 0, MAIN_WindowWidthActual, MAIN_WindowHeightActual, GL_RGBA, GL_UNSIGNED_BYTE, mtPixels);   // HWI-FEATURE(ui-scale)
         crc = mtCrc(mtPixels, size);
-        if ((sdword)mtFrame == mtShotFrame)
+        if (mtPauseFrame >= 0 && mtSampled)         // HWI-TEST (M3-R3 pause-freeze): crcv = the crc with the HUD's
+        {                                           //      over-cap SU blink (cat_moSupportUnitsDraw 0x004a7fe0, real
+            rectangle *r = &catHudSupportBlinkRect; //      time: the exe's, it blinks on while paused) blanked
+            sdword bx, by, row;
+            size_t at = strlen(mtPauseText);
+            if (r->x1 > r->x0)
+            {
+                for (by = r->y0; by < r->y1; by++)
+                {
+                    row = MAIN_WindowHeightActual - 1 - (sdword)((real32)by * (real32)MAIN_WindowHeightActual /
+                                                                  (real32)MAIN_WindowHeight);
+                    for (bx = (sdword)((real32)r->x0 * (real32)MAIN_WindowWidthActual / (real32)MAIN_WindowWidth);
+                         bx < (sdword)((real32)r->x1 * (real32)MAIN_WindowWidthActual / (real32)MAIN_WindowWidth) + 1; bx++)
+                    {
+                        if (row >= 0 && row < MAIN_WindowHeightActual && bx >= 0 && bx < MAIN_WindowWidthActual)
+                        {
+                            memset(mtPixels + ((size_t)row * (size_t)MAIN_WindowWidthActual + (size_t)bx) * 4, 0, 4);
+                        }
+                    }
+                }
+            }
+            snprintf(mtPauseText + at, sizeof(mtPauseText) - at, " crcv=%08x", (unsigned)mtCrc(mtPixels, size));
+        }
+        sdword shot;                                // HWI-TEST (M3-R3 pause-freeze): the listed frames too
+        bool32 shotThis = ((sdword)mtFrame == mtShotFrame);
+        for (shot = 0; shot < mtShotCount; shot++)
+        {
+            shotThis = shotThis || ((sdword)mtFrame == mtShotFrames[shot]);
+        }
+        if (shotThis)
         {                                           // <dump>.<frame>.ppm, top row first
             char name[1100];
             FILE *f;
@@ -1338,13 +1451,22 @@ void catMotionTestFrameEnd(void)
             }
         }
     }
-    fprintf(mtDump, "F %u tick=%u%s crc=%08x%s\n", (unsigned)mtFrame, (unsigned)universe.univUpdateCounter,
-            mtSampled ? mtLine : " nosample", (unsigned)crc, sigOn ? sigText : "");   // HWI-TEST (M3-R2 nis-flicker): sig after crc=
+    fprintf(mtDump, "F %u tick=%u%s crc=%08x%s%s\n", (unsigned)mtFrame, (unsigned)universe.univUpdateCounter,
+            mtSampled ? mtLine : " nosample", (unsigned)crc, sigOn ? sigText : "",   // HWI-TEST (M3-R2 nis-flicker): sig after crc=
+            (mtSampled && mtPauseFrame >= 0) ? mtPauseText : "");                   // HWI-TEST (M3-R3 pause-freeze)
     if (mtSampled)
     {
         mtSampledFrames++;
     }
     mtSampled = FALSE;
+    if ((sdword)mtFrame == mtPauseFrame)            // HWI-TEST (M3-R3 pause-freeze): the scripted pause and its release
+    {
+        mtPauseApply(TRUE);
+    }
+    else if (mtPauseFrame >= 0 && (sdword)mtFrame == mtPauseFrame + mtPauseFrames)
+    {
+        mtPauseApply(FALSE);
+    }
     mtFrame++;
 }
 

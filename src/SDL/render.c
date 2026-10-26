@@ -4096,14 +4096,18 @@ void rndMainViewRenderFunction(Camera *camera)
     {
         real64 et;
         declination = (real32)(cos((real64)camera->declination) * (real64)0.8f + (real64)0.2f);  // 0x0072a5d4 / 0x0072a510
-        if (!universePause)
+        // HWI-FEATURE(pause-freeze) (M3-R3): the float's clocks also stand still under the Pause key's flag
+        //      (0x00a6ed74), which the exe's tests here leave out (rndMainViewRenderFunction 0x005764e0 reads only
+        //      0x00a6c5b4: its camera keeps floating while the P key pauses the game); the offsets are held and the
+        //      clocks resume with the next frame's step, so a paused view stands still and resumes where it stopped
+        if (!universePause && !miUniversePaused())          // HWI-FEATURE(pause-freeze)
         {
             floatTime0 += cat_taskRealTimeElapsed - lastFloat0;
         }
         lastFloat0 = cat_taskRealTimeElapsed;
         et = (real64)CAMERA_FLOAT_SCALAR0 * (real64)floatTime0;
         cameraOffset[0] = (real32)((sin(et) - cos(et * 0.5)) * (real64)CAMERA_FLOAT_OFFSET_SCALAR0 * (real64)declination);
-        if (!universePause)
+        if (!universePause && !miUniversePaused())          // HWI-FEATURE(pause-freeze)
         {
             floatTime1 += cat_taskRealTimeElapsed - lastFloat1;
         }

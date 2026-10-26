@@ -33,6 +33,7 @@
 #include "Teams.h"
 #include "UnivUpdate.h"     // CAT: cat_shipNozzleInfoGet, cat_meshObjectMatrixGet
 #include "LOD.h"            // HWI-FEATURE(full-detail): cat_lodDrawLevel
+#include "MotionInterp.h"   // HWI-FEATURE(pause-freeze): miUniversePaused
 #include "Universe.h"
 #include "RammingFrigate.h"  // CAT (M2-R5 render): cat_trailShouldDraw
 #include "ShipSelect.h"      // CAT: cat_shipGetSpeedMultiplier
@@ -1107,7 +1108,14 @@ void trailDrawBillboardedSquareThingz(shiptrail* trail, trailsegment* seg, real3
 
     if (--trail->ranCounter < 0)
     {
-        trail->ran = 1.0f - ((real32)(ranRandom(RANDOM_TRAILS_1) % 1000) * (RANDOM_JITTER * 0.0001f));
+        real32 ran = 1.0f - ((real32)(ranRandom(RANDOM_TRAILS_1) % 1000) * (RANDOM_JITTER * 0.0001f));   // HWI-FEATURE(pause-freeze) [audit: tagged]
+        // HWI-FEATURE(pause-freeze) (M3-R3): while the universe is paused the glow keeps the size it was drawn with
+        //      (the exe's draw goes on, so the stream is drawn as in trailDrawBillboardedSquareThingz 0x005a5be0; only
+        //      the new jitter is not shown: a paused glow stands still)
+        if (!miUniversePaused())                    // HWI-FEATURE(pause-freeze)
+        {                                           // HWI-FEATURE(pause-freeze) [audit: tagged]
+            trail->ran = ran;                       // HWI-FEATURE(pause-freeze) [audit: tagged]
+        }                                           // HWI-FEATURE(pause-freeze) [audit: tagged]
         trail->ranCounter = (sdword)RANDOM_MAX;
     }
 
@@ -1699,6 +1707,14 @@ color trailSurpriseColorAdjust(sdword index, sdword max)
 
     randval = (ubyte)(ranRandom(RANDOM_TRAILS_3) % COLOR_ADJUST);
 
+    // HWI-FEATURE(pause-freeze) (M3-R3): while the universe is paused the segments keep their own colour, without the
+    //      per-frame random lightening / darkening (the streams are drawn as the exe draws them, trailSurpriseColorAdjust
+    //      0x005a6c30: only the shimmer is not shown, so a paused trail stands still)
+    if (miUniversePaused())                         // HWI-FEATURE(pause-freeze)
+    {                                               // HWI-FEATURE(pause-freeze)
+        ranRandom(RANDOM_TRAILS_4);                 // HWI-FEATURE(pause-freeze): the exe's draw
+        return colRGB(r,g,b);                       // HWI-FEATURE(pause-freeze)
+    }                                               // HWI-FEATURE(pause-freeze)
     if (ranRandom(RANDOM_TRAILS_4) & 1)
     {
         r = MIN2(r+randval,255);

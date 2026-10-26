@@ -44,6 +44,7 @@ struct Camera *miRenderCamera(struct Camera *camera);   // the camera to draw wi
 real32 miRenderAlpha(void);                         // this frame's alpha (-1: not interpolating)
 void miRenderStats(udword *blended, udword *fresh, udword *teleport);   // M3-R1 motion-jitter: this frame's counts
 bool32 miRenderWritten(const void *obj);            // M3-R1 motion-jitter: the frame wrote this object's transform
+bool32 miUniversePaused(void);                      // HWI-FEATURE(pause-freeze): universePause or the Pause key's flag
 
 // the toggle (Options.c, Console.c, main.c)
 bool32 miSmoothMotionGet(void);                     // TRUE when either flag is on

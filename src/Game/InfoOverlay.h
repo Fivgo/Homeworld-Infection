@@ -119,6 +119,7 @@ typedef struct CatHudCounts
     udword waypointRandoms;     // HWI-TEST (M2-R7 r6-leftovers): its ranRandomFn(0) draws
 } CatHudCounts;
 extern CatHudCounts catHudCounts;
+extern rectangle catHudSupportBlinkRect;    // HWI-TEST (M3-R3 pause-freeze): the over-cap SU blink's value, as last drawn
 void catHudSelfTestSet(char *string);
 bool32 catHudSelfTestRequested(void);
 void catHudSelfTestTick(void);

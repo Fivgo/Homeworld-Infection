@@ -28,8 +28,12 @@
               positions. Objects created this tick (no entry of the latest
               capture), objects whose memory was freed and reused (memFree
               forgets the entry) and jumps of more than MI_TELEPORT units in one
-              tick are drawn at the current tick. A paused universe (or alpha 1)
-              draws the simulation's values unchanged.
+              tick are drawn at the current tick. Alpha 1 draws the simulation's
+              values unchanged. M3-R3 pause-freeze: a paused universe (the
+              console, the Escape menu, the Pause key: miUniversePaused) holds
+              the last frame's alpha, so every object stands where it was drawn,
+              until the first capture after the pause, which starts the next
+              tick's blend from that pose (HWI-FEATURE(pause-freeze)).
 
               NIS (spec items 1-2): while an NIS plays, its curve-driven objects
               and its camera are evaluated at tRender = curve time + alpha_nis *
@@ -70,6 +74,7 @@
 #include "Task.h"
 #include "Trails.h"
 #include "Universe.h"
+#include "UnivUpdate.h"                             // HWI-FEATURE(pause-freeze): catUnivFrameStep (the Pause key)
 #include "Vector.h"
 
 extern real32 nisPlayFactor;                        // NIS.c (the debug playback speed; applied where nisUpdate does)
@@ -142,6 +147,24 @@ static Camera miNisCamera;
 static bool32 miNisCameraValid = FALSE;
 
 static void miDroids(bool32 render, real32 alpha); // M2-R7 r6-leftovers: the repair droids (capture and frame)
+static void miLerp(vector *out, vector *a, vector *b, real32 t);                 // HWI-FEATURE(pause-freeze): the carry
+static bool32 miBlendCoordsys(matrix *out, matrix *a, matrix *b, real32 t);     // HWI-FEATURE(pause-freeze)
+
+// HWI-FEATURE(pause-freeze) (M3-R3): while the universe is paused every object is drawn at the pose the last frame
+//      before the pause drew (the lerp's alpha held, the capture unchanged since no tick runs), until the first capture
+//      after the pause, which starts the next tick's blend from that pose (docs/m3-r3-pause-freeze.md)
+static bool32 miFrozen = FALSE;                     // HWI-FEATURE(pause-freeze): the gameplay lerp is held
+static real32 miFrozenAlpha = 1.0f;                 // HWI-FEATURE(pause-freeze): its alpha (1: the simulation's values)
+static udword miFrozenGen = 0;                      // HWI-FEATURE(pause-freeze): the capture the held alpha belongs to
+static real32 miLastAlpha = 1.0f;                   // HWI-FEATURE(pause-freeze): the last frame's alpha (1: none) ..
+static udword miLastGen = 0;                        // HWI-FEATURE(pause-freeze): .. and its capture
+static udword miCarryGen = 0;                       // HWI-FEATURE(pause-freeze): the capture the droids carry from (0: none)
+#if NIS_TIME_CONTROLS
+static bool32 miNisFrozen = FALSE;                  // HWI-FEATURE(pause-freeze): the NIS's render time is held (nisPaused)
+static real32 miNisFrozenTime = 0.0f;               // HWI-FEATURE(pause-freeze): that render time (NIS time)
+static real32 miNisLastTime = -1.0f;                // HWI-FEATURE(pause-freeze): the last frame's NIS render time (-1: none)
+static nisplaying *miNisLast = NULL;                // HWI-FEATURE(pause-freeze): .. and its NIS
+#endif
 
 /*=============================================================================
     The side table:
@@ -269,6 +292,17 @@ void miForget(void *pointer)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    HWI-FEATURE(pause-freeze) (M3-R3): the universe does not update this frame: universePause (0x00a6c5b4: the console,
+    the Escape menu, the game-stats screen; universeUpdateTask 0x0053e460 skips univUpdate) or the Pause key's flag
+    (0x00a6ed74, catKbPause 0x00550640 toggles it; univUpdate 0x0054c3f0 returns at once while it is set and no frame
+    step is left)
+-----------------------------------------------------------------------------*/
+bool32 miUniversePaused(void)                       // HWI-FEATURE(pause-freeze)
+{                                                   // HWI-FEATURE(pause-freeze)
+    return universePause || (catUnivFrameStep && catUnivFrameStepsLeft < 1);   // HWI-FEATURE(pause-freeze)
+}                                                   // HWI-FEATURE(pause-freeze)
+
 /*=============================================================================
     Capture (start of every universe tick):
 =============================================================================*/
@@ -301,11 +335,48 @@ static ubyte miRead(SpaceObj *obj, vector *pos, matrix *coord, vector *coll, vec
     return has;
 }
 
+// HWI-FEATURE(pause-freeze): the first capture after a pause: an object the held frames blended starts the next tick
+//      from the pose they drew (the held alpha between the frozen capture and the simulation's values, which no tick
+//      changed), so the unpause neither jumps nor replays: the next tick's blend runs from there
+static bool32 miCarryFrozen(MiEntry *e, SpaceObj *obj, udword frozenGen)
+{
+    vector pos, coll, engine, d;
+    matrix coord;
+    ubyte has;
+
+    if (e->gen != frozenGen || e->nisFrame == miFrame)
+    {
+        return FALSE;                               // drawn at the simulation's values (new, or the NIS's)
+    }
+    vecSub(d, obj->posinfo.position, e->pos);
+    if (vecMagnitudeSquared(d) > MI_TELEPORT * MI_TELEPORT)
+    {
+        return FALSE;                               // a jump: drawn at the simulation's values
+    }
+    has = miRead(obj, &pos, &coord, &coll, &engine) & e->has;
+    miLerp(&e->pos, &e->pos, &pos, miFrozenAlpha);
+    if (!(has & MI_HAS_ROT) || !miBlendCoordsys(&e->coord, &e->coord, &coord, miFrozenAlpha))
+    {
+        e->coord = coord;
+    }
+    if (has & MI_HAS_COLL)
+    {
+        miLerp(&e->coll, &e->coll, &coll, miFrozenAlpha);
+    }
+    if (has & MI_HAS_ENGINE)
+    {
+        miLerp(&e->engine, &e->engine, &engine, miFrozenAlpha);
+    }
+    return TRUE;
+}
+
 void miCaptureTick(void)
 {
     Node *node;
     SpaceObj *obj;
     MiEntry *e;
+    udword frozenGen = miGen;                       // HWI-FEATURE(pause-freeze): the capture the held frames blended
+    bool32 carry = miFrozen && miFrozenGen == miGen && miFrozenAlpha != 1.0f;   // HWI-FEATURE(pause-freeze)
 
     // [audit: the generation now advances before the flags test: with both flags off no capture runs, and an entry of
     //      the last capture before they went off kept the latest generation, so the frames after the flags came back on
@@ -315,6 +386,7 @@ void miCaptureTick(void)
     {
         miGen = 1;
     }
+    miFrozen = FALSE;                               // HWI-FEATURE(pause-freeze): a tick runs: the hold ends here
     if (!objInterpolate && !nisInterpolate)
     {
         return;
@@ -326,11 +398,19 @@ void miCaptureTick(void)
         {
             continue;
         }
+        if (carry && miCarryFrozen(e, obj, frozenGen))   // HWI-FEATURE(pause-freeze): from the held pose
+        {                                           // HWI-FEATURE(pause-freeze)
+            e->gen = miGen;                         // HWI-FEATURE(pause-freeze)
+            e->clamped = (obj->header.objtype == OBJ_ShipType &&   // HWI-FEATURE(pause-freeze)
+                          ((SpaceObjRotImpTargGuidance *)obj)->clampInfo != NULL);
+            continue;                               // HWI-FEATURE(pause-freeze)
+        }                                           // HWI-FEATURE(pause-freeze)
         e->gen = miGen;
         e->has = miRead(obj, &e->pos, &e->coord, &e->coll, &e->engine);
         e->clamped = (obj->header.objtype == OBJ_ShipType &&
                       ((SpaceObjRotImpTargGuidance *)obj)->clampInfo != NULL);   // M3-R1 motion-jitter
     }
+    miCarryGen = carry ? frozenGen : 0;             // HWI-FEATURE(pause-freeze): the droids' carry
     miDroids(FALSE, 0.0f);                          // M2-R7 r6-leftovers: the repair droids' owner-space positions
 }
 
@@ -592,8 +672,11 @@ static void miDroids(bool32 render, real32 alpha)
             {
                 if ((e = miInsert(droid)) != NULL)
                 {
+                    if (miCarryGen == 0 || !miCarryFrozen(e, droid, miCarryGen))   // HWI-FEATURE(pause-freeze)
+                    {
+                        e->has = miRead(droid, &e->pos, &e->coord, &e->coll, &e->engine);
+                    }
                     e->gen = miGen;
-                    e->has = miRead(droid, &e->pos, &e->coord, &e->coll, &e->engine);
                 }
                 continue;
             }
@@ -659,6 +742,31 @@ static void miRenderNis(nisplaying *nis)
             blend = (dt > 0.0f);                    // a camera cut is never blended across: the curves are evaluated
                                                     // with the next tick's jumps left to that tick (NIS.c)
         }
+#if NIS_TIME_CONTROLS
+        // HWI-FEATURE(pause-freeze) (M3-R3): the NIS's own pause (nisPaused: the NIS time control of a build with
+        //      NIS_TIME_CONTROLS, where nisUpdate then advances 1e-7 s a tick) holds the render time the last frame
+        //      drew (not the curves' tick time behind it); after the pause the hold lasts until the render time of
+        //      the running NIS passes it, so the curves never step back. The camera's fly-in (nisCameraCutTime) pauses
+        //      the curves to fly the camera and is not held. A build without the time controls has no NIS pause
+        if (nisPaused && nisCameraCutTime == 0.0f && !miNisFrozen)   // HWI-FEATURE(pause-freeze)
+        {                                           // HWI-FEATURE(pause-freeze)
+            miNisFrozen = TRUE;                     // HWI-FEATURE(pause-freeze)
+            miNisFrozenTime = (miNisLast == nis && miNisLastTime >= 0.0f) ? miNisLastTime : nis->timeElapsed;
+        }                                           // HWI-FEATURE(pause-freeze)
+        if (miNisFrozen)                            // HWI-FEATURE(pause-freeze)
+        {                                           // HWI-FEATURE(pause-freeze)
+            real32 held = miNisFrozenTime - nis->timeElapsed;   // HWI-FEATURE(pause-freeze)
+            if (miNisLast != nis || held <= 0.0f || (!nisPaused && blend && dt >= held))   // HWI-FEATURE(pause-freeze)
+            {                                       // HWI-FEATURE(pause-freeze): the running NIS has passed it
+                miNisFrozen = FALSE;                // HWI-FEATURE(pause-freeze)
+            }                                       // HWI-FEATURE(pause-freeze)
+            else                                    // HWI-FEATURE(pause-freeze)
+            {                                       // HWI-FEATURE(pause-freeze)
+                dt = held;                          // HWI-FEATURE(pause-freeze)
+                blend = TRUE;                       // HWI-FEATURE(pause-freeze)
+            }                                       // HWI-FEATURE(pause-freeze)
+        }                                           // HWI-FEATURE(pause-freeze)
+#endif
     }
     for (i = 0; i < nis->nObjects; i++)
     {
@@ -688,6 +796,10 @@ static void miRenderNis(nisplaying *nis)
             miNisClamped(obj, FALSE);
         }
     }
+#if NIS_TIME_CONTROLS
+    miNisLast = nis;                                // HWI-FEATURE(pause-freeze): this frame's render time
+    miNisLastTime = nis->timeElapsed + (blend ? dt : 0.0f);   // HWI-FEATURE(pause-freeze)
+#endif
     if (blend)
     {
         miNisCamera = *nisCamera;
@@ -731,19 +843,48 @@ void miRenderBegin(void)
     }
     // the gameplay lerp: every object (objInterpolate), or during an NIS the objects without curves (nisInterpolate,
     // spec item 2)
-    if (!(objInterpolate || (nisInterpolate && nis != NULL)) || universePause)
+    if (!(objInterpolate || (nisInterpolate && nis != NULL)))
     {
+        miLastAlpha = 1.0f;                         // HWI-FEATURE(pause-freeze): the simulation's values drawn
+        miLastGen = miGen;                          // HWI-FEATURE(pause-freeze)
         return;
     }
-    alpha = taskPeriodFraction(universeTaskHandle);
-    if (alpha < 0.0f || alpha == 1.0f)
+    // HWI-FEATURE(pause-freeze) (M3-R3): the universe paused (miUniversePaused: the console, the Escape menu, the Pause
+    //      key) draws every object where the last frame drew it: that frame's alpha is held (the capture and the
+    //      simulation's values do not change while no tick runs); a tick between that frame and the pause (its capture
+    //      newer than the frame) holds alpha 0, the tick's start, which the next frame would have drawn. The hold lasts
+    //      past the unpause until the next tick's capture (miCaptureTick carries the held pose into it). Before M3-R3
+    //      universePause drew the simulation's values and the Pause key's flag was not seen at all: the lerp kept
+    //      replaying the last tick's motion in every tick of the pause (the user's "jitter in place")
+    if (!miFrozen && miUniversePaused())            // HWI-FEATURE(pause-freeze)
+    {                                               // HWI-FEATURE(pause-freeze)
+        miFrozen = TRUE;                            // HWI-FEATURE(pause-freeze)
+        miFrozenGen = miGen;                        // HWI-FEATURE(pause-freeze)
+        miFrozenAlpha = (miLastGen == miGen) ? miLastAlpha : 0.0f;   // HWI-FEATURE(pause-freeze)
+    }                                               // HWI-FEATURE(pause-freeze)
+    if (miFrozen)                                   // HWI-FEATURE(pause-freeze)
+    {                                               // HWI-FEATURE(pause-freeze)
+        alpha = miFrozenAlpha;                      // HWI-FEATURE(pause-freeze)
+        if (alpha == 1.0f)                          // HWI-FEATURE(pause-freeze)
+        {                                           // HWI-FEATURE(pause-freeze)
+            return;                                 // HWI-FEATURE(pause-freeze): held at the simulation's values
+        }                                           // HWI-FEATURE(pause-freeze)
+    }                                               // HWI-FEATURE(pause-freeze)
+    else                                            // HWI-FEATURE(pause-freeze)
     {
-        return;                                     // paused, or at the current tick: the simulation's values
+        alpha = taskPeriodFraction(universeTaskHandle);
+        miLastGen = miGen;                          // HWI-FEATURE(pause-freeze)
+        miLastAlpha = 1.0f;                         // HWI-FEATURE(pause-freeze)
+        if (alpha < 0.0f || alpha == 1.0f)
+        {
+            return;                                 // the universe task stopped, or at the current tick: the simulation's values
+        }
+        if (alpha > MI_ALPHA_MAX)
+        {
+            alpha = MI_ALPHA_MAX;                   // M3-R1 motion-jitter: past the current tick, the last tick's motion
+        }                                           //      continued (miLerp and miBlendCoordsys extrapolate above 1)
+        miLastAlpha = alpha;                        // HWI-FEATURE(pause-freeze)
     }
-    if (alpha > MI_ALPHA_MAX)
-    {
-        alpha = MI_ALPHA_MAX;                       // M3-R1 motion-jitter: past the current tick, the last tick's motion
-    }                                               //      continued (miLerp and miBlendCoordsys extrapolate above 1)
     miAlpha = alpha;
     first = miSavedCount;                           // M2-R7 r6-leftovers: the gameplay lerp's entries start here
     for (node = universe.SpaceObjList.head; node != NULL; node = node->next)
