@@ -63,5 +63,6 @@ void catLoadGameSelfTestTrainingSet(void);           // M2-R9 missions-10-17: a 
 bool32 catLoadGameSelfTestRequested(void);
 void catLoadGameSelfTestStart(void);
 void catLoadGameSelfTestTick(void);
+void catInfectAtSet(char *string);                  // HWI-TEST (M3-R4 infect-convert): /catInfectAt <tick>:<ShipType>
 
 #endif

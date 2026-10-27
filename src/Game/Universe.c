@@ -3984,6 +3984,78 @@ void universeLoadEverythingNeeded(void)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_universeFlagBeastForms
+    Description : CAT-FIX (M3-R4 infect-convert): once universeStaticInit has loaded the level's ship statics, flags
+                  as needed the form the Beast converts each loaded infectable type into (beastAttackConvertTo of
+                  every loaded static with beastAttacksRequired >= 0, in that type's own race), when the level
+                  loads any Beast ship type. The exe loads a level's IncludeShips and the ships the player brings
+                  in, never a type's Beast form (SetInfoNeededForShipAndRelatedStaticInfo 0x004a29f0 flags the type,
+                  its missile and its mine), and converts an infected ship by creating its Beast form straight from
+                  the static (cat_univConvertShip 0x00543950 -> univCreateShip 0x00542320 reads the LOD unchecked),
+                  so a ship brought into a level whose IncludeShips lack its Beast form crashes the exe the moment
+                  it is infected: a Taiidan heavy cruiser salvaged in Mission06 and hit by a Beast cruise missile in
+                  Mission07, which includes bCruiseMissile but not bHeavyCruiser (the 2026-10-26 play-test crash).
+                  A level without Beast ships gets nothing extra; a level's own IncludeShips are already closed this
+                  way in every Beast mission but 4, 15 and 16. A saved game restores its level's needed flags
+                  (universeLoadEverythingNeeded) and goes through universeStaticInit too, so a save made before this
+                  fix is covered when it loads. The .shp fields are only read when a static loads, which is why this
+                  runs after the first pass and reads loaded statics only (a never-loaded static holds zeroes).
+    Inputs      : none
+    Outputs     : IF_InfoNeeded of the Beast forms not needed yet (and of their missiles)
+    Return      : TRUE when a type was flagged, and universeStaticInit's second pass loads it
+----------------------------------------------------------------------------*/
+static bool32 cat_universeFlagBeastForms(void)
+{
+    ShipRace shiprace, formrace;
+    ShipType shiptype, form;
+    ShipStaticInfo *shipstaticinfo, *formstaticinfo;
+    bool32 beastNeeded = FALSE, flagged = FALSE;
+
+    for (shiptype = FirstShipTypeOfRace[RACE_Beast]; shiptype <= LastShipTypeOfRace[RACE_Beast]; shiptype++)
+    {
+        if (bitTest(GetShipStaticInfo(shiptype, RACE_Beast)->common.infoFlags, IF_InfoNeeded))
+        {
+            beastNeeded = TRUE;
+            break;
+        }
+    }
+    if (!beastNeeded)
+    {
+        return FALSE;
+    }
+    for (shiprace = 0; shiprace < NUM_RACES; shiprace++)
+    {
+        for (shiptype = FirstShipTypeOfRace[shiprace]; shiptype <= LastShipTypeOfRace[shiprace]; shiptype++)
+        {
+            shipstaticinfo = GetShipStaticInfo(shiptype, shiprace);
+            if (!bitTest(shipstaticinfo->common.infoFlags, IF_InfoNeeded) ||
+                !(bitTest(shipstaticinfo->common.infoFlags, IF_InfoLoaded) ||
+                  bitTest(shipstaticinfo->common.infoFlags, IF_NotPostLoaded)) ||
+                (shipstaticinfo->beastAttacksRequired < 0))
+            {
+                continue;
+            }
+            form = shipstaticinfo->beastAttackConvertTo;
+            if ((form < 0) || (form >= TOTAL_NUM_SHIPS) || (form == shiptype) || (RacesAllowedForGivenShip[form] == 0))
+            {
+                continue;
+            }
+            formrace = GetValidRaceForShipType(form);
+            formstaticinfo = GetShipStaticInfo(form, formrace);
+            if (bitTest(formstaticinfo->common.infoFlags, IF_InfoNeeded))
+            {
+                continue;
+            }
+            SetInfoNeededForShipAndRelatedStaticInfo(form, formrace, TRUE);
+            dbgMessagef("universeStaticInit: loading %s\\%s, the Beast's form of %s\\%s (CAT-FIX infect-convert)",
+                        ShipRaceToStr(formrace), ShipTypeToStr(form), ShipRaceToStr(shiprace), ShipTypeToStr(shiptype));
+            flagged = TRUE;
+        }
+    }
+    return flagged;
+}
+
+/*-----------------------------------------------------------------------------
     Name        : universeStaticInit
     Description : Initializes static data for the Universe.  Only the ships,
                     resources, missiles etc. that are needed will be loaded.
@@ -4113,6 +4185,33 @@ void universeStaticInit(void)
                 }
             }
 
+        }
+    }
+    if (cat_universeFlagBeastForms())                       // CAT-FIX (M3-R4 infect-convert): a second pass loads the
+    {                                                       //   Beast's forms of the infectable types loaded above
+        for (shiprace=0;shiprace<NUM_RACES;shiprace++)      //   (the function above universeStaticInit)
+        {
+            for (shiptype=FirstShipTypeOfRace[shiprace];shiptype<=LastShipTypeOfRace[shiprace];shiptype++)
+            {
+                if (hrAbortLoadingGame)
+                {
+                    goto abortloadinggame;
+                }
+                shipstaticinfo = GetShipStaticInfo(shiptype,shiprace);
+                if (bitTest(shipstaticinfo->common.infoFlags, IF_InfoNeeded) &&
+                    !bitTest(shipstaticinfo->common.infoFlags, IF_InfoLoaded) &&
+                    !bitTest(shipstaticinfo->common.infoFlags, IF_NotPostLoaded))
+                {
+                    InitStatShipInfo(shipstaticinfo,shiptype,shiprace);
+                    bitSet(shipstaticinfo->common.infoFlags, IF_NotPostLoaded);
+#if UNIV_SHIP_LOADFREE_LOG
+                    if (logFile)
+                    {
+                        fprintf(logFile, "Loading ship: %8s %s (the Beast's form)\n", ShipRaceToStr(shiprace), ShipTypeToStr(shiptype));
+                    }
+#endif
+                }
+            }
         }
     }
 

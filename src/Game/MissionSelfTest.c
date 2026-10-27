@@ -42,6 +42,8 @@
 #include "utility.h"
 #include "GamePick.h"
 #include "SaveGame.h"
+#include "BeastWeapon.h"                 // HWI-TEST (M3-R4 infect-convert)
+#include "SpaceObj.h"
 #include "StringSupport.h"
 #include "File.h"
 #include "Tutor.h"
@@ -4134,6 +4136,116 @@ static sdword catLoadGameTicks = 0;
 static char catLoadGameName[128] = "";
 static bool32 catLoadGameLoaded = FALSE, catLoadGameDone = FALSE;
 static sdword catLoadGameStartTick = -1;
+// HWI-TEST (M3-R4 infect-convert): /catInfectAt <tick>:<ShipType>: in the load-game self-test, that many ticks after
+//      the load the current player's first ship of that type is infected by the first ship a Beast player owns
+//      (cat_beastInfectShip: what a Beast infection missile's hit does) and the outcome is reported ("infecttest:"
+//      lines: the Beast type the statics name, whether its statics are loaded, then the player's and the Beast's
+//      counts of the old and new type once the ship has left the list). Read only otherwise.
+static sdword catInfectAtTick = -1;
+static char catInfectAtType[64] = "";
+static Ship *catInfectTarget = NULL;
+static ShipType catInfectOldType = 0, catInfectNewType = 0;
+static Player *catInfectOwner = NULL;
+static bool32 catInfectReported = FALSE;
+void catInfectAtSet(char *string)
+{
+    char *colon = strchr(string, ':');
+
+    if (colon == NULL)
+    {
+        catInfectAtTick = -1;
+        return;
+    }
+    catInfectAtTick = (sdword)strtol(string, NULL, 10);
+    strncpy(catInfectAtType, colon + 1, sizeof(catInfectAtType) - 1);
+    catInfectAtType[sizeof(catInfectAtType) - 1] = '\0';
+}
+static sdword catInfectCountType(Player *player, ShipType type)   // player NULL: any Beast player's
+{
+    Node *node;
+    sdword n = 0;
+
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        Ship *s = (Ship *)listGetStructOfNode(node);
+
+        if ((s->shiptype == type) && (s->playerowner != NULL) &&
+            ((player != NULL) ? (s->playerowner == player) : (s->playerowner->race == RACE_Beast)))
+        {
+            n++;
+        }
+    }
+    return n;
+}
+static void catInfectTick(sdword sinceLoad)
+{
+    Node *node;
+
+    if ((catInfectAtTick >= 0) && (sinceLoad == catInfectAtTick) && (catInfectTarget == NULL) && !catInfectReported)
+    {
+        ShipType type = StrToShipType(catInfectAtType);
+        Ship *target = NULL, *infector = NULL;
+        ShipStaticInfo *newStatic;
+
+        for (node = universe.ShipList.head; node != NULL; node = node->next)
+        {
+            Ship *s = (Ship *)listGetStructOfNode(node);
+
+            if ((target == NULL) && (s->playerowner == universe.curPlayerPtr) && (s->shiptype == type))
+            {
+                target = s;
+            }
+            if ((infector == NULL) && (s->playerowner != NULL) && (s->playerowner != universe.curPlayerPtr) &&
+                (s->playerowner->race == RACE_Beast))
+            {
+                infector = s;
+            }
+        }
+        if ((type < 0) || (type >= TOTAL_NUM_SHIPS) || (target == NULL) || (infector == NULL) ||
+            (target->staticinfo->beastAttacksRequired < 0))
+        {
+            dbgMessagef("infecttest: no infection tick=%u type='%s' target=%d infector=%d infectable=%d",
+                        (unsigned)universe.univUpdateCounter, catInfectAtType, (int)(target != NULL), (int)(infector != NULL),
+                        (int)((target != NULL) && (target->staticinfo->beastAttacksRequired >= 0)));
+            catInfectReported = TRUE;
+            return;
+        }
+        catInfectTarget = target;
+        catInfectOldType = type;
+        catInfectNewType = target->staticinfo->beastAttackConvertTo;
+        catInfectOwner = universe.curPlayerPtr;
+        newStatic = GetShipStaticInfo(catInfectNewType, RACE_Beast);
+        cat_beastInfectShip(target, infector);
+        dbgMessagef("infecttest: infected tick=%u ship=%s#%u by %s#%u (player %d) convertTo=%s loaded=%d convertAt=%.2f now=%.2f",
+                    (unsigned)universe.univUpdateCounter, ShipTypeToStr(type), (unsigned)target->shipID.shipNumber,
+                    ShipTypeToStr(infector->shiptype), (unsigned)infector->shipID.shipNumber, (int)infector->playerowner->playerIndex,
+                    ShipTypeToStr(catInfectNewType), (int)(bitTest(newStatic->common.infoFlags, IF_InfoLoaded) ? 1 : 0),
+                    target->catBeastConvertTime, universe.totaltimeelapsed);
+        return;
+    }
+    if ((catInfectTarget != NULL) && !catInfectReported)
+    {
+        bool32 alive = FALSE;
+
+        for (node = universe.ShipList.head; node != NULL; node = node->next)
+        {
+            if ((Ship *)listGetStructOfNode(node) == catInfectTarget)
+            {
+                alive = TRUE;
+                break;
+            }
+        }
+        if (!alive)
+        {
+            catInfectReported = TRUE;
+            catInfectTarget = NULL;
+            dbgMessagef("infecttest: converted tick=%u old=%s mine=%d new=%s mine=%d beast=%d",
+                        (unsigned)universe.univUpdateCounter, ShipTypeToStr(catInfectOldType),
+                        (int)catInfectCountType(catInfectOwner, catInfectOldType), ShipTypeToStr(catInfectNewType),
+                        (int)catInfectCountType(catInfectOwner, catInfectNewType), (int)catInfectCountType(NULL, catInfectNewType));
+        }
+    }
+}
 static sdword catLoadGameObjectives = 0;
 static bool32 catLoadGameTraining = FALSE;      // M2-R9 missions-10-17: a tutorial lesson's save (SavedGames/Training)
 extern char TutorialSavedGamesPath[];           // GamePick.c
@@ -4213,6 +4325,7 @@ void catLoadGameSelfTestTick(void)
     {
         catLoadGameStartTick = (sdword)universe.univUpdateCounter;
     }
+    catInfectTick((sdword)universe.univUpdateCounter - catLoadGameStartTick);     // HWI-TEST (M3-R4 infect-convert)
     catMtWatchFsms();
     catMtWatchObjectives();
     if (((sdword)universe.univUpdateCounter - catLoadGameStartTick) % 256 == 0)

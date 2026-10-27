@@ -548,6 +548,11 @@ bool32 CatLoadGameNameSet(char *string)
     catLoadGameSelfTestNameSet(string);
     return TRUE;
 }
+bool32 CatInfectAtSet(char *string)                 // HWI-TEST (M3-R4 infect-convert): /catInfectAt <tick>:<ShipType>
+{
+    catInfectAtSet(string);
+    return TRUE;
+}
 
 bool32 CatSkirmishTestSet(char *string)
 {
@@ -1521,6 +1526,7 @@ commandoption commandOptions[] =
     entryFnParam("/catMissionTest",     CatMissionTestSet, " <ticks> - headless single-player game from Mission01's NIS-first start: the opening NIS, the KAS objectives with scripted events in place of input, logs missiontest lines, exit after the mission's end or <ticks> ticks."),
     entryFnParam("/catLoadGameTest",    CatLoadGameTestSet, " <ticks> - headless load of the single-player save /catLoadGameName names (SavedGames/SinglePlayer), as the front end's Load Game, then <ticks> ticks; logs loadgametest lines, exit."),
     entryFnParam("/catLoadGameName",    CatLoadGameNameSet, " <name> - the save /catLoadGameTest loads."),
+    entryFnParam("/catInfectAt",        CatInfectAtSet, " <tick>:<ShipType> - test: with /catLoadGameTest, that many ticks after the load infect the player's first ship of that type as a Beast infection missile's hit would (infecttest: lines)."),   // HWI-TEST (M3-R4 infect-convert)
     entryFn("/catLoadGameTraining",     CatLoadGameTrainingSet, " - with /catLoadGameTest: the save is a tutorial lesson's (SavedGames/Training)."),
     entryFnParam("/catMissionTestMission", CatMissionTestMissionSet, " <N> - with /catMissionTest: mission N (2 .. 17) from the exe's warp start (Warp.script's level N record) through its KAS objectives and the jump to the next level."),
     entryFn("/catWarpStartTest",      CatWarpStartTestSet, " - with /catMissionTest: the warp start of the data dir's warp.script (WarpEnabled 1) checked against its record, through the fleet's arrival."),
