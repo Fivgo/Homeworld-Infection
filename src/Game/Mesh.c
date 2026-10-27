@@ -1456,6 +1456,10 @@ void meshRecolorize(meshdata *mesh)
                     mesh->localMaterial[index].texture = handles;
                     mesh->localMaterial[index].bTexturesRegistered = TRUE;
                 }
+                if (catMeshTexLogMatch[0] != '\0')                                  // HWI-TEST (M3-R4 mines-recolor)
+                {                                                                   // HWI-TEST
+                    catMeshTexLogRegister("recolor", fullName, handles);            // HWI-TEST
+                }                                                                   // HWI-TEST
             }
             else
             {                                               //textures were previously registered properly

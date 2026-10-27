@@ -4285,6 +4285,10 @@ void universeStaticInit(void)
                 }
 #endif
             }
+            else if (staticinfo->LOD != NULL)
+            {                                               // CAT-FIX (M3-R4 mines-recolor): the same for a missile static kept loaded
+                lodAllMeshesRecolorize(staticinfo->LOD);    //   from the last level (the exe never recolours it either)
+            }
         }
         else
         {                                                   //info not needed
@@ -4330,6 +4334,13 @@ void universeStaticInit(void)
                 }
 #endif
             }
+            else if (staticinfo->LOD != NULL)
+            {                                               // CAT-FIX (M3-R4 mines-recolor): a mine static kept loaded from the last
+                lodAllMeshesRecolorize(staticinfo->LOD);    //   level is recoloured for this level's colour-scheme row, as the ship and
+            }                                               //   derelict loops above do (universeStaticInit 0x0053d2a0 never recolours a
+                                                            //   mine or missile static: a Derelict mine loaded in a level whose row is
+                                                            //   empty (missions 5, 7, 11, 15) stays untextured in the next one; the
+                                                            //   exe shows the white mines too, e.g. Mission05 played into Mission06)
         }
         else
         {                                                   //info not needed

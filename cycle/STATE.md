@@ -1,6 +1,6 @@
 # Work cycle and resume point
 
-Last checkpoint: 2026-10-26 16:54
+Last checkpoint: 2026-10-26 18:49
 
 **Read this first when resuming.** It is the single source of truth for where the work stands.
 
@@ -28,7 +28,7 @@ Claude Code records no "approaching limit" signal: across a week of transcripts 
 <!-- qwen-status -->
 ```
     claude limited : False
-    gpu gate       : free (GPU at 3%)
+    gpu gate       : BLOCKED (a game is running)
     model          : qwen3.6:27b ctx=8192
     progress       : 12/0 functions proposed -> /home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/ghidra/proposals/qwen/naming.jsonl
 ```
@@ -1725,6 +1725,7 @@ the play-test reports something or the user picks "the exe's" on an open look qu
 
 - **sensors-points** (HWI-FEATURE(sensors-points), docs/m3-r4-sensors-points.md): the user's decision "double the dust particle size and increase the resource markers by 50%": the sensors manager's Dust points 2 px (the exe's 1), the resource / meteor / mine / crate markers 3 px (the exe's 2, or 1 for the smallest), a mimic posing as an asteroid 3; `/exePoints` run-only, console row `sensorsPoints`, the settings line; the toggle self-test gained the `engineTrails` row M3-R3 missed. One Opus producer, reviewed by the session (Fable) instead of an auditor: Mission01 stream IDENTICAL in every field, Mission02 sensors captures 275 -> 1,100 Dust pixels at 4K (4.00x), markers 2.25x, every /exePoints capture byte-equal to M3-R3's, hud / console / toggle x3 / fescreens / statics PASS, ASan 0. Decisions (the reviewer's): the small mines at 3 px, the mimic at the markers' size, fixed pixels not scaled by the UI scale.
 - **speech_probe** (tools/formats/speech_probe.py, 5c5e4ea): speech event id -> phrase offsets in the race's .vce + subtitle text; used to answer the user's Mission02 dialog question (the BUSHAN-RE hint 0x10002169 is a difficulty timer: 120 / 180 / 360 s on VERY EASY / EASY / NORMAL, never on HARD / VERY HARD; the only other difficulty-gated lines in the campaign: Mission01's "They are going after our Workers" and Mission13's "Incoming capital ships", both EASY and below).
+- **mines-recolor** (CAT-FIX (M3-R4 mines-recolor), docs/m3-r4-mines-recolor.md, the commit after ec98d3e): the user's Mission06 report "still seeing the same untextured mines": the 29 level (Derelict) mines were white after Mission05, whose colour table has no Derelict entry, because `universeStaticInit` never recoloured a mine or missile static kept loaded across a level change (the exe's structure too: a decompile reading); the mine and missile loops now recolour as the ship and derelict loops do; fence: Mission05 played into Mission06 before (bound=0 white=11, ~640 colours) / after (bound=11, ~8,600), the Mission01 / 03 / 06 streams IDENTICAL to M3-R3's, the M3-R3 mine capture byte-equal, ASan 0. The user's workaround meanwhile: save and load in Mission06.
 
 ## M3-R3: COMPLETE 2026-10-26 (the third play-test fix round; run from the user's terminal session 38027cce, never the orchestrator)
 
