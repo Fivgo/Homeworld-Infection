@@ -360,10 +360,29 @@ void kasfAttackMothership(void)  // KAS AttackMothership, cataclysm.exe 0x004921
     }
 }
 
+// HWI-TEST (M3-R4 nan-positions): the owners of a KAS selection (nanprobe-kas: lines)
+#include "UnivUpdate.h"
+static void catKasSelLog(const char *where, GrowSelection *sel)
+{
+    sdword i, n[8] = {0,0,0,0,0,0,0,0}, team = 0;
+    if (!catNaNProbeOn || (sel == NULL) || (sel->selection == NULL)) return;
+    for (i = 0; i < sel->selection->numShips; i++)
+    {
+        Ship *ship = sel->selection->ShipPtr[i];
+        sdword o = ship->playerowner ? ship->playerowner->playerIndex : 7;
+        n[(o >= 0 && o < 8) ? o : 7]++;
+        if ((CurrentTeamP != NULL) && (CurrentTeamP->shipList.selection != NULL) && ShipInSelection(CurrentTeamP->shipList.selection, ship)) team++;
+    }
+    dbgMessagef("nanprobe-kas: tick=%u %s n=%d owners=[%d,%d,%d,%d,%d] inTeam=%d team=%x", (unsigned)universe.univUpdateCounter, where,
+                (int)sel->selection->numShips, n[0], n[1], n[2], n[3], n[4], team, CurrentTeamP ? (unsigned)CurrentTeamP->kasLabel : 0u);
+}
+
+
 // CAT: 0x00492190: the team's ships get a plain attack order through the command layer (HW1 queued an advanced-attack
 //      move); more than 256 targets are attacked from a heap copy, others from a stack MaxSelection
 void kasfAttack(GrowSelection *targets)
 {
+    catKasSelLog("kasfAttack targets", targets);   // HWI-TEST (M3-R4 nan-positions)
     SelectCommand *selection = targets->selection;
     SelectCommand *dupeTargets;
     MaxSelection tempsel;
@@ -4486,6 +4505,7 @@ static sdword kasfSpeechLink = -1;          // 0x00a43fe4 (name chosen here)
 void kasfSpeechEvent(sdword event, sdword variable)
 {
     catMissionSelfTestSpeech(event);        // HWI-TEST (M3-R3 mission02): the mission test's "speech:" line (logs only)
+    dbgMessagef("speechlog: script asks event=0x%x var=%d tick=%u", (unsigned)event, (int)variable, (unsigned)universe.univUpdateCounter);     // HWI-TEST (M3-R4 speech-log)
     subMessageEnded = 0;
     kasfSpeechLink = -1;
     kasfSpeechLink = speechEventQueue(NULL, event, variable, -1, -1, universe.curPlayerIndex, -1, -1.0f, -1);
@@ -4898,6 +4918,7 @@ void kasfSubtitleSimulate(sdword actor, sdword milliseconds, char *speech)
 ----------------------------------------------------------------------------*/
 void kasfSubtitleReset(void)
 {
+    dbgMessagef("speechlog: subtitle reset by the script tick=%u", (unsigned)universe.univUpdateCounter);     // HWI-TEST (M3-R4 speech-log)
     subReset();
     subMessageEnded = 1;
     speechEventActorStop(0x3ff800, 0.0f);

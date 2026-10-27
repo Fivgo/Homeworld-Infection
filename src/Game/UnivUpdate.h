@@ -271,4 +271,8 @@ extern IDToPtrTable ResourceIDToPtr;
 extern IDToPtrTable DerelictIDToPtr;
 extern IDToPtrTable MissileIDToPtr;
 
+void catNaNProbe(const char *phase);           // HWI-TEST (M3-R4 nan-positions): /catNaNProbe
+void catNaNProbeShip(Ship *ship, const char *phase);
+extern bool32 catNaNProbeOn;
+
 #endif

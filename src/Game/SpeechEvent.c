@@ -668,6 +668,26 @@ void speechEventUpdate(void)
     Return      :
 ----------------------------------------------------------------------------*/
 #if 1
+// HWI-TEST (M3-R4 speech-log, not in the exe): the fate of every mission line in the log. The user's Mission15 report
+//      ("I didn't hear dialog 13", the build manager opened at that moment) could not be traced: the queue's decisions
+//      were invisible. Every speech event that is not a unit's chatter / status / command line writes a "speechlog:"
+//      line when it is queued, dropped (with the reason), starts, ends, expires or is cleared by an actor stop; the
+//      skip paths (Sensors.c, KeyBindings.c, ConsMgr.c, KASFunc.c) log their trigger with the same prefix.
+extern bool32 cmActive;
+static bool32 catSpeechLogged(sdword event)
+{
+    return !(event & (SPEECH_TYPE_CHATTER | SPEECH_TYPE_STATUS | SPEECH_TYPE_COMMAND));
+}
+static void catSpeechLog(const char *what, sdword event, sdword var, const char *reason)
+{
+    if (catSpeechLogged(event))
+    {
+        dbgMessagef("speechlog: %s event=0x%x var=%d%s%s tick=%u t=%.2f sensors=%d fleetintel=%d cm=%d nis=%d sp=%d", what, (unsigned)event, (int)var,
+                    reason ? " " : "", reason ? reason : "", (unsigned)universe.univUpdateCounter, universe.totaltimeelapsed,
+                    (int)smSensorsActive, (int)smFleetIntel, (int)cmActive, (int)nisIsRunning, (int)numSinglePlayerEvents);
+    }
+}
+
 void speechQueueUpdate(void)
 {
     sdword  i;
@@ -696,6 +716,7 @@ void speechQueueUpdate(void)
                     pSQueue->queue[pSQueue->nextevent].event = SOUND_DEFAULT;     // CAT
                 }
             }
+            catSpeechLog("ended", pSQueue->current.event, pSQueue->current.variable, NULL);     // HWI-TEST (M3-R4 speech-log)
             pSQueue->current.event = SOUND_DEFAULT;
             pSQueue->status = SOUND_STOPPED;
             // CAT: the gap is not counted from the end of the line (speechQueueUpdate 0x00521eb0 clears timeover;
@@ -724,6 +745,11 @@ void speechQueueUpdate(void)
 
             /* play this one */
             speechPlayQueue(pSQueue, i);
+            {   // HWI-TEST (M3-R4 speech-log)
+                char why[48];
+                snprintf(why, sizeof(why), "stream=%d variation=%d", (int)i, (int)pSQueue->current.variation);
+                catSpeechLog("play", pSQueue->current.event, pSQueue->current.variable, why);
+            }
             if (pSQueue->current.event & SPEECH_TYPE_SINGLE_PLAYER)
             {
                 numSinglePlayerEvents++;
@@ -1044,6 +1070,7 @@ sdword speechEventQueue(void *object, sdword event, sdword var, sdword variation
 
     if (!enableSpeech || soundpaused)
     {
+        catSpeechLog("dropped", event, var, "speech off or sound paused");     // HWI-TEST (M3-R4 speech-log)
         return (SOUND_ERR);
     }
 
@@ -1060,6 +1087,7 @@ sdword speechEventQueue(void *object, sdword event, sdword var, sdword variation
     /* if an NIS is playing, only want to hear NIS events */
     if (nisIsRunning && !(event & (SPEECH_TYPE_NIS + SPEECH_TYPE_ANIMATIC)))
     {
+        catSpeechLog("dropped", event, var, "an NIS is running");     // HWI-TEST (M3-R4 speech-log)
         return (SOUND_ERR);
     }
 
@@ -1091,6 +1119,7 @@ sdword speechEventQueue(void *object, sdword event, sdword var, sdword variation
 
     if (!((event & CAT_SPEECH_ACTOR_MASK) & actorFlagsEnabled))
     {
+        catSpeechLog("dropped", event, var, "actor disabled");     // HWI-TEST (M3-R4 speech-log)
         return (SOUND_ERR);
     }
 
@@ -1159,6 +1188,7 @@ sdword speechEventQueue(void *object, sdword event, sdword var, sdword variation
 
     if (((udword)playernum != universe.curPlayerIndex) && (!nisIsRunning) && (playernum != SOUND_EVENT_DEFAULT))
     {
+        catSpeechLog("dropped", event, var, "another player's");     // HWI-TEST (M3-R4 speech-log)
         return (SOUND_ERR);
     }
 
@@ -1188,12 +1218,14 @@ queueit:
     /* is the queue full? */
     if (pSQueue->numqueued == SE_MAX_QUEUE)
     {
+        catSpeechLog("dropped", event, var, "queue full");     // HWI-TEST (M3-R4 speech-log)
         return (SOUND_ERR);
     }
 
     /* is this going to time out before it'll play? (the relic-player death line is always queued) */
     if ((timeout > 0.0f) && (pSQueue->timeover > universe.totaltimeelapsed + timeout) && (event != 0x200102d))
     {
+        catSpeechLog("dropped", event, var, "would time out");     // HWI-TEST (M3-R4 speech-log)
         return (SOUND_ERR);
     }
 
@@ -1204,6 +1236,7 @@ queueit:
 
     if ((pSQueue->current.event == event) && (pSQueue->current.variable == var))
     {
+        catSpeechLog("dropped", event, var, "already playing");     // HWI-TEST (M3-R4 speech-log)
         return (SOUND_ERR);
     }
 
@@ -1317,6 +1350,11 @@ queueit:
 
     SEreorderqueue(pSQueue);
 
+    {   // HWI-TEST (M3-R4 speech-log)
+        char why[64];
+        snprintf(why, sizeof(why), "stream=%d queued=%d current=0x%x", (int)channel, (int)pSQueue->numqueued, (unsigned)pSQueue->current.event);
+        catSpeechLog("queued", event, var, why);
+    }
     return (handle);
 }
 
@@ -1360,6 +1398,7 @@ sdword speechEventActorStop(udword actorMask, real32 fadetime)
         {
             if (speechqueue[i].queue[j].event & actorMask)
             {
+                catSpeechLog("cleared", speechqueue[i].queue[j].event, speechqueue[i].queue[j].variable, "by an actor stop");     // HWI-TEST (M3-R4 speech-log)
                 memset(&speechqueue[i].queue[j], 0, sizeof(QUEUEEVENT));
                 speechqueue[i].queue[j].handle = SOUND_NOTINITED;
                 speechqueue[i].queue[j].timeout = -1.0f;
@@ -1369,6 +1408,7 @@ sdword speechEventActorStop(udword actorMask, real32 fadetime)
 
         if (speechqueue[i].current.event & actorMask)
         {
+            catSpeechLog("faded", speechqueue[i].current.event, speechqueue[i].current.variable, "by an actor stop");     // HWI-TEST (M3-R4 speech-log)
             soundstreamvolume(speechqueue[i].current.handle, -1, fadetime);
         }
     }
@@ -1468,6 +1508,7 @@ sdword SEreorderqueue(SPEECHQUEUE *pSQueue)
         if ((pSQueue->queue[i].timeout >= 0.0f) && (pSQueue->queue[i].timeout < universe.totaltimeelapsed) &&
             (((udword)pSQueue->queue[i].event & CAT_SPEECH_TYPE_ORDER_MASK) < SPEECH_TYPE_TUTORIAL))
         {
+            catSpeechLog("expired", pSQueue->queue[i].event, pSQueue->queue[i].variable, "before it played");     // HWI-TEST (M3-R4 speech-log)
             memset(&pSQueue->queue[i], 0, sizeof(QUEUEEVENT));
             pSQueue->queue[i].handle = SOUND_NOTINITED;
             pSQueue->queue[i].timeout = -1.0f;

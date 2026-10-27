@@ -1916,6 +1916,7 @@ void cat_kbKeyPress(udword state, udword key)
             }
             else if ((commands[index] == CAT_KB_SkipSensors) || (commands[index] == CAT_KB_Escape))
             {
+                dbgMessagef("speechlog: skip by key vk=0x%x command=%d (fleet intel view)", (unsigned)vk, (int)commands[index]);     // HWI-TEST (M3-R4 speech-log)
                 smSensorsSkip(NULL, NULL);
             }
         }

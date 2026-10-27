@@ -15,6 +15,7 @@
 #include "Physics.h"
 #include "StatScript.h"
 #include "Universe.h"
+#include <math.h>
 
 #define DEBUG_AITRACK 0
 
@@ -339,14 +340,16 @@ bool32 aitrackHeadingAndUp(Ship *ship,vector *desiredHeading,vector *desiredUp,r
     dbgMessagef("Heading accuracy: %f",dotProdCheckHeading);
 #endif
 
-    if (dotProdCheckHeading <= -1.0f)   // use <= in case inaccuraces cause number slightly less than 1.0
+    // CAT (M3-R4 nan-positions): the x87 shape (aitrackHeadingAndUp 0x00418ad0, fcomp + test ah,0x41): an unordered
+    //      compare (a NaN heading) also takes this branch, so a NaN never reaches the ship's rotation
+    if ((dotProdCheckHeading <= -1.0f) || isnan(dotProdCheckHeading))   // use <= in case inaccuraces cause number slightly less than 1.0
     {
         // Exactly opposite direction, so arbitrarily chose a direction and rotate that way
         physApplyRotToObj(&ship->rotatable,ship->guidance.nonstatvars.rotstrength[ROT_ABOUTXCW],ROT_ABOUTXCW);
         return FALSE;
     }
 
-    if (dotProdCheckUp <= -1.0f)   // use <= in case inaccuraces cause number slightly less than 1.0
+    if ((dotProdCheckUp <= -1.0f) || isnan(dotProdCheckUp))   // use <= in case inaccuraces cause number slightly less than 1.0 (CAT: unordered too, 0x00418afd)
     {
         // Exactly opposite direction, so arbitrarily chose a direction and rotate that way
         physApplyRotToObj(&ship->rotatable,ship->guidance.nonstatvars.rotstrength[ROT_ABOUTZCW],ROT_ABOUTZCW);
@@ -548,7 +551,13 @@ bool32 aitrackHeadingFunc(SpaceObjRotImpTargGuidance *ship,vector *desiredHeadin
     dbgMessagef("Heading accuracy: %f",dotProdCheckHeading);
 #endif
 
-    if (dotProdCheckHeading <= -1.0)
+    // CAT (M3-R4 nan-positions): the x87 shape (aitrackHeadingFunc 0x00418eb9: fcom with -1.0, test ah,0x41): an UNORDERED
+    //      compare takes this branch too. A ship ordered to attack itself (Mission17's Taiidan teams get target lists
+    //      that include their own ships) flies to its own position, and vecCopyAndNormalize of that zero vector is a NaN
+    //      heading; the exe spins the ship about X and returns, the port's IEEE compare fell through and the NaN went
+    //      into the torque, the coordinate system and finally the position (the user's Mission17 black viewport:
+    //      the camera focused on a ship whose collision centre was NaN)
+    if ((dotProdCheckHeading <= -1.0) || isnan(dotProdCheckHeading))
     {
         // Exactly opposite direction, so arbitrarily chose a direction and rotate that way
         physApplyRotToObj(&ship->rotatable,ship->nonstatvars.rotstrength[ROT_ABOUTXCW],ROT_ABOUTXCW);

@@ -10,6 +10,7 @@
 //  Created 6/26/1997 by gshaw
 // =============================================================================
 
+#include "UnivUpdate.h"   // HWI-TEST (M3-R4 nan-positions): catNaNProbeOn
 #include "AIShip.h"
 #include "ShipLink.h"
 #include "Salvage.h"
@@ -1851,6 +1852,22 @@ noavoid:
                 }
                 else
                 {
+                    // HWI-TEST (M3-R4 nan-positions): the inputs of a normalise that would divide by zero
+                    if (catNaNProbeOn && ((desiredVel.x * desiredVel.x + desiredVel.y * desiredVel.y + desiredVel.z * desiredVel.z) == 0.0f ||
+                                          isnan(desiredVel.x) || isnan(desiredVel.y) || isnan(desiredVel.z)))
+                    {
+                        SpaceObjRotImpTarg *tgt = (shipcommand && shipcommand->ordertype.order == COMMAND_ATTACK && shipcommand->attack && shipcommand->attack->numTargets) ? shipcommand->attack->TargetPtr[0] : NULL;
+                        dbgMessagef("nanprobe-fly: tick=%u ship=%s#%u desiredVel=(%g,%g,%g) targetVec=(%g,%g,%g) dest=%s(%g,%g,%g) withVel=%s(%g,%g,%g) limitvel=%g flags=0x%x pos=(%g,%g,%g) target=%s objtype=%d tid=%u towner=%d self=%d tpos=(%g,%g,%g) tvel=(%g,%g,%g)",
+                                    (unsigned)universe.univUpdateCounter, ShipTypeToStr(ship->shiptype), (unsigned)ship->shipID.shipNumber,
+                                    desiredVel.x, desiredVel.y, desiredVel.z, targetVec.x, targetVec.y, targetVec.z,
+                                    destination ? "" : "NULL", destination ? destination->x : 0, destination ? destination->y : 0, destination ? destination->z : 0,
+                                    withVel ? "" : "NULL", withVel ? withVel->x : 0, withVel ? withVel->y : 0, withVel ? withVel->z : 0,
+                                    limitvel, (unsigned)aishipflags, ship->obj.posinfo.position.x, ship->obj.posinfo.position.y, ship->obj.posinfo.position.z,
+                                    tgt ? ((tgt->header.objtype == OBJ_ShipType) ? ShipTypeToStr(((Ship *)tgt)->shiptype) : "nonship") : "none", tgt ? (int)tgt->header.objtype : -1,
+                                    (tgt && tgt->header.objtype == OBJ_ShipType) ? (unsigned)((Ship *)tgt)->shipID.shipNumber : 0u, (tgt && tgt->header.objtype == OBJ_ShipType && ((Ship *)tgt)->playerowner) ? (int)((Ship *)tgt)->playerowner->playerIndex : -1, (tgt == (SpaceObjRotImpTarg *)ship) ? 1 : 0,
+                                    tgt ? tgt->obj.posinfo.position.x : 0, tgt ? tgt->obj.posinfo.position.y : 0, tgt ? tgt->obj.posinfo.position.z : 0,
+                                    tgt ? tgt->obj.posinfo.velocity.x : 0, tgt ? tgt->obj.posinfo.velocity.y : 0, tgt ? tgt->obj.posinfo.velocity.z : 0);
+                    }
                     vecCopyAndNormalize(&desiredVel,&desiredHead);
                     aitrackHeadingWithBank(ship,&desiredHead,FLYSHIP_HEADINGACCURACY,shipstaticinfo->shipOrDerelict.sinbank);
                 }

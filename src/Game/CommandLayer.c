@@ -85,6 +85,7 @@ static SpaceObjRotImpTarg *AttackClosestOpponent(Ship *ship,AttackCommand *attac
 static void AttackCleanup(struct CommandToDo *attacktodo);
 static AttackTargets *allocateMultipleAttackTargets(Ship *ship);
 static void pickMultipleAttackTargets(Ship *ship,AttackCommand *attack);
+void catAttackSelfCheck(const char *where, SelectCommand *sel, AttackCommand *att);   // HWI-TEST (M3-R4 nan-positions)
 void ChangeOrderToHalt(CommandToDo *alreadycommand);
 void CalculateMoveToPoints(SelectCommand *selection,vector from,vector to);
 bool32 processMoveToDo(CommandToDo *movetodo,bool32 passiveAttacked,sdword shipIndex,bool32 inFormation);
@@ -5876,6 +5877,7 @@ void InitExtraAttackInfo(SelectCommand *selection,AttackCommand *attack,bool32 f
 //      inlined in the exe with the same effect.
 void ChangeOrderToAttack(CommandToDo *alreadycommand,AttackCommand *attackcom,sdword catReason)
 {
+    catAttackSelfCheck("ChangeOrderToAttack", alreadycommand->selection, attackcom);   // HWI-TEST (M3-R4 nan-positions)
     AttackCommand *attack;
     udword sizeofattack;
     SelectCommand *selection = alreadycommand->selection;
@@ -6093,6 +6095,41 @@ static bool32 cat_clAttackerIsInWorldCB(Ship *ship)
     return (ship->obj.collMyBlob != NULL) && (ship->header.objlink.structptr != NULL) && !bitTest(ship->header.flags,SOF_Hide);
 }
 
+// HWI-TEST (M3-R4 nan-positions): a ship that is in both the selection and the target list of an attack attacks itself
+//      (fly-to-point to its own position: a zero vector, NaN heading). Logged where attack commands are made.
+#include "UnivUpdate.h"
+void catAttackSelfCheck(const char *where, SelectCommand *sel, AttackCommand *att)
+{
+    sdword i, j;
+
+    if (!catNaNProbeOn || (sel == NULL) || (att == NULL))
+    {
+        return;
+    }
+    for (i = 0; i < sel->numShips; i++)
+    {
+        for (j = 0; j < att->numTargets; j++)
+        {
+            if ((SpaceObjRotImpTarg *)sel->ShipPtr[i] == att->TargetPtr[j])
+            {
+                {
+                    sdword k, own = 0, other = 0, nonship = 0;
+                    for (k = 0; k < att->numTargets; k++)
+                    {
+                        if (att->TargetPtr[k]->header.objtype != OBJ_ShipType) nonship++;
+                        else if (((Ship *)att->TargetPtr[k])->playerowner == sel->ShipPtr[i]->playerowner) own++;
+                        else other++;
+                    }
+                    dbgMessagef("nanprobe-selfattack: tick=%u where=%s ship=%s#%u owner=%d sel=%d targets=%d (own=%d other=%d nonship=%d) targetindex=%d",
+                                (unsigned)universe.univUpdateCounter, where, ShipTypeToStr(sel->ShipPtr[i]->shiptype),
+                                (unsigned)sel->ShipPtr[i]->shipID.shipNumber, sel->ShipPtr[i]->playerowner ? (int)sel->ShipPtr[i]->playerowner->playerIndex : -1,
+                                (int)sel->numShips, (int)att->numTargets, (int)own, (int)other, (int)nonship, (int)j);
+                }
+            }
+        }
+    }
+}
+
 /*-----------------------------------------------------------------------------
     Name        : clAttack
     Description : Command to attack
@@ -6107,6 +6144,7 @@ static bool32 cat_clAttackerIsInWorldCB(Ship *ship)
 //      catSavedMove, which clProcess resumes when the attack ends (clAttack 0x00448aa3).
 void clAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *attackcom)
 {
+    catAttackSelfCheck("clAttack", selectcom, attackcom);   // HWI-TEST (M3-R4 nan-positions)
     SelectCommand *copycom;
     udword sizeofcopycom;
     Node *curnode;
@@ -6206,6 +6244,7 @@ void clAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *att
 ----------------------------------------------------------------------------*/
 void ChangeOrderToPassiveAttack(CommandToDo *alreadycommand,AttackCommand *attackcom)
 {
+    catAttackSelfCheck("ChangeOrderToPassiveAttack", alreadycommand->selection, attackcom);   // HWI-TEST (M3-R4 nan-positions)
     AttackCommand *attack;
     udword sizeofattack;
     SelectCommand *selection = alreadycommand->selection;
@@ -6336,6 +6375,7 @@ static bool32 cat_clCanChangeOrderToPassiveAttack(CommandToDo *alreadycommand,At
 //      RemoveShipsFromDoingStuff takes reason 7
 void clPassiveAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *attackcom)
 {
+    catAttackSelfCheck("clPassiveAttack", selectcom, attackcom);   // HWI-TEST (M3-R4 nan-positions)
     CommandToDo *newcommand;
     CommandToDo *alreadycommand;
     SelectCommand *selection;

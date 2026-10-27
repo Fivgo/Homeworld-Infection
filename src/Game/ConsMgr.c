@@ -1285,6 +1285,7 @@ void cmBuildTaskFunction(void)
     }
     if (keyIsHit(BACKSPACEKEY))
     {
+        dbgMessagef("speechlog: skip by backspace (build task) cm=%d", (int)cmActive);     // HWI-TEST (M3-R4 speech-log)
         smSensorsSkip(NULL, NULL);          // CAT: keyScanCode[VK_BACK] (0x00c36b88) skips the sensors speech
     }
     if (universe.curPlayerPtr->resourceUnits >= 300)
@@ -1808,6 +1809,10 @@ void cmClose(char *string, featom *atom)
     if (!catCmTutEnabled(0x2000000))
     {
         return;
+    }
+    if (cmBaseRegion != NULL)
+    {
+        dbgMessagef("speechlog: build manager closes tick=%u", (unsigned)universe.univUpdateCounter);     // HWI-TEST (M3-R4 speech-log)
     }
 
     cmRenderEverythingCounter = 0;
@@ -3374,6 +3379,7 @@ sdword cmConstructionBegin(regionhandle region, smemsize ID, udword event, udwor
     {
         return 0;
     }
+    dbgMessagef("speechlog: build manager opens tick=%u sensors=%d", (unsigned)universe.univUpdateCounter, (int)smSensorsActive);     // HWI-TEST (M3-R4 speech-log)
     catCmSensorsWereOpen = smSensorsActive;
     if (smSensorsActive)
     {

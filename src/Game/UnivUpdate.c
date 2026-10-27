@@ -2890,6 +2890,107 @@ void cat_univLimitProtectedShipSpeed(void)
     }
 }
 
+// HWI-TEST (M3-R4 nan-positions, not in the exe): /catNaNProbe. The user's Mission 17 black viewport: ships whose
+//      positions went NaN (univCheckShipState kills them; the camera focused on them went NaN too). The probe scans every
+//      live ship for a NaN in its physics state after each phase of univUpdate and after its own physics step, and
+//      logs the first sighting of each ship once (nanprobe: lines), so the phase that produces the NaN is named.
+bool32 catNaNProbeOn = FALSE;
+static uword catNaNProbeReported[64];
+static sdword catNaNProbeNumReported = 0;
+
+static udword catNaNMaskVec(vector *v)
+{
+    return (isnan(v->x) || isnan(v->y) || isnan(v->z)) ? 1 : 0;
+}
+
+static udword catNaNMask(Ship *ship)
+{
+    udword mask = 0;
+    real32 *e = (real32 *)&ship->rotatable.rotinfo.coordsys;
+    sdword i;
+
+    if (catNaNMaskVec(&ship->obj.posinfo.position)) mask |= 0x01;
+    if (catNaNMaskVec(&ship->obj.posinfo.velocity)) mask |= 0x02;
+    if (catNaNMaskVec(&ship->obj.posinfo.force))    mask |= 0x04;
+    for (i = 0; i < 9; i++)
+    {
+        if (isnan(e[i])) { mask |= 0x08; break; }
+    }
+    if (catNaNMaskVec(&ship->rotatable.rotinfo.rotspeed))  mask |= 0x10;
+    if (catNaNMaskVec(&ship->rotatable.rotinfo.torque))    mask |= 0x20;
+    if (catNaNMaskVec(&ship->impactable.collInfo.collPosition)) mask |= 0x40;
+    return mask;
+}
+
+void catNaNProbeShip(Ship *ship, const char *phase)
+{
+    udword mask;
+    sdword i;
+    vector *p, *v, *f, *r, *t;
+
+    if (!catNaNProbeOn || (ship->header.flags & SOF_Dead))
+    {
+        return;
+    }
+    mask = catNaNMask(ship);
+    if (mask == 0)
+    {
+        return;
+    }
+    for (i = 0; i < catNaNProbeNumReported; i++)
+    {
+        if (catNaNProbeReported[i] == ship->shipID.shipNumber)
+        {
+            return;
+        }
+    }
+    if (catNaNProbeNumReported < 64)
+    {
+        catNaNProbeReported[catNaNProbeNumReported++] = ship->shipID.shipNumber;
+    }
+    p = &ship->obj.posinfo.position; v = &ship->obj.posinfo.velocity; f = &ship->obj.posinfo.force;
+    r = &ship->rotatable.rotinfo.rotspeed; t = &ship->rotatable.rotinfo.torque;
+    dbgMessagef("nanprobe: tick=%u phase=%s ship=%s#%u race=%s owner=%d flags=0x%x special=0x%x special2=0x%x cat18=0x%x mask=0x%x order=%d attr=0x%x flightman=%u aistate=%u atk=%u hs=%d clamped=%d moving=0x%x pos=(%g,%g,%g) vel=(%g,%g,%g) force=(%g,%g,%g) rotspeed=(%g,%g,%g) torque=(%g,%g,%g)",
+                (unsigned)universe.univUpdateCounter, phase, ShipTypeToStr(ship->shiptype), (unsigned)ship->shipID.shipNumber,
+                ShipRaceToStr(ship->shiprace), ship->playerowner ? (int)ship->playerowner->playerIndex : -1,
+                (unsigned)ship->header.flags, (unsigned)ship->shipOrDerelict.specialFlags, (unsigned)ship->shipOrDerelict.specialFlags2,
+                (unsigned)ship->header.catFlags18, (unsigned)mask,
+                ship->command ? (int)ship->command->ordertype.order : -1, ship->command ? (unsigned)ship->command->ordertype.attributes : 0,
+                (unsigned)ship->flightman, (unsigned)ship->shipOrDerelict.aistate, (unsigned)ship->aistateattack,
+                ship->shipSinglePlayerGameInfo ? (int)ship->shipSinglePlayerGameInfo->hsState : -1,
+                (ship->guidance.clampInfo != NULL) ? 1 : 0, (unsigned)ship->obj.posinfo.isMoving,
+                p->x, p->y, p->z, v->x, v->y, v->z, f->x, f->y, f->z, r->x, r->y, r->z, t->x, t->y, t->z);
+}
+
+void catNaNProbe(const char *phase)
+{
+    Node *node;
+
+    if (!catNaNProbeOn)
+    {
+        return;
+    }
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        catNaNProbeShip((Ship *)listGetStructOfNode(node), phase);
+    }
+    // the bullets too (a bullet fired at a NaN direction), at most 16 sightings
+    for (node = universe.BulletList.head; node != NULL; node = node->next)
+    {
+        Bullet *bullet = (Bullet *)listGetStructOfNode(node);
+        static sdword bulletsReported = 0;
+        if ((bulletsReported < 16) && (catNaNMaskVec(&bullet->obj.posinfo.position) || catNaNMaskVec(&bullet->obj.posinfo.velocity)))
+        {
+            bulletsReported++;
+            dbgMessagef("nanprobe-bullet: tick=%u phase=%s type=%d owner=%s#%u pos=(%g,%g,%g) vel=(%g,%g,%g)",
+                        (unsigned)universe.univUpdateCounter, phase, (int)bullet->bulletType,
+                        bullet->owner ? ShipTypeToStr(bullet->owner->shiptype) : "none", bullet->owner ? (unsigned)bullet->owner->shipID.shipNumber : 0u,
+                        bullet->obj.posinfo.position.x, bullet->obj.posinfo.position.y, bullet->obj.posinfo.position.z,
+                        bullet->obj.posinfo.velocity.x, bullet->obj.posinfo.velocity.y, bullet->obj.posinfo.velocity.z);
+        }
+    }
+}
+
 /*-----------------------------------------------------------------------------
     Name        : univUpdateAllPosVelShips
     Description : Exclusive physics updating for ships
@@ -2935,6 +3036,7 @@ void univUpdateAllPosVelShips()
             else
             {
                 physUpdateObjPosVelShip(ship,universe.phystimeelapsed);
+                catNaNProbeShip(ship, "physics");           // HWI-TEST (M3-R4 nan-positions)
             }
             univSetupShipForControl(ship);
         }
@@ -7375,7 +7477,8 @@ void univCheckShipState(Ship *ship)
     //       Since I encountered in mission 10 it might be the radiation effect?
     if ((ship->header.flags & SOF_Dead) == 0) {
       if (isnan(ship->obj.posinfo.position.x) || isnan(ship->obj.posinfo.position.y) || isnan(ship->obj.posinfo.position.z)) {
-        dbgMessage("univCheckShipState(): Ship position contains NaN! Killing it.");
+        dbgMessagef("univCheckShipState(): Ship position contains NaN! Killing it. (%s#%u owner %d)", ShipTypeToStr(ship->shiptype),
+                    (unsigned)ship->shipID.shipNumber, ship->playerowner ? (int)ship->playerowner->playerIndex : -1);   // HWI-TEST (M3-R4 nan-positions): the ship named
         ship->targetable.health = 0;
         AddShipToDeleteShipList(ship,-1,1);
       }
@@ -9923,6 +10026,7 @@ bool32 univUpdate(real32 phystimeelapsed)
         return TRUE;
     }
 
+    catNaNProbe("frame-start");                      // HWI-TEST (M3-R4 nan-positions)
     PTSLAB(1,"collblobs");
 
     if (firstTime || (UNIVERSE_WOODPECKER(REFRESH_COLLBLOB_RATE, REFRESH_COLLBLOB_FRAME)))
@@ -10013,8 +10117,10 @@ bool32 univUpdate(real32 phystimeelapsed)
             UpdateMidLevelHyperspacingShips();
     }
 
+    catNaNProbe("pre-bulmis");                      // HWI-TEST (M3-R4 nan-positions)
     PTSLAB(3,"collbulmis");
     collCheckAllBulletMissileCollisions();
+    catNaNProbe("bulmis");                      // HWI-TEST (M3-R4 nan-positions)
     PTEND(3);
 
     PTSLAB(4,"compplayer");
@@ -10022,6 +10128,7 @@ bool32 univUpdate(real32 phystimeelapsed)
     cratesUpdate();
 
     aiplayerUpdateAll();
+    catNaNProbe("aiplayer");                      // HWI-TEST (M3-R4 nan-positions)
 #if HWI_ORACLE
     // HWI-TEST (M2-R8 kas-runtime-mission01, not in the exe): the mission self-test's scripted player acts where the KAS
     //      scripts act (after the AI players, before the dead ships are deleted), so its events take the game's paths
@@ -10039,8 +10146,10 @@ bool32 univUpdate(real32 phystimeelapsed)
     if (!nisUniversePause)
     {
         clProcess(&universe.mainCommandLayer);
+    catNaNProbe("clProcess");                      // HWI-TEST (M3-R4 nan-positions)
 
         clPostProcess(&universe.mainCommandLayer);
+    catNaNProbe("clPostProcess");                      // HWI-TEST (M3-R4 nan-positions)
     }
 
     PTENDLITTLE(2);
@@ -10049,11 +10158,13 @@ bool32 univUpdate(real32 phystimeelapsed)
     //      memory are not processed in univUpdate 0x0054c3f0)
 
     univUpdateMineWallFormations();
+    catNaNProbe("minewall");                      // HWI-TEST (M3-R4 nan-positions)
 
     PTEND(5);
 
     PTSLAB(7,"collbump");
     collCheckAllBumpCollisions();
+    catNaNProbe("bump");                      // HWI-TEST (M3-R4 nan-positions)
     PTEND(7);
 
     PTSLAB(6,"updateobjpos");
@@ -10072,6 +10183,7 @@ bool32 univUpdate(real32 phystimeelapsed)
         // CAT: then the blasts and the bullet effects a load asked for (cat_blastUpdateAll 0x00516320 [M2-R4 combat];
         //      cat_univRecreateBulletEffectsIfNeeded 0x0054d330)
         cat_blastUpdateAll();
+    catNaNProbe("blast");                      // HWI-TEST (M3-R4 nan-positions)
         cat_univRecreateBulletEffectsIfNeeded();
 
     }
@@ -10084,6 +10196,7 @@ bool32 univUpdate(real32 phystimeelapsed)
     PTEND(6);
 
     univDeleteDeadShips();
+    catNaNProbe("deletedead");                      // HWI-TEST (M3-R4 nan-positions)
     univDeleteDeadResources();
     univDeleteDeadDerelicts();
     univDeleteDeadMissiles();

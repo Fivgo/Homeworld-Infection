@@ -20,6 +20,7 @@
 #include "FastMath.h"
 #include "Select.h"
 #include "Sensors.h"
+#include <math.h>
 #include "Ships.h"
 #include "SinglePlayer.h"
 #include "StatScript.h"
@@ -285,6 +286,13 @@ void ccGetShipCollCenter(Ship *ship, vector *pos, real32 *rad)
 static const double TAN_FOVConstant = 1.303225;
 static const double INV_TAN_FOVConstant = 0.767327207;
 
+// HWI-FIX (M3-R4 nan-positions): TRUE when a focus ship's collision centre is a usable number
+static bool32 catFocusPositionFinite(Ship *ship)
+{
+    vector *p = &ship->impactable.collInfo.collPosition;
+    return !(isnan(p->x) || isnan(p->y) || isnan(p->z));
+}
+
 udword NewSetFocusPoint(CameraStackEntry *curentry, real32 *targetDistance)
 {
 udword numShipsFocusOn = curentry->focus.numShips;
@@ -308,17 +316,38 @@ DVect LookToObj;
         return FOCUS_NO_SHIPS;
     }
 
+    // HWI-FIX (M3-R4 nan-positions, not in the exe): a focus ship whose collision centre is not a number would make the
+    //      look-at point, the eye and the whole viewport NaN (the user's Mission17 black screen on focusing group 1);
+    //      such ships are left out of the box and of the zoom, and with none left the focus is refused. The exe never has
+    //      them (its x87 compares swallow the NaN in aitrackHeadingFunc, now ported); this is the safety net.
+    for (i=0;i<numShipsFocusOn;i++)
+    {
+        if (catFocusPositionFinite(curentry->focus.ShipPtr[i]))
+        {
+            break;
+        }
+    }
+    if (i == numShipsFocusOn)
+    {
+        if(targetDistance)
+            *targetDistance = closezoom;
+        return FOCUS_NO_SHIPS;
+    }
     // CAT: the bounding box of the focus ships' collision centres (NewSetFocusPoint 0x0042cf60 reads them directly)
-    ship = curentry->focus.ShipPtr[0];
+    ship = curentry->focus.ShipPtr[i];
     position = ship->impactable.collInfo.collPosition;
 
     minx = maxx = position.x;
     miny = maxy = position.y;
     minz = maxz = position.z;
 
-    for (i=1;i<numShipsFocusOn;i++)
+    for (i++;i<numShipsFocusOn;i++)
     {
         ship = curentry->focus.ShipPtr[i];
+        if (!catFocusPositionFinite(ship))
+        {
+            continue;   // HWI-FIX (M3-R4 nan-positions)
+        }
         position = ship->impactable.collInfo.collPosition;
 
         if (position.x < minx) minx = position.x;
@@ -343,6 +372,10 @@ DVect LookToObj;
     for(i=0; i<numShipsFocusOn; i++)
     {
         ship = curentry->focus.ShipPtr[i];
+        if (!catFocusPositionFinite(ship))
+        {
+            continue;   // HWI-FIX (M3-R4 nan-positions)
+        }
         position = ship->impactable.collInfo.collPosition;
         radius = ship->staticinfo->common.staticCollInfo.collspheresize;
 

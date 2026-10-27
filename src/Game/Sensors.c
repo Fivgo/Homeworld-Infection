@@ -2644,6 +2644,11 @@ void smSensorsClose(char *name, featom *atom)
 
 void smSensorsSkip(char *name, featom *atom)
 {
+    {   // HWI-TEST (M3-R4 speech-log): the skip and its circumstances
+        extern bool32 cmActive;
+        dbgMessagef("speechlog: sensors skip closecaption=%d fleetintel=%d sensors=%d cm=%d tick=%u", (int)(subRegion[STR_CloseCaptioned].bEnabled && (subRegion[STR_CloseCaptioned].cardIndex > 0)),
+                    (int)smFleetIntel, (int)smSensorsActive, (int)cmActive, (unsigned)universe.univUpdateCounter);
+    }
     // CAT (M2-R6 managers, sensors): smSensorsSkip 0x0050cc60: with close-captioned text showing (its region
     //      enabled, a card in use: 0x00abd2c2 / 0x00abd2d0) only that region fades out and the speech goes on
     if (subRegion[STR_CloseCaptioned].bEnabled && (subRegion[STR_CloseCaptioned].cardIndex > 0))
