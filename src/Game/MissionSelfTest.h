@@ -64,5 +64,6 @@ bool32 catLoadGameSelfTestRequested(void);
 void catLoadGameSelfTestStart(void);
 void catLoadGameSelfTestTick(void);
 void catInfectAtSet(char *string);                  // HWI-TEST (M3-R4 infect-convert): /catInfectAt <tick>:<ShipType>
+void catTooltipAtSet(char *string);                 // HWI-TEST (M3-R4 crystal-tooltip): /catTooltipAt <tick>:<ShipType>
 
 #endif

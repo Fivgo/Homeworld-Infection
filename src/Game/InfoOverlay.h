@@ -83,6 +83,8 @@ void cat_moObjectivesDraw(void);                                                
 sdword cat_moClickedFlagConsume(void);                                                      // 0x004a7980
 sdword cat_moMouseOverObjective(void);                                                      // 0x004a7990
 void cat_moTooltipDraw(void);                                                               // 0x004a79d0
+void cat_moTooltipText(SpaceObj *obj, sdword overType, char *text, color *outline, color *textColour, color *box);
+                                        // HWI: the text 0x004a79d0 builds inline, for HWI-TEST /catTooltipAt
 void cat_moSupportUnitsDraw(void);                                                          // 0x004a7fe0
 void cat_moObjectivesFrameDraw(void);                                                       // 0x004a83b0
 void cat_moGameMessagesDraw(void);                                                          // 0x004a8650

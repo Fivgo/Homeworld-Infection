@@ -43,6 +43,7 @@
 #include "GamePick.h"
 #include "SaveGame.h"
 #include "BeastWeapon.h"                 // HWI-TEST (M3-R4 infect-convert)
+#include "Crystal.h"
 #include "SpaceObj.h"
 #include "StringSupport.h"
 #include "File.h"
@@ -3926,6 +3927,8 @@ void catMissionSelfTestPlay(void)
     }
 }
 
+static void catTooltipTick(void);                       // HWI-TEST (M3-R4 crystal-tooltip), defined below
+
 void catMissionSelfTestTick(void)
 {
     sdword limit = (catMissionTestTicks > 0) ? catMissionTestTicks : catMissionTestTutorialTicks;
@@ -3934,6 +3937,7 @@ void catMissionSelfTestTick(void)
     {
         return;
     }
+    catTooltipTick();                                       // HWI-TEST (M3-R4 crystal-tooltip)
     if (catMtNextLevelTick < 0)
     {
         catMtLevelTicks = universe.univUpdateCounter;
@@ -4245,6 +4249,102 @@ static void catInfectTick(sdword sinceLoad)
                         (int)catInfectCountType(catInfectOwner, catInfectNewType), (int)catInfectCountType(NULL, catInfectNewType));
         }
     }
+}
+// HWI-TEST (M3-R4 crystal-tooltip): /catTooltipAt <tick>:<ShipType>: in the mission self-test, at that universe tick the
+//      first ship of that type in the list is put under the cursor as the mouse code does (selShipUnderMouse: the owner's,
+//      a friendly, an ally's or an enemy's classification) and the tooltip's text is built (cat_moTooltipText, no draw) and
+//      reported ("tooltiptest:" lines; a crystal's line adds its resource units and its statics' value). The cursor state
+//      is put back. Read only otherwise.
+// (InfoOverlay.h and mouse.h are not included: their declarations collide with this file's "objectives")
+extern SpaceObj *mouseCursorObjPtr;
+extern sdword mouseCursorOverShipType;
+extern real32 mouseCursorOverDistance;
+void cat_moTooltipText(SpaceObj *obj, sdword overType, char *text, color *outline, color *textColour, color *box);
+static sdword catTooltipAtTick = -1;
+static char catTooltipAtType[64] = "";
+static bool32 catTooltipReported = FALSE;
+void catTooltipAtSet(char *string)
+{
+    char *colon = strchr(string, ':');
+
+    if (colon == NULL)
+    {
+        catTooltipAtTick = -1;
+        return;
+    }
+    catTooltipAtTick = (sdword)strtol(string, NULL, 10);
+    strncpy(catTooltipAtType, colon + 1, sizeof(catTooltipAtType) - 1);
+    catTooltipAtType[sizeof(catTooltipAtType) - 1] = '\0';
+}
+static void catTooltipTick(void)
+{
+    Node *node;
+    ShipType type;
+    Ship *target = NULL;
+    SpaceObj *oldObj;
+    sdword oldOver;
+    real32 oldDistance;
+    char text[256];
+    color outline, textColour, box;
+
+    if ((catTooltipAtTick < 0) || catTooltipReported || ((sdword)universe.univUpdateCounter < catTooltipAtTick))
+    {
+        return;
+    }
+    catTooltipReported = TRUE;
+    type = StrToShipType(catTooltipAtType);
+    if ((type >= 0) && (type < TOTAL_NUM_SHIPS))
+    {
+        for (node = universe.ShipList.head; node != NULL; node = node->next)
+        {
+            Ship *s = (Ship *)listGetStructOfNode(node);
+
+            if ((s->shiptype == type) && !bitTest(s->header.flags, SOF_Hide))
+            {
+                target = s;
+                break;
+            }
+        }
+    }
+    if (target == NULL)
+    {
+        dbgMessagef("tooltiptest: no ship tick=%u type='%s'", (unsigned)universe.univUpdateCounter, catTooltipAtType);
+        return;
+    }
+    oldObj = mouseCursorObjPtr;
+    oldOver = mouseCursorOverShipType;
+    oldDistance = mouseCursorOverDistance;
+    mouseCursorObjPtr = NULL;
+    mouseCursorOverShipType = -3;                           // MC_NO_SHIP (mouse.h)
+    mouseCursorOverDistance = REALlyBig;
+    selShipUnderMouse((SpaceObjRotImpTarg *)target);
+    if (mouseCursorObjPtr != (SpaceObj *)target)
+    {
+        dbgMessagef("tooltiptest: not under the cursor tick=%u ship=%s#%u over=%d", (unsigned)universe.univUpdateCounter,
+                    ShipTypeToStr(type), (unsigned)target->shipID.shipNumber, (int)mouseCursorOverShipType);
+    }
+    else
+    {
+        cat_moTooltipText(mouseCursorObjPtr, mouseCursorOverShipType, text, &outline, &textColour, &box);
+        if (cat_shipIsCrystal(target))
+        {
+            dbgMessagef("tooltiptest: tick=%u ship=%s#%u owner=%d over=%d text=\"%s\" crystal units=%d statics=%d",
+                        (unsigned)universe.univUpdateCounter, ShipTypeToStr(type), (unsigned)target->shipID.shipNumber,
+                        (int)((target->playerowner != NULL) ? target->playerowner->playerIndex : -1), (int)mouseCursorOverShipType,
+                        text, (int)((CrystalSpec *)target->ShipSpecifics)->resourceValue,
+                        (int)((CrystalStatics *)target->staticinfo->custstatinfo)->resourceValue);
+        }
+        else
+        {
+            dbgMessagef("tooltiptest: tick=%u ship=%s#%u owner=%d over=%d text=\"%s\"",
+                        (unsigned)universe.univUpdateCounter, ShipTypeToStr(type), (unsigned)target->shipID.shipNumber,
+                        (int)((target->playerowner != NULL) ? target->playerowner->playerIndex : -1), (int)mouseCursorOverShipType,
+                        text);
+        }
+    }
+    mouseCursorObjPtr = oldObj;
+    mouseCursorOverShipType = oldOver;
+    mouseCursorOverDistance = oldDistance;
 }
 static sdword catLoadGameObjectives = 0;
 static bool32 catLoadGameTraining = FALSE;      // M2-R9 missions-10-17: a tutorial lesson's save (SavedGames/Training)

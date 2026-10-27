@@ -32,6 +32,7 @@
 #include "Teams.h"
 #include "CameraCommand.h"
 #include "ConsMgr.h"
+#include "Crystal.h"
 #include "FEFlow.h"
 #include "FontReg.h"
 #include "Globals.h"
@@ -1201,42 +1202,18 @@ sdword cat_moMouseOverObjective(void)
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : cat_moTooltipDraw                                 0x004a79d0
-    Description : The tooltip under the cursor after the delay: the object's name (and resource amount), in the
-                  colours of its kind (resource, missile / mine, enemy, ally, own).
+    Name        : cat_moTooltipText
+    Description : The tooltip's text and colours for the object under the cursor (obj, classified as
+                  mouseCursorOverShipType does: overType). HWI: the exe's 0x004a79d0 builds them inline in the draw;
+                  the recreation builds them here so HWI-TEST /catTooltipAt can log the text without a draw.
 ----------------------------------------------------------------------------*/
-void cat_moTooltipDraw(void)
+void cat_moTooltipText(SpaceObj *obj, sdword overType, char *text, color *outlineOut, color *textOut, color *boxOut)
 {
-    fonthandle font = fontMakeCurrent(catMoTooltipFont);
-    SpaceObj *obj = mouseCursorObjPtr;
-    Ship *ship = (Ship *)mouseCursorObjPtr;
-    rectangle rect;
-    char text[256];
-    color outline, textColour, box;
-    sdword x, y;
+    Ship *ship = (Ship *)obj;
+    color outline = catMoTipOwnOutline, textColour = catMoTipOwnText, box = catMoTipOwnBox;
 
-    // the exe returns before restoring the font
-    if (catMrRightMode != 0 || catIoHover || CAT_POPUP_MENU_OPEN() || obj == NULL || mrDisabled)
-    {
-        return;
-    }
-    if (catMoTooltipObject != obj)
-    {
-        catMoTooltipObject = obj;
-        catMoTooltipTime = catMoTooltipDelay + cat_taskRealTimeElapsed;
-    }
-    if (cat_taskRealTimeElapsed < catMoTooltipTime)
-    {
-        return;
-    }
-    if (!catMoOptions()->tooltips.show || mouseCursorOverShipType == -3)
-    {
-        fontMakeCurrent(font);
-        return;
-    }
-    x = CAT_MO_TOOLTIP_DX + mouseCursorXPosition;
-    y = CAT_MO_TOOLTIP_DY + mouseCursorYPosition;
-    if (mouseCursorOverShipType == -2)
+    text[0] = '\0';
+    if (overType == -2)
     {   // a resource, cloud or missile
         outline = catMoTipObjOutline; textColour = catMoTipObjText; box = catMoTipObjBox;
         text[0] = '\0';
@@ -1281,7 +1258,7 @@ void cat_moTooltipDraw(void)
             strcpy(text, strGetString(strMO_Tooltip_Resource));
         }
     }
-    else if (mouseCursorOverShipType == -1 && !bitTest(obj->header.flags, SOF_Hide))
+    else if (overType == -1 && !bitTest(obj->header.flags, SOF_Hide))
     {   // an enemy ship, as the player sees it
         outline = catMoTipEnemyOutline; textColour = catMoTipEnemyText; box = catMoTipEnemyBox;
         if (!bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic))
@@ -1316,7 +1293,7 @@ void cat_moTooltipDraw(void)
             sprintf(text, "%s", ShipTypeToNiceStr(cat_mimicGetApparentShipType(ship)));
         }
     }
-    else if (mouseCursorOverShipType == -4)
+    else if (overType == -4)
     {   // an allied ship
         if (!singlePlayerGame)
         {
@@ -1357,11 +1334,55 @@ void cat_moTooltipDraw(void)
             }
         }
         else
-        {
-            sprintf(text, "%s (%d)", ShipTypeToNiceStr(ship->shiptype), cat_mimicGetApparentObject(ship));
+        {   // HWI-FIX (M3-R4 crystal-tooltip): a crystal's own resource units (CrystalSpec.resourceValue, Ship+0x638: what
+            //      the exe prints, 0x004a7dfd mov ecx,[eax+0x638]). The port printed the mimic's apparent asteroid value
+            //      (cat_mimicGetApparentObject 0x005b9940: Ship+0x72c behind the mimic flag, 0 for any other ship), so
+            //      every crystal read "(0)" while it paid its 6000 / 10000 RUs when dissolved.
+            sprintf(text, "%s (%d)", ShipTypeToNiceStr(ship->shiptype), (int)((CrystalSpec *)ship->ShipSpecifics)->resourceValue);
             outline = catMoTipObjOutline; textColour = catMoTipObjText; box = catMoTipObjBox;
         }
     }
+    *outlineOut = outline;
+    *textOut = textColour;
+    *boxOut = box;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_moTooltipDraw                                 0x004a79d0
+    Description : The tooltip under the cursor after the delay: the object's name (and resource amount), in the
+                  colours of its kind (resource, missile / mine, enemy, ally, own).
+----------------------------------------------------------------------------*/
+void cat_moTooltipDraw(void)
+{
+    fonthandle font = fontMakeCurrent(catMoTooltipFont);
+    SpaceObj *obj = mouseCursorObjPtr;
+    rectangle rect;
+    char text[256];
+    color outline, textColour, box;
+    sdword x, y;
+
+    // the exe returns before restoring the font
+    if (catMrRightMode != 0 || catIoHover || CAT_POPUP_MENU_OPEN() || obj == NULL || mrDisabled)
+    {
+        return;
+    }
+    if (catMoTooltipObject != obj)
+    {
+        catMoTooltipObject = obj;
+        catMoTooltipTime = catMoTooltipDelay + cat_taskRealTimeElapsed;
+    }
+    if (cat_taskRealTimeElapsed < catMoTooltipTime)
+    {
+        return;
+    }
+    if (!catMoOptions()->tooltips.show || mouseCursorOverShipType == -3)
+    {
+        fontMakeCurrent(font);
+        return;
+    }
+    x = CAT_MO_TOOLTIP_DX + mouseCursorXPosition;
+    y = CAT_MO_TOOLTIP_DY + mouseCursorYPosition;
+    cat_moTooltipText(obj, mouseCursorOverShipType, text, &outline, &textColour, &box);
     rect.x0 = x - 5;
     rect.y0 = y - 5;
     rect.x1 = fontWidth(text) + 5 + x;
