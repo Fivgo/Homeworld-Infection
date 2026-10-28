@@ -98,3 +98,13 @@ lock on the focus cancels the focus's angular motion and nobody else's, which is
    untouched, so the oracle stream is bit-identical; with the toggle off nothing changes. Measurement: HWI-TEST
    `/catMadProbe` (madprobe: lines: the tick's pose and the frame's pose of every animated object in an interpolated
    frame) in a `--scene` `--real-clock` run.
+9. **M3-R4 (module-spin-interp, docs/m3-r4-module-spin-interp.md): an ejected module's spin.** The ore canister a
+   module launch jettisons from the Kuun-Lan (`cat_moduleShipEject` from `processLaunchShipToDo`: Mission02's cutscene
+   when the first module under it is built; a module that lost its host too) drifts on physics (item 0 blends it) but
+   spins by `spinAngle += 0.05` once per universe tick (`ModuleShipHouseKeep`), and the renderer drew that angle in
+   every frame of the tick (the user's "animation at the low refresh rate"). Now `cat_moduleShipDrawnSpinAngle` gives
+   the renderer `spinAngle + alpha * 0.05` (the same alpha as item 0 / 8, through `miRenderAlpha`, only while drawing)
+   while the next housekeep would step it (ejecting and the next tick within `ejectEndTime`); the simulation's angle
+   is never written, so the stream is bit-identical and the toggle off draws the exe's angle. Measurement: HWI-TEST
+   `/catMadProbe` also logs `spinprobe:` lines (the tick's angle and the frame's), and scene kind `eject` (the ore-can
+   armour jettisoned at the order tick as a launch does, the camera on it) in a Mission02 `--scene --real-clock` run.

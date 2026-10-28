@@ -492,7 +492,9 @@
 #                    asteroid), E (the nearest derelict, else a no-owner ship), F (a module clamped to the mothership),
 #                    G (the wingman of three ships of one type, g0 / g2 the others), H (the nearest free ship and host
 #                    ThisShipCanDockWith accepts: support, or a Worker's deposit), W (a Worker) and M (the mothership)
-#                    [audit: H / W / M as MotionTest.c picks and orders them], focuses the camera on A (kind recon; follow: on B) at its zenith (declination -85, the
+#                    [audit: H / W / M as MotionTest.c picks and orders them], O (the ore-can armour clamped to the mothership; kind eject,
+#                    M3-R4 module-spin-interp: the camera on O, no Recons needed, at tick 48 O is jettisoned as a module launch does and
+#                    M stays put; PASS = frames sampled and O still ejecting; with /catMadProbe: spinprobe: lines), focuses the camera on A (kind recon; follow: on B) at its zenith (declination -85, the
 #                    eye straight above) and snaps it there (<distance> > 0: that camera distance; 0: the focus zoom); at
 #                    tick 48 the command layer orders B <move> units (default 500) straight ahead, C 1,500 units across
 #                    A, G's three ships into delta formation and 2,000 units along -x, H to dock at its host, W to harvest

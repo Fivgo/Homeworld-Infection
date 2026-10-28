@@ -245,6 +245,7 @@ sdword madAnimIndexFindByName(madheader *header, char *name);
 sdword madGunBindingIndexFindByName(struct ShipStaticInfo *info, char *name);
 sdword madBindingIndexFindByName(madheader *header, char *name);
 void madAnimBindingMatrix(matrix *destMatrix, vector *destPos, struct Ship *ship, sdword gunIndex, sdword madIndex);
+extern bool32 catMadProbeOn;                            // HWI-TEST (M3-R4 mesh-anim-interp): /catMadProbe (madprobe: / spinprobe: lines)
 
 void PreFix_madBindings(struct Ship *ship,struct Ship *fixcontents);
 void Save_madBindings(struct Ship *ship);

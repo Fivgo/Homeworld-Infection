@@ -3391,7 +3391,8 @@ void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
                         vector *centre = &ship->staticinfo->common.staticCollInfo.collsphereoffset;
                         ModuleShipSpec *spec = (ModuleShipSpec *)ship->ShipSpecifics;
                         glTranslatef(centre->x, centre->y, centre->z);
-                        glRotatef(spec->spinAngle * 57.295776f, spec->spinAxis.x, spec->spinAxis.y, spec->spinAxis.z);
+                        // HWI-FEATURE(motion-interp) module spin (M3-R4 module-spin-interp): the tick's angle stepped on by alpha
+                        glRotatef(cat_moduleShipDrawnSpinAngle(ship) * 57.295776f, spec->spinAxis.x, spec->spinAxis.y, spec->spinAxis.z);
                         glTranslatef(-centre->x, -centre->y, -centre->z);
                     }
                     shPushLightMatrix(&coordMatrixForGL);

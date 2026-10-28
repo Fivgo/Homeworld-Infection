@@ -18,6 +18,7 @@
 #include "ClassDefs.h"
 #include "Debug.h"
 #include "MeshAnim.h"
+#include "MotionInterp.h"   // HWI-FEATURE(motion-interp) module spin: miRenderAlpha / miRenderDrawing
 #include "NIS.h"
 #include "Randy.h"
 #include "ShipDisable.h"
@@ -255,6 +256,47 @@ void cat_moduleShipEject(Ship *module, bool32 explodeWhenDone, real32 delay, rea
     cat_shipSetDisableReason(module, 1, 8);
     bitSet(module->header.flags, SOF_CatDocking);
     spec->explodeWhenDone = explodeWhenDone;
+}
+
+/*-----------------------------------------------------------------------------
+    HWI-FEATURE(motion-interp) module spin (M3-R4 module-spin-interp): an ejected module's spin (the ore-can armour a
+    module launch jettisons, cat_moduleShipEject from processLaunchShipToDo: Mission02's canister cutscene; a module that
+    lost its host) is one MODULE_SPIN_STEP per universe tick in ModuleShipHouseKeep, and the renderer drew that tick's
+    angle in every frame of the tick (the user's "animation at the low refresh rate" while its drift, physics, was
+    blended). The drawn angle steps on by alpha * MODULE_SPIN_STEP (the same alpha the module's position is blended
+    with, miRenderAlpha, only between miRenderBegin and miRenderEnd) while the next housekeep would step it (ejecting,
+    and the next tick's time within ejectEndTime: the housekeep's own test one tick on); spinAngle itself, the
+    simulation's, is untouched, so the oracle stream and the save are as before and /noInterp draws the exe's angle.
+    The wrap at 2 pi is modular for glRotatef, so a drawn angle past it meets the next tick's 0.
+-----------------------------------------------------------------------------*/
+real32 cat_moduleShipDrawnSpinAngle(Ship *module)
+{
+    ModuleShipSpec *spec = (ModuleShipSpec *)module->ShipSpecifics;
+    real32 alpha, drawn;
+
+    if (spec->ejecting != 1 || !miRenderDrawing() ||
+        universe.totaltimeelapsed + universe.phystimeelapsed > spec->ejectEndTime)
+    {
+        return spec->spinAngle;
+    }
+    alpha = miRenderAlpha();
+    if (alpha <= 0.0f)
+    {
+        return spec->spinAngle;
+    }
+    drawn = spec->spinAngle + alpha * MODULE_SPIN_STEP;
+    if (catMadProbeOn)                                      // HWI-TEST (M3-R4 mesh-anim-interp): /catMadProbe
+    {
+        static sdword lines = 0;
+        if (lines < 600)
+        {
+            lines++;
+            dbgMessagef("spinprobe: t=%.4f tick=%u alpha=%.3f ship=%s#%u sim=%.4f drawn=%.4f step=%.4f end=%.2f",
+                        universe.totaltimeelapsed, (unsigned)universe.univUpdateCounter, alpha, ShipTypeToStr(module->shiptype),
+                        (unsigned)module->shipID.shipNumber, spec->spinAngle, drawn, drawn - spec->spinAngle, spec->ejectEndTime);
+        }
+    }
+    return drawn;
 }
 
 // the module iterator's state (0x00a762c0 host, 0x00a762c4 count, 0x00a762c8 index)

@@ -45,6 +45,7 @@ extern CustShipHeader ModuleShipHeader;
 
 ModuleShipStatics *cat_moduleShipGetStatics(ShipType type);                                // 0x005af4c0
 void cat_moduleShipEject(Ship *module, bool32 explodeWhenDone, real32 delay, real32 duration);  // 0x005af940
+real32 cat_moduleShipDrawnSpinAngle(Ship *module);     // HWI-FEATURE(motion-interp) module spin (M3-R4 module-spin-interp)
 Ship *cat_moduleIterFirst(Ship *host);                                                      // 0x005afed0
 Ship *cat_moduleIterNext(void);                                                             // 0x005afee0
 

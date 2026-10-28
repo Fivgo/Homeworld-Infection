@@ -52,6 +52,7 @@
 #include "CommandWrap.h"    // M3-R1 motion-jitter: the scene's orders (move, formation, dock)
 #include "Debug.h"
 #include "Dock.h"           // M3-R1 motion-jitter: CAT_DOCK_SUPPORT
+#include "ModuleShip.h"     // HWI-TEST (M3-R4 module-spin-interp): the eject scene's cat_moduleShipEject
 #include "FormationDefs.h"  // M3-R1 motion-jitter: DELTA_FORMATION
 #include "glinc.h"
 #include <SDL2/SDL.h>
@@ -309,7 +310,8 @@ static void mtPauseApply(bool32 on)                 // HWI-TEST
 // M3-R1 motion-jitter: /catMotionScene <kind>[:<distance>[:<move>[:<ticks>[:<start>]]]]: the measured scene on the game another
 //      mode starts (the harness's --scene; skirmish: the user's recipe); kind recon (the camera on Recon A at its zenith,
 //      Recon B moves <move> units straight ahead) or follow (the same orders, the camera on B); mothership (M3-R3: on M);
-//      worker / harvest (M3-R4 mesh-anim-interp: on H, the Worker depositing at its host, or W, the harvester)
+//      worker / harvest (M3-R4 mesh-anim-interp: on H, the Worker depositing at its host, or W, the harvester); eject (M3-R4
+//      module-spin-interp: on O, the mothership's ore-can armour, jettisoned at the order tick as a module launch does)
 void catMotionSceneSet(char *string)
 {
     char *p = string, *end;
@@ -993,7 +995,7 @@ static void mtSceneStart(void)
     }
     b = mtSceneNearest(&universe.ShipList, &pos, OBJ_ShipType, sRecon, player, TRUE);
     mtSceneAdd(b, "B", strcmp(mtSceneKind, "follow") == 0 ? "focus" : "mover");
-    if (a == NULL || b == NULL)
+    if ((a == NULL || b == NULL) && strcmp(mtSceneKind, "eject") != 0)   // HWI-TEST (M3-R4 module-spin-interp): eject needs none
     {
         dbgMessagef("motiontest: scene FAIL two Recons not found");
         mtSceneN = 0;
@@ -1021,6 +1023,20 @@ static void mtSceneStart(void)
         }
     }
     mtSceneAdd(obj, "F", "module");
+    // HWI-TEST (M3-R4 module-spin-interp): O, the ore-can armour clamped to the mothership (Mission01 / 02's Kuun-Lan)
+    obj = NULL;
+    if (mothership->guidance.clampInfo != NULL && mothership->guidance.clampInfo->clampedObjs != NULL)
+    {
+        for (i = 0; i < mothership->guidance.clampInfo->clampedObjs->numShips && obj == NULL; i++)
+        {
+            Ship *child = mothership->guidance.clampInfo->clampedObjs->ShipPtr[i];
+            if (child != NULL && child->shiptype == sMothershipOreCanArmour && child->guidance.clampInfo != NULL)
+            {
+                obj = (SpaceObj *)child;
+            }
+        }
+    }
+    mtSceneAdd(obj, "O", "orecan");
     // the docking ship: the nearest pair of a free ship of the player and a host of the player it can dock with for
     // support or, a Worker, to deposit (ThisShipCanDockWith 0x00464290, the exe's test), within 20,000 units
     {
@@ -1102,6 +1118,14 @@ static void mtSceneStart(void)
     if (strcmp(mtSceneKind, "worker") == 0 || strcmp(mtSceneKind, "harvest") == 0)
     {                                                       // HWI-TEST (M3-R4 mesh-anim-interp): the camera on H (the depositing
         obj = mtSceneByName((mtSceneKind[0] == 'w') ? "H" : "W");   // Worker's dock animation) or W (the harvester's drill)
+        if (obj != NULL)
+        {
+            focus = (Ship *)obj;
+        }
+    }
+    if (strcmp(mtSceneKind, "eject") == 0)                  // HWI-TEST (M3-R4 module-spin-interp): the camera on O, the
+    {                                                       // canister (Mission02's kasfCameraFocusClose on it)
+        obj = mtSceneByName("O");
         if (obj != NULL)
         {
             focus = (Ship *)obj;
@@ -1203,7 +1227,23 @@ static void mtSceneOrders(void)
             clWrapCollectResource(&universe.mainCommandLayer, sel, rock);
         }
     }
-    if (mothership != NULL)
+    if (strcmp(mtSceneKind, "eject") == 0)                  // HWI-TEST (M3-R4 module-spin-interp): O jettisoned as a module
+    {                                                       // launch does (processLaunchShipToDo: 7 s delay, 10 s push, explodes)
+        SpaceObj *o = mtSceneGet("O");
+        if (o != NULL && ((Ship *)o)->guidance.clampInfo != NULL)
+        {
+            cat_moduleShipEject((Ship *)o, TRUE, 7.0f, 10.0f);
+            dbgMessagef("motiontest: scene order O eject: %s#%u ejecting=%d end=%.2f spinning=%d", ShipTypeToStr(((Ship *)o)->shiptype),
+                        (unsigned)((Ship *)o)->shipID.shipNumber, (int)((ModuleShipSpec *)((Ship *)o)->ShipSpecifics)->ejecting,
+                        (double)((ModuleShipSpec *)((Ship *)o)->ShipSpecifics)->ejectEndTime,
+                        (int)((ModuleShipSpec *)((Ship *)o)->ShipSpecifics)->spinning);
+        }
+        else
+        {
+            dbgMessagef("motiontest: scene order O eject: no clamped canister");
+        }
+    }
+    else if (mothership != NULL)
     {                                                       // M: 2,000 units ahead (its modules follow, clamped)
         matGetVectFromMatrixCol3(heading, mothership->rotatable.rotinfo.coordsys);
         vecScalarMultiply(dest, heading, 2000.0f);
@@ -1263,6 +1303,11 @@ static void mtSceneTick(void)
         }
         mtWindow = FALSE;
         mtDone = TRUE;
+        if (strcmp(mtSceneKind, "eject") == 0)              // HWI-TEST (M3-R4 module-spin-interp): PASS = frames sampled and O
+        {                                                   // still ejecting (alive: it explodes after the push)
+            SpaceObj *o = mtSceneGet("O");
+            moved = (o != NULL && ((ModuleShipSpec *)((Ship *)o)->ShipSpecifics)->ejecting == 1) ? mtSceneMove : 0.0f;
+        }
         dbgMessagef("motiontest: scene done tick=%d frames=%u sampled=%u Bmoved=%.0f realFrames=%u realLate=%u dump=%s result=%s",
                     tick, (unsigned)mtFrame, (unsigned)mtSampledFrames, (double)moved, (unsigned)mtRealFrames,
                     (unsigned)mtRealLate, mtDumpName,
