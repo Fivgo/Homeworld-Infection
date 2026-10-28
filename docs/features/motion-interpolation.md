@@ -86,3 +86,15 @@ lock on the focus cancels the focus's angular motion and nobody else's, which is
    animations (the over-cap SU blink, the upgrade pulse, the ship view) run on as in the exe. Measurement: the HWI-TEST
    switch `/catMotionPause <frame>:<frames>[:key|univ|nis]` in the motion / nis / scene runs (dump tokens ` pause=` and
    ` crcv=`, the CRC with the SU blink blanked).
+8. **M3-R4 (mesh-anim-interp, docs/m3-r4-mesh-anim-interp.md): the mesh animations.** A ship's scripted mesh
+   animation (the `.mad` B-spline curves: the Workers' drill arms and dock bays, the Carrier's and Hive Frigate's bays,
+   the Acolyte's wings, the Leech's mouth, the NIS `meshAnimStart` events) is advanced by `madAnimationUpdate` once per
+   universe tick and its curves were evaluated at that tick time when the ship was drawn, so every frame of a tick drew
+   the same pose (the user's "16 Hz animations" after the full playthrough). Now `madAnimBindingUpdate` evaluates the
+   drawn pose on a COPY of the object's six curves stepped on by `alpha * phystimeelapsed` (`madRenderStep`: the same
+   alpha as item 0 / 6, read through `miRenderAlpha` and only between `miRenderBegin` and `miRenderEnd`; a paused
+   animation and alpha <= 0 give the tick's pose), with the animation's own end rule (loop wraps, else the end holds).
+   The simulation's curves, `madanim.time` and the gun / dock evaluation (`madAnimBindingMatrix`, outside a frame) are
+   untouched, so the oracle stream is bit-identical; with the toggle off nothing changes. Measurement: HWI-TEST
+   `/catMadProbe` (madprobe: lines: the tick's pose and the frame's pose of every animated object in an interpolated
+   frame) in a `--scene` `--real-clock` run.

@@ -42,6 +42,7 @@ void miRenderBegin(void);                           // before the regions draw (
 void miRenderEnd(void);                             // after: the simulation's transforms back, bit for bit
 struct Camera *miRenderCamera(struct Camera *camera);   // the camera to draw with (the NIS camera at the render time)
 real32 miRenderAlpha(void);                         // this frame's alpha (-1: not interpolating)
+bool32 miRenderDrawing(void);                       // M3-R4 mesh-anim-interp: between miRenderBegin and miRenderEnd
 void miRenderStats(udword *blended, udword *fresh, udword *teleport);   // M3-R1 motion-jitter: this frame's counts
 bool32 miRenderWritten(const void *obj);            // M3-R1 motion-jitter: the frame wrote this object's transform
 bool32 miUniversePaused(void);                      // HWI-FEATURE(pause-freeze): universePause or the Pause key's flag

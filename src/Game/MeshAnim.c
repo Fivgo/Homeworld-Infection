@@ -19,6 +19,7 @@
 #include "Matrix.h"
 #include "Memory.h"
 #include "MeshAnim.h"
+#include "MotionInterp.h"   // HWI-FEATURE(motion-interp) mesh animations: the frame's alpha
 #include "NIS.h"
 #include "SoundEvent.h"     // CAT: cat_madAnimSoundEvent (the animation sounds)
 #include "SpaceObj.h"
@@ -404,6 +405,86 @@ bool32 madAnimBindingPause(udword flags, hmatrix *startMatrix, hmatrix *matrixDe
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : madCurvesAdvance
+    Description : The six motion curves of one animated object advanced by timeElapsed with the animation's end rule
+                  (loop: wrap to the start keyframe; else clamp at the end) and evaluated: the body of
+                  madAnimBindingUpdate (0x004b6720), split out so the render-time pose (HWI-FEATURE(motion-interp)
+                  mesh animations) can run it on a copy of the curves
+    Inputs      : anim, animation, header - the ship's animation state; curve - its object's six curves
+                  timeElapsed - the time to advance by
+    Outputs     : xyz, hpb - the object's position and heading / pitch / bank at the new time
+----------------------------------------------------------------------------*/
+static void madCurvesAdvance(Ship *ship, madanim *anim, madanimation *animation, madheader *header, splinecurve *curve, real32 timeElapsed, vector *xyz, vector *hpb)
+{
+    sdword j, startPoint;
+
+    (void)ship;
+    if (curve[0].timeElapsed + timeElapsed > animation->endTime)
+    {                                                       //if we'll go past the end
+        if (bitTest(anim->flags, MAD_ModeLoop))
+        {                                                   //if this is a looping animation
+            timeElapsed = (real32)fmod((double)(curve[0].timeElapsed + timeElapsed - animation->endTime), (double)(animation->endTime - animation->startTime));
+
+            for (startPoint = 0; startPoint < curve[0].nPoints; startPoint++)
+            {                                               //find a point to restart at
+                if (curve[0].times[startPoint] == anim->startTime)
+                {
+                    goto foundTime;
+                }
+            }
+#if MAD_ERROR_CHECKING
+            dbgFatalf(DBG_Loc, "madAnimationStart: Object #%d ('%s') has no keyframe at frame %.0f",
+                  anim->nCurrentAnim, header->objPath[anim->nCurrentAnim].name, anim->startTime / header->framesPerSecond);
+#endif
+foundTime:
+            for (j = 0; j < 6; j++)
+            {                                               //reset all the motion curves
+                curve[j].timeElapsed = animation->startTime;
+                curve[j].currentPoint = startPoint;
+            }
+        }
+        else
+        {                                                   //else it's a non-looping animation; clamp at the end
+            timeElapsed = animation->endTime - curve[0].timeElapsed;//clamp to end
+        }
+    }
+    //now update the motion curves
+    xyz->x =  bsCurveUpdate(&curve[1], timeElapsed);
+    xyz->y =  bsCurveUpdate(&curve[2], timeElapsed);
+    xyz->z = -bsCurveUpdate(&curve[0], timeElapsed);
+    hpb->x =  bsCurveUpdate(&curve[3], timeElapsed);
+    hpb->y =  bsCurveUpdate(&curve[4], timeElapsed);
+    hpb->z =  bsCurveUpdate(&curve[5], timeElapsed);
+
+    dbgAssertOrIgnore(xyz->x != REALlyBig && xyz->y != REALlyBig && xyz->z != REALlyBig);
+    dbgAssertOrIgnore(hpb->x != REALlyBig && hpb->y != REALlyBig && hpb->z != REALlyBig);
+}
+
+// HWI-FEATURE(motion-interp) mesh animations (M3-R4 mesh-anim-interp, docs/m3-r4-mesh-anim-interp.md): the simulation
+//      advances a ship's mesh animation once per universe tick (madAnimationUpdate, 16 Hz) and the renderer evaluated
+//      the curves at that time, so every frame of a tick drew the same pose (the user's "16 Hz animations" on the
+//      Workers' arms and dock bays). The drawn pose now steps the curves on by the fraction of the tick elapsed at the
+//      render time (miRenderAlpha, the same alpha the ships' positions are blended with; -1 outside a frame or with the
+//      interpolation off), evaluated on a COPY of the curves: the simulation's curves, time and the oracle stream are
+//      untouched. A paused animation holds. Not in cataclysm.exe.
+bool32 catMadProbeOn = FALSE;                               // HWI-TEST: /catMadProbe (madprobe: lines)
+static real32 madRenderStep(madanim *anim)
+{
+    real32 alpha;
+
+    if (anim->bPaused || !miRenderDrawing())
+    {
+        return 0.0f;
+    }
+    alpha = miRenderAlpha();
+    if (alpha <= 0.0f)
+    {
+        return 0.0f;
+    }
+    return alpha * universe.phystimeelapsed;
+}
+
+/*-----------------------------------------------------------------------------
     Name        : madAnimBindingUpdate
     Description : Mesh binding function for scripted mesh animations.
     Inputs      : flags - ignored
@@ -416,7 +497,7 @@ bool32 madAnimBindingPause(udword flags, hmatrix *startMatrix, hmatrix *matrixDe
 bool32 madAnimBindingUpdate(udword flags, hmatrix *startMatrix, hmatrix *matrixDest, void *data, smemsize ID) {
     real32 timeElapsed;
     Ship *ship = (Ship *)data;
-    sdword j, startPoint;
+    real32 renderStep;                                      // HWI-FEATURE(motion-interp) mesh animations
     madheader *header;
     madanim *anim = ship->madBindings;
     madobjpath *path;
@@ -461,45 +542,31 @@ bool32 madAnimBindingUpdate(udword flags, hmatrix *startMatrix, hmatrix *matrixD
     //      MAF_Loop, says whether it loops (0x004b6720)
     animation = &header->anim[cat_madAnimIndexOfNumber(ship, anim->nCurrentAnim)];
 
-    if (curve[0].timeElapsed + timeElapsed > animation->endTime)
-    {                                                       //if we'll go past the end
-        if (bitTest(anim->flags, MAD_ModeLoop))
-        {                                                   //if this is a looping animation
-            timeElapsed = (real32)fmod((double)(curve[0].timeElapsed + timeElapsed - animation->endTime), (double)(animation->endTime - animation->startTime));
+    madCurvesAdvance(ship, anim, animation, header, curve, timeElapsed, &xyz, &hpb);   // the simulation's advance
+    renderStep = madRenderStep(anim);                       // HWI-FEATURE(motion-interp) mesh animations
+    if (renderStep > 0.0f)
+    {
+        splinecurve renderCurve[6];
+        vector renderXyz, renderHpb;
 
-            for (startPoint = 0; startPoint < curve[0].nPoints; startPoint++)
-            {                                               //find a point to restart at
-                if (curve[0].times[startPoint] == anim->startTime)
-                {
-                    goto foundTime;
-                }
-            }
-#if MAD_ERROR_CHECKING
-            dbgFatalf(DBG_Loc, "madAnimationStart: Object #%d ('%s') has no keyframe at frame %.0f",
-                  anim->nCurrentAnim, header->objPath[anim->nCurrentAnim].name, anim->startTime / header->framesPerSecond);
-#endif
-foundTime:
-            for (j = 0; j < 6; j++)
-            {                                               //reset all the motion curves
-                curve[j].timeElapsed = animation->startTime;
-                curve[j].currentPoint = startPoint;
+        memcpy(renderCurve, curve, sizeof(renderCurve));    // the curves after the simulation's advance, copied
+        madCurvesAdvance(ship, anim, animation, header, renderCurve, renderStep, &renderXyz, &renderHpb);
+        if (catMadProbeOn)
+        {
+            static sdword lines = 0;
+            if (lines < 600)
+            {
+                lines++;
+                dbgMessagef("madprobe: t=%.4f tick=%u alpha=%.3f step=%.4f ship=%s#%u obj=%d anim=%d:%s time=%.3f sim=(%.3f,%.3f,%.3f|%.4f,%.4f,%.4f) render=(%.3f,%.3f,%.3f|%.4f,%.4f,%.4f)",
+                            universe.totaltimeelapsed, (unsigned)universe.univUpdateCounter, miRenderAlpha(), renderStep,
+                            ShipTypeToStr(ship->shiptype), (unsigned)ship->shipID.shipNumber, (int)ID, (int)anim->nCurrentAnim,
+                            (animation->name != NULL) ? animation->name : "?", anim->time,
+                            xyz.x, xyz.y, xyz.z, hpb.x, hpb.y, hpb.z, renderXyz.x, renderXyz.y, renderXyz.z, renderHpb.x, renderHpb.y, renderHpb.z);
             }
         }
-        else
-        {                                                   //else it's a non-looping animation; clamp at the end
-            timeElapsed = animation->endTime - curve[0].timeElapsed;//clamp to end
-        }
+        xyz = renderXyz;
+        hpb = renderHpb;
     }
-    //now update the motion curves
-    xyz.x =  bsCurveUpdate(&curve[1], timeElapsed);
-    xyz.y =  bsCurveUpdate(&curve[2], timeElapsed);
-    xyz.z = -bsCurveUpdate(&curve[0], timeElapsed);
-    hpb.x =  bsCurveUpdate(&curve[3], timeElapsed);
-    hpb.y =  bsCurveUpdate(&curve[4], timeElapsed);
-    hpb.z =  bsCurveUpdate(&curve[5], timeElapsed);
-
-    dbgAssertOrIgnore(xyz.x != REALlyBig && xyz.y != REALlyBig && xyz.z != REALlyBig);
-    dbgAssertOrIgnore(hpb.x != REALlyBig && hpb.y != REALlyBig && hpb.z != REALlyBig);
 
     nisObjectEulerToMatrix(&_3x3Matrix, &hpb);                //make a rotation matrix
     hmatMakeHMatFromMatAndVec(&rotMatrix, &_3x3Matrix, &xyz); //make a hmatrix

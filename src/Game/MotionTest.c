@@ -149,7 +149,8 @@ static bool32 mtNisStarted = FALSE;
 #define MT_SCENE_MAX        16
 #define MT_SCENE_START      mtSceneStartTick    // pick the objects, focus, the zenith camera (default tick 16)
 #define MT_SCENE_ORDER      (mtSceneStartTick + 32) // the orders (the camera has settled)
-static char mtSceneKind[16] = "recon";              // recon: focus A (at rest); follow: focus B (the mover); mothership: M (M3-R3)
+static char mtSceneKind[16] = "recon";              // recon: focus A (at rest); follow: focus B (the mover); mothership: M (M3-R3);
+                                                    // worker: H (the depositing Worker); harvest: W (M3-R4 mesh-anim-interp)
 static real32 mtSceneDistance = 0.0f;               // the camera's distance (0: the focus zoom ccFocus picks)
 static real32 mtSceneMove = 500.0f;                 // B's move straight ahead (units)
 static sdword mtSceneTicks = 160;                   // the dump's window after the orders (ticks)
@@ -307,7 +308,8 @@ static void mtPauseApply(bool32 on)                 // HWI-TEST
 
 // M3-R1 motion-jitter: /catMotionScene <kind>[:<distance>[:<move>[:<ticks>[:<start>]]]]: the measured scene on the game another
 //      mode starts (the harness's --scene; skirmish: the user's recipe); kind recon (the camera on Recon A at its zenith,
-//      Recon B moves <move> units straight ahead) or follow (the same orders, the camera on B)
+//      Recon B moves <move> units straight ahead) or follow (the same orders, the camera on B); mothership (M3-R3: on M);
+//      worker / harvest (M3-R4 mesh-anim-interp: on H, the Worker depositing at its host, or W, the harvester)
 void catMotionSceneSet(char *string)
 {
     char *p = string, *end;
@@ -940,10 +942,25 @@ static SpaceObj *mtSceneNearest(LinkedList *list, vector *pos, sdword objtype, s
     return best;
 }
 
+static SpaceObj *mtSceneByName(const char *name)        // HWI-TEST (M3-R4 mesh-anim-interp): a scene object by its letter
+{
+    sdword i;
+
+    for (i = 0; i < mtSceneN; i++)
+    {
+        if (strcmp(mtSceneName[i], name) == 0)
+        {
+            return mtSceneObj[i];
+        }
+    }
+    return NULL;
+}
+
 static void mtSceneStart(void)
 {
     Player *player = universe.curPlayerPtr;
     Ship *mothership = (player != NULL) ? player->PlayerMothership : NULL;
+    Ship *focus;
     SpaceObj *a, *b, *obj;
     vector pos;
     CameraStackEntry *entry;
@@ -1080,8 +1097,17 @@ static void mtSceneStart(void)
     mtSceneAdd(mtSceneNearest(&universe.ShipList, &pos, OBJ_ShipType, sWorker, player, TRUE), "W", "harvest");
     mtSceneAdd((SpaceObj *)mothership, "M", "mothership");
 
-    mtFocus((strcmp(mtSceneKind, "mothership") == 0) ? mothership :     // HWI-TEST (M3-R3 settings-and-keys): kind mothership:
-            (Ship *)(strcmp(mtSceneKind, "follow") == 0 ? b : a));       //      the Kuun-Lan close up (the textures' captures)
+    focus = (strcmp(mtSceneKind, "mothership") == 0) ? mothership :     // HWI-TEST (M3-R3 settings-and-keys): kind mothership:
+            (Ship *)(strcmp(mtSceneKind, "follow") == 0 ? b : a);        //      the Kuun-Lan close up (the textures' captures)
+    if (strcmp(mtSceneKind, "worker") == 0 || strcmp(mtSceneKind, "harvest") == 0)
+    {                                                       // HWI-TEST (M3-R4 mesh-anim-interp): the camera on H (the depositing
+        obj = mtSceneByName((mtSceneKind[0] == 'w') ? "H" : "W");   // Worker's dock animation) or W (the harvester's drill)
+        if (obj != NULL)
+        {
+            focus = (Ship *)obj;
+        }
+    }
+    mtFocus(focus);
     entry = currentCameraStackEntry(&universe.mainCameraCommand);
     entry->remembercam.declination = DEG_TO_RAD(-85.0f);     // the eye straight above the focus (+z): the zenith
     universe.mainCameraCommand.actualcamera.declination = DEG_TO_RAD(-85.0f);

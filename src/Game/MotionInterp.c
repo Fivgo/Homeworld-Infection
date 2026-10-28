@@ -985,6 +985,11 @@ real32 miRenderAlpha(void)
     return miAlpha;
 }
 
+bool32 miRenderDrawing(void)                        // HWI-FEATURE(motion-interp) mesh animations (M3-R4 mesh-anim-interp)
+{
+    return miDrawing;
+}
+
 // M3-R1 motion-jitter: the measurement's counts (MotionTest.c scene dumps): objects blended this frame, objects with
 // no entry of the latest capture (new this tick, or none), jumps over MI_TELEPORT
 void miRenderStats(udword *blended, udword *fresh, udword *teleport)
