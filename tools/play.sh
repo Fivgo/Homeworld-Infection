@@ -117,6 +117,17 @@
 # the window borderless. The log's "window: requested WxH, usable WxH (display N: WxH), created WxH (...)" line and the
 # "uiscale: physical .. logical .." line say what was made.
 #
+# The resolution list and the resizable window (M3-R4 window-modes, HWI-FEATURE(resolution-presets) / (window-resize)):
+# the Video screen's list holds the typical 4:3, 16:10 and 16:9 sizes that fit a connected display (640x480 .. 2048x1536,
+# 1280x800 .. 2560x1600, 1280x720 .. 3840x2160, the exe's 5:4 1280x1024), each display's own mode and the size in use,
+# labelled by aspect (cataclysm.exe listed the driver's modes; the SDL port listed the desktop and its halves, thirds and
+# quarters only). A windowed mode can be dragged to any size from 640x480 up: the UI scale is chosen again for the new
+# height, the layout, the 3D view, the mouse and the HUD follow at once (in a game an open manager or menu keeps its
+# layout until it closes), and the dragged size is saved as the window's size (screenWidth / screenHeight) at an Accept
+# and at exit, so the next start opens at it and the Video screen lists it. A windowed request the size of the display
+# still opens as a borderless fullscreen-desktop window (no frame to drag): pick a smaller size for a framed window.
+# The log's "window: resized to WxH (..) scale P% .. logical WxH" line records each change.
+#
 # The settings line (M3-R2, HWI-FEATURE(instrumentation)): the log's "hwi-settings:" line names every recreation setting
 # with its value and where it came from, once at start-up and again whenever one changes:
 #   hwi-settings: objInterpolate=1 (cfg) nisInterpolate=1 (cfg) letterboxBehind=0 (cfg) noLOD=1 (cfg)

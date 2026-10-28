@@ -964,6 +964,12 @@ bool32 setupPixelFormat()
     //      shrunk, aspect kept); the exe's windowed mode puts the requested client size at the screen's origin
     //      whatever the desktop (WinMain 0x005631f0)
     uiScaleWindowFit(reqW, reqH, fullScreen, showBorder, (udword *)&flags, &createW, &createH, &createX, &createY);    // HWI-FIX
+    if (!(flags & SDL_WINDOW_FULLSCREEN))
+    {
+        // HWI-FEATURE(window-resize) (M3-R4 window-modes): a windowed mode the user drags to any size (uiscale.c
+        //      uiScaleWindowResized follows the frame); the exe's window has a fixed client size (WinMain 0x005631f0)
+        flags |= SDL_WINDOW_RESIZABLE;
+    }
 #else
     flags |= SDL_WINDOW_RESIZABLE;
 #endif
@@ -1061,6 +1067,10 @@ bool32 setupPixelFormat()
         return FALSE;
 
     uiScaleWindowPlace(sdlwindow);                          // HWI-FIX: a shrunk window less its borders, in the usable bounds
+    if (flags & SDL_WINDOW_RESIZABLE)
+    {
+        SDL_SetWindowMinimumSize(sdlwindow, 640, 480);      // HWI-FEATURE(window-resize): never under the front end's 640x480
+    }
 #endif
 
     SDL_GL_SetSwapInterval(1);

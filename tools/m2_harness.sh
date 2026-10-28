@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle|uiscale|modequit|replay|ai|skirmish|missiontest|loadgame|warpstart
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle|uiscale|modequit|resize|replay|ai|skirmish|missiontest|loadgame|warpstart
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -192,6 +192,23 @@
 #                    "modequittest:" lines; the summary's "modequit:" line judges the quit: rc 0 and "Quit game, baby!" once in
 #                    the log (the debug build prints it) = PASS (M3-R1's finding: GoK's mainDestroyWindow cleared
 #                    mainActuallyQuit, so that quit was swallowed and the run ended rc 1 without the shutdown)
+#                    resize: /catResizeTest (M3-R4 window-modes, HWI-FEATURE(resolution-presets) / (window-resize),
+#                    docs/m3-r4-window-modes.md; src/Game/UiScaleTest.c): once the front end is up: the Video screen's
+#                    resolution list (rinit.c rinEnumeratePrimary: the 4:3 / 16:10 / 16:9 / 5:4 presets that fit the
+#                    display, the display's own mode and the window's request, ascending, no duplicates, the aspect
+#                    names), then scripted size changes (uiscale.c uiScaleWindowResizedTo: the drag path less SDL's
+#                    event, the offscreen driver's SDL_SetWindowSize changes nothing) to 1600x900, 800x600, 1280x1024,
+#                    2560x1440, 3840x2160 and 1234x777: the physical size, the scale chosen for the height, the logical
+#                    size, the main region and the main menu's layout, the 3D aspect, the request, the mouse corner; the
+#                    Video screen lists and selects the dragged size with no mode switch pending; the options file's
+#                    screenWidth / screenHeight rows are the dragged size; then the start size again. "resizetest:"
+#                    lines, "resizetest: done ... result=PASS|FAIL"; quits. --res WxH for the start size.
+#                    --resize-at <tick>:<W>x<H> (any mode with a universe, HWI-TEST /catResizeAt): at that universe tick the
+#                    window is treated as resized to WxH (the in-game path: the relayout waits while a screen is open;
+#                    "resizetest: at tick .." and the engine's "window: resized .." lines in the summary). A --shot after
+#                    the tick reads back the REAL drawable, which the offscreen driver never changes: a change DOWN from a
+#                    larger start (--res 3840x2160 --resize-at T:1280x720) shows the new layout in the buffer's
+#                    bottom-left corner, a change UP is clipped to the real buffer
 #                    replay: /oracleReplay <name> /oracleDump <run>/run.hwo (M2-R6 oracle-mode-a, docs/m2-r6-oracle-mode-a.md,
 #                    oracle mode A): the recorded game --recording NAME (default oracle01: the user's reference recording)
 #                    and NAME.pkts are copied from original/game/SavedGames/RecordedGames into the harness data dir's
@@ -513,6 +530,8 @@
 #                    release build (--bin build/release/hwi-engine). Also in the nis mode (its lines get the same clock
 #                    tokens; the mode's /noSpeech is left out then: a debug-build switch, and the real clock has no CRC)
 #   --mode-to WxH    modequit mode: the resolution the render switch goes to (default 1280x720)
+#   --resize-at T:WxH  any mode with a universe (M3-R4 window-modes, HWI-TEST): /catResizeAt T:WxH, the window treated as
+#                    resized to WxH at universe tick T
 #   --frame-log      any mode (M3-R2 instrumentation, HWI-TEST): /frameLog <run>/frame.log: one line a second (frame-time
 #                    p50 / p95 / p99 / max, the frames over the refresh interval and by how many refreshes, the universe
 #                    ticks and their cost, the main heap's use and growth, the 'dupe trcolorinfo list' blocks (debug
@@ -614,7 +633,7 @@ conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0; mtmission=1; sav
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""; skticks=600; skmap=LiveFireExercise2
 warplevel=10; savesrc=""; training=0; recordname=""; recordstop=""; skbigotry=""; failjump=0
 shotspec=""; shotlb=0; res=""; cfgrows=(); teamcolour=0; lodtest=""; lodstats=""; scene=""; realclock=""
-modeto=1280x720; framelog=0; framesig=0; anyfps=""
+modeto=1280x720; framelog=0; framesig=0; anyfps=""; resizeat=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -658,6 +677,7 @@ while [[ $# -gt 0 ]]; do
 		--shot) shotspec=$2; shift ;;
 		--shot-letterbox) shotlb=1 ;;
 		--res) res=$2; shift ;;
+		--resize-at) resizeat=$2; shift ;;   # M3-R4 window-modes
 		--cfg) cfgrows+=("$2"); shift ;;
 		--player-colours)
 			[[ "$2" =~ ^([0-9a-fA-F]{8})/([0-9a-fA-F]{8})$ ]] || { echo "m2_harness: --player-colours wants BASE/STRIPE (8 hex digits each)" >&2; exit 2; }
@@ -704,6 +724,8 @@ grep -q -a "/logFileLoads" "$bin" || args=(/window /nodebugInt /settingspath "$o
 [[ "$mode" == toggle ]] && args+=(/catToggleTest)
 [[ "$mode" == uiscale ]] && args+=(/catUiScaleTest)
 [[ "$mode" == modequit ]] && args+=(/catModeQuitTest "$modeto")   # M3-R2 instrumentation
+[[ "$mode" == resize ]] && args+=(/catResizeTest)                 # M3-R4 window-modes
+[[ -n "$resizeat" ]] && args+=(/catResizeAt "$resizeat")           # M3-R4 window-modes
 if [[ "$mode" == oracle ]]; then
 	args+=(/oracleSelfTest "$oticks" /oracleDump "$out/run.hwo")
 	[[ -n "$perturb" ]] && args+=(/oracleSelfTestPerturb "$perturb")
@@ -925,6 +947,7 @@ grep -q "motiontest: scene done" "$L" && milestone="motion scene done"
 grep -q "toggletest: done" "$L" && milestone="toggle self-test done"
 grep -q "uiscaletest: done" "$L" && milestone="uiscale self-test done"
 grep -q "modequittest: done" "$L" && milestone="modequit self-test done"
+grep -q "resizetest: done" "$L" && milestone="resize self-test done"
 grep -q "skirmishtest: done" "$L" && milestone="skirmish self-test done"
 grep -q "missiontest: done" "$L" && milestone="mission self-test done"
 grep -q "loadgametest: loaded" "$L" && milestone="save loaded"
@@ -989,6 +1012,8 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == skirmish ]] && echo "skirmishtest: $(grep -h 'skirmishtest: ' "$L" | grep -v 'skirmishtest: FAIL' | sed 's/^.*skirmishtest: //' | paste -sd';'); FAIL lines: $(grep -c 'skirmishtest: FAIL' "$L")"
 	[[ "$mode" == toggle ]] && echo "toggletest: $(grep -h 'toggletest: ' "$L" | grep -v 'toggletest: FAIL' | sed 's/^.*toggletest: //' | paste -sd';'); FAIL lines: $(grep -c 'toggletest: FAIL' "$L")"
 	[[ "$mode" == uiscale ]] && echo "uiscaletest: $(grep -h 'uiscaletest: ' "$L" | grep -v 'uiscaletest: FAIL' | sed 's/^.*uiscaletest: //' | paste -sd';'); FAIL lines: $(grep -c 'uiscaletest: FAIL' "$L")"
+	[[ "$mode" == resize ]] && echo "resizetest: $(grep -h 'resizetest: ' "$L" | grep -v 'resizetest: FAIL\|resizetest: list ' | sed 's/^.*resizetest: //' | paste -sd';'); list: $(grep -c 'resizetest: list .*bit' "$L") modes; FAIL lines: $(grep -c 'resizetest: FAIL' "$L")"   # M3-R4 window-modes
+	[[ -n "$resizeat" ]] && echo "resize-at: $(grep -h 'resizetest: at tick\|^window: resized\|^window: the owed' "$L" | paste -sd';')"   # M3-R4 window-modes
 	echo "$(grep -h '^window: requested\|^window: borders' "$L" | head -n 2 | paste -sd';'); $(grep -h '^uiscale: physical' "$L" | head -n 1)"
 	echo "settings: $(grep -c '^hwi-settings:' "$L") lines; first: $(grep -h '^hwi-settings:' "$L" | head -n 1 | sed 's/^hwi-settings: //')"
 	if [[ "$mode" == modequit ]]; then

@@ -29,7 +29,8 @@
 #include "LevelLoad.h"      // HWI-TEST: catSkirmishSelfTestTick (the skirmish self-test, skirmish-start)
 #include "OracleDump.h"
 #include "RepairDroid.h"     // HWI-TEST: catDroidUpdates (M2-R6 nis-fow-camera)
-#include "MotionTest.h"      // HWI-FEATURE(motion-interp): the motion / nis measurement modes
+#include "MotionTest.h"
+#include "UiScaleTest.h"    // HWI-TEST (M3-R4 window-modes): /catResizeAt      // HWI-FEATURE(motion-interp): the motion / nis measurement modes
 
 #if HWI_ORACLE
 
@@ -1249,6 +1250,12 @@ bool32 oracleUnivUpdate(real32 phystimeelapsed)
     {                                                                           // HWI-FEATURE(motion-interp)
         catMotionTestTick();                                                    // HWI-FEATURE(motion-interp)
     }                                                                           // HWI-FEATURE(motion-interp)
+
+    // HWI-TEST (M3-R4 window-modes): /catResizeAt's size change at its tick (UiScaleTest.c)
+    if (catResizeAtRequested() && (universe.univUpdateCounter != before))      // HWI-TEST
+    {
+        catResizeAtTick();
+    }
 
     // HWI-TEST (M3-R3 mines): /catMineChase's order (AIShip.c)
     if (catMineChaseRequested() && (universe.univUpdateCounter != before))

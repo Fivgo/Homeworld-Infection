@@ -35,6 +35,8 @@
 #include "uiscale.h"
 #include "utility.h"
 #include "Instrument.h"                                         // HWI-FEATURE(instrumentation): the settings line
+#include "FEFlow.h"                                             // HWI-FEATURE(window-resize): feStackIndex (an open screen)
+#include "render.h"                                             // HWI-FEATURE(window-resize): rndAspectRatio
 
 /*=============================================================================
     Data:
@@ -540,6 +542,109 @@ void uiScaleUpdate(void)                                        // HWI-FEATURE(u
     {
         (void)uiScaleApply(uiScale);
     }
+}
+
+/*-----------------------------------------------------------------------------
+    HWI-FEATURE(window-resize) (M3-R4 window-modes): the user asked for "dynamic window sizing in case anyone wants a
+    windowed format that the user can drag and expand the window to the size they want". The window is made
+    SDL_WINDOW_RESIZABLE (render.c setupPixelFormat, a windowed mode only) and every SDL_WINDOWEVENT_SIZE_CHANGED
+    (main.c HandleEvent) comes here: the physical size is the new drawable, the scale is chosen for it again (the auto
+    rule by the height), the logical size follows (uiScaleSet), the 3D projection's aspect and the GL viewport are the
+    drawable's (rndSmallInit's), the mouse keeps its place on the logical screen, and the exe's reflow after a
+    resolution change runs (utyChangeResolution: the main region, every front-end screen re-centred, the subtitle
+    regions). In the front end that reflow pops the open screens and restarts the main menu, as the Video screen's mode
+    switch does (feAllScreensReposition); in a game it would pop a manager or the Escape menu past their own close
+    paths, so there it waits until no screen is open (uiScaleResizeFlush, every pass of the main loop). The dragged
+    size becomes the window's request (uiRequestW / H): Cataclysm.cfg's screenWidth / screenHeight rows (written at an
+    Accept and at exit) open the next start at it, and the Video screen lists and selects it (Options.c opResListSet).
+    cataclysm.exe's window has a fixed client size (WinMain 0x005631f0: no WS_THICKFRAME).
+-----------------------------------------------------------------------------*/
+static bool32 uiResizePending = FALSE;                          // HWI-FEATURE(window-resize): a relayout owed
+
+static void uiScaleResizeRelayout(void)                         // HWI-FEATURE(window-resize)
+{
+    uiResizePending = FALSE;
+    (void)utyChangeResolution(MAIN_WindowWidth, MAIN_WindowHeight, MAIN_WindowDepth);
+}
+
+static bool32 uiScaleResizeApply(sdword pointW, sdword pointH, sdword physW, sdword physH, bool32 request)   // HWI-FEATURE(window-resize)
+{
+    sdword oldW = MAIN_WindowWidth, oldH = MAIN_WindowHeight;
+    bool32 deferred;
+
+    if (!uiWindow || physW <= 0 || physH <= 0)
+    {
+        return FALSE;
+    }
+    if (physW == MAIN_WindowWidthActual && physH == MAIN_WindowHeightActual &&
+        (pointW <= 0 || pointW == uiPointW) && (pointH <= 0 || pointH == uiPointH))
+    {
+        return FALSE;                                           // the size it has (the creation's event, a move)
+    }
+    MAIN_WindowWidthActual  = physW;
+    MAIN_WindowHeightActual = physH;
+    uiPointW = (pointW > 0) ? pointW : physW;
+    uiPointH = (pointH > 0) ? pointH : physH;
+    if (request)
+    {
+        uiRequestW = uiPointW;                                  // the dragged size is the next start's
+        uiRequestH = uiPointH;
+    }
+    uiRequestNew = FALSE;
+    uiScaleSet(uiScaleWanted());                                // the scale for the new height, the logical size
+    rndAspectRatio = (real32)physW / (real32)physH;             // the 3D projection's aspect (rndSmallInit's rule)
+    glViewport(0, 0, physW, physH);
+    if (oldW > 0 && oldH > 0)
+    {
+        mouseCursorXPosition = mouseCursorXPosition * MAIN_WindowWidth / oldW;
+        mouseCursorYPosition = mouseCursorYPosition * MAIN_WindowHeight / oldH;
+    }
+    deferred = gameIsRunning && feStackIndex > 0;
+    uiResizePending = TRUE;
+    if (!deferred)
+    {
+        uiScaleResizeRelayout();
+    }
+    dbgMessagef("window: resized to %dx%d (window %dx%d) scale %d%% (%s, uiScale %d) logical %dx%d (was %dx%d) aspect %.4f%s",
+                (int)physW, (int)physH, (int)uiPointW, (int)uiPointH, (int)uiScalePercent, uiScaleSource(), (int)uiScale,
+                (int)MAIN_WindowWidth, (int)MAIN_WindowHeight, (int)oldW, (int)oldH, (double)rndAspectRatio,
+                deferred ? " (the relayout waits for the open screen)" : "");
+    hwiSettingsWindow();                                        // HWI-FEATURE(instrumentation): the settings line again
+    return TRUE;
+}
+
+void uiScaleResizeFlush(void)                                   // HWI-FEATURE(window-resize): the main loop, every pass
+{
+    if (uiResizePending && !(gameIsRunning && feStackIndex > 0))
+    {
+        uiScaleResizeRelayout();
+        dbgMessagef("window: the owed relayout at logical %dx%d", (int)MAIN_WindowWidth, (int)MAIN_WindowHeight);
+    }
+}
+
+void uiScaleWindowResized(void *window)                         // HWI-FEATURE(window-resize)
+{
+    SDL_Window *sdlWindow = (SDL_Window *)window;
+    int pw = 0, ph = 0, dw = 0, dh = 0;
+
+    if (sdlWindow == NULL)
+    {
+        return;
+    }
+    SDL_GetWindowSize(sdlWindow, &pw, &ph);
+    SDL_GL_GetDrawableSize(sdlWindow, &dw, &dh);
+    (void)uiScaleResizeApply(pw, ph, dw, dh, (SDL_GetWindowFlags(sdlWindow) & SDL_WINDOW_FULLSCREEN) == 0);
+}
+
+bool32 uiScaleWindowResizedTo(sdword pointW, sdword pointH, sdword physW, sdword physH)   // HWI-TEST
+{
+    return uiScaleResizeApply(pointW, pointH, physW, physH, TRUE);
+}
+
+void uiScaleWindowPointGet(sdword *w, sdword *h)                 // HWI-TEST
+{
+    *w = (uiPointW > 0) ? uiPointW : MAIN_WindowWidthActual;
+    *h = (uiPointH > 0) ? uiPointH : MAIN_WindowHeightActual;
 }
 
 /*-----------------------------------------------------------------------------

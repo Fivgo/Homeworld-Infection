@@ -2980,7 +2980,9 @@ void opResItemDraw(rectangle* rect, listitemhandle data)
     sprintf(temp, "%dx%d", res->width, res->height);
     fontPrint(x - fontWidth(temp), y, c, temp);
 
-    sprintf(temp, "%d bit", res->depth);
+    // HWI-FEATURE(resolution-presets) (M3-R4 window-modes): the aspect in place of the depth (every entry carries the
+    //      desktop's depth: an SDL window has no other; the exe listed the driver's 16 / 32-bit modes)
+    sprintf(temp, "%s", rinAspectName(res->width, res->height));
     fontPrint(x + fontWidth("I"), y, c, temp);
 
     fontMakeCurrent(oldfont);
@@ -2999,7 +3001,17 @@ void opResListSet(rdevice* dev)
     opres* res;
     sdword nModes, index;
     fonthandle oldfont;
+    sdword requestW, requestH;                      // HWI-FEATURE(window-resize) (M3-R4 window-modes)
 
+    // HWI-FEATURE(window-resize): the window's own size (a dragged one is in no table) is listed and selected, so an
+    //      Accept keeps it: with no entry matching, the first entry was drawn selected (opResItemDraw copies it into
+    //      opSaveMAIN_Window*) and the Accept switched to it
+    uiScaleWindowRequestGet(&requestW, &requestH);
+    if (dev->modes != NULL && rinAddModeIfMissing(dev, requestW, requestH, dev->modes->depth))
+    {
+        dbgMessagef("window: the %dx%d request listed on the Video screen (%s)", (int)requestW, (int)requestH,
+                    rinAspectName(requestW, requestH));
+    }
     mode = dev->modes;
 	
     nModes = 0;
@@ -3031,9 +3043,11 @@ void opResListSet(rdevice* dev)
 
     for (index = 0; index < opResNumber; index++)
     {
+        // CAT-FIX (M3-R4 window-modes): the depth is left out of the match: the list's entries all carry the desktop's
+        //      depth (rinit.c), so a cfg screenDepth the display cannot give (the exe's registry depth was a real mode
+        //      choice) matched no entry and the first one was drawn selected
         if (opSaveMAIN_WindowWidth  == opRes[index].width &&
-            opSaveMAIN_WindowHeight == opRes[index].height &&
-            opSaveMAIN_WindowDepth  == opRes[index].depth)
+            opSaveMAIN_WindowHeight == opRes[index].height)
         {
             opResCurrentSelected = index;
             break;
@@ -3061,6 +3075,31 @@ void opResListSet(rdevice* dev)
     fontMakeCurrent(oldfont);
 
     opDirtyResListWindow();
+}
+
+// HWI-TEST (M3-R4 window-modes): the list as set (UiScaleTest.c's resize self-test)
+sdword opResListFind(sdword width, sdword height)
+{
+    sdword index;
+
+    for (index = 0; index < opResNumber; index++)
+    {
+        if (opRes[index].width == width && opRes[index].height == height)
+        {
+            return index;
+        }
+    }
+    return -1;
+}
+
+sdword opResListSelected(void)
+{
+    return opResCurrentSelected;
+}
+
+sdword opResListCount(void)
+{
+    return opResNumber;
 }
 
 /*-----------------------------------------------------------------------------

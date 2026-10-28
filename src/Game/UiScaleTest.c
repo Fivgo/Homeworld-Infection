@@ -604,3 +604,272 @@ void catModeQuitRunSelfTest(void)                   // HWI-TEST
     dbgMessagef("modequittest: done switched=%d result=%s (the quit follows: the harness judges rc 0 and the quit line once)",
                 (int)ok, (ok && MAIN_WindowWidthActual == utQuitW && MAIN_WindowHeightActual == utQuitH) ? "PASS" : "FAIL");
 }
+
+/*-----------------------------------------------------------------------------
+    HWI-TEST (M3-R4 window-modes): /catResizeTest (harness mode resize). The user: "please add typical supported
+    resolutions for 16:9, 16:10, and 4:3 aspect ratios as well as support for dynamic window sizing in case anyone wants
+    a windowed format that the user can drag and expand the window to the size they want". Once the front end is up:
+      1. the resolution list (rinit.c rinEnumeratePrimary): ascending, no duplicates, every preset that fits display 0
+         listed, the display's own mode listed, the window's request listed; the aspect names;
+      2. scripted size changes (uiscale.c uiScaleWindowResizedTo, the frame-drag path less SDL's event: the offscreen
+         driver's SDL_SetWindowSize changes nothing): the physical size, the scale chosen for the new height, the
+         logical size, the main region and the main menu's layout at it, the 3D aspect, the request, the mouse at the
+         far corner;
+      3. the Video screen lists and selects the dragged size, with no mode switch pending;
+      4. the options file's screenWidth / screenHeight rows are the dragged size;
+      then the start size again. "resizetest:" lines, "resizetest: done ... result=PASS|FAIL"; utility.c then quits.
+    /catResizeAt <tick>:<W>x<H>: the same size change at a universe tick of any run (the in-game path: the relayout
+    deferred while a screen is open, the HUD and the viewport at the new size; the harness's --resize-at).
+----------------------------------------------------------------------------*/
+#include <math.h>
+#include "rinit.h"
+#include "render.h"
+#include "Universe.h"
+#include "Globals.h"
+
+bool32 catResizeSelfTest = FALSE;                   // HWI-TEST
+static sdword rtChecks = 0, rtFails = 0;            // HWI-TEST
+
+static void rtCheck(bool32 ok, const char *what)
+{
+    rtChecks++;
+    if (!ok)
+    {
+        rtFails++;
+        dbgMessagef("resizetest: FAIL %s", what);
+    }
+}
+
+// 1. the list
+static void rtList(void)
+{
+    rdevice *dev = rinGetDeviceList();
+    rmode *mode;
+    sdword count = 0, i, reqW, reqH, dispW = 0, dispH = 0;
+    bool32 ascending = TRUE, unique = TRUE, requestListed = FALSE, displayListed = FALSE;
+    SDL_DisplayMode dm;
+    char what[200];
+    static const struct { int w, h; const char *name; } aspects[] = {
+        { 1024, 768, "4:3" }, { 1280, 800, "16:10" }, { 1920, 1080, "16:9" }, { 1366, 768, "16:9" }, { 1280, 1024, "5:4" },
+        { 1600, 1200, "4:3" }, { 2560, 1600, "16:10" }, { 3840, 2160, "16:9" } };
+
+    rtCheck(dev != NULL && dev->modes != NULL, "list: a device with modes");
+    if (dev == NULL || dev->modes == NULL)
+    {
+        return;
+    }
+    uiScaleWindowRequestGet(&reqW, &reqH);
+    if (SDL_GetCurrentDisplayMode(0, &dm) == 0)
+    {
+        dispW = dm.w;
+        dispH = dm.h;
+    }
+    for (mode = dev->modes; mode != NULL; mode = mode->next)
+    {
+        count++;
+        if (mode->next != NULL)
+        {
+            if (mode->next->width < mode->width || (mode->next->width == mode->width && mode->next->height < mode->height))
+            {
+                ascending = FALSE;
+            }
+            if (mode->next->width == mode->width && mode->next->height == mode->height && mode->next->depth == mode->depth)
+            {
+                unique = FALSE;
+            }
+        }
+        if (mode->width == reqW && mode->height == reqH)
+        {
+            requestListed = TRUE;
+        }
+        if (mode->width == dispW && mode->height == dispH)
+        {
+            displayListed = TRUE;
+        }
+        dbgMessagef("resizetest: list %4d x %4d %2d bit %s", mode->width, mode->height, mode->depth, rinAspectName(mode->width, mode->height));
+    }
+    dbgMessagef("resizetest: list count=%d display=%dx%d request=%dx%d presets=%d", (int)count, (int)dispW, (int)dispH,
+                (int)reqW, (int)reqH, (int)rinPresetCount());
+    rtCheck(ascending, "list: ascending by width, then height");
+    rtCheck(unique, "list: no duplicate mode");
+    rtCheck(requestListed, "list: the window's request listed");
+    rtCheck(dispW == 0 || displayListed, "list: the display's own mode listed");
+    for (i = 0; i < rinPresetCount(); i++)
+    {
+        int pw, ph;
+        bool32 listed = FALSE;
+
+        rinPreset(i, &pw, &ph);
+        if (dispW > 0 && (pw > dispW || ph > dispH))
+        {
+            continue;                               // larger than the display: rightly left out
+        }
+        for (mode = dev->modes; mode != NULL; mode = mode->next)
+        {
+            if (mode->width == pw && mode->height == ph)
+            {
+                listed = TRUE;
+            }
+        }
+        snprintf(what, sizeof(what), "list: the preset %dx%d (fits the %dx%d display) listed", pw, ph, (int)dispW, (int)dispH);
+        rtCheck(listed, what);
+    }
+    for (i = 0; i < (sdword)(sizeof(aspects) / sizeof(aspects[0])); i++)
+    {
+        const char *name = rinAspectName(aspects[i].w, aspects[i].h);
+
+        snprintf(what, sizeof(what), "aspect: %dx%d is %s (got %s)", aspects[i].w, aspects[i].h, aspects[i].name, name);
+        rtCheck(strcmp(name, aspects[i].name) == 0, what);
+    }
+}
+
+// 2. one scripted size change
+static void rtResize(sdword w, sdword h)
+{
+    featom *atom;
+    regionhandle reg;
+    sdword reqW, reqH, mx, my, wanted;
+    bool32 changed;
+    char what[240];
+
+    changed = uiScaleWindowResizedTo(w, h, w, h);
+    wanted = uiScaleWanted();
+    uiScaleWindowRequestGet(&reqW, &reqH);
+    atom = utAtom("Main_game_screen", "OP_Options_Start", NULL, -1);
+    reg = (atom != NULL) ? (regionhandle)atom->region : NULL;
+    mx = w - 1;
+    my = h - 1;
+    uiScaleMouseToLogical(&mx, &my);
+    dbgMessagef("resizetest: resize %dx%d changed=%d physical=%dx%d scale=%d (wanted %d, %s) logical=%dx%d main=%d,%d "
+                "options button=%d,%d aspect=%.4f request=%dx%d corner->%d,%d screen=%s", (int)w, (int)h, (int)changed,
+                (int)MAIN_WindowWidthActual, (int)MAIN_WindowHeightActual, (int)uiScalePercent, (int)wanted, uiScaleSource(),
+                (int)MAIN_WindowWidth, (int)MAIN_WindowHeight, (int)ghMainRegion->rect.x1, (int)ghMainRegion->rect.y1,
+                reg ? (int)reg->rect.x0 : -1, reg ? (int)reg->rect.y0 : -1, (double)rndAspectRatio, (int)reqW, (int)reqH,
+                (int)mx, (int)my, utTopScreen());
+    snprintf(what, sizeof(what), "resize %dx%d: applied, the physical size", (int)w, (int)h);
+    rtCheck(changed && MAIN_WindowWidthActual == w && MAIN_WindowHeightActual == h, what);
+    snprintf(what, sizeof(what), "resize %dx%d: the scale chosen for the new height (%d, wanted %d)", (int)w, (int)h,
+             (int)uiScalePercent, (int)wanted);
+    rtCheck(uiScalePercent == wanted, what);
+    snprintf(what, sizeof(what), "resize %dx%d: the logical size physical / scale rounded (%dx%d at %d%%)", (int)w, (int)h,
+             (int)MAIN_WindowWidth, (int)MAIN_WindowHeight, (int)uiScalePercent);
+    rtCheck(MAIN_WindowWidth == (sdword)lrint((double)w * 100.0 / (double)uiScalePercent) &&
+            MAIN_WindowHeight == (sdword)lrint((double)h * 100.0 / (double)uiScalePercent), what);
+    snprintf(what, sizeof(what), "resize %dx%d: the main region at the logical size", (int)w, (int)h);
+    rtCheck(ghMainRegion->rect.x0 == 0 && ghMainRegion->rect.y0 == 0 &&
+            ghMainRegion->rect.x1 == MAIN_WindowWidth && ghMainRegion->rect.y1 == MAIN_WindowHeight, what);
+    snprintf(what, sizeof(what), "resize %dx%d: the main menu re-centred at the logical size", (int)w, (int)h);
+    rtCheck(reg != NULL && strcmp(utTopScreen(), "Main_game_screen") == 0 &&
+            reg->rect.x0 == atom->loadedX + (MAIN_WindowWidth - 640) / 2 &&
+            reg->rect.y0 == atom->loadedY + (MAIN_WindowHeight - 480) / 2, what);
+    snprintf(what, sizeof(what), "resize %dx%d: the 3D aspect %.4f", (int)w, (int)h, (double)rndAspectRatio);
+    rtCheck(fabs((double)rndAspectRatio - (double)w / (double)h) < 1e-5, what);
+    snprintf(what, sizeof(what), "resize %dx%d: the request is the dragged size (%dx%d)", (int)w, (int)h, (int)reqW, (int)reqH);
+    rtCheck(reqW == w && reqH == h, what);
+    snprintf(what, sizeof(what), "resize %dx%d: the window's far corner is the logical far corner (%d,%d)", (int)w, (int)h, (int)mx, (int)my);
+    rtCheck(mx == MAIN_WindowWidth - 1 && my == MAIN_WindowHeight - 1, what);
+}
+
+// 3. the Video screen lists and selects the dragged size
+static void rtVideoList(sdword w, sdword h)
+{
+    sdword index, selected, count;
+    char what[200];
+
+    opOptionsSaveSettings();
+    feScreenStart(ghMainRegion, "Video_Options");
+    opResListSet(rinGetDeviceList());
+    index = opResListFind(w, h);
+    selected = opResListSelected();
+    count = opResListCount();
+    dbgMessagef("resizetest: video list count=%d index(%dx%d)=%d selected=%d changed=%d screen=%s", (int)count, (int)w, (int)h,
+                (int)index, (int)selected, (int)opResChanged(), utTopScreen());
+    snprintf(what, sizeof(what), "video: the dragged size %dx%d listed (index %d)", (int)w, (int)h, (int)index);
+    rtCheck(index >= 0, what);
+    snprintf(what, sizeof(what), "video: the dragged size selected (index %d, selected %d)", (int)index, (int)selected);
+    rtCheck(index >= 0 && index == selected, what);
+    rtCheck(!opResChanged(), "video: no mode switch pending at the dragged size");
+    feAllScreensDelete();
+    feScreenStart(ghMainRegion, "Main_game_screen");
+    opOptionsSaveSettings();
+}
+
+// 4. the options file
+static void rtFile(sdword w, sdword h)
+{
+    sdword cw, ch, rw, rh;
+    char what[200];
+
+    utyOptionsFileWrite();
+    rw = utFileRow("screenWidth", &cw);
+    rh = utFileRow("screenHeight", &ch);
+    dbgMessagef("resizetest: file screenWidth=%d (%d rows) screenHeight=%d (%d rows)", (int)rw, (int)cw, (int)rh, (int)ch);
+    snprintf(what, sizeof(what), "file: screenWidth %d / screenHeight %d rows once each at the dragged size %dx%d",
+             (int)rw, (int)rh, (int)w, (int)h);
+    rtCheck(cw == 1 && ch == 1 && rw == w && rh == h, what);
+}
+
+void catResizeRunSelfTest(void)                     // HWI-TEST
+{
+    sdword startPW = MAIN_WindowWidthActual, startPH = MAIN_WindowHeightActual, startW, startH, reqW, reqH;
+    static const struct { int w, h; } sizes[] = { { 1600, 900 }, { 800, 600 }, { 1280, 1024 }, { 2560, 1440 }, { 3840, 2160 }, { 1234, 777 } };
+    sdword i;
+
+    uiScaleWindowRequestGet(&reqW, &reqH);
+    uiScaleWindowPointGet(&startW, &startH);
+    dbgMessagef("resizetest: start physical=%dx%d window=%dx%d logical=%dx%d scale=%d source=%s request=%dx%d screen=%s",
+                (int)startPW, (int)startPH, (int)startW, (int)startH, (int)MAIN_WindowWidth, (int)MAIN_WindowHeight,
+                (int)uiScalePercent, uiScaleSource(), (int)reqW, (int)reqH, utTopScreen());
+    rtList();
+    for (i = 0; i < (sdword)(sizeof(sizes) / sizeof(sizes[0])); i++)
+    {
+        rtResize(sizes[i].w, sizes[i].h);
+    }
+    rtVideoList(1234, 777);
+    rtFile(1234, 777);
+    (void)uiScaleWindowResizedTo(startW, startH, startPW, startPH);         // the start size again, and its file
+    utyOptionsFileWrite();
+    uiScaleWindowRequestGet(&reqW, &reqH);
+    dbgMessagef("resizetest: done physical=%dx%d logical=%dx%d scale=%d request=%dx%d checks=%d fails=%d result=%s",
+                (int)MAIN_WindowWidthActual, (int)MAIN_WindowHeightActual, (int)MAIN_WindowWidth, (int)MAIN_WindowHeight,
+                (int)uiScalePercent, (int)reqW, (int)reqH, (int)rtChecks, (int)rtFails, (rtFails == 0) ? "PASS" : "FAIL");
+}
+
+// /catResizeAt <tick>:<W>x<H>
+static sdword rtAtTick = -1, rtAtW = 0, rtAtH = 0;  // HWI-TEST
+
+void catResizeAtSet(char *string)                   // HWI-TEST
+{
+    int t = 0, w = 0, h = 0;
+
+    if (sscanf(string, "%d:%dx%d", &t, &w, &h) == 3 && t >= 0 && w >= 640 && h >= 480)
+    {
+        rtAtTick = t;
+        rtAtW = w;
+        rtAtH = h;
+    }
+    else
+    {
+        dbgMessagef("resizetest: /catResizeAt '%s' not <tick>:<W>x<H> (W >= 640, H >= 480): ignored", string);
+    }
+}
+
+bool32 catResizeAtRequested(void)                   // HWI-TEST
+{
+    return rtAtTick >= 0;
+}
+
+void catResizeAtTick(void)                          // HWI-TEST: OracleDump.c, once per universe tick
+{
+    bool32 ok;
+
+    if (rtAtTick < 0 || (sdword)universe.univUpdateCounter < rtAtTick)
+    {
+        return;
+    }
+    ok = uiScaleWindowResizedTo(rtAtW, rtAtH, rtAtW, rtAtH);
+    dbgMessagef("resizetest: at tick %u resized to %dx%d ok=%d screens=%d logical=%dx%d scale=%d aspect=%.4f",
+                (unsigned)universe.univUpdateCounter, (int)rtAtW, (int)rtAtH, (int)ok, (int)feStackIndex,
+                (int)MAIN_WindowWidth, (int)MAIN_WindowHeight, (int)uiScalePercent, (double)rndAspectRatio);
+    rtAtTick = -1;
+}

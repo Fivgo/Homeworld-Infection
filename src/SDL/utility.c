@@ -4808,6 +4808,14 @@ DONE_INTROS:
         return(NULL);
     }
 
+    // HWI-TEST (M3-R4 window-modes): /catResizeTest: the resolution presets and the resizable window (UiScaleTest.c)
+    if (catResizeSelfTest)                                  // HWI-TEST
+    {
+        catResizeRunSelfTest();
+        utyGameQuit(NULL, NULL);
+        return(NULL);
+    }
+
     // HWI-TEST (M3-R2 instrumentation): /catModeQuitTest <W>x<H>: a resolution change, then one quit (UiScaleTest.c)
     if (catModeQuitSelfTest)                                // HWI-TEST
     {

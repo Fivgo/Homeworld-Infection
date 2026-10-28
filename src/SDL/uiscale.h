@@ -55,6 +55,12 @@ void uiScaleWindowRequestGet(sdword *w, sdword *h);                  // HWI-FEAT
 void uiScaleUpdate(void);                                            // HWI-FEATURE(ui-scale): a front-end Accept: a changed setting applied [audit: was "per frame"]
 bool32 uiScaleApply(sdword percent);                                 // HWI-FEATURE(ui-scale): the logical size for a scale, relaid out
 
+// HWI-FEATURE(window-resize) (M3-R4 window-modes): the window's size changed (a dragged frame, SDL_WINDOWEVENT_SIZE_CHANGED)
+void uiScaleWindowResized(void *window);                             // HWI-FEATURE(window-resize): physical, scale, logical, aspect, viewport, relayout
+void uiScaleResizeFlush(void);                                       // HWI-FEATURE(window-resize): the in-game relayout once no screen is open (the main loop)
+bool32 uiScaleWindowResizedTo(sdword pointW, sdword pointH, sdword physW, sdword physH);   // HWI-TEST: the same for a size no window reports
+void uiScaleWindowPointGet(sdword *w, sdword *h);                     // HWI-TEST: the window's size in SDL points (uiPointW / H)
+
 // the conversions
 void uiScaleMouseToLogical(sdword *x, sdword *y);       // HWI-FEATURE(ui-scale): window coordinates (SDL's) -> logical
 void uiScaleLogicalToMouse(sdword *x, sdword *y);       // HWI-FEATURE(ui-scale): logical -> window coordinates (a warp)

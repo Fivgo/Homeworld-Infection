@@ -27,6 +27,7 @@
 #endif
 
 extern unsigned int mainSoftwareDirectDraw;
+extern int MAIN_WindowWidth, MAIN_WindowHeight;        // HWI-FEATURE(resolution-presets): the start's request (main.c)
 extern unsigned int mainOutputCRC;
 
 extern unsigned int* devTable;
@@ -140,6 +141,91 @@ void rinAddMode(rdevice* dev, int width, int height, int depth)
         cmode->next = mode;
         mode->next = NULL;
     }
+}
+
+/*-----------------------------------------------------------------------------
+    HWI-FEATURE(resolution-presets) (M3-R4 window-modes): the user asked for "typical supported resolutions for 16:9,
+    16:10, and 4:3 aspect ratios". GoK's list was the integer divisions of display 0's mode (at 3840x2160: 3840x2160,
+    1920x1080, 1280x720, 960x540). Now: these presets, each listed when it fits a display (both sides), plus every
+    display's own mode, in ascending order; the Video screen adds the window's own size (Options.c opResListSet).
+    cataclysm.exe listed the DirectDraw driver's modes (rinEnumeratePrimary 0x0056c8b0).
+-----------------------------------------------------------------------------*/
+static const struct { int width, height; } rinPresets[] =
+{
+    {  640,  480 }, {  800,  600 }, { 1024,  768 }, { 1152,  864 }, { 1280,  720 }, { 1280,  800 }, { 1280,  960 },
+    { 1280, 1024 }, { 1366,  768 }, { 1400, 1050 }, { 1440,  900 }, { 1600,  900 }, { 1600, 1200 }, { 1680, 1050 },
+    { 1920, 1080 }, { 1920, 1200 }, { 2048, 1536 }, { 2560, 1440 }, { 2560, 1600 }, { 3840, 2160 },
+};
+
+int rinPresetCount(void)
+{
+    return (int)(sizeof(rinPresets) / sizeof(rinPresets[0]));
+}
+
+void rinPreset(int index, int* width, int* height)
+{
+    *width = rinPresets[index].width;
+    *height = rinPresets[index].height;
+}
+
+// a mode inserted in ascending (width, height) order unless the list has it; 1 when added
+int rinAddModeIfMissing(rdevice* dev, int width, int height, int depth)
+{
+    rmode* mode;
+    rmode** link;
+
+    if (width <= 0 || height <= 0)
+    {
+        return 0;
+    }
+    for (link = &dev->modes; *link != NULL; link = &(*link)->next)
+    {
+        if ((*link)->width == width && (*link)->height == height && (*link)->depth == depth)
+        {
+            return 0;
+        }
+        if ((*link)->width > width || ((*link)->width == width && (*link)->height > height))
+        {
+            break;
+        }
+    }
+    mode = (rmode*)rinMemAlloc(sizeof(rmode));
+    mode->width  = width;
+    mode->height = height;
+    mode->depth  = depth;
+    mode->next = *link;
+    *link = mode;
+    return 1;
+}
+
+// the aspect's name: one of the four families within 1 % (1366x768 is 16:9 to 0.05 %), else the reduced ratio
+const char* rinAspectName(int width, int height)
+{
+    static const struct { int w, h; const char* name; } aspects[] =
+    {
+        { 4, 3, "4:3" }, { 16, 10, "16:10" }, { 16, 9, "16:9" }, { 5, 4, "5:4" },
+    };
+    static char name[24];
+    int i, a, b, t;
+
+    if (width <= 0 || height <= 0)
+    {
+        return "?";
+    }
+    for (i = 0; i < (int)(sizeof(aspects) / sizeof(aspects[0])); i++)
+    {
+        if (abs(width * aspects[i].h - height * aspects[i].w) * 100 < height * aspects[i].w)
+        {
+            return aspects[i].name;
+        }
+    }
+    a = width; b = height;
+    while (b != 0)
+    {
+        t = a % b; a = b; b = t;
+    }
+    snprintf(name, sizeof(name), "%d:%d", width / a, height / a);
+    return name;
 }
 
 /*-----------------------------------------------------------------------------
@@ -400,14 +486,10 @@ bool32 rinEnumeratePrimary(rdevice* dev)
 {
     SDL_DisplayMode mode;
     Uint32 flags;
-    int max_width;
-    int i, j;
-    const int display_index = 0;
+    int i, j, n, depth = 32, dw[16], dh[16];
 
     if (!dev)
         return FALSE;
-
-    max_width = rinMaxWidth();
 
 #ifdef _WIN32
     HRESULT hr = SetProcessDPIAware();
@@ -426,35 +508,53 @@ bool32 rinEnumeratePrimary(rdevice* dev)
             return FALSE;
     }
 
-/*
-    // for exclusive fullscreen mode we want to offer all modes
-    // leave this code here in case we want to support/restore exclusive fullscreen mode in the future
-    for(i=SDL_GetNumDisplayModes(display_index); i>0; i--){
-        if(SDL_GetDisplayMode(display_index, i-1, &mode)){
-            dbgMessagef("Error in SDL_GetDisplayMode(): %d %s",i-1,SDL_GetError());
-            return FALSE;
-        }
-        if (mode.w >= 640 && mode.h >= 480)
-        {
-            rinAddMode(dev, mode.w, mode.h, SDL_BITSPERPIXEL(mode.format));
-        }
-    }
- */
-
-    // for windowed fullscreen mode we only want to offer modes that allow for
-    // perfect integer scaling to the desktop resolution
-    SDL_GetCurrentDisplayMode(display_index, &mode);
-    printf("Current display mode: %dx%d %d\n", mode.w, mode.h, SDL_BITSPERPIXEL(mode.format));
-    
-    for(i=1; i < 10; i++)
+    // HWI-FEATURE(resolution-presets) (M3-R4 window-modes): every display's current mode (the fit puts a request on the
+    //      display it fits, uiscale.c uiScaleFitDisplay); GoK listed the integer divisions of display 0's mode only
+    n = SDL_GetNumVideoDisplays();
+    n = (n > 16) ? 16 : n;
+    for (i = 0; i < n; i++)
     {
-        if (mode.w % i == 0 && mode.h % i == 0)
+        dw[i] = dh[i] = 0;
+        if (SDL_GetCurrentDisplayMode(i, &mode) == 0)
         {
-            if (mode.w/i >= 640 && mode.h/i >= 480)
+            dw[i] = mode.w;
+            dh[i] = mode.h;
+            if (i == 0)
             {
-                rinAddMode(dev, mode.w/i, mode.h/i, SDL_BITSPERPIXEL(mode.format));
+                depth = SDL_BITSPERPIXEL(mode.format);
+                printf("Current display mode: %dx%d %d\n", mode.w, mode.h, SDL_BITSPERPIXEL(mode.format));
+            }
+            else
+            {
+                printf("Current display mode: %dx%d %d (display %d)\n", mode.w, mode.h, SDL_BITSPERPIXEL(mode.format), i);
             }
         }
+    }
+    // the presets that fit a display, then each display's own mode (an ordered, duplicate-free list)
+    for (i = 0; i < rinPresetCount(); i++)
+    {
+        for (j = 0; j < n; j++)
+        {
+            if (rinPresets[i].width <= dw[j] && rinPresets[i].height <= dh[j])
+            {
+                rinAddModeIfMissing(dev, rinPresets[i].width, rinPresets[i].height, depth);
+                break;
+            }
+        }
+    }
+    for (j = 0; j < n; j++)
+    {
+        if (dw[j] >= 640 && dh[j] >= 480)
+        {
+            rinAddModeIfMissing(dev, dw[j], dh[j], depth);
+        }
+    }
+    // the start's request (the options file's screenWidth / screenHeight or a /WxH switch: main.c InitWindow enumerates
+    // after both are read), so the list holds the size in use even when it is no preset and larger than any display
+    // (a dragged size from another desktop); Options.c opResListSet adds the current request the same way later
+    if (MAIN_WindowWidth >= 640 && MAIN_WindowHeight >= 480)
+    {
+        rinAddModeIfMissing(dev, MAIN_WindowWidth, MAIN_WindowHeight, depth);
     }
 
     return (dev->modes != 0);

@@ -176,4 +176,12 @@ void RemoveSmoothie(Smoothie *smoo);
 
 char ConvertSliderToAIPlayerDifficulty(sdword sliderval);
 
+// HWI-TEST (M3-R4 window-modes): the Video screen's resolution list (UiScaleTest.c's resize self-test)
+struct rdevice;                                                            // rinit.h's device (not included here)
+void opResListSet(struct rdevice* dev);
+bool32 opResChanged(void);
+sdword opResListFind(sdword width, sdword height);
+sdword opResListSelected(void);
+sdword opResListCount(void);
+
 #endif

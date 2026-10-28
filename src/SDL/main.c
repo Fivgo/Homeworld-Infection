@@ -794,6 +794,11 @@ bool32 CatModeQuitTestSet(char *string)
     catModeQuitTestSet(string);
     return TRUE;
 }
+bool32 CatResizeAtSet(char *string)         // HWI-TEST (M3-R4 window-modes): /catResizeAt <tick>:<W>x<H>
+{
+    catResizeAtSet(string);
+    return TRUE;
+}
 // HWI-TEST (M3-R1 letterbox-front): /catShot <spec>, /catShotFile <prefix>, /catShotLetterbox (MotionTest.c catShotFrameEnd:
 //      the any-mode frame capture of the harness's --shot)
 bool32 CatShotSet(char *string)
@@ -1606,6 +1611,8 @@ commandoption commandOptions[] =
     entryFnParam("/uiScale",            UiScaleSet, " <percent> - this run only: the UI scale (0 = by the window height: 200 at 2160 rows or more, 150 at 1440 or more, 100 below; else 100 .. 400; the options file's uiScale row keeps its value)."),   // HWI-FEATURE(ui-scale)
     entryFnParam("/testUsableBounds",   TestUsableBoundsSet, " <W>x<H>[@<DW>x<DH>] - test: the desktop's usable bounds (and display size) the windowed mode's fit uses."),   // HWI-TEST
     entryVr("/catUiScaleTest",          catUiScaleSelfTest, TRUE, " - the UI scale's self-test in the front end: the fit's table, the scripted mouse at the physical bottom row and corner, a click on a front-end button and just outside it, the Video screens' control, the options-file row and the console row, then exit."),   // HWI-TEST
+    entryVr("/catResizeTest",           catResizeSelfTest, TRUE, " - the resizable window's self-test in the front end: the Video screen's resolution presets and aspects, scripted size changes (the scale, the logical size, the layout, the aspect, the mouse, the request, the list's own entry and the options file), then exit."),   // HWI-TEST (M3-R4 window-modes)
+    entryFnParam("/catResizeAt",        CatResizeAtSet, " <tick>:<W>x<H> - test: at that universe tick the window is treated as resized to WxH (the in-game relayout)."),   // HWI-TEST (M3-R4 window-modes)
     entryFn("/letterboxBehind",         LetterboxBehindSet, " - this run only: the cutscene letterbox bars drawn behind ships near the camera (the old look; the options file's letterboxBehind row keeps its value)."),   // HWI-FEATURE(letterbox-setting)
     entryFnParam("/catMotionTest",      CatMotionTestSet, " <ticks> - headless Mission01 run at the virtual frame rate (/catMotionFps, default 144): a focused, a crossing, a receding and a resting ship, per-frame screen positions to /catMotionDump, exit after <ticks> ticks."),   // HWI-FEATURE(motion-interp)
     entryFnParam("/catNisMotionTest",   CatNisMotionTestSet, " <nis>[:<from>:<to>] - headless Mission01 start, then nis\\<nis>.nis plays at the virtual frame rate; the frames between NIS times <from> and <to> go to /catMotionDump, then exit."),   // HWI-FEATURE(motion-interp)
@@ -2756,6 +2763,17 @@ void HandleEvent(SDL_Event const* pEvent) {
             break; 
     
     
+        case SDL_WINDOWEVENT:                               // HWI-FEATURE(window-resize) (M3-R4 window-modes): a dragged frame
+            if (pEvent->window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
+            {
+                extern SDL_Window *sdlwindow;
+                if (sdlwindow != NULL && pEvent->window.windowID == SDL_GetWindowID(sdlwindow))
+                {
+                    uiScaleWindowResized(sdlwindow);
+                }
+            }
+            break;
+
         case SDL_QUIT:
             if (mainActuallyQuit)
             {
@@ -3148,6 +3166,7 @@ int main (int argc, char* argv[])
             }
             if (breakMainLoop) break;
 
+            uiScaleResizeFlush();                       // HWI-FEATURE(window-resize) (M3-R4 window-modes): the in-game relayout once no screen is open
             utyTasksDispatch(); // execute all tasks
 
             if (opTimerActive) {
