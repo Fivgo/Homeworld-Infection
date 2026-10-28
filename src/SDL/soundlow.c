@@ -1554,6 +1554,22 @@ sdword splayFPRVL(void *bankaddress, sdword patnum, real32 *eq, real32 freq, swo
 }
 
 
+sdword SNDpatchIndex(void *patch, sdword *bankIndex)   // HWI-TEST (M3-R4 sound-burst-log): a patch's bank and index
+{
+	sdword i;
+
+	for (i = 0; i < numbanks; i++)
+	{
+		if ((bankpointers[i].start <= patch) && (bankpointers[i].end >= patch))
+		{
+			*bankIndex = i;
+			return (sdword)((PATCH *)patch - SNDbankpatches((BANK *)bankpointers[i].start));
+		}
+	}
+	*bankIndex = -1;
+	return (-1);
+}
+
 PATCH *SNDgetpatch(void *bankaddress, sdword patnum)
 {
 	PATCH	*ppatch = NULL;

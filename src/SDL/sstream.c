@@ -1375,6 +1375,8 @@ void isoundstreamstep(void)
 
 Recover:
 				{
+					catSoundLogPost("stream %d recover ret=%d entry=%d fhandle=%d offset=%ld size=%d status=%d dataleft=%d", i, ret, pstream->writeindex,
+					                (int)pqueue->fhandle, (long)pqueue->offset, pqueue->size, pstream->status, pstream->dataleft);   // HWI-TEST (M3-R4 sound-burst-log)
 					/* IS THERE ANOTHER STREAM IN THE HOUSE? */
 					pqueue->fhandle = SOUND_ERR;
 					

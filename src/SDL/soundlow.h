@@ -244,4 +244,10 @@ extern bool32 soundVirtualClock;
 void soundVirtualMixBlock(void);
 void soundVirtualAdvance(udword taskTicks, udword ticksPerSecond);
 
+// HWI-TEST (M3-R4 sound-burst-log): the sound log (smixer.c; soundlog: lines)
+void catSoundLogPost(const char *fmt, ...);         // any thread
+void catSoundLogFlush(void);                        // the render task, once a frame
+sdword SNDpatchIndex(void *patch, sdword *bankIndex);   // soundlow.c
+extern udword catSoundNoiseAt;                      // /catSoundNoiseAt <block>
+
 #endif

@@ -89,6 +89,7 @@
 #include "Sensors.h"
 #include "SinglePlayer.h"
 #include "SoundEvent.h"
+#include "soundlow.h"       // HWI-TEST (M3-R4 sound-burst-log): catSoundLogFlush
 #include "StringsOnly.h"
 #include "Subtitle.h"
 #include "Switches.h"
@@ -5281,6 +5282,7 @@ DEFINE_TASK(rndRenderTask)
         hwiFrameBegin();                                    // HWI-FEATURE(instrumentation): the render task's top
         trFilterSync();                                     // HWI-FEATURE(sharp-textures): a changed texLinearFiltering reaches the live textures; CAT-FIX: the exe's Cancel (opRestoreSavedSettings 0x004d7f80, opEffectsToVideoCancel 0x004d8990) restores the flag without trFilterEnable, so its live textures kept the cancelled filter while the flag and the saved row said the other
 
+        catSoundLogFlush();                                 // HWI-TEST (M3-R4 sound-burst-log): the mixer's and the stream thread's soundlog: lines
         speechEventUpdate();
         subTitlesUpdate();
 

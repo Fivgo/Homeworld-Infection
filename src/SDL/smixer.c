@@ -19,6 +19,9 @@
 #include "FastMath.h"
 #include "main.h"
 #include "Globals.h"
+#include "Universe.h"      // HWI-TEST (M3-R4 sound-burst-log): the universe tick on the flushed lines
+#include <stdarg.h>
+#include <math.h>
 
 #define MIX_BLOCK_SIZE			FQ_SIZE * sizeof(short) * 2 // 256 samples, 16-bit, stereo = 1024 bytes
 
@@ -97,6 +100,306 @@ extern sdword soundnumvoices;
 extern sdword soundvoicemode;
 
 extern udword rndFrameCount;
+extern sdword channelsinuse;                // HWI-TEST (M3-R4 sound-burst-log): soundlow.c
+
+// HWI-TEST (M3-R4 sound-burst-log, docs/m3-r4-sound-burst-log.md): the sound log. Neither the exe's sound system nor
+//      the port's logged anything, so a burst of noise in a play session left no trace (the user's "large audio
+//      spike of white noise" near the end of the full playthrough, 2026-10-28). The mixer thread and the stream
+//      thread post short lines into a lock-free ring (catSoundLogPost) and the render task prints them with the
+//      universe tick (catSoundLogFlush, "soundlog:" lines). Posted: a BURST at the output (CAT_BURST_BLOCKS blocks
+//      in a row whose left channel peaks above CAT_BURST_PEAK with a zero-crossing rate above CAT_BURST_ZCR per cent
+//      and a spectral flatness of the mixed spectrum above CAT_BURST_FLAT: white noise, not music or speech) with
+//      the three loudest sources of its block (an SFX channel's patch, a speech / music stream's queue entry) and
+//      its end; the panic mode's on / off; a stream starved for CAT_STARVED_BLOCKS blocks (its next block not written
+//      in time); a stream end the mixer stepped past (an entry whose size is not a multiple of the block, so bytes
+//      past it are decoded); the test injection /catSoundNoiseAt. Not in cataclysm.exe.
+#define CAT_SLOG_SLOTS      16
+#define CAT_SLOG_LEN        512
+#define CAT_BURST_PEAK      12000           // of 32767
+#define CAT_BURST_ZCR       30              // per cent of the left samples with a sign change (white noise: ~50)
+#define CAT_BURST_FLAT      0.30f           // spectral flatness of the mixed left spectrum (white noise: > 0.5)
+#define CAT_BURST_BLOCKS    3               // consecutive blocks before a report
+#define CAT_BURST_REPORTS   40              // bursts reported per run
+#define CAT_STARVED_BLOCKS  4               // a starvation episode shorter than this (a stream's start-up) is not logged
+#define CAT_SLOG_RATE       20              // starved / missed-end lines per run
+typedef struct { volatile sdword state; char text[CAT_SLOG_LEN]; } catSoundLogSlot;
+static catSoundLogSlot catSoundLog[CAT_SLOG_SLOTS];
+static volatile udword catSoundLogWrite = 0;
+static volatile udword catSoundLogDropped = 0;
+udword catSoundNoiseAt = 0;                 // /catSoundNoiseAt <block>: 12 blocks of noise into the first playing source
+static bool32 catSoundInjectedThisBlock = FALSE;
+static udword catBurstRun = 0, catBurstPeakMax = 0, catBurstReports = 0, catBurstStart = 0;
+static bool32 catBurstReported = FALSE;
+static udword catSlogStarved = 0, catSlogMissed = 0;
+static udword catStarvedRun[SOUND_MAX_STREAM_BUFFERS];
+static const void *catMissedEntry[SOUND_MAX_STREAM_BUFFERS];
+static sdword catMissedSize[SOUND_MAX_STREAM_BUFFERS];
+
+void catSoundLogPost(const char *fmt, ...)      // any thread
+{
+    udword n = __atomic_fetch_add(&catSoundLogWrite, 1, __ATOMIC_RELAXED) % CAT_SLOG_SLOTS;
+    catSoundLogSlot *slot = &catSoundLog[n];
+    va_list ap;
+
+    if (__atomic_load_n(&slot->state, __ATOMIC_ACQUIRE) != 0)
+    {                                                       // not flushed yet: dropped, counted
+        __atomic_fetch_add(&catSoundLogDropped, 1, __ATOMIC_RELAXED);
+        return;
+    }
+    va_start(ap, fmt);
+    vsnprintf(slot->text, CAT_SLOG_LEN, fmt, ap);
+    va_end(ap);
+    __atomic_store_n(&slot->state, 1, __ATOMIC_RELEASE);
+}
+
+void catSoundLogFlush(void)                     // the render task, once a frame
+{
+    sdword i;
+    udword dropped;
+
+    for (i = 0; i < CAT_SLOG_SLOTS; i++)
+    {
+        catSoundLogSlot *slot = &catSoundLog[i];
+        if (__atomic_load_n(&slot->state, __ATOMIC_ACQUIRE) == 1)
+        {
+            dbgMessagef("soundlog: %s tick=%u t=%.2f", slot->text, (unsigned)universe.univUpdateCounter, universe.totaltimeelapsed);
+            __atomic_store_n(&slot->state, 0, __ATOMIC_RELEASE);
+        }
+    }
+    dropped = __atomic_exchange_n(&catSoundLogDropped, 0, __ATOMIC_RELAXED);
+    if (dropped != 0)
+    {
+        dbgMessagef("soundlog: %u lines dropped (ring full) tick=%u", dropped, (unsigned)universe.univUpdateCounter);
+    }
+}
+
+static real32 catSoundFlatness(const real32 *x, sdword n)   // geometric / arithmetic mean of |x|: 1 = flat (white)
+{
+    sdword i;
+    double sl = 0.0, sa = 0.0;
+
+    for (i = 0; i < n; i++)
+    {
+        double a = fabs((double)x[i]) + 1e-3;
+        sl += log(a);
+        sa += a;
+    }
+    return (n > 0) ? (real32)(exp(sl / n) / (sa / n)) : 0.0f;
+}
+
+static real32 catSoundEnergy(CHANNEL *pchan)   // the block's decoded spectrum, scaled as it was mixed
+{
+    sdword k;
+    double e = 0.0, v = (pchan->volfactorL > pchan->volfactorR) ? pchan->volfactorL : pchan->volfactorR;
+
+    for (k = 0; k < FQ_SIZE; k++)
+    {
+        e += (double)pchan->mixbuffer1[k] * pchan->mixbuffer1[k] + (double)pchan->mixbuffer2[k] * pchan->mixbuffer2[k];
+    }
+    return (real32)(e * v * v);
+}
+
+static void catSoundBurstReport(sdword peak, sdword zc, sdword n, real32 flat)
+{
+    struct { real32 e; sdword stream, index; } top[3];
+    sdword i, j, k, count = 0;
+    real32 e;
+
+    for (i = 0; i < 3; i++) { top[i].e = 0.0f; top[i].stream = 0; top[i].index = -1; }
+    for (i = 0; i < numstreams + soundnumvoices; i++)
+    {
+        bool32 stream = (i < numstreams);
+        CHANNEL *pchan = stream ? &speechchannels[i] : &channels[i - numstreams];
+        if (pchan->status < SOUND_PLAYING || (!stream && pchan->ppatch == NULL))
+        {
+            continue;
+        }
+        e = catSoundEnergy(pchan);
+        for (j = 0; j < 3; j++)
+        {
+            if (e > top[j].e)
+            {
+                for (k = 2; k > j; k--) top[k] = top[k - 1];
+                top[j].e = e; top[j].stream = stream; top[j].index = stream ? i : i - numstreams;
+                break;
+            }
+        }
+        count++;
+    }
+    catSoundLogPost("burst start block=%u peak=%d zcr=%d%% flat=%.2f sources=%d voices=%d/%d inuse=%d panic=%d dct=%s",
+                    mixerticks, peak, (n > 0) ? (zc * 100 / n) : 0, flat, count, soundnumvoices, numvoices, channelsinuse,
+                    (int)panicflag, (dctmode == FQ_MHALF) ? "half" : "norm");
+    for (j = 0; j < 3; j++)
+    {
+        if (top[j].index < 0 || top[j].e <= 0.0f)
+        {
+            continue;
+        }
+        if (top[j].stream)
+        {
+            STREAM *pstream = &streams[top[j].index];
+            CHANNEL *pchan = &speechchannels[top[j].index];
+            STREAMQUEUE *pqueue = &pstream->queue[pstream->playindex];
+            catSoundLogPost("burst src stream=%d e=%.3g flat=%.2f status=%d/%d entry=%d event=0x%x actor=%d offset=%ld size=%d read=%d bitrate=%d ch=%d pos=%ld writepos=%ld bs=%d%d rb=%d wb=%d queued=%d toplay=%d vol=%.0f",
+                            top[j].index, top[j].e, catSoundFlatness(pchan->mixbuffer1, pchan->fqsize), pchan->status, pstream->status,
+                            pstream->playindex, (unsigned)pqueue->speechEvent, pqueue->actornum, (long)pqueue->offset, pqueue->size,
+                            pchan->amountread, (int)pchan->bitrate, (int)pchan->numchannels, (long)(pchan->currentpos - (sbyte *)pstream->buffer),
+                            (pstream->writepos != NULL) ? (long)(pstream->writepos - pstream->buffer) : -1L,
+                            pstream->blockstatus[0], pstream->blockstatus[1], pstream->readblock, pstream->writeblock,
+                            pstream->numqueued, pstream->numtoplay, pchan->volume);
+        }
+        else
+        {
+            CHANNEL *pchan = &channels[top[j].index];
+            PATCH *ppatch = pchan->ppatch;
+            sdword bank = -1, patch = SNDpatchIndex(ppatch, &bank);
+            sdword blockBytes = (ppatch->bitrate > 0) ? (ppatch->bitrate >> 3) : 1;
+            catSoundLogPost("burst src chan=%d e=%.3g flat=%.2f patch=bank%d:%d id=0x%x block=%ld/%ld loop=%d-%ld-%ld pitch=%.3f vol=%.0f pan=%d status=%d prio=%d fq=%d rate=%u",
+                            top[j].index, top[j].e, catSoundFlatness(pchan->mixbuffer1, pchan->fqsize), bank, patch, (unsigned)ppatch->id,
+                            (long)((pchan->currentpos - (sbyte *)ppatch->dataoffset) / blockBytes),
+                            (long)((ppatch->datasize - ppatch->dataoffset) / blockBytes), (int)pchan->looping,
+                            (long)((ppatch->loopstart - ppatch->dataoffset) / blockBytes), (long)((ppatch->loopend - ppatch->dataoffset) / blockBytes),
+                            pchan->pitch, pchan->volume, (int)pchan->pan, pchan->status, pchan->priority, pchan->fqsize,
+                            (unsigned)ppatch->waveformat.frequency);
+        }
+    }
+}
+
+static void catSoundBurstCheck(short *buf, sdword nShorts)   // the mixer thread, after each output block
+{
+    sdword i, n = 0, zc = 0, peak = 0;
+    short prev;
+    bool32 noisy;
+    real32 flat = 0.0f;
+
+    if (buf == NULL || nShorts < 4)
+    {
+        return;
+    }
+    prev = buf[0];
+    for (i = 0; i < nShorts; i += 2)                        // the left channel
+    {
+        short s = buf[i];
+        sdword a = (s < 0) ? -(sdword)s : (sdword)s;
+        if (a > peak) peak = a;
+        if (((sdword)s ^ (sdword)prev) < 0) zc++;
+        prev = s;
+        n++;
+    }
+    noisy = (peak >= CAT_BURST_PEAK) && (zc * 100 >= n * CAT_BURST_ZCR);
+    if (noisy)
+    {
+        flat = catSoundFlatness(mixbuffer1L, dctsize);      // the mixed left spectrum of this block
+        noisy = (flat >= CAT_BURST_FLAT);
+    }
+    if (catSoundInjectedThisBlock)
+    {                                                       // the test injection's blocks, measured (calibration)
+        catSoundLogPost("test block=%u peak=%d zcr=%d%% flat=%.2f noisy=%d", mixerticks, peak, (n > 0) ? (zc * 100 / n) : 0,
+                        (flat > 0.0f) ? flat : catSoundFlatness(mixbuffer1L, dctsize), (int)noisy);
+    }
+    if (noisy)
+    {
+        catBurstRun++;
+        if ((udword)peak > catBurstPeakMax) catBurstPeakMax = (udword)peak;
+        if (catBurstRun == CAT_BURST_BLOCKS && catBurstReports < CAT_BURST_REPORTS)
+        {
+            catBurstReported = TRUE;
+            catBurstReports++;
+            catBurstStart = mixerticks;
+            catSoundBurstReport(peak, zc, n, flat);
+        }
+    }
+    else
+    {
+        if (catBurstReported)
+        {
+            catSoundLogPost("burst end block=%u blocks=%u peakmax=%u%s", mixerticks, mixerticks - catBurstStart, catBurstPeakMax,
+                            (catBurstReports == CAT_BURST_REPORTS) ? " (reports capped)" : "");
+        }
+        catBurstRun = 0;
+        catBurstReported = FALSE;
+        catBurstPeakMax = 0;
+    }
+}
+
+static void catSoundStarvedCheck(sdword i, STREAM *pstream, CHANNEL *pchan, bool32 starved)
+{
+    if (starved)
+    {
+        catStarvedRun[i]++;
+    }
+    else if (catStarvedRun[i] != 0)
+    {
+        if (catStarvedRun[i] >= CAT_STARVED_BLOCKS && catSlogStarved < CAT_SLOG_RATE)
+        {
+            catSlogStarved++;
+            catSoundLogPost("stream %d starved %u blocks (ended block=%u status=%d/%d bs=%d%d rb=%d wb=%d pos=%ld queued=%d)%s",
+                            i, catStarvedRun[i], mixerticks, pchan->status, pstream->status, pstream->blockstatus[0], pstream->blockstatus[1],
+                            pstream->readblock, pstream->writeblock, (long)(pchan->currentpos - (sbyte *)pstream->buffer), pstream->numqueued,
+                            (catSlogStarved == CAT_SLOG_RATE) ? " (last one logged)" : "");
+        }
+        catStarvedRun[i] = 0;
+    }
+}
+
+static void catSoundMissedEndCheck(sdword i, STREAM *pstream, CHANNEL *pchan, STREAMQUEUE *pqueue)
+{
+    sdword blockBytes = (pchan->bitrate > 0) ? (pchan->bitrate >> 3) : 0;
+    long past = (pstream->writepos != NULL) ? (long)(pchan->currentpos - (sbyte *)pstream->writepos) : 0L;
+    sdword over = pchan->amountread - pqueue->size;
+
+    if (blockBytes <= 0 || catSlogMissed >= CAT_SLOG_RATE)
+    {
+        return;
+    }
+    if (!((past > 0 && past < blockBytes) || (pqueue->size > 0 && over > 0 && over < blockBytes)))
+    {
+        return;
+    }
+    if (catMissedEntry[i] == (const void *)pqueue && catMissedSize[i] == pqueue->size)
+    {
+        return;                                             // this entry's miss is logged
+    }
+    catMissedEntry[i] = pqueue;
+    catMissedSize[i] = pqueue->size;
+    catSlogMissed++;
+    catSoundLogPost("stream %d end missed block=%u: past writepos by %ld bytes, read %d of entry size %d (block %d bytes) entry=%d event=0x%x offset=%ld%s",
+                    i, mixerticks, past, pchan->amountread, pqueue->size, blockBytes, pstream->playindex, (unsigned)pqueue->speechEvent,
+                    (long)pqueue->offset, (catSlogMissed == CAT_SLOG_RATE) ? " (last one logged)" : "");
+}
+
+static sdword catSoundNoiseLeft = -1;           // blocks of test noise still to inject (-1: not armed yet)
+static void catSoundNoiseInject(CHANNEL *pchan, bool32 stream, sdword index)   // /catSoundNoiseAt: the detector's fence
+{
+    static udword seed = 12345;
+    sdword k;
+
+    if (catSoundNoiseAt == 0 || mixerticks < catSoundNoiseAt || catSoundInjectedThisBlock)
+    {
+        return;
+    }
+    if (catSoundNoiseLeft < 0)
+    {
+        catSoundNoiseLeft = 12;                             // the first 12 blocks with a playing source from that block on
+    }
+    if (catSoundNoiseLeft == 0)
+    {
+        return;
+    }
+    catSoundNoiseLeft--;
+    catSoundInjectedThisBlock = TRUE;
+    for (k = 0; k < FQ_SIZE; k++)
+    {
+        seed = seed * 1103515245u + 12345u;
+        pchan->mixbuffer1[k] = ((real32)(sdword)((seed >> 16) & 0x7fff) - 16384.0f) / 16384.0f * 10000.0f;
+        seed = seed * 1103515245u + 12345u;
+        pchan->mixbuffer2[k] = ((real32)(sdword)((seed >> 16) & 0x7fff) - 16384.0f) / 16384.0f * 10000.0f;
+    }
+    if (catSoundNoiseLeft == 11)
+    {
+        catSoundLogPost("test noise injected into %s %d from block=%u (12 blocks)", stream ? "stream" : "channel", index, mixerticks);
+    }
+}
 
 // DCT mode functions
 void soundMixerGetMode(sdword *mode)	// mode SOUND_MODE_NORM or SOUND_MODE_AUTO or SOUND_MODE_LOW
@@ -289,6 +592,7 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 
 					// set panic flag
 					panicflag=TRUE;
+					catSoundLogPost("panic on block=%u voices %d->%d dct=%s (no frame for %u blocks)", mixerticks, numvoices, soundnumvoices, (dctmode == FQ_MHALF) ? "half" : "norm", (unsigned)MIX_PANIC_THRES);   // HWI-TEST (M3-R4 sound-burst-log)
 				}
 
 				// reset duration
@@ -326,6 +630,7 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 
 					// set panic flag
 					panicflag=FALSE;
+					catSoundLogPost("panic off block=%u voices %d dct=%s", mixerticks, soundnumvoices, (dctmode == FQ_MHALF) ? "half" : "norm");   // HWI-TEST (M3-R4 sound-burst-log)
 				}
 
 				// reset duration
@@ -358,6 +663,7 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 	memset(mixbuffer1R, 0, FQ_SIZE * sizeof(real32));
 	memset(mixbuffer2L, 0, FQ_SIZE * sizeof(real32));
 	memset(mixbuffer2R, 0, FQ_SIZE * sizeof(real32));
+	catSoundInjectedThisBlock = FALSE;                     // HWI-TEST (M3-R4 sound-burst-log)
 	
 	/* mix the speech first */
 	if (streams != NULL)
@@ -370,6 +676,7 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 				pchan = &speechchannels[i];
 				pqueue = &pstream->queue[pstream->playindex];
 	
+				catSoundStarvedCheck(i, pstream, pchan, (pstream->blockstatus[pstream->readblock] == 0) && (pchan->status != SOUND_STOPPING));   // HWI-TEST (M3-R4 sound-burst-log)
 				if (pstream->blockstatus[pstream->readblock] == 0)
 				{
 					if (pchan->status == SOUND_STOPPING)
@@ -392,6 +699,7 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 				pchan->currentpos += amountread;
 				pchan->amountread += amountread;
 				catSoundDecodedBlocks[i]++;                     // CAT: port diagnostic (sound self-test)
+				catSoundNoiseInject(pchan, TRUE, i);            // HWI-TEST (M3-R4 sound-burst-log): /catSoundNoiseAt
 				
 				/* figure out any volume fades, pan fades, etc */
 				if (pchan->volticksleft)
@@ -511,6 +819,10 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 						pstream->readblock = 0;
 					}
 				}
+				else
+				{
+					catSoundMissedEndCheck(i, pstream, pchan, pqueue);   // HWI-TEST (M3-R4 sound-burst-log)
+				}
 	
 				if (pchan->amountread == pqueue->size)
 				{
@@ -591,6 +903,7 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 			amountread = isoundmixerdecode(pchan->currentpos, pchan->mixbuffer1, pchan->mixbuffer2, pchan->exponentblockL,
 							pchan->fqsize, pchan->ppatch->bitrate);
 			pchan->currentpos += amountread;
+			catSoundNoiseInject(pchan, FALSE, i);               // HWI-TEST (M3-R4 sound-burst-log): /catSoundNoiseAt
 
 			if (pchan->looping)
 			{
@@ -722,6 +1035,7 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 		fqWriteTBlock(timebufferR, timebufferL, 2, pBuf1, nSize1, pBuf2, nSize2);
 	}
 
+	catSoundBurstCheck((short *)pBuf1, (sdword)nSize1);    // HWI-TEST (M3-R4 sound-burst-log): nSize1 counts shorts
 	mixerticks++;
 
 	// CAT: port diagnostic (sound self-test): did this block put sound into the output buffer?
