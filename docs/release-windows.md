@@ -27,7 +27,7 @@ Installed files (the install folder):
 | `licenses\REULA.txt` | `src/COPYING.REULA` |
 | `licenses\SDL2.txt` | the SDL2 tarball's `LICENSE.txt` (zlib) |
 | `licenses\FFmpeg\` | `COPYING.LGPLv2.1.txt`, `LICENSE.md.txt`, `SOURCE.txt` (source URL, plus the configure line read from avutil) |
-| `licenses\innoextract\` | the text files of the innoextract zip (its licence and those of the libraries built into it) |
+| `licenses\innoextract\` | from the innoextract zip: `README.txt` and `license/`: `innoextract.LICENSE.txt` (zlib), `Boost.LICENSE_1_0.txt`, `liblzma.COPYING.txt`, `libstdc++.COPYING3.txt` + `libstdc++.COPYING.RUNTIME.txt` (the libraries linked into the exe) |
 | `uninstall.exe` | written by the installer |
 
 Text files are CRLF.
@@ -71,7 +71,7 @@ there).
 |---|---|---|---|
 | llvm-mingw | 20261006, `llvm-mingw-20261006-ucrt-ubuntu-22.04-x86_64.tar.xz` (clang 23.1.3, UCRT) | `5f9c6ed95b2d4bdb2869a488c5fd5857fbdabcf288a0aa3eb1da43f6a08d8ab4` (equals GitHub's asset digest) | `tools/release/windows/pins.env` |
 | SDL2 | 2.30.12, `SDL2-devel-2.30.12-mingw.tar.gz` | `dddafbf0705a8cbe1f97c69680886ce147ed4d38f1d04e03523681298e081b0f` (the tarball the 2026-10-21 build used; libsdl publishes no checksum) | `pins.env` |
-| innoextract | 1.9, `innoextract-1.9-windows.zip` | @INNOEXTRACT_SHA256@ | `pins.env` |
+| innoextract | 1.9, `innoextract-1.9-windows.zip` (GitHub release asset; i386 exe, statically linked; imports only KERNEL32, msvcrt, SHELL32) | `6989342c9b026a00a72a38f23b62a8e6a22cc5de69805cf47d68ac2fec993065` (from the first CI download, run 40975585872; GitHub publishes no digest for it). Also checked: sha512 `eea751bc…5f902488` (`INNOEXTRACT_SHA512`), the author's SHA512SUMS value for constexpr.org's copy, as Scoop's manifest carries it. It matched, so the GitHub and constexpr.org zips are the same file. | `pins.env` |
 | FFmpeg | 6.1.2, `ffmpeg-6.1.2.tar.xz` from ffmpeg.org | `3b624649725ecdc565c903ca6643d41f33bd49239922e45c9b1442c63dca4e38` (Homebrew's ffmpeg@6 formula; the CI log printed the same) | `tools/release/ffmpeg-min.sh` (shared with Linux and macOS) |
 | NSIS | Ubuntu 24.04's `nsis` package (apt) | apt's signatures | `.github/workflows/build-windows.yml` |
 
@@ -107,10 +107,47 @@ Inno Setup up to 6.2. An installer GOG might rebuild with Inno Setup 6.3 or late
 
 CI never has game data, so nothing past the engine's start is tested there.
 
-## Results
+## Results (2026-10-29)
 
-@RESULTS@
+| Run | Commit | Result |
+|---|---|---|
+| [40975585872](https://github.com/Fivgo/Homeworld-Infection/actions/runs/40975585872) | 54c2f85 | build and smoke green. Found two problems: the innoextract zip keeps its licences in `license/`, which the stage missed; and the actions ran on Node 20 (forced to 24). |
+| [40976227065](https://github.com/Fivgo/Homeworld-Infection/actions/runs/40976227065) | d1af679 | build 2m4s (every third-party part from the cache), smoke 30 s: **55 checks PASS, 0 FAIL** |
+
+The installer is 3,711,100 bytes (11.1 MB unpacked; EstimatedSize 10,825 KB). makensis 3.09: 5 install pages, 3
+uninstall sections (1 required). Imports, from the build log: `hwi-engine.exe`: SDL2, OPENGL32, KERNEL32, USER32,
+SHELL32, the UCRT api-ms-win-crt-*, and avformat-60, avcodec-60, avutil-58, swscale-7. FFmpeg's DLLs import each other,
+the UCRT, KERNEL32, and bcrypt (avutil). SDL2.dll imports only Windows DLLs (msvcrt among them). Smoke details:
+- The engine on the Windows runner, no data, dummy video: it loaded every DLL, printed `Unable to open file:
+  Music4Cat.wxd` and **exited with 65237 (0xFED5)** in well under the timeout. That is the code before data setup
+  is merged, with the working folder as the data path.
+- `innoextract.exe --version`: `innoextract 1.9`, "Extracts installers created by Inno Setup 1.2.10 to 6.0.5", exit 0.
+- Uninstall `/S`: install folder, both shortcuts and the registry entry gone; the stand-in settings and game data kept.
+  `/S /PURGE` after a reinstall: both folders gone too.
+
+Local checks (development machine, no third-party downloads): the llvm-mingw cross build with `tools/release_win64.sh`
+compiles the resource (`llvm-readobj`: ICON 1-7, GROUP_ICON 1, VERSIONINFO 1; FileVersion/ProductVersion 1.0.0) with 0
+warnings. `src/SDL/avi.c` with HW_ENABLE_MOVIES compiles for mingw with clang 23 and -Werror against the host's
+FFmpeg 6.1 headers. `tools/build.sh --release` and the debug build have 0 compiler warnings. A default
+`tools/m2_harness.sh` run matches another branch's run of the same day: rc 124 at the 60 s timeout, 1745 file loads,
+the same DEADLYSIGNAL at the kill.
+
+Side fix: `-Dmovies=false` builds (`tools/release_win64.sh`) failed at bdf5a0c, because `aviShotTake()` in avi.c,
+outside `HW_ENABLE_MOVIES`, read `aviRectLast`, which was declared inside it. The declaration moved above the `#ifdef`
+(HWI-FIX(release-1.0)).
 
 ## Not done / not verified
 
-@OPEN@
+- **Not run by a person on Windows.** Only the silent paths ran in CI. Nobody has seen the installer's pages (licence,
+  folder, Finish with "Start Homeworld Infection"), the uninstaller's components page, SmartScreen's warning, or the
+  icons. No game data in CI: the main menu, missions, the Bink movies through FFmpeg and the unpacking of a GOG
+  installer by innoextract are not tested on Windows.
+- **The data setup is not merged yet.** CI ran main's engine, which exits with 65237 on the first missing data file.
+  After the merge, run the workflow again; the datasetup agent says a headless start fails fast with the same code
+  and opens no dialog.
+- Unsigned: SmartScreen shows "Windows protected your PC" (More info, Run anyway).
+- `tools/release_win64.sh`'s developer zip now carries the installer-oriented README; it still builds with movies off.
+- The FFmpeg 6.1 branch has later point releases (6.1.6 per Homebrew) with security fixes; all three packages pin
+  6.1.2.
+- The build script has run only on the GitHub runner. On the development machine it would download FFmpeg and
+  innoextract (unless `--ffmpeg` / `--innoextract` are given) and needs `nsis`.
