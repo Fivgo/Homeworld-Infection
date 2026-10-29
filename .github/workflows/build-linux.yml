@@ -1,0 +1,91 @@
+# The Linux release package: Homeworld-Infection-<version>-Linux-x86_64.tar.gz (an AppImage and its README), built by
+# tools/release/build-linux.sh and checked by tools/release/smoke-linux.sh (docs/release-linux.md). The artifact
+# package-linux holds the tar.gz; .github/workflows/release.yml calls this workflow (workflow_call).
+name: build-linux
+
+on:
+  push:
+    branches: [ci/linux]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux x86-64 AppImage
+    # glibc 2.35: the AppImage runs on distributions with this glibc or newer
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install the build packages
+        run: |
+          sudo apt-get update -q
+          # the engine (meson's own version comes from pip below), SDL2's window-system and audio headers (SDL dlopens
+          # the libraries; nothing here is bundled except what build-linux.sh builds), the icon tool, and the smoke
+          # test (Xvfb with Mesa, desktop-file-validate)
+          sudo apt-get install -y -q --no-install-recommends \
+            ninja-build flex bison pkg-config patchelf python3-pip python3-pil file \
+            libgl-dev libegl-dev libgles-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev \
+            libxi-dev libxss-dev libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev \
+            libpulse-dev libasound2-dev libpipewire-0.3-dev libsamplerate0-dev libdbus-1-dev libudev-dev libibus-1.0-dev \
+            xvfb xauth libgl1-mesa-dri libglx-mesa0 desktop-file-utils appstream
+          python3 -m pip install --user --no-deps --require-hashes -r tools/release/linux/requirements-ci.txt
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Tool versions and cache keys
+        id: keys
+        run: |
+          meson --version; ninja --version; cmake --version | head -1; gcc --version | head -1; patchelf --version
+          ldd --version | head -1
+          tools/release/build-linux.sh --cache-keys | tee -a "$GITHUB_OUTPUT"
+
+      - name: Restore SDL2
+        id: sdl2
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/hwi-deps/sdl2
+          key: ${{ steps.keys.outputs.sdl2 }}
+
+      - name: Restore FFmpeg
+        id: ffmpeg
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/hwi-deps/ffmpeg
+          key: ${{ steps.keys.outputs.ffmpeg }}
+
+      - name: Build SDL2 and FFmpeg
+        run: tools/release/build-linux.sh --deps ~/hwi-deps --deps-only
+
+      # saved right away, so a later failing step does not throw the builds away
+      - name: Save SDL2
+        if: steps.sdl2.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/hwi-deps/sdl2
+          key: ${{ steps.keys.outputs.sdl2 }}
+
+      - name: Save FFmpeg
+        if: steps.ffmpeg.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/hwi-deps/ffmpeg
+          key: ${{ steps.keys.outputs.ffmpeg }}
+
+      - name: Build the package
+        run: tools/release/build-linux.sh --deps ~/hwi-deps --out dist
+
+      - name: Upload package-linux
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package-linux
+          path: dist/Homeworld-Infection-*-Linux-x86_64.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Smoke test
+        run: tools/release/smoke-linux.sh dist/Homeworld-Infection-*-Linux-x86_64.tar.gz

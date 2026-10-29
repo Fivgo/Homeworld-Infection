@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Homeworld Infection
+GenericName=Real-time strategy game
+Comment=Homeworld: Cataclysm on the Homeworld-Infection engine (needs your GOG copy of Homeworld: Emergence)
+Exec=hwi-engine
+Icon=homeworld-infection
+Terminal=false
+Categories=Game;StrategyGame;
+Keywords=Homeworld;Cataclysm;Emergence;
+StartupNotify=true
+StartupWMClass=homeworld-infection-appimage
+X-AppImage-Version=@VERSION@

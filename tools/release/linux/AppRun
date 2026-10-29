@@ -1,0 +1,149 @@
+#!/bin/sh
+# AppRun - the entry point of the Homeworld Infection AppImage (built by tools/release/build-linux.sh, which fills in
+# @VERSION@; docs/release-linux.md). On every start:
+#   1. The applications-menu entry. Writes or refreshes
+#        ${XDG_DATA_HOME:-~/.local/share}/applications/homeworld-infection-appimage.desktop
+#      and its icon icons/hicolor/<n>x<n>/apps/homeworld-infection-appimage.png. Exec is this AppImage's current
+#      path, so a moved AppImage fixes its entry on its next start. TryExec hides the entry once the AppImage is gone.
+#      A file is rewritten only when its content differs. The development checkout's setup.sh owns
+#      homeworld-infection.desktop and homeworld-infection.png; this step never touches them.
+#      HWI_NO_MENU_ENTRY=1 skips the step.
+#   2. If the AppImage's own folder holds cataclysm.big and the working directory does not, the engine starts in
+#      the AppImage's folder: an AppImage dropped into the game folder finds the data there (docs/release-1.0.md,
+#      contract 2).
+#   3. Starts usr/bin/hwi-engine with the arguments, one game at a time (flock). No LD_LIBRARY_PATH: the engine
+#      finds the bundled libraries through its RUNPATH $ORIGIN/../lib, so the host's zenity, kdialog and xdg-open,
+#      which the engine runs, get an untouched environment. Without a terminal, the engine's output goes to
+#      ~/.homeworld/hwi-engine.log, and the previous run's log is kept as hwi-engine.log.old. An exit with an error
+#      then shows a dialog naming that log (zenity, else kdialog, else notify-send).
+#      HWI_DATASETUP_NONINTERACTIVE=1 (CI) turns AppRun's dialogs off, as it does the engine's.
+appdir=${APPDIR:-$(dirname "$(readlink -f "$0")")}
+id=homeworld-infection-appimage
+title="Homeworld Infection"
+version=@VERSION@
+
+tell() {   # tell <error|info> <text>: a dialog if the desktop has a dialog tool, else a notification, else stderr
+	kind=$1 text=$2
+	if [ -z "${HWI_DATASETUP_NONINTERACTIVE:-}" ]; then
+		if command -v zenity >/dev/null 2>&1; then
+			zenity "--$kind" --title="$title" --width=520 --no-wrap --text="$text" >/dev/null 2>&1 && return 0
+		fi
+		if command -v kdialog >/dev/null 2>&1; then
+			if [ "$kind" = error ]; then
+				kdialog --title "$title" --error "$text" >/dev/null 2>&1 && return 0
+			else
+				kdialog --title "$title" --msgbox "$text" >/dev/null 2>&1 && return 0
+			fi
+		fi
+		if command -v notify-send >/dev/null 2>&1; then
+			notify-send -a "$title" "$title" "$text" >/dev/null 2>&1 && return 0
+		fi
+	fi
+	printf '%s: %s\n' "$title" "$text" >&2
+}
+
+# a value of type string in a desktop file: a backslash is written as two
+desktop_string() { printf '%s' "$1" | sed 's/\\/\\\\/g'; }
+# one quoted Exec argument: \ " ` $ get a backslash (the quoting rule), then the string rule doubles every backslash,
+# and % becomes %% (no field code)
+exec_arg() { printf '"%s"' "$(printf '%s' "$1" | sed -e 's/[\\"`$]/\\&/g' -e 's/\\/\\\\/g' -e 's/%/%%/g')"; }
+
+menu_entry() {
+	[ -z "${HWI_NO_MENU_ENTRY:-}" ] || return 0
+	img=${APPIMAGE:-}
+	case $img in /*) ;; *) return 0 ;; esac          # not started as an AppImage (an extracted AppDir): no entry
+	[ -f "$img" ] && [ -n "${HOME:-}" ] || return 0
+	case $img in *'
+'*) return 0 ;; esac                                  # a newline in the path cannot go into a desktop file
+	data=${XDG_DATA_HOME:-}
+	case $data in /*) ;; *) data=$HOME/.local/share ;; esac   # the spec ignores a relative XDG_DATA_HOME
+	changed=0
+	for n in 16 32 48 64 128 256 512; do
+		src=$appdir/usr/share/icons/hicolor/${n}x$n/apps/homeworld-infection.png
+		dst=$data/icons/hicolor/${n}x$n/apps/$id.png
+		[ -f "$src" ] || continue
+		cmp -s "$src" "$dst" 2>/dev/null && continue
+		mkdir -p "${dst%/*}" 2>/dev/null && cp -f "$src" "$dst.tmp.$$" 2>/dev/null && mv -f "$dst.tmp.$$" "$dst" &&
+			changed=1
+	done
+	if [ "$changed" = 1 ]; then
+		touch "$data/icons/hicolor" 2>/dev/null       # icon lookups notice the new mtime
+		if [ -f "$data/icons/hicolor/icon-theme.cache" ] && command -v gtk-update-icon-cache >/dev/null 2>&1; then
+			gtk-update-icon-cache -q -t -f "$data/icons/hicolor" >/dev/null 2>&1
+		fi
+	fi
+	app=$data/applications/$id.desktop
+	want="[Desktop Entry]
+# Written by the Homeworld Infection AppImage each time it starts; it follows the AppImage when it moves.
+# To remove it, delete this file and the $id.png icons under icons/hicolor.
+Type=Application
+Version=1.0
+Name=$title
+GenericName=Real-time strategy game
+Comment=Homeworld: Cataclysm on the Homeworld-Infection engine (needs your GOG copy of Homeworld: Emergence)
+Exec=$(exec_arg "$img")
+TryExec=$(desktop_string "$img")
+Icon=$id
+Terminal=false
+Categories=Game;StrategyGame;
+Keywords=Homeworld;Cataclysm;Emergence;
+StartupNotify=true
+StartupWMClass=$id
+X-AppImage-Version=$version"
+	[ "$want" = "$(cat "$app" 2>/dev/null)" ] && return 0
+	mkdir -p "${app%/*}" 2>/dev/null || return 0
+	if printf '%s\n' "$want" > "$app.tmp.$$" 2>/dev/null && chmod 644 "$app.tmp.$$" && mv -f "$app.tmp.$$" "$app"; then
+		if command -v update-desktop-database >/dev/null 2>&1; then
+			update-desktop-database -q "${app%/*}" >/dev/null 2>&1
+		fi
+	else
+		rm -f "$app.tmp.$$"
+	fi
+	return 0
+}
+
+menu_entry
+
+# an AppImage dropped into the game folder: start there (the engine looks for cataclysm.big in the working directory)
+if [ -n "${APPIMAGE:-}" ] && [ ! -e cataclysm.big ] && [ -e "${APPIMAGE%/*}/cataclysm.big" ]; then
+	cd "${APPIMAGE%/*}" 2>/dev/null || true
+fi
+
+# the window's X11 class and Wayland app id name the menu entry, so docks and task switchers show its icon
+: "${SDL_VIDEO_X11_WMCLASS:=$id}" "${SDL_VIDEO_WAYLAND_WMCLASS:=$id}" "${SDL_APP_ID:=$id}"
+export SDL_VIDEO_X11_WMCLASS SDL_VIDEO_WAYLAND_WMCLASS SDL_APP_ID
+
+engine=$appdir/usr/bin/hwi-engine
+settings=
+[ -n "${HOME:-}" ] && mkdir -p "$HOME/.homeworld" 2>/dev/null && settings=$HOME/.homeworld
+
+# one game at a time: flock -o holds the lock in flock itself, so programs the engine starts (a file manager) never
+# inherit it
+lock=
+if [ -n "$settings" ] && command -v flock >/dev/null 2>&1; then
+	lock=$settings/.appimage.lock
+	if ! flock -n "$lock" true 2>/dev/null; then
+		tell info "Homeworld Infection is already running."
+		exit 0
+	fi
+fi
+run() {
+	if [ -n "$lock" ]; then flock -n -o "$lock" "$engine" "$@"; else "$engine" "$@"; fi
+}
+
+if [ -t 1 ] || [ -t 2 ] || [ -z "$settings" ]; then
+	run "$@"                                          # started from a terminal: the output stays there
+	exit $?
+fi
+log=$settings/hwi-engine.log
+[ -f "$log" ] && mv -f "$log" "$log.old" 2>/dev/null
+run "$@" > "$log" 2>&1
+rc=$?
+case $rc in
+	0|129|130|143) ;;                                 # a normal exit, or ended by the user or the session (HUP, INT, TERM)
+	*) tell error "Homeworld Infection stopped with an error (exit code $rc).
+
+Its messages are in
+    $log" ;;
+esac
+exit "$rc"

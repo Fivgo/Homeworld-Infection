@@ -1,0 +1,3 @@
+# The ubuntu-22.04 runner's meson (0.61) is older than meson.build's minimum (1.1): .github/workflows/build-linux.yml
+# installs this one with pip --require-hashes (the sha256 of the wheel on PyPI). 1.3.2 is the development machine's.
+meson==1.3.2 --hash=sha256:0ba4a71fbc060c44721c7b674807598c5af9ea51335073cae7a3e9a95b375c89
