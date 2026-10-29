@@ -529,7 +529,8 @@
 #                    sub= (taskSubTick), and carry crc=00000000 (no read-back). A GPU measurement: an idle GPU, the
 #                    release build (--bin build/release/hwi-engine). Also in the nis mode (its lines get the same clock
 #                    tokens; the mode's /noSpeech is left out then: a debug-build switch, and the real clock has no CRC)
-#   --mode-to WxH    modequit mode: the resolution the render switch goes to (default 1280x720)
+#   --mode-to WxH[:N] modequit mode: the resolution the render switch goes to (default 1280x720); with :N the main loop
+#                    draws N frames after the switch before the quit (M3-R4 mode-switch-fix: the swap after a switch)
 #   --resize-at T:WxH  any mode with a universe (M3-R4 window-modes, HWI-TEST): /catResizeAt T:WxH, the window treated as
 #                    resized to WxH at universe tick T
 #   --frame-log      any mode (M3-R2 instrumentation, HWI-TEST): /frameLog <run>/frame.log: one line a second (frame-time
@@ -563,6 +564,10 @@
 #                    extra frames draw the shared random stream, so the run's .hwo is never a baseline
 #   --timeout N      seconds (default 60)
 #   --driver D       offscreen (default; falls back to dummy if the offscreen driver cannot set a video mode) | dummy
+#   --hidden-x11     (M3-R4 mode-switch-fix, HWI-TEST /catHiddenWindow) the x11 driver on the user's own display
+#                    server ($DISPLAY) with every window created HIDDEN (never mapped: nothing on screen) and the pointer
+#                    never warped or grabbed; the real GLX driver path (the NVIDIA driver under Xwayland), e.g. a mode
+#                    switch: --mode modequit --res 2560x1600 --mode-to 3840x2160 --hidden-x11. Silent like every run
 #   --data DIR       HW_Data dir to use instead of the harness data dir. ONLY for isolation runs of one item while
 #                    other stage-1 items are still missing; the summary prints it, and such a run is never the gate.
 #   --bin PATH       engine binary (default build/debug/hwi-engine)
@@ -633,12 +638,13 @@ conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0; mtmission=1; sav
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""; skticks=600; skmap=LiveFireExercise2
 warplevel=10; savesrc=""; training=0; recordname=""; recordstop=""; skbigotry=""; failjump=0
 shotspec=""; shotlb=0; res=""; cfgrows=(); teamcolour=0; lodtest=""; lodstats=""; scene=""; realclock=""
-modeto=1280x720; framelog=0; framesig=0; anyfps=""; resizeat=""
+modeto=1280x720; framelog=0; framesig=0; anyfps=""; resizeat=""; hiddenx11=0
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
 		--timeout) tmo=$2; shift ;;
 		--driver) drv=$2; shift ;;
+		--hidden-x11) hiddenx11=1; drv=x11 ;;   # M3-R4 mode-switch-fix
 		--data) data=$2; shift ;;
 		--bin) bin=$(realpath -- "$2"); shift ;;
 		--oracle-ticks) oticks=$2; shift ;;
@@ -726,6 +732,10 @@ grep -q -a "/logFileLoads" "$bin" || args=(/window /nodebugInt /settingspath "$o
 [[ "$mode" == modequit ]] && args+=(/catModeQuitTest "$modeto")   # M3-R2 instrumentation
 [[ "$mode" == resize ]] && args+=(/catResizeTest)                 # M3-R4 window-modes
 [[ -n "$resizeat" ]] && args+=(/catResizeAt "$resizeat")           # M3-R4 window-modes
+if [[ $hiddenx11 -eq 1 ]]; then                                     # M3-R4 mode-switch-fix
+	[[ -n "${DISPLAY:-}" ]] || { echo "m2_harness: --hidden-x11 needs DISPLAY" >&2; exit 2; }
+	args+=(/catHiddenWindow)
+fi
 if [[ "$mode" == oracle ]]; then
 	args+=(/oracleSelfTest "$oticks" /oracleDump "$out/run.hwo")
 	[[ -n "$perturb" ]] && args+=(/oracleSelfTestPerturb "$perturb")

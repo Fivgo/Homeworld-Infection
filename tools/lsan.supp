@@ -17,3 +17,8 @@ leak:mgStartup
 leak:titanGameStartup
 # - a display-mode record made by rinEnumeratePrimary (rinit.c) during InitWindow
 leak:rinEnumeratePrimary
+# M3-R4 mode-switch-fix (2026-10-28): the NVIDIA GL driver keeps ~22 KB of its own per-process state after every context
+# is deleted (12 allocations, the same at every window size; seen in --hidden-x11 runs). The leaked GL context of a
+# mode switch (4.3 MB here before the fix) would also be hidden by this line: its real symptom, the crash or the
+# black screen on the first swap after a switch, is what --mode modequit --mode-to WxH:N --hidden-x11 judges
+leak:libnvidia-glcore.so

@@ -8,6 +8,8 @@
 
 #include "mouse.h"
 
+extern bool32 catHiddenWindow;      // HWI-TEST (M3-R4 mode-switch-fix): render.c, /catHiddenWindow
+
 #include <SDL2/SDL.h>
 
 #include "CommandWrap.h"
@@ -472,7 +474,7 @@ void mousePositionSet(sdword x, sdword y)
     SetCursorPos(mousePoint.x, mousePoint.y);               //set Windows mouse location
     */
 
-    if (!mouseClip)
+    if (!mouseClip && !catHiddenWindow)             // HWI-TEST: a hidden test window never moves the user's pointer
     {
         uiScaleLogicalToMouse(&x, &y);              // HWI-FEATURE(ui-scale): the logical position in SDL's window coordinates
         SDL_WarpMouseInWindow(NULL, x, y);
@@ -499,7 +501,10 @@ void mouseClipToRect(rectangle *rect)
         mouseClipRect = *rect;
         SDL_GetRelativeMouseState(&x, &y); // prime the next poll to start at 0,0
     }
-    SDL_SetRelativeMouseMode(SDL_TRUE);
+    if (!catHiddenWindow)                   // HWI-TEST: a hidden test window never grabs the user's pointer
+    {
+        SDL_SetRelativeMouseMode(SDL_TRUE);
+    }
 }
 
 

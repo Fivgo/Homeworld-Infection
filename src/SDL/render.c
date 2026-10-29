@@ -47,6 +47,7 @@
 #include "mouse.h"
 #include "MotionTest.h"     // HWI-FEATURE(motion-interp): the measurement frame end
 #include "TeamColourTest.h" // HWI-TEST (M3-R1 team-colours-warp)
+#include "UiScaleTest.h"     // HWI-TEST (M3-R4 mode-switch-fix): catModeQuitFrameEnd
 #include "MotionInterp.h"   // HWI-FEATURE(motion-interp): miRenderBegin / miRenderEnd
 #include "NavLights.h"
 #include "Nebulae.h"
@@ -178,6 +179,7 @@ static sdword rndHint = 0;
 #endif
 
 SDL_Window *sdlwindow=NULL;
+bool32 catHiddenWindow = FALSE;    // HWI-TEST (M3-R4 mode-switch-fix): /catHiddenWindow, every window created hidden (never mapped)
 SDL_GLContext glcontext;
 #ifdef HW_ENABLE_GLES
 static EGLDisplay *egl_display = EGL_NO_DISPLAY;
@@ -890,6 +892,38 @@ void rndCapScaleCapStatsTaskFunction(void)
     sprintf(rndCapScaleCapStatsString, "\n trailScaleCap %f", scalar);
 }
 
+/*-----------------------------------------------------------------------------
+    HWI-FIX (M3-R4 mode-switch-fix): the user: "I tried switching between 2560x1600 to 3840x2160 and now I just see a
+    black screen for the game". A resolution change (the Video screen's Accept: Options.c opOptionsAcceptHelper ->
+    main.c mainLoadGL -> mainShutdownGL -> rndClose, then setupPixelFormat) went through GoK's rndClose, which quit SDL's
+    whole video subsystem (closing the X connection) and never deleted the GL context; the new window and context
+    were made on a new connection. Under the NVIDIA driver and Xwayland the first buffer swap after that failed: an X
+    error "BadPixmap" on Present's PresentPixmap (opcode 145, minor 1: the 2026-10-20 and 2026-10-28 21:57 play logs,
+    the process gone) or a swap that never returned (the 21:57:53 play log: the black screen, the main thread asleep
+    in poll). A stand-alone test on the user's display (hidden windows) reproduced both with the old order and none
+    with this one, and the engine's own switch (harness --hidden-x11) crashed the same way on its first swap. Now the
+    context is released and deleted and the window destroyed, and the video subsystem (the X connection) stays up for
+    the next window; main's SDL_Quit closes it at exit. LeakSanitizer's 4.3 MB in libnvidia-glcore at exit (the
+    leaked context) went with it.
+-----------------------------------------------------------------------------*/
+static void rndWindowDestroy(void)                          // HWI-FIX (M3-R4 mode-switch-fix)
+{
+    if (sdlwindow != NULL)
+    {
+        SDL_GL_MakeCurrent(sdlwindow, NULL);
+    }
+    if (glcontext != NULL)
+    {
+        SDL_GL_DeleteContext(glcontext);
+        glcontext = NULL;
+    }
+    if (sdlwindow != NULL)
+    {
+        SDL_DestroyWindow(sdlwindow);
+        sdlwindow = NULL;
+    }
+}
+
 /*bool32 setupPixelFormat(HDC hDC)*/
 bool32 setupPixelFormat()
 {
@@ -920,7 +954,8 @@ bool32 setupPixelFormat()
     (void)uiScaleWindowCurrent(&reqW, &reqH);               // HWI-FEATURE(ui-scale)
 
     // don't bother doing anything if nothing's actually changed
-	if(lastWidth  == (Uint32)reqW                           // HWI-FEATURE(ui-scale): the request, not MAIN_Window*
+	if(sdlwindow  != NULL                                   // HWI-FIX (M3-R4 mode-switch-fix): rndClose destroyed it: always a new one
+    && lastWidth  == (Uint32)reqW                           // HWI-FEATURE(ui-scale): the request, not MAIN_Window*
     && lastHeight == (Uint32)reqH                           // HWI-FEATURE(ui-scale)
     && lastDepth  == MAIN_WindowDepth
     && lastFull   == fullScreen)
@@ -969,6 +1004,10 @@ bool32 setupPixelFormat()
         // HWI-FEATURE(window-resize) (M3-R4 window-modes): a windowed mode the user drags to any size (uiscale.c
         //      uiScaleWindowResized follows the frame); the exe's window has a fixed client size (WinMain 0x005631f0)
         flags |= SDL_WINDOW_RESIZABLE;
+    }
+    if (catHiddenWindow)
+    {
+        flags |= SDL_WINDOW_HIDDEN;                         // HWI-TEST: a run on the real display server that nobody sees
     }
 #else
     flags |= SDL_WINDOW_RESIZABLE;
@@ -1173,11 +1212,14 @@ sdword rndSmallInit(rndinitdata* initData, bool32 GL)
         egl_surface = EGL_NO_SURFACE;
         eglTerminate(egl_display);
         egl_display = EGL_NO_DISPLAY;
-#endif
         if (flags & ~SDL_INIT_VIDEO)
             SDL_QuitSubSystem(SDL_INIT_VIDEO);
         else
             SDL_Quit();
+#else
+        (void)flags;
+        rndWindowDestroy();                                 // HWI-FIX (M3-R4 mode-switch-fix): the context deleted, the connection kept
+#endif
         return FALSE;
     }
 
@@ -1301,11 +1343,13 @@ void rndClose(void)
     egl_surface = EGL_NO_SURFACE;
     eglTerminate(egl_display);
     egl_display = EGL_NO_DISPLAY;
-#endif
     if (flags ^ SDL_INIT_VIDEO)
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
     else
         SDL_Quit();
+#else
+    rndWindowDestroy();                                     // HWI-FIX (M3-R4 mode-switch-fix): see rndWindowDestroy
+#endif
 }
 
 /*-----------------------------------------------------------------------------
@@ -5539,6 +5583,7 @@ DEFINE_TASK(rndRenderTask)
         catTeamColourFrameEnd();                            // HWI-TEST (M3-R1 team-colours-warp): /catTeamColourTest
         catFrameSigEnd();                                   // HWI-TEST (M3-R2 nis-flicker): /catFrameSig, the per-frame signal
         catMotionTestFrameEnd();                            // HWI-FEATURE(motion-interp) measurement: the frame's dump line + CRC
+        catModeQuitFrameEnd();                              // HWI-TEST (M3-R4 mode-switch-fix): frames after a mode switch
 
         //demo-specific update code
         if (demDemoPlaying && gameIsRunning)

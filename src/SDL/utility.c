@@ -4820,8 +4820,11 @@ DONE_INTROS:
     if (catModeQuitSelfTest)                                // HWI-TEST
     {
         catModeQuitRunSelfTest();
-        utyGameQuit(NULL, NULL);
-        return(NULL);
+        if (!catModeQuitAwaitFrames())                      // HWI-TEST (M3-R4 mode-switch-fix): or frames first
+        {
+            utyGameQuit(NULL, NULL);
+            return(NULL);
+        }
     }
 
     // HWI-FEATURE(motion-interp): /catToggleTest: the Smooth motion checkbox, its options-file rows and console rows

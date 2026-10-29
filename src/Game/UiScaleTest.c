@@ -567,17 +567,59 @@ void catUiScaleRunSelfTest(void)
 ----------------------------------------------------------------------------*/
 bool32 catModeQuitSelfTest = FALSE;                 // HWI-TEST
 static sdword utQuitW = 1280, utQuitH = 720;        // HWI-TEST
+// HWI-TEST (M3-R4 mode-switch-fix): /catModeQuitTest <W>x<H>:<frames>: the main loop draws that many frames after the
+//      switch before the quit (the user's black screen: the first buffer swap after a switch never returned under the
+//      NVIDIA driver and Xwayland; render.c rndClose). 0 (the default) quits at once as before
+static sdword utQuitFrames = 0;                     // HWI-TEST
+static sdword utQuitFramesDrawn = -1;               // HWI-TEST: -1 = not counting
 
 void catModeQuitTestSet(char *string)               // HWI-TEST
 {
-    int w = 0, h = 0;
+    int w = 0, h = 0, frames = 0;
+    int n = sscanf(string, "%dx%d:%d", &w, &h, &frames);
 
-    if (sscanf(string, "%dx%d", &w, &h) == 2 && w >= 640 && h >= 480)
+    if (n >= 2 && w >= 640 && h >= 480)
     {
         utQuitW = w;
         utQuitH = h;
     }
+    if (n == 3 && frames > 0)
+    {
+        utQuitFrames = frames;
+    }
     catModeQuitSelfTest = TRUE;
+}
+
+bool32 catModeQuitAwaitFrames(void)                 // HWI-TEST: utility.c, after the switch: quit later (TRUE) or now
+{
+    if (utQuitFrames <= 0)
+    {
+        return FALSE;
+    }
+    utQuitFramesDrawn = 0;
+    dbgMessagef("modequittest: drawing %d frames after the switch, then the quit", (int)utQuitFrames);
+    return TRUE;
+}
+
+void catModeQuitFrameEnd(void)                      // HWI-TEST: render.c rndRenderTask, before the buffer swap
+{
+    if (utQuitFramesDrawn < 0)
+    {
+        return;
+    }
+    utQuitFramesDrawn++;
+    if (utQuitFramesDrawn <= 3 || utQuitFramesDrawn == utQuitFrames)
+    {
+        dbgMessagef("modequittest: frame %d after the switch (before its swap) physical=%dx%d logical=%dx%d",
+                    (int)utQuitFramesDrawn, (int)MAIN_WindowWidthActual, (int)MAIN_WindowHeightActual,
+                    (int)MAIN_WindowWidth, (int)MAIN_WindowHeight);
+    }
+    if (utQuitFramesDrawn >= utQuitFrames)
+    {
+        dbgMessagef("modequittest: frames done drawn=%d (every swap before the last returned)", (int)utQuitFramesDrawn);
+        utQuitFramesDrawn = -1;
+        utyGameQuit(NULL, NULL);
+    }
 }
 
 void catModeQuitRunSelfTest(void)                   // HWI-TEST
@@ -601,8 +643,10 @@ void catModeQuitRunSelfTest(void)                   // HWI-TEST
     uiScaleWindowRequestGet(&reqW, &reqH);
     dbgMessagef("modequittest: switched ok=%d request=%dx%d physical=%dx%d logical=%dx%d", (int)ok, (int)reqW, (int)reqH,
                 (int)MAIN_WindowWidthActual, (int)MAIN_WindowHeightActual, (int)MAIN_WindowWidth, (int)MAIN_WindowHeight);
+    // [M3-R4 mode-switch-fix] within a pixel: under the x11 driver (the harness's --hidden-x11) the user's Xwayland with a
+    //      fractional desktop scale makes a 2560x1600 window's drawable 2561x1601 (and 1024x768 -> 1025x768)
     dbgMessagef("modequittest: done switched=%d result=%s (the quit follows: the harness judges rc 0 and the quit line once)",
-                (int)ok, (ok && MAIN_WindowWidthActual == utQuitW && MAIN_WindowHeightActual == utQuitH) ? "PASS" : "FAIL");
+                (int)ok, (ok && abs(MAIN_WindowWidthActual - utQuitW) <= 1 && abs(MAIN_WindowHeightActual - utQuitH) <= 1) ? "PASS" : "FAIL");
 }
 
 /*-----------------------------------------------------------------------------

@@ -70,6 +70,9 @@ expand the window to the size they want"
 ### Not changed
 - No row or switch: the window is always resizable in a windowed mode (the exe's fixed frame has no look to keep).
 - The exe's mode switch on Accept (a new window) is as before: the resizable window is a second way to the same state.
+- A mode switch tears the window down by deleting the GL context and destroying the window while keeping SDL's video
+  subsystem (the X connection) up: GoK quit the whole subsystem, which under the NVIDIA driver and Xwayland crashed
+  (BadPixmap) or hung (the black screen) on the first swap after the switch (HWI-FIX, docs/m3-r4-mode-switch-fix.md).
 - The simulation: nothing in the universe reads the window size (the streams are identical).
 
 ## HWI-TEST

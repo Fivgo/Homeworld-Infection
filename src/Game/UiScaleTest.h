@@ -17,6 +17,8 @@ void catUiScaleRunSelfTest(void);           // utility.c, once the front end is 
 extern bool32 catModeQuitSelfTest;          // HWI-TEST
 void catModeQuitTestSet(char *string);      // HWI-TEST
 void catModeQuitRunSelfTest(void);          // HWI-TEST: utility.c, once the front end is up; then the engine quits once
+bool32 catModeQuitAwaitFrames(void);        // HWI-TEST (M3-R4 mode-switch-fix): <W>x<H>:<frames>, the quit after that many frames
+void catModeQuitFrameEnd(void);             // HWI-TEST (M3-R4 mode-switch-fix): render.c, each frame before its swap
 
 // HWI-TEST (M3-R4 window-modes): /catResizeTest (harness mode resize): the resolution presets and the resizable window's
 //      bookkeeping, scripted; /catResizeAt <tick>:<W>x<H>: a size change at that universe tick of any run (the in-game path)
