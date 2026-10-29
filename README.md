@@ -45,6 +45,9 @@ The engine source in `src/` comes from Relic Entertainment's Homeworld 1 source 
 ## Getting started (development)
 To play, see "Play it" above. For development, read `docs/RUNBOOK.md` (installer to running game) and `cycle/STATE.md` (where the work stands).
 
+### Comparing with the original game
+`tools/play_original.sh --setup` (once) unpacks an untouched copy of the GOG game into `original/gog/` (checked against the installer's file list), gives it its own Wine prefix with the OpenGL renderer selected, and adds a "Homeworld Cataclysm (original GOG)" shortcut next to the recreation's. It needs GE-Proton10-34 and umu-run (`docs/RUNBOOK.md` sections 2 and 4b). The shortcut runs the original in a Wine window the size of its video mode: 1920x1080 at first; change it in the game's Options or with `tools/play_original.sh --size 2560x1440`.
+
 ## Docs
 - `PLAN.md`: milestones, M2 approach, risks, open decisions
 - `CONSTRAINTS.md`: the user's standing rules

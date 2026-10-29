@@ -288,6 +288,21 @@ res: `--size 1280x960 --window 2560x1920 --scaler integer`. Without gamescope th
 with the same value (e.g. `--no-gamescope --virtual-desktop 1600x900 --size 1600x900 --sync-res`). gamescope makes the window 1 px wider for some
 sizes (observed 641x360 for 640x360 - evidence gone, UNVERIFIED; 1025x768 for 1024x768 - `logs/screenshot-20261008.log:63`, `logs/run_game-20261008-094931.log:146`).
 
+## 4b. `tools/play_original.sh` - the untouched GOG game, for comparing with the recreation (2026-10-29)
+
+`original/game/` is not stock: CET replaced `rgl.dll` / `rgld3d.dll` and added `Update102.big` (section 3), and the oracle DLL lives there. So the comparison copy is separate: `tools/play_original.sh --setup` extracts the installer again into `original/gog/game/` (`HWC_GAME_ROOT`; its MANIFEST.sha256 is identical to the first extraction's and every file verifies), makes `original/gog/prefix/` (`setup_prefix.sh --prefix`), stores the renderer preset there (`glToSelect=opengl32.dll`, `deviceIndex=-1`, empty `deviceToSelect`/`d3dToSelect`, 1920x1080x32, and `deviceCRC` copied from `prefix/`), and installs `homeworld-cataclysm-original.desktop` (menu + Desktop, StartupWMClass `steam_app_1766413869`). A start runs `run_game.sh --original --game-dir original/gog/game --prefix original/gog/prefix --no-gamescope --virtual-desktop <saved mode>`; if that dies within 20 s with an X11 BadWindow it retries once as a plain window (`/window`). `--size WxH` stores a mode first. Messages: `original/gog/launch.log`.
+
+Facts from the hidden smoke runs (headless gamescope, Wine audio drivers disabled, `gamescopectl screenshot`):
+
+| Fact | Evidence |
+|---|---|
+| The stock exe falls back to the **software** renderer whenever the saved `deviceCRC` differs from `rinDeviceCRC()` (`main.c` doInit, `mainForceSoftware`). The CRC covers the device structs, not the mode lists (`rinit.c` rinDeviceCRC), so `prefix/`'s value fits a second prefix on the same Proton and GPU | with the copied CRC: the game loads `opengl32.dll` (builtin, host NVIDIA GL), never `rgl.dll`; `glide2x.dll` is loaded too (device enumeration) |
+| An argument the exe does not know shows a "Command-line usage" box and the game waits there. `/noSound` is one: the exe's strings have `/disableAVI`, `/window`, `/noswddraw`, `/logOn`, `/logOnVerbose`, but no `/noSound` (the recreation's table has it, from HW1) | `xwininfo -root -tree` on gamescope's Xwayland: `"Command-line usage"` 431x346 for `/noswddraw /noSound`; `/noswddraw` alone opens `"Emergence"` 1920x1080 |
+| At 1920x1080 the exe blits the intro movies 1:1 at the top-left (640x480 of 1920x1080) and centres the 640x480 front end | screenshots at 15 s (Sierra logo) and 75 s (main menu, "Version Emergence 1.01") |
+| A Wine virtual desktop inside headless gamescope dies at start with `BadWindow (X_CreateWindow)`, like the scripted oracle replays (docs/m2-r2-oracle.md) | first smoke run; the oracle recordings from the desktop shortcut (2026-10-18, 10 min) ran in a 1920x1080 virtual desktop |
+
+Not verified: a start on the user's desktop (it shows a window and plays sound, so only an attended run).
+
 ## 5. `tools/screenshot.sh` - capture without input injection
 
 ```
