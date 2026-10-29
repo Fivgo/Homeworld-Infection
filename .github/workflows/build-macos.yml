@@ -1,0 +1,92 @@
+# The macOS package (docs/release-macos.md): tools/release/build-macos.sh on an arm64 runner builds the universal
+# (arm64 + x86_64) app, the dmg and runs the smoke checks. Third-party builds are cached by their recipe key.
+# The repository is private: macOS minutes cost 10x, so the third-party cache is saved as soon as it is built.
+name: build-macos
+
+on:
+  push:
+    branches: [ci/macos]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version
+        type: string
+        default: 1.0.0
+  workflow_call:
+    inputs:
+      version:
+        description: Release version
+        type: string
+        default: 1.0.0
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 120
+    env:
+      HWI_VERSION: ${{ inputs.version || '1.0.0' }}
+      MACOS_WERROR: 'false'   # first runs list every Apple clang warning; then 'true' (the project's -Werror)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Build tools (meson, ninja, pkg-config)
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet --disable-pip-version-check meson==1.6.1 ninja==1.11.1.1
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+          command -v pkg-config || brew install pkgconf
+          sw_vers; uname -m; xcodebuild -version; cmake --version | head -n 1; clang --version | head -n 1
+          "$RUNNER_TEMP/venv/bin/meson" --version
+          arch -x86_64 /usr/bin/true && echo "Rosetta: yes" || echo "Rosetta: no"
+
+      - name: Third-party cache key
+        id: key
+        run: echo "key=$(tools/release/build-macos.sh --deps-key)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore third-party builds
+        id: restore
+        uses: actions/cache/restore@v4
+        with:
+          path: build/macos-deps
+          key: ${{ steps.key.outputs.key }}
+          restore-keys: macos-deps-
+
+      - name: Third-party builds (SDL2, FFmpeg, xz, Boost, innoextract)
+        id: deps
+        run: tools/release/build-macos.sh --deps-only
+
+      - name: Save third-party builds
+        if: steps.restore.outputs.cache-hit != 'true' && steps.deps.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: build/macos-deps
+          key: ${{ steps.key.outputs.key }}
+
+      - name: Engine, app, dmg and smoke checks
+        run: tools/release/build-macos.sh --version "$HWI_VERSION"
+
+      - name: Upload the dmg
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-macos
+          path: build/macos-release/Homeworld-Infection-*-macOS.dmg
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Upload the build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-macos
+          path: build/macos-release/logs
+          if-no-files-found: ignore
+          retention-days: 14

@@ -11,7 +11,8 @@
 #     build does not die on GCC-only flags (docs/hw1-port-lessons.md B4, C1.14);
 #     the clang-only suppressions GoK applies only to emscripten are added for clang
 #   - kas2c lives in src/tools/kas2c; GoK's optional tools (polycount, biggie,
-#     monochrome-btg, x86_64 converters) and the emscripten/darwin branches are not built
+#     monochrome-btg, x86_64 converters) and the emscripten branch are not built; the darwin branch is HWI's own
+#     (HWI-FIX(macos), docs/release-macos.md)
 #
 # This source is REULA-licensed (non-commercial): see src/COPYING.REULA.
 
@@ -76,7 +77,7 @@ c_base_args = [
 # from tools/build.sh --release. Anything that re-enables fast-math through -Dc_args is refused.
 determinism_args = [
 	'-fno-strict-aliasing',
-	'-ffp-contract=off',
+	'-ffp-contract=off',    # HWI-FIX(macos): also overrides clang's default (on) for arm64, which would fuse a*b+c
 	'-fno-fast-math',
 ]
 foreach a : get_option('c_args')
@@ -166,6 +167,10 @@ if host_machine.system() == 'linux'
 	c_base_args += ['-D_LINUX_FIX_ME', '-D_GNU_SOURCE']
 elif host_machine.system() == 'windows'
 	c_base_args += ['-D_LINUX_FIX_ME', '-D_GNU_SOURCE', '-D_WIN32', '-DWIN32', '-DWINDOWS']
+elif host_machine.system() == 'darwin'
+	# HWI-FIX(macos): the Linux code paths (no X11; dependency('gl') is the OpenGL framework). Not GoK's _MACOSX /
+	#      _MACOSX_FIX_* (HomeworldSDL's Xcode build): they turn off movies, sound and LAN. __APPLE__ marks what differs.
+	c_base_args += ['-D_LINUX_FIX_ME', '-D_GNU_SOURCE', '-DGL_SILENCE_DEPRECATION']
 endif
 
 c_base_args += ['-DHW_GAME_HOMEWORLD']

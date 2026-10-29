@@ -1767,6 +1767,12 @@ sdword ProcessCommandLine (int argc, char* argv[])
     for (i = 1; i < argc; i++)  // Skip the executable name.
     {
         string = argv[i];
+#ifdef __APPLE__
+        if (strncmp(string, "-psn_", 5) == 0)
+        {
+            continue;                                       // HWI-FIX(macos): the process serial number older Finders pass
+        }
+#endif
         if (string[0] == '-')
         {
             string[0] = '/';
