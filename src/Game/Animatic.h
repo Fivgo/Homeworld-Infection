@@ -21,6 +21,7 @@ bool32 animAviPlay(sdword a, sdword b);
 void animAviEnd(void);
 
 bool32 animBinkPlay(sdword a, sdword b);
+bool32 animHeadlessRun(void);       // HWI-FEATURE(intro-movies) (M3-R4): a headless run plays no movie
 
 void animAviDecode(sdword frame);
 

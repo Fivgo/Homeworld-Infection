@@ -23,6 +23,11 @@
 #include "Universe.h"
 #include "render.h"
 #include "SoundEvent.h"
+#include "main.h"
+
+#include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
 //nova: this allows MSVC to compile this file
 #ifdef _WIN32
@@ -60,8 +65,10 @@ int aviDonePlaying = 1;
 int aviIsPlaying = 0;
 int aviHasAudio = 0;
 
-// Set to 1 if you want to watch the Intros.
-udword aviPlayIntros = 0;
+// HWI-FEATURE(intro-movies) (M3-R4 intro-movies): the intro logos play at start-up as in cataclysm.exe (utyGameSystemsInit
+//      0x005abe70 plays them whenever enableAVI, i.e. without /disableAVI). GoK's options row PlayIntros (no exe
+//      counterpart) defaulted to 0; it is now 1, and a Cataclysm.cfg row "PlayIntros 0" still turns them off.
+udword aviPlayIntros = 1;
 
 #ifdef HW_ENABLE_MOVIES
 AVFormatContext *pFormatCtx    = NULL;
@@ -175,84 +182,157 @@ void CALLBACK aviTimeProc(UINT uid, UINT msg, DWORD dwUser, DWORD dw1, DWORD dw2
 #endif	/* _WIN32 */
 
 #ifdef HW_ENABLE_MOVIES
-static GLint strtex;
-static int texinit = 0;
+/*-----------------------------------------------------------------------------
+    HWI-FEATURE(intro-movies) (M3-R4 intro-movies). The user: "renable the starting cutscenes for sierra and barking dog
+    and maintain their original aspect ratio instead of stretching them out".
 
-static void Draw_Stretch (int x, int y, int w, int h, int cols, int rows, char *data)
+    The picture keeps its own aspect: the part of the 640x480 frame that holds the picture is fitted whole into the
+    window and centred; the rest of the window is black. The picture (every frame of the 20 movies measured):
+      the intro logos (sierra.bik, bdogintro.bik): the whole frame, 640x480 (4:3: their picture reaches every edge)
+      the animatics (Animatic01..18.bik): rows 48..431 of the frame, 640x384 (5:3), black above and below
+    so at 3840x2160 a logo is drawn 2880x2160 with bars left and right, and an animatic's picture 3600x2160.
+    cataclysm.exe blits the 640x480 frame 1:1 in the middle of a window, or switches a fullscreen display to 640x480
+    (binkDisplayWin32 0x00551350 and hwSetRes), which a widescreen monitor stretches. GoK assumed HW1's 1.85:1 picture
+    for every movie: at 16:9 it cut a quarter of a logo's height and about 6% off the top and bottom of an animatic.
+
+    The frame's texture is made for each movie and deleted at its end (aviTexDelete), so a movie after a resolution
+    switch (a new GL context: render.c rndWindowDestroy) never binds a texture of the old context (GoK kept one texture
+    name for the whole run); its filter is set after it is bound (GoK set it on whatever texture was bound before); it
+    is the frame's own size (GoK's power-of-two texture blended its black padding into the right and top edges). The
+    GL state the draw changes is saved and restored around it (glPushAttrib), so the renderer's cached state
+    (rndTextureEnvironment, rndTextureEnabled) stays true for the subtitles and the game after the movie (GoK left
+    GL_REPLACE and GL_TEXTURE_2D set behind the cache).
+-----------------------------------------------------------------------------*/
+extern int MAIN_WindowWidthActual;
+extern int MAIN_WindowHeightActual;
+
+static GLuint aviTex = 0;                           // this movie's frame texture (0: none)
+static int aviTexW = 0, aviTexH = 0;
+bool32 aviIntroMovie = FALSE;                       // TRUE: an intro logo (the whole frame is the picture; no script)
+static int aviRectLast[4] = { 0, 0, 0, 0 };         // the last frame's picture placement (physical x, y, w, h)
+
+static void aviTexDelete(void)
 {
-    GLsizei tex_width = 1;
-    GLsizei tex_height = 1;
-
-    while (tex_width < cols) tex_width <<= 1;
-    while (tex_height < rows) tex_height <<= 1;
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-    glEnable(GL_TEXTURE_2D);
-
-    if (!texinit) {
-        //unsigned int i;
-        unsigned char blank[tex_width*tex_height*3];
-        memset(blank, 0, tex_width*tex_height*3);
-
-        glGenTextures(1, &strtex);
-        glBindTexture(GL_TEXTURE_2D, strtex);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tex_width, tex_height, 0, GL_RGB, GL_UNSIGNED_BYTE, blank);
-        texinit = 1;
-    } else {
-        // In principle we don't need the else case but for some reason doing
-        // the glTexImage2D call and immediately after the glTexSubImage2D call causes
-        // a single frame flicker.
-        // We loose the very first video frame we start to play.
-        glBindTexture(GL_TEXTURE_2D, strtex);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, cols, rows, GL_RGB, GL_UNSIGNED_BYTE, data);
-
-        glBegin (GL_TRIANGLE_STRIP);
-        glTexCoord2f (0.0f, (GLfloat)rows/tex_height);
-        glVertex2f (x, y);
-        glTexCoord2f ((GLfloat)cols/tex_width, (GLfloat)rows/tex_height);
-        glVertex2f (x+w, y);
-        glTexCoord2f (0.0f, 0.0f);
-        glVertex2f (x, y+h);
-        glTexCoord2f ((GLfloat)cols/tex_width, 0.0f);
-        glVertex2f (x+w, y+h);
-        glEnd ();
+    if (aviTex != 0)
+    {
+        glDeleteTextures(1, &aviTex);
+        aviTex = 0;
     }
+    aviTexW = aviTexH = 0;
 }
 
-void aviDisplayFrame( AVFrame *pFrameRGB, int w, int h )
+static void aviTexUpload(int w, int h, int stride, const ubyte *data)
 {
-    animAviSetup(TRUE);
-
-    // lets keep the aspect ratio of the video and draw it centered with max height or width
-    float contentAspect = 1.85f; // actual video content aspect ratio without the letter boxing
-    float videoAspect = (float)w / (float)h;
-    float screenAspect = (float)MAIN_WindowWidth / (float)MAIN_WindowHeight;
-
-    int imageHeight, imageWidth;
-
-    if (screenAspect >= contentAspect)
+    if (aviTex == 0 || aviTexW != w || aviTexH != h)
     {
-        // screen is wider than the video content
-        // make use of full screen height by getting rid of the letter boxing and maintain the contents 1.85f aspect ratio
-        float rescaleFactor = contentAspect / videoAspect;
-        imageHeight = (int)(MAIN_WindowHeight * rescaleFactor);
-        imageWidth = (int)(MAIN_WindowHeight * videoAspect * rescaleFactor);
+        aviTexDelete();
+        glGenTextures(1, &aviTex);
+        glBindTexture(GL_TEXTURE_2D, aviTex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+        aviTexW = w;
+        aviTexH = h;
     }
     else
     {
-        // screen is taller than the video content, use full screen width
-        imageHeight = (int)(MAIN_WindowWidth / videoAspect);
-        imageWidth = (int)(MAIN_WindowWidth);
+        glBindTexture(GL_TEXTURE_2D, aviTex);
     }
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, stride / 3);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, data);
+}
 
-    int x = (MAIN_WindowWidth - imageWidth) / 2;
-    int y = (MAIN_WindowHeight - imageHeight) / 2;
+/*-----------------------------------------------------------------------------
+    Name        : aviPictureRect
+    Description : HWI-FEATURE(intro-movies): where a w x h frame is drawn in a physW x physH window: scaled so the
+                  picture (the whole frame, or the animatics' 5:3 band) fits whole, centred. The frame's black bands
+                  may fall outside the window (an animatic at 16:9).
+    Outputs     : rect - x, y (from the bottom-left, as GL counts), width, height in physical pixels
+----------------------------------------------------------------------------*/
+void aviPictureRect(int w, int h, int physW, int physH, int rect[4])
+{
+    real64 picW = (real64)w;
+    real64 picH = aviIntroMovie ? (real64)h : (real64)w * 3.0 / 5.0;
+    real64 scale;
 
-    Draw_Stretch(x, y, imageWidth, imageHeight, w, h, pFrameRGB->data[0]);
+    if (picH > (real64)h)
+    {
+        picH = (real64)h;
+    }
+    scale = (real64)physW / picW;
+    if ((real64)physH / picH < scale)
+    {
+        scale = (real64)physH / picH;
+    }
+    rect[2] = (int)floor((real64)w * scale + 0.5);
+    rect[3] = (int)floor((real64)h * scale + 0.5);
+    rect[0] = (physW - rect[2]) / 2;
+    rect[1] = (physH - rect[3]) / 2;
+}
+
+void aviDisplayFrame(AVFrame *pFrameRGB, int w, int h)
+{
+    int physW = MAIN_WindowWidthActual, physH = MAIN_WindowHeightActual;
+    int rect[4];
+    real32 sx, sy, x0, y0, x1, y1;
+
+    if (physW <= 0 || physH <= 0)
+    {
+        physW = MAIN_WindowWidth;
+        physH = MAIN_WindowHeight;
+    }
+    aviPictureRect(w, h, physW, physH, rect);
+    if (memcmp(rect, aviRectLast, sizeof(rect)) != 0)
+    {
+        memcpy(aviRectLast, rect, sizeof(rect));
+        dbgMessagef("movie: drawn at %d,%d size %dx%d in the window's %dx%d (logical %dx%d), picture %s",
+                    rect[0], rect[1], rect[2], rect[3], physW, physH, (int)MAIN_WindowWidth, (int)MAIN_WindowHeight,
+                    aviIntroMovie ? "the whole frame (4:3)" : "the 5:3 band (rows 48..431)");
+    }
+    sx = (real32)MAIN_WindowWidth / (real32)physW;          // physical pixels to the ortho's logical units
+    sy = (real32)MAIN_WindowHeight / (real32)physH;
+    x0 = (real32)rect[0] * sx;
+    y0 = (real32)rect[1] * sy;
+    x1 = (real32)(rect[0] + rect[2]) * sx;
+    y1 = (real32)(rect[1] + rect[3]) * sy;
+
+    glPushAttrib(GL_ENABLE_BIT | GL_TEXTURE_BIT | GL_VIEWPORT_BIT | GL_COLOR_BUFFER_BIT | GL_CURRENT_BIT |
+                 GL_DEPTH_BUFFER_BIT | GL_POLYGON_BIT | GL_SCISSOR_BIT);
+    glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);
+    animAviSetup(TRUE);
+    glViewport(0, 0, physW, physH);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+    glDisable(GL_ALPHA_TEST);
+    glDisable(GL_LIGHTING);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_FOG);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);                           // the bars
+
+    aviTexUpload(w, h, pFrameRGB->linesize[0], pFrameRGB->data[0]);
+    glEnable(GL_TEXTURE_2D);
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+    glBegin(GL_TRIANGLE_STRIP);                             // the frame's first row at the top
+    glTexCoord2f(0.0f, 1.0f);
+    glVertex2f(x0, y0);
+    glTexCoord2f(1.0f, 1.0f);
+    glVertex2f(x1, y0);
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex2f(x0, y1);
+    glTexCoord2f(1.0f, 0.0f);
+    glVertex2f(x1, y1);
+    glEnd();
 
     animAviSetup(FALSE);
+    glPopClientAttrib();
+    glPopAttrib();
 }
 
 #endif
@@ -298,116 +378,299 @@ void aviSubUpdate(void) {
 
 }
 
-void aviPlayLoop()
-{
+/*-----------------------------------------------------------------------------
+    HWI-FEATURE(intro-movies) (M3-R4 intro-movies): the events while a movie plays. A key press (not a key's repeat)
+    ends the movie (GoK's rule; cataclysm.exe ends it on Escape's key-up: WindowProc 0x00561f10 calls binkStop). A closed
+    window ends it and its SDL_QUIT is put back for the main loop, which then quits as usual (HandleEvent's quit runs
+    WindowsCleanup, not a thing to run inside utyGameSystemsInit). A window event goes to HandleEvent: a dragged size
+    applies at once and its relayout waits for the movie's end (uiscale.c, aviIsPlaying). GoK read one event a frame,
+    acted on a key only and dropped the rest (a closed window was ignored until the movie ended); the rest is still
+    dropped.
+-----------------------------------------------------------------------------*/
+#define AVI_PLAYING     0
+#define AVI_ENDED       1
+#define AVI_KEY         2
+#define AVI_QUIT        3
+#define AVI_CAP         4
+static const char *aviWhyName[] = { "playing", "the end", "a key", "the window closed", "the test's frame cap" };
 
-#if AVI_VERBOSE_LEVEL >= 2
-dbgMessage("aviPlayLoop:");
-#endif
+bool32 aviQuitAsked = FALSE;                        // HWI-FEATURE(intro-movies): the window was closed during a movie
+sdword aviFrameCap = 0;                             // HWI-TEST (/catMovieTest): a movie ends after this many frames
+static sdword aviShotFrames[8];                     // HWI-TEST (/catMovieShot): the frames read back
+static sdword aviShotCount = 0;
+static int aviVideoStream = -1;
+static sdword aviFrameTotal = 0;                    // the stream's frame count (the log)
+
+static int aviEvents(void)
+{
+    SDL_Event e;
+    int why = AVI_PLAYING;
+
+    while (why != AVI_QUIT && SDL_PollEvent(&e))
+    {
+        switch (e.type)
+        {
+            case SDL_KEYDOWN:
+                if (!e.key.repeat)
+                {
+                    why = AVI_KEY;
+                }
+                break;
+            case SDL_QUIT:
+                why = AVI_QUIT;
+                break;
+            case SDL_WINDOWEVENT:
+                HandleEvent(&e);
+                break;
+            default:
+                break;
+        }
+    }
+    if (why == AVI_QUIT)
+    {
+        SDL_Event q;
+
+        aviQuitAsked = TRUE;
+        memset(&q, 0, sizeof(q));
+        q.type = SDL_QUIT;
+        SDL_PushEvent(&q);
+    }
+    return why;
+}
+
+// HWI-TEST (M3-R4 intro-movies): /catMovieShot <frame>[,<frame>...] (up to 8): those frames of every movie are read back
+//      after the draw, before the swap, into <settings>/movie-<name>-<frame>.ppm (the window's physical size), one
+//      "movieshot:" line each. Read only.
+void aviMovieShotSet(char *spec)
+{
+    char *p = spec;
+
+    aviShotCount = 0;
+    while (p != NULL && *p != '\0' && aviShotCount < (sdword)(sizeof(aviShotFrames) / sizeof(aviShotFrames[0])))
+    {
+        aviShotFrames[aviShotCount++] = (sdword)strtol(p, &p, 10);
+        while (*p == ',' || *p == ' ')
+        {
+            p++;
+        }
+    }
+}
+
+// HWI-TEST (M3-R4 intro-movies): /catMovieEventAt <frame>:quit|<W>x<H>: once, after that frame of a movie is shown, the
+//      window's close request (an SDL_QUIT in the engine's own queue, as HandleEvent itself posts one) or a new window
+//      size (SDL_SetWindowSize, as the Video screen's mode switch sets it). No keyboard or mouse event is made.
+static sdword aviEventFrame = -1;
+static sdword aviEventW = 0, aviEventH = 0;         // 0 x 0: the close request
+void aviMovieEventSet(char *spec)
+{
+    int frame = -1, w = 0, h = 0;
+    char what[16] = "";
+
+    if (sscanf(spec, "%d:%15s", &frame, what) == 2 && frame >= 0)
+    {
+        if (strcmp(what, "quit") == 0 || sscanf(what, "%dx%d", &w, &h) == 2)
+        {
+            aviEventFrame = frame;
+            aviEventW = w;
+            aviEventH = h;
+        }
+    }
+}
+
+static void aviTestEvent(const char *name, sdword frame)
+{
+    extern SDL_Window *sdlwindow;
+
+    if (frame != aviEventFrame)
+    {
+        return;
+    }
+    aviEventFrame = -1;                             // once
+    if (aviEventW > 0 && aviEventH > 0 && sdlwindow != NULL)
+    {
+        dbgMessagef("movietest: %s frame %d: the window set to %dx%d", name, (int)frame, (int)aviEventW, (int)aviEventH);
+        SDL_SetWindowSize(sdlwindow, aviEventW, aviEventH);
+    }
+    else
+    {
+        SDL_Event q;
+
+        dbgMessagef("movietest: %s frame %d: the window's close request", name, (int)frame);
+        memset(&q, 0, sizeof(q));
+        q.type = SDL_QUIT;
+        SDL_PushEvent(&q);
+    }
+}
+
+static void aviShotTake(const char *name, sdword frame)
+{
+    sdword i;
+    int w = MAIN_WindowWidthActual, h = MAIN_WindowHeightActual, row;
+    ubyte *pixels;
+    char file[1024];
+    FILE *f;
+
+    for (i = 0; i < aviShotCount && aviShotFrames[i] != frame; i++)
+    {
+    }
+    if (i == aviShotCount || w <= 0 || h <= 0)
+    {
+        return;
+    }
+    pixels = malloc((size_t)w * (size_t)h * 3);
+    if (pixels == NULL)
+    {
+        return;
+    }
+    snprintf(file, sizeof(file), "movie-%s-%d.ppm", name, (int)frame);
+    snprintf(file, sizeof(file), "%s", filePathPrepend(file, FF_UserSettingsPath));
+    glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+    glPopClientAttrib();
+    if ((f = fopen(file, "wb")) == NULL)
+    {
+        dbgMessagef("movieshot: FAIL cannot write %s", file);
+        free(pixels);
+        return;
+    }
+    fprintf(f, "P6\n%d %d\n255\n", w, h);
+    for (row = h - 1; row >= 0; row--)
+    {
+        fwrite(pixels + (size_t)row * (size_t)w * 3, 1, (size_t)w * 3, f);
+    }
+    fclose(f);
+    free(pixels);
+    dbgMessagef("movieshot: movie=%s frame=%d size=%dx%d rect=%d,%d,%d,%d file=%s", name, (int)frame, w, h,
+                aviRectLast[0], aviRectLast[1], aviRectLast[2], aviRectLast[3], file);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : aviPlayLoop
+    Description : decodes and draws the open movie at its own frame rate. HWI-FEATURE(intro-movies): with a music
+                  track (an intro logo) the track plays from the first frame and stops at the end (binkPlay 0x00551840:
+                  soundEventPlayMusic before its loop, soundEventStopMusic(0) after it); holdMs keeps the last frame
+                  on screen that long after the music stops (the exe's Sleep(2000) after sierra.bik; redrawn, so the
+                  window answers and a resize is drawn; a key ends the wait).
+    Return      : why it ended (AVI_ENDED, AVI_KEY, AVI_QUIT, AVI_CAP)
+----------------------------------------------------------------------------*/
+static int aviPlayLoop(const char *name, sdword track, udword holdMs)
+{
+    int why = AVI_PLAYING;
 
 #ifdef HW_ENABLE_MOVIES
 
-    int frame = 0;
+    sdword frame = 0;
     int numBytes;
-    int frameFinished;
-    int event_res = 0;
-    Uint32 start_time;
-    SDL_Event e;
-    char * buffer;
-//    AVFrame *pFrameRGB;
-    AVFrame *pPictureRGB;
+    Uint32 start_time, hold_start;
+    ubyte *buffer;
     AVFrame PictureRGB;
-    static AVPacket packet;
-
-    pPictureRGB=&PictureRGB;
-
+    AVFrame *pPictureRGB = &PictureRGB;
+    AVPacket *packet;
     static struct SwsContext *img_convert_ctx = NULL;
 
-    numBytes=av_image_get_buffer_size(AV_PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height, ALIGN);
-#if AVI_VERBOSE_LEVEL >= 2
-dbgMessagef("aviPlayLoop: numBytes= %d, width=%d height=%d", numBytes, pCodecCtx->width, pCodecCtx->height);
-#endif
-
-    buffer = av_malloc(numBytes );
-
-    av_image_fill_arrays(pPictureRGB->data, pPictureRGB->linesize, buffer, AV_PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height, ALIGN);
-
-    if (img_convert_ctx == NULL){
-        img_convert_ctx = sws_getContext(pCodecCtx->width, pCodecCtx->height, pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, AV_PIX_FMT_RGB24, SWS_BICUBIC, NULL, NULL, NULL);
-        
+    memset(&PictureRGB, 0, sizeof(PictureRGB));
+    memset(aviRectLast, 0, sizeof(aviRectLast));
+    numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height, ALIGN);
+    buffer = av_malloc(numBytes);
+    packet = av_packet_alloc();
+    if (buffer == NULL || packet == NULL)
+    {
+        av_free(buffer);
+        av_packet_free(&packet);
+        return AVI_ENDED;
     }
+    av_image_fill_arrays(pPictureRGB->data, pPictureRGB->linesize, buffer, AV_PIX_FMT_RGB24, pCodecCtx->width,
+                         pCodecCtx->height, ALIGN);
+    img_convert_ctx = sws_getCachedContext(img_convert_ctx, pCodecCtx->width, pCodecCtx->height, pCodecCtx->pix_fmt,
+                                           pCodecCtx->width, pCodecCtx->height, AV_PIX_FMT_RGB24, SWS_BICUBIC,
+                                           NULL, NULL, NULL);
 
+    if (track != -1)
+    {
+        soundEventPlayMusic(track);
+    }
     start_time = SDL_GetTicks();
 
-    while(av_read_frame(pFormatCtx, &packet)>=0) {
+    while (why == AVI_PLAYING && av_read_frame(pFormatCtx, packet) >= 0)
+    {
+        if (packet->stream_index == aviVideoStream)
+        {
+            avcodec_send_packet(pCodecCtx, packet);
+        }
+        av_packet_unref(packet);
 
-#if AVI_VERBOSE_LEVEL >= 9
-dbgMessagef("aviPlayLoop: stream_index=%d, videoStream=%d", packet.stream_index, videoStream);
-#endif
+        while (why == AVI_PLAYING && avcodec_receive_frame(pCodecCtx, pFrame) == 0)
+        {
+            sws_scale(img_convert_ctx, (ubyte const* const*)pFrame->data, pFrame->linesize, 0, pCodecCtx->height,
+                      pPictureRGB->data, pPictureRGB->linesize);
 
-// avcodec_decode_video has been depreciated in preference for avcodec_decode_video2
-//        avcodec_decode_video(pCodecCtx, pFrame, &frameFinished, packet.data, packet.size);
-        //avcodec_decode_video2(pCodecCtx, pFrame, &frameFinished, &packet);
-        avcodec_send_packet(pCodecCtx, &packet);
-        //avcodec_receive_frame(pCodecCtx, pFrame);
-
-#if AVI_VERBOSE_LEVEL >= 100
-dbgMessagef("aviPlayLoop: frameFinished=%d  packet.data=%x   packet.size=%d ", frameFinished, packet.data, packet.size);
-#endif
-
-
-        if(avcodec_receive_frame(pCodecCtx, pFrame)==0) {
-
-            sws_scale(
-                img_convert_ctx,
-                (ubyte const* const*)pFrame->data,
-                pFrame->linesize,
-                0,
-                pCodecCtx->height,
-                pPictureRGB->data,
-                pPictureRGB->linesize
-            );
-            
-            animAviDecode(frame);
-
+            if (!aviIntroMovie)
+            {
+                animAviDecode(frame);                       // an animatic's script (the logos have none)
+            }
             soundEventUpdate();
             speechEventUpdate();   //Keep this it works. :)
-            rndClearToBlack();
 
-            aviDisplayFrame(pPictureRGB, pCodecCtx->width,pCodecCtx->height);
-
-            aviSubUpdate();
-
-            rndFlush();
-
-            SDL_PollEvent(&e);
-            if(e.type == SDL_KEYDOWN){
-                dbgMessage("Keyboard Event");
-                break;
+            aviDisplayFrame(pPictureRGB, pCodecCtx->width, pCodecCtx->height);
+            if (!aviIntroMovie)
+            {
+                aviSubUpdate();
             }
-
+            aviShotTake(name, frame);
+            rndFlush();
+            aviTestEvent(name, frame);
             frame++;
 
+            why = aviEvents();
+            if (why == AVI_PLAYING && aviFrameCap > 0 && frame >= aviFrameCap)
+            {
+                why = AVI_CAP;
+            }
+
             // CAT: paced at the movie's own frame rate (aviFrameRate; GoK assumed 15 fps)
-            while (SDL_GetTicks() < (start_time + (Uint32)((real32)frame * 1000.0f / aviFrameRate)))
+            while (why == AVI_PLAYING && SDL_GetTicks() < (start_time + (Uint32)((real32)frame * 1000.0f / aviFrameRate)))
                 SDL_Delay(1);
         }
-        av_packet_unref(&packet);
+    }
+    if (why == AVI_PLAYING)
+    {
+        why = AVI_ENDED;
+    }
+    av_packet_free(&packet);
+    if (track != -1)
+    {
+        soundEventStopMusic(0.0f);
+    }
+    dbgMessagef("movie: end file=%s frames=%d of %d in %u ms (%s)", name, (int)frame, (int)aviFrameTotal,
+                (unsigned)(SDL_GetTicks() - start_time), aviWhyName[why]);
 
+    if (holdMs > 0 && why != AVI_QUIT && frame > 0)
+    {
+        int holdWhy = AVI_PLAYING;
+
+        hold_start = SDL_GetTicks();
+        while (holdWhy == AVI_PLAYING && SDL_GetTicks() - hold_start < holdMs)
+        {
+            aviDisplayFrame(pPictureRGB, pCodecCtx->width, pCodecCtx->height);
+            rndFlush();
+            holdWhy = aviEvents();
+            SDL_Delay(15);
+        }
+        dbgMessagef("movie: held the last frame of %s %u ms of %u (%s)", name, (unsigned)(SDL_GetTicks() - hold_start),
+                    (unsigned)holdMs, (holdWhy == AVI_PLAYING) ? "the end" : aviWhyName[holdWhy]);
+        if (holdWhy == AVI_QUIT)
+        {
+            why = AVI_QUIT;
+        }
     }
 
-#if AVI_VERBOSE_LEVEL >= 2
-dbgMessagef("aviPlayLoop: play_time=%d ", SDL_GetTicks() - start_time);
-#endif
-    // Clear Allocs
-
     av_free(buffer);
-
-//    av_free(pPictureRGB);
+    aviTexDelete();
 
 #endif //  HW_ENABLE_MOVIES
 
-    
+    return why;
 }
 
 int aviStart(char* filename)
@@ -447,6 +710,17 @@ int aviStart(char* filename)
     if(videoStream==-1) {
         dbgMessage("aviStart: No Video Stream found");
         return FALSE;
+    }
+    aviVideoStream = videoStream;                       // HWI-FEATURE(intro-movies): the loop decodes this stream only
+    aviFrameTotal = (sdword)pFormatCtx->streams[videoStream]->nb_frames;
+    if (aviFrameTotal <= 0 && pFormatCtx->streams[videoStream]->duration > 0)
+    {                                                   // Bink's demuxer gives the length as a duration only
+        AVRational fr = pFormatCtx->streams[videoStream]->avg_frame_rate;
+        if (fr.num > 0 && fr.den > 0)
+        {
+            aviFrameTotal = (sdword)llrint((double)pFormatCtx->streams[videoStream]->duration *
+                                           av_q2d(pFormatCtx->streams[videoStream]->time_base) * av_q2d(fr));
+        }
     }
 
     // CAT: the stream's own frame rate (see aviFrameRate)
@@ -580,6 +854,7 @@ int aviStop(void)
    
     SDL_Delay(500); // Give the audio time to stop
 
+    av_frame_free(&pFrame);                         // HWI-FEATURE(intro-movies): GoK never freed it (one leaked per movie)
     avcodec_free_context(&pCodecCtx); 
     aviFileExit();
 #endif
@@ -587,42 +862,77 @@ int aviStop(void)
 }
 
 
-bool32 aviPlay(char* filename)
+/*-----------------------------------------------------------------------------
+    Name        : aviPlayMovie
+    Description : plays one movie (HWI-FEATURE(intro-movies): GoK's aviPlay with binkPlay's music track and the hold)
+    Inputs      : filename - Movies/<name>.bik; track - the music track, or -1; holdMs - see aviPlayLoop
+    Return      : why it ended (AVI_ENDED, AVI_KEY, AVI_QUIT, AVI_CAP), or -1 if it could not be opened
+----------------------------------------------------------------------------*/
+static int aviPlayMovie(char *filename, sdword track, udword holdMs)
 {
+    char fullname[1024];
+    char name[64];
+    const char *base;
+    char *dot;
+    int why;
+
 #if AVI_VERBOSE_LEVEL >= 2
 dbgMessage("aviPlay:Entering");
 #endif
-    char  fullname[1024];
-
-//TODO  Include Windows file structure. 
 
     strcpy(fullname, filePathPrepend(filename, FF_HomeworldDataPath));
 
-    //try Homeworld\Data\Movies first
+    //try Homeworld\\Data\\Movies first
     if (!aviStart(fullname))
     {
         //try current directory next
         if (!aviStart(filename))
         {
-            return FALSE;
+            dbgMessagef("movie: cannot open %s", filename);
+            return -1;
         }
     }
+    base = strrchr(filename, '/');
+    if (base == NULL)
+    {
+        base = strrchr(filename, '\\');
+    }
+    base = (base != NULL) ? base + 1 : filename;
+    snprintf(name, sizeof(name), "%s", base);
+    if ((dot = strrchr(name, '.')) != NULL)
+    {
+        *dot = '\0';
+    }
+#ifdef HW_ENABLE_MOVIES
+    dbgMessagef("movie: start file=%s %dx%d %.2f fps frames=%d music=%d%s", filename, pCodecCtx->width,
+                pCodecCtx->height, (double)aviFrameRate, (int)aviFrameTotal, (int)track,
+                aviIntroMovie ? " (an intro logo)" : "");
+#endif
 
-//taskFreezeAll();
-
-//    aviSetScreen(pCodecCtx->width,pCodecCtx->height);
-
-//    nisFadeToSet(a , 0, b);
+    if (track != -1)
+    {                                                   // binkPlay 0x00551840's lead-in before a track
+        soundEventUpdate();
+        speechEventUpdate();
+        SDL_Delay(150);
+        soundEventUpdate();
+        speechEventUpdate();
+    }
 
     g_bMoreFrames  = TRUE;
     aviIsPlaying   = TRUE;
     aviDonePlaying = FALSE;
-    aviPlayLoop();
+    why = aviPlayLoop(name, track, holdMs);
 
     aviStop();
     aviIsPlaying = FALSE;
-    
-    return 1;
+    aviDonePlaying = TRUE;
+
+    return why;
+}
+
+bool32 aviPlay(char* filename)
+{
+    return aviPlayMovie(filename, -1, 0) >= 0;
 }
 
 int aviInit()
@@ -649,48 +959,68 @@ int aviCleanup()
 #endif
 }
 
-void aviIntroPlay()
+/*-----------------------------------------------------------------------------
+    Name        : aviIntroPlay
+    Description : HWI-FEATURE(intro-movies) (M3-R4 intro-movies): the intro logos, as cataclysm.exe's
+                  utyGameSystemsInit (0x005abe70) plays them whenever enableAVI (no /disableAVI): binkInit;
+                  Movies\\sierra.bik with music track 0x3c (60) and then Sleep(2000); Movies\\bdogintro.bik with track
+                  0x3d (61; Music4Cat's 62 tracks end with these two); binkCleanup; mainCleanupAfterVideo. The exe
+                  plays them before its renderer starts (Bink blits with GDI); here they need GL, so they play after
+                  rndInit, where GoK left its placeholder (GoK played sierra.bik and HW1's relicintro.bik, with no
+                  music, and only with its PlayIntros row set, default 0). Off: Cataclysm.cfg "PlayIntros 0",
+                  /disableAVI, a build without movie support (the Windows build), and a headless run (the virtual
+                  clock, /debugScreenshots: animHeadlessRun, as for an animatic). A closed window ends them.
+----------------------------------------------------------------------------*/
+void aviIntroPlay(void)
 {
-    int intro;
-    utilPlayingIntro = TRUE;
+    const char *off = NULL;
+    int why;
+    Uint32 start = SDL_GetTicks();
 
-    for (intro = 0;intro < 4;intro ++) {
-
-        switch (intro) {
-            case 0:
-                /*binkInit(-1);*/
-                aviInit();
-//                intro++;
-                break;
-            case 1:
-                /*binkPlay("Movies\\sierra.bik", NULL, NULL, S_RGB555, TRUE, ANIM00_Sierra);*/
-                if (aviPlayIntros) {
-#ifdef _WIN32
-                    aviPlay("Movies\\sierra.bik");
-#else
-                    aviPlay("Movies/sierra.bik");
-#endif
-//                intro++;
-                }
-                break;
-            case 2:
-                /*binkPlay("Movies\\relicintro.bik", NULL, NULL, S_RGB555, TRUE, ANIM00_Relic);*/
-                if (aviPlayIntros) {
-#ifdef _WIN32
-                    aviPlay("Movies\\relicintro.bik");
-#else
-                    aviPlay("Movies/relicintro.bik");
-#endif
-//                    intro++;
-                  }
-                  break;
-            case 3:
-                /*binkCleanup();*/
-                mainCleanupAfterVideo();
-//                intro++;
-                break;
-//            case 4:
-//                goto DONE_INTROS;
-        }
+    if (!enableAVI)
+    {
+        off = "/disableAVI";
     }
+    else if (!aviPlayIntros)
+    {
+        off = "PlayIntros 0 in Cataclysm.cfg";
+    }
+    else if (animHeadlessRun())
+    {
+        off = "a headless run";
+    }
+#ifndef HW_ENABLE_MOVIES
+    if (off == NULL)
+    {
+        off = "no movie support in this build";
+    }
+#endif
+    if (off != NULL)
+    {
+        dbgMessagef("intro: off (%s)", off);
+        return;
+    }
+
+    utilPlayingIntro = TRUE;
+    aviIntroMovie = TRUE;
+    aviInit();
+#ifdef _WIN32
+    why = aviPlayMovie("Movies\\sierra.bik", 0x3c, 2000);
+    if (!aviQuitAsked)
+    {
+        why = aviPlayMovie("Movies\\bdogintro.bik", 0x3d, 0);
+    }
+#else
+    why = aviPlayMovie("Movies/sierra.bik", 0x3c, 2000);
+    if (!aviQuitAsked)
+    {
+        why = aviPlayMovie("Movies/bdogintro.bik", 0x3d, 0);
+    }
+#endif
+    aviIntroMovie = FALSE;
+    mainCleanupAfterVideo();
+    utilPlayingIntro = FALSE;
+    dbgMessagef("intro: done in %u ms%s", (unsigned)(SDL_GetTicks() - start),
+                aviQuitAsked ? " (the window was closed: the game quits)" : "");
+    (void)why;
 }

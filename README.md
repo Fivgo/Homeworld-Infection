@@ -1,5 +1,28 @@
 # Homeworld-Infection
 
+A native Linux recreation of **Homeworld: Cataclysm** (2000), sold by GOG as *Homeworld: Emergence*. No game files are included: you need your own copy from GOG.
+
+## Play it (Linux)
+
+**You need** a 64-bit Linux PC with working OpenGL graphics (tested on Pop!_OS 24.04, the same as Ubuntu 24.04), and the game's **offline installer** from GOG. On gog.com, open your games, pick Homeworld: Emergence and choose "Download offline backup game installers". The file is named `setup_homeworld_emergence_<version>.exe`. GOG Galaxy's small download stub does not work.
+
+1. Get this repository: the green **Code** button, then *Download ZIP*, and unzip it. Or use `git clone`.
+2. Put the GOG installer in your `Downloads` folder, or in the repository's folder.
+3. Open a terminal in the repository's folder and run:
+   ```
+   bash setup.sh
+   ```
+   It installs the build tools (it asks for your password once), unpacks the game from the installer, builds the engine and adds a **Homeworld Infection** shortcut to your applications menu and your Desktop. Running it again is safe: it skips what is done. If the game is already installed somewhere, for example on a Windows drive, run `bash setup.sh /path/to/the/game/folder` instead.
+4. Click **Homeworld Infection**.
+
+The Sierra and Barking Dog logos play first. Any key skips the one playing. Pick the resolution, a resizable window and the UI scale under Options, then Video. Your settings, saved games and logs are kept in `original/play-home/`, and the GOG files are never changed.
+
+If the game cannot start or stops with an error, the shortcut shows a message with the log's location. To watch the messages yourself, run `tools/play.sh` in a terminal. `bash setup.sh --remove-shortcut` removes the shortcut.
+
+**Windows:** an experimental build, without the movies, is made with `tools/release_win64.sh`. See `tools/release/README-Windows.txt`.
+
+## About the project
+
 A reverse-engineering and recreation project for **Homeworld: Cataclysm** (2000, Barking Dog Studios; re-released by GOG in 2017 as *Homeworld: Emergence*). Its source code is lost. It is a fork of the Homeworld 1 engine, whose 2003 source release and community ports give us the template, and the Cataclysm Engine Tweaks project gives us verified anchors in the GOG executable. The target is a native build for Linux and Windows 11 that plays identically to the GOG build, with no compatibility wrapper, then the user's additional features.
 
 **Legal stance.** This is non-commercial research on a game the author owns. The Homeworld 1 source is used under Relic's non-commercial licence; the recreation is a derivative of IP now owned by Gearbox. No game data or binaries are in this repository, and a GOG copy of the game is required to run anything.
@@ -19,8 +42,8 @@ The engine source in `src/` comes from Relic Entertainment's Homeworld 1 source 
 | `cycle/` | `STATE.md` resume point and copies of the workflow scripts |
 | `original/`, `reference/`, `prefix/` | game files, third-party clones, Wine prefix: ignored by git |
 
-## Getting started
-Read `docs/RUNBOOK.md` (installer to running game) and `cycle/STATE.md` (where the work stands).
+## Getting started (development)
+To play, see "Play it" above. For development, read `docs/RUNBOOK.md` (installer to running game) and `cycle/STATE.md` (where the work stands).
 
 ## Docs
 - `PLAN.md`: milestones, M2 approach, risks, open decisions

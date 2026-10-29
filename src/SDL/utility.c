@@ -4816,6 +4816,19 @@ DONE_INTROS:
         return(NULL);
     }
 
+    // HWI-TEST (M3-R4 intro-movies): /catMovieTest <level>[:<frames>]: that level's animatic plays once the front end is
+    //      up (its script: speech and subtitles; at most <frames> frames), then quit
+    {
+        extern sdword catMovieTestLevel;
+        if (catMovieTestLevel >= 0)                         // HWI-TEST
+        {
+            bool32 played = animAviPlay(catMovieTestLevel, catMovieTestLevel + 1);
+            dbgMessagef("movietest: level %d played=%d frame cap %d", (int)catMovieTestLevel, (int)played, (int)aviFrameCap);
+            utyGameQuit(NULL, NULL);
+            return(NULL);
+        }
+    }
+
     // HWI-TEST (M3-R2 instrumentation): /catModeQuitTest <W>x<H>: a resolution change, then one quit (UiScaleTest.c)
     if (catModeQuitSelfTest)                                // HWI-TEST
     {

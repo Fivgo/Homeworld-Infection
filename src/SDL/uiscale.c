@@ -37,6 +37,7 @@
 #include "Instrument.h"                                         // HWI-FEATURE(instrumentation): the settings line
 #include "FEFlow.h"                                             // HWI-FEATURE(window-resize): feStackIndex (an open screen)
 #include "render.h"                                             // HWI-FEATURE(window-resize): rndAspectRatio
+#include "avi.h"                                                // HWI-FEATURE(intro-movies): aviIsPlaying (a relayout waits for a movie's end)
 
 /*=============================================================================
     Data:
@@ -599,7 +600,7 @@ static bool32 uiScaleResizeApply(sdword pointW, sdword pointH, sdword physW, sdw
         mouseCursorXPosition = mouseCursorXPosition * MAIN_WindowWidth / oldW;
         mouseCursorYPosition = mouseCursorYPosition * MAIN_WindowHeight / oldH;
     }
-    deferred = gameIsRunning && feStackIndex > 0;
+    deferred = (gameIsRunning && feStackIndex > 0) || aviIsPlaying;   // HWI-FEATURE(intro-movies): and while a movie plays
     uiResizePending = TRUE;
     if (!deferred)
     {
@@ -608,14 +609,14 @@ static bool32 uiScaleResizeApply(sdword pointW, sdword pointH, sdword physW, sdw
     dbgMessagef("window: resized to %dx%d (window %dx%d) scale %d%% (%s, uiScale %d) logical %dx%d (was %dx%d) aspect %.4f%s",
                 (int)physW, (int)physH, (int)uiPointW, (int)uiPointH, (int)uiScalePercent, uiScaleSource(), (int)uiScale,
                 (int)MAIN_WindowWidth, (int)MAIN_WindowHeight, (int)oldW, (int)oldH, (double)rndAspectRatio,
-                deferred ? " (the relayout waits for the open screen)" : "");
+                deferred ? (aviIsPlaying ? " (the relayout waits for the movie's end)" : " (the relayout waits for the open screen)") : "");
     hwiSettingsWindow();                                        // HWI-FEATURE(instrumentation): the settings line again
     return TRUE;
 }
 
 void uiScaleResizeFlush(void)                                   // HWI-FEATURE(window-resize): the main loop, every pass
 {
-    if (uiResizePending && !(gameIsRunning && feStackIndex > 0))
+    if (uiResizePending && !(gameIsRunning && feStackIndex > 0) && !aviIsPlaying)
     {
         uiScaleResizeRelayout();
         dbgMessagef("window: the owed relayout at logical %dx%d", (int)MAIN_WindowWidth, (int)MAIN_WindowHeight);

@@ -797,6 +797,11 @@ static bool32 animHeadlessSkip(void)
     return debugScreenshots;
 }
 
+bool32 animHeadlessRun(void)                        // HWI-FEATURE(intro-movies) (M3-R4): the intro logos' same rule (avi.c)
+{
+    return animHeadlessSkip();
+}
+
 /*-----------------------------------------------------------------------------
     Name        : animAviPlay
     Description : plays a Bink video file

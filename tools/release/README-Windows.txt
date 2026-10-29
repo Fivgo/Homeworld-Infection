@@ -34,8 +34,8 @@ For one run only, a shortcut's target can add switches after the exe's name:
 KNOWN ISSUES
 - Not yet run on Windows: this build was only compiled and checked on Linux; there has been no Wine test either.
   Please report whether the main menu, a New Game into Mission01, Options -> Video and Quit work.
-- The animatics (the cutscene movies before Mission01 and at its hyperspace jump) are not played in this Windows
-  build; the in-engine cutscenes play.
+- The animatics (the cutscene movies before Mission01 and at its hyperspace jump) and the Sierra and Barking Dog
+  intro logos are not played in this Windows build; the in-engine cutscenes play.
 - The hyperspace gate can look the wrong size for the Kith ship, and parts of ships can pop in just after a
   hyperspace exit.
 - A rare one-frame flicker in a cutscene.

@@ -795,6 +795,29 @@ bool32 CatModeQuitTestSet(char *string)
     return TRUE;
 }
 extern bool32 catHiddenWindow;              // HWI-TEST (M3-R4 mode-switch-fix): render.c, /catHiddenWindow
+sdword catMovieTestLevel = -1;              // HWI-TEST (M3-R4 intro-movies): /catMovieTest <level>[:<frames>] (utility.c)
+bool32 CatMovieTestSet(char *string)
+{
+    int level = -1, frames = 0;
+
+    if (sscanf(string, "%d:%d", &level, &frames) < 1 || level < 0)
+    {
+        return FALSE;
+    }
+    catMovieTestLevel = level;
+    aviFrameCap = (frames > 0) ? frames : 0;
+    return TRUE;
+}
+bool32 CatMovieShotSet(char *string)        // HWI-TEST (M3-R4 intro-movies): /catMovieShot <frame>[,<frame>...]
+{
+    aviMovieShotSet(string);
+    return TRUE;
+}
+bool32 CatMovieEventSet(char *string)       // HWI-TEST (M3-R4 intro-movies): /catMovieEventAt <frame>:quit|<W>x<H>
+{
+    aviMovieEventSet(string);
+    return TRUE;
+}
 bool32 CatResizeAtSet(char *string)         // HWI-TEST (M3-R4 window-modes): /catResizeAt <tick>:<W>x<H>
 {
     catResizeAtSet(string);
@@ -1614,6 +1637,9 @@ commandoption commandOptions[] =
     entryVr("/catUiScaleTest",          catUiScaleSelfTest, TRUE, " - the UI scale's self-test in the front end: the fit's table, the scripted mouse at the physical bottom row and corner, a click on a front-end button and just outside it, the Video screens' control, the options-file row and the console row, then exit."),   // HWI-TEST
     entryVr("/catResizeTest",           catResizeSelfTest, TRUE, " - the resizable window's self-test in the front end: the Video screen's resolution presets and aspects, scripted size changes (the scale, the logical size, the layout, the aspect, the mouse, the request, the list's own entry and the options file), then exit."),   // HWI-TEST (M3-R4 window-modes)
     entryVr("/catHiddenWindow",         catHiddenWindow, TRUE, " - test: every window is created hidden (never mapped) and the pointer is never warped or grabbed: a run on the real display server (the x11 driver) that nobody sees (the harness's --hidden-x11)."),   // HWI-TEST (M3-R4 mode-switch-fix)
+    entryFnParam("/catMovieTest",       CatMovieTestSet, " <level>[:<frames>] - test: once the front end is up, that level's animatic (0 = Animatic01) plays (at most <frames> frames), then quit."),   // HWI-TEST (M3-R4 intro-movies)
+    entryFnParam("/catMovieEventAt",    CatMovieEventSet, " <frame>:quit|<W>x<H> - test: once, after that frame of a movie, the window's close request or a new window size (no input event)."),   // HWI-TEST (M3-R4 intro-movies)
+    entryFnParam("/catMovieShot",       CatMovieShotSet, " <frame>[,<frame>...] - test: those frames of every movie (the intro logos, an animatic) are read back into the settings folder as movie-<name>-<frame>.ppm."),   // HWI-TEST (M3-R4 intro-movies)
     entryFnParam("/catResizeAt",        CatResizeAtSet, " <tick>:<W>x<H> - test: at that universe tick the window is treated as resized to WxH (the in-game relayout)."),   // HWI-TEST (M3-R4 window-modes)
     entryFn("/letterboxBehind",         LetterboxBehindSet, " - this run only: the cutscene letterbox bars drawn behind ships near the camera (the old look; the options file's letterboxBehind row keeps its value)."),   // HWI-FEATURE(letterbox-setting)
     entryFnParam("/catMotionTest",      CatMotionTestSet, " <ticks> - headless Mission01 run at the virtual frame rate (/catMotionFps, default 144): a focused, a crossing, a receding and a resting ship, per-frame screen positions to /catMotionDump, exit after <ticks> ticks."),   // HWI-FEATURE(motion-interp)

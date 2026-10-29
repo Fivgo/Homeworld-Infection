@@ -14,7 +14,10 @@
 #             worktree's own build)
 #   home      --home DIR, default original/play-home: a private HOME so the recreation's Cataclysm.cfg, keys.cfg,
 #             saved games, recordings and screenshots live there and never touch ~/ or the GOG install. Seeded on
-#             first use with TutorialNeeded 0 and PlayIntros 0 (edit .homeworld/Cataclysm.cfg there to change).
+#             first use with TutorialNeeded 0 (edit .homeworld/Cataclysm.cfg there to change). [M3-R4 intro-movies:
+#             no longer PlayIntros 0: the intro logos play, see below]
+# The shortcut: tools/launch.sh runs this script with its defaults from the "Homeworld Infection" shortcut (./setup.sh
+#   installs it); with HWI_LAUNCHER=1 in the environment a build sends a desktop notification first.
 #   driver    SDL video driver, default x11 (XWayland on COSMIC); --driver wayland to try SDL's native backend
 #   switches  everything after -- goes to the engine, e.g. /noInterp (smooth motion off for an A/B run),
 #             /noNISInterp (cutscene interpolation off only), /window, /fullscreen, /1600 (1600x1200), /noBorder,
@@ -128,6 +131,14 @@
 # still opens as a borderless fullscreen-desktop window (no frame to drag): pick a smaller size for a framed window.
 # The log's "window: resized to WxH (..) scale P% .. logical WxH" line records each change.
 #
+# The intro logos (M3-R4 intro-movies, HWI-FEATURE(intro-movies)): the Sierra logo (16 s, its music, then 2 s on its
+# last frame) and the Barking Dog logo (27 s, its music) play at every start, as cataclysm.exe plays them; a key skips
+# the one playing. They keep their 4:3 shape: fitted to the window's height (or width) with black bars, never
+# stretched; the mission movies (the animatics) likewise keep their 5:3 picture whole. The log's "movie:" lines say where
+# each was drawn and how it ended.
+#   Cataclysm.cfg row   PlayIntros 0|1   (default 1; 0 = no intro logos)
+#   switch              -- /disableAVI   (this run only: no intro logos)
+#
 # The settings line (M3-R2, HWI-FEATURE(instrumentation)): the log's "hwi-settings:" line names every recreation setting
 # with its value and where it came from, once at start-up and again whenever one changes:
 #   hwi-settings: objInterpolate=1 (cfg) nisInterpolate=1 (cfg) letterboxBehind=0 (cfg) noLOD=1 (cfg)
@@ -222,13 +233,16 @@ else
 fi
 if [[ -n "$why" ]]; then
 	echo "play.sh: building $build engine ($why) ..." >&2
+	if [[ -n "${HWI_LAUNCHER:-}" ]] && command -v notify-send >/dev/null 2>&1; then   # the shortcut (tools/launch.sh)
+		notify-send -a "Homeworld Infection" "Homeworld Infection" "Preparing the game: building the engine (about a minute) ..." || true
+	fi
 	"$root/tools/build.sh" "--$build" >&2
 else
 	echo "play.sh: $build engine up to date (built $(date -r "$bin" +%F\ %H:%M))" >&2
 fi
 [[ -e "$data/cataclysm.big" ]] || { echo "play.sh: no Cataclysm data at $data (run tools/m2_harness.sh --setup, or pass --data)" >&2; exit 1; }
 mkdir -p "$home/.homeworld" "$home/logs"
-[[ -e "$home/.homeworld/Cataclysm.cfg" ]] || printf 'TutorialNeeded    0\nPlayIntros    0\n' > "$home/.homeworld/Cataclysm.cfg"
+[[ -e "$home/.homeworld/Cataclysm.cfg" ]] || printf 'TutorialNeeded    0\n' > "$home/.homeworld/Cataclysm.cfg"
 log="$home/logs/play-$(date +%Y%m%d-%H%M%S).log"
 echo "play.sh: $bin  data=$data  home=$home  driver=$drv  switches: $*  log=$log" >&2
 export HOME="$home" HW_Data="$data" SDL_VIDEODRIVER="$drv"
