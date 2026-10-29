@@ -65,13 +65,15 @@ function Test-Installed([string]$what) {
 	Write-Host "installed files:"
 	Get-ChildItem -LiteralPath $inst -Recurse -File | ForEach-Object { Write-Host ("  {0} {1}" -f $_.FullName.Substring($inst.Length + 1), $_.Length) }
 	foreach ($f in 'hwi-engine.exe', 'SDL2.dll', 'innoextract.exe', 'README.txt', 'uninstall.exe',
-		'licenses\REULA.txt', 'licenses\SDL2.txt', 'licenses\FFmpeg\COPYING.LGPLv2.1.txt', 'licenses\FFmpeg\SOURCE.txt') {
+		'licenses\REULA.txt', 'licenses\SDL2.txt', 'licenses\FFmpeg\COPYING.LGPLv2.1.txt', 'licenses\FFmpeg\SOURCE.txt',
+		'licenses\innoextract\innoextract.LICENSE.txt', 'licenses\innoextract\Boost.LICENSE_1_0.txt',
+		'licenses\innoextract\liblzma.COPYING.txt', 'licenses\innoextract\libstdc++.COPYING3.txt',
+		'licenses\innoextract\libstdc++.COPYING.RUNTIME.txt') {
 		Check (Test-Path -LiteralPath (Join-Path $inst $f)) "${what}: $f installed"
 	}
 	foreach ($lib in 'avcodec', 'avformat', 'avutil', 'swscale') {
 		Check (@(Get-ChildItem -LiteralPath $inst -Filter "$lib-*.dll").Count -eq 1) "${what}: $lib-*.dll installed"
 	}
-	Check (@(Get-ChildItem -LiteralPath (Join-Path $inst 'licenses\innoextract') -File -ErrorAction SilentlyContinue).Count -ge 1) "${what}: innoextract licence files installed"
 	if (Test-Path -LiteralPath $exe) {
 		$vi = (Get-Item -LiteralPath $exe).VersionInfo
 		Check ($vi.ProductVersion -eq $Version -and $vi.FileVersion -eq $Version) "${what}: hwi-engine.exe version $($vi.ProductVersion) / $($vi.FileVersion), '$($vi.ProductName)'"

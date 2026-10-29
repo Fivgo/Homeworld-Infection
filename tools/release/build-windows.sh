@@ -82,6 +82,10 @@ fi
 sdl=$(cd "$sdl" && pwd)
 if [[ -z "$ie" ]]; then
 	fetch "$INNOEXTRACT_URL" "$INNOEXTRACT_SHA256" "innoextract-$INNOEXTRACT_VERSION-windows.zip"
+	# a second, independent pin: the sha512 of the author's SHA512SUMS (constexpr.org), as Scoop's manifest carries it
+	have512=$(sha512sum "$deps/dl/innoextract-$INNOEXTRACT_VERSION-windows.zip" | cut -d' ' -f1)
+	[[ -z "$INNOEXTRACT_SHA512" || "$have512" == "$INNOEXTRACT_SHA512" ]] || \
+		die "innoextract-$INNOEXTRACT_VERSION-windows.zip: sha512 $have512, pinned $INNOEXTRACT_SHA512"
 	ie="$deps/innoextract-$INNOEXTRACT_VERSION-windows"
 	rm -rf -- "$ie"; mkdir -p "$ie"
 	unzip -q "$deps/dl/innoextract-$INNOEXTRACT_VERSION-windows.zip" -d "$ie"
@@ -137,11 +141,16 @@ for f in "$ffmpeg/share/licenses/ffmpeg/"*; do crlf "$f" "$stage/licenses/FFmpeg
 cfg=$(strings -a "$ffmpeg"/bin/avutil-*.dll | grep -m1 -e '--enable-shared' || true)
 printf '\nThe DLLs are unmodified FFmpeg, configured with:\n%s\n' "${cfg:-(not found)}" >> "$stage/licenses/FFmpeg/SOURCE.txt"
 crlf "$stage/licenses/FFmpeg/SOURCE.txt" "$b/SOURCE.tmp"; mv -f -- "$b/SOURCE.tmp" "$stage/licenses/FFmpeg/SOURCE.txt"
-while IFS= read -r -d '' f; do
+echo "licenses/FFmpeg/SOURCE.txt:"; sed 's/\r$//; s/^/  /' "$stage/licenses/FFmpeg/SOURCE.txt"
+# innoextract's zip: README.txt and license/ (innoextract's own zlib licence and those of Boost, liblzma and the
+# libstdc++ runtime built into the exe)
+iedir=$(dirname "$iexe")
+for f in "$iedir"/README.txt "$iedir"/license/*; do
+	[[ -f "$f" ]] || continue
 	n=$(basename "$f"); [[ "$n" == *.txt ]] || n="$n.txt"
 	crlf "$f" "$stage/licenses/innoextract/$n"
-done < <(find "$(dirname "$iexe")" -maxdepth 1 -type f ! -iname '*.exe' -print0)
-[[ -n "$(ls -A "$stage/licenses/innoextract")" ]] || die "no licence file beside innoextract.exe in $ie"
+done
+compgen -G "$stage/licenses/innoextract/innoextract.LICENSE*" >/dev/null || die "no innoextract licence in $iedir/license"
 
 # 4. every exe and DLL may import only what the package carries and Windows' own DLLs
 sysdlls='kernel32|user32|gdi32|shell32|advapi32|ole32|oleaut32|comdlg32|winmm|opengl32|bcrypt|imm32|version|setupapi'
