@@ -38,7 +38,7 @@ BOOST_URL="https://github.com/boostorg/boost/releases/download/boost-$BOOST_VERS
 BOOST_SHA256=a4d99d032ab74c9c5e76eddcecc4489134282245fffa7e079c5804b92b45f51d  # Boost's own .tar.xz.txt
 INNOEXTRACT_COMMIT=6e9e34ed0876014fdb46e684103ef8c3605e382e   # master 2025-02-06: Inno Setup 6.4, GOG Galaxy fixes
 INNOEXTRACT_URL="https://github.com/dscharrer/innoextract/archive/$INNOEXTRACT_COMMIT.tar.gz"
-INNOEXTRACT_SHA256=""   # pinned from the first CI run's "pin:" line
+INNOEXTRACT_SHA256=4d885b27e452dcb137a9d97736b19478447f172bcfed1aa98d80138e9a4c08ae   # the first CI download (2026-10-29)
 
 version=1.0.0
 deps="$root/build/macos-deps"
@@ -68,7 +68,7 @@ recipe_all() {
 		"$BOOST_VERSION" "$BOOST_SHA256" "$INNOEXTRACT_COMMIT" "$INNOEXTRACT_SHA256"
 }
 if [[ $mode == key ]]; then
-	printf 'macos-deps-%s\n' "$(recipe_all | shasum -a 256 | cut -c1-16)"
+	printf 'macos-deps-%s\n' "$( (recipe_all; sha256 "$0") | shasum -a 256 | cut -c1-16)"
 	exit 0
 fi
 
@@ -212,7 +212,9 @@ build_innoextract() {
 			-S "$w/innoextract-$INNOEXTRACT_COMMIT" -B "$w/build-$arch" -DCMAKE_BUILD_TYPE=Release \
 			-DCMAKE_OSX_ARCHITECTURES="$arch" -DCMAKE_OSX_DEPLOYMENT_TARGET=$MACOS_MIN \
 			-DCMAKE_IGNORE_PREFIX_PATH="$ignore_prefixes" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-			-DUSE_STATIC_LIBS=ON -DBUILD_TESTS=OFF -DUSE_LTO=OFF -DUSE_LD=default -DSET_WARNING_FLAGS=OFF \
+			-DUSE_STATIC_LIBS=ON -DBoost_USE_STATIC_LIBS=ON -DLZMA_USE_STATIC_LIBS=ON -DZLIB_USE_STATIC_LIBS=OFF \
+			-DBZip2_USE_STATIC_LIBS=OFF -Diconv_USE_STATIC_LIBS=OFF \
+			-DBUILD_TESTS=OFF -DUSE_LTO=OFF -DUSE_LD=default -DSET_WARNING_FLAGS=OFF \
 			-DBOOST_ROOT="$deps/boost-$arch" -DBoost_NO_BOOST_CMAKE=ON -DBoost_NO_SYSTEM_PATHS=ON \
 			-DLZMA_INCLUDE_DIR="$deps/xz-$arch/include" -DLZMA_LIBRARY="$deps/xz-$arch/lib/liblzma.a" \
 			-DCMAKE_EXE_LINKER_FLAGS="-lz -lbz2"

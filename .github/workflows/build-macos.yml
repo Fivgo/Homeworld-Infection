@@ -64,8 +64,9 @@ jobs:
         id: deps
         run: tools/release/build-macos.sh --deps-only
 
+      # saved even when a part failed: each part's recipe line (build/macos-deps/*/.recipe) says what is complete
       - name: Save third-party builds
-        if: steps.restore.outputs.cache-hit != 'true' && steps.deps.outcome == 'success'
+        if: always() && steps.restore.outputs.cache-hit != 'true' && steps.key.outcome == 'success'
         uses: actions/cache/save@v4
         with:
           path: build/macos-deps
