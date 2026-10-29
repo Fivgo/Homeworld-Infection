@@ -27,7 +27,7 @@ built by GitHub Actions (`.github/workflows/build-linux.yml`, artifact `package-
 
 `tools/release/build-linux.sh [--deps DIR] [--out DIR] [--work DIR] [--deps-only] [--cache-keys]`, on the
 `ubuntu-22.04` runner (glibc 2.35, so the AppImage runs on distributions with glibc 2.35 or newer: Ubuntu 22.04+,
-Debian 12+, Fedora 36+, current Arch, Mint 21+, SteamOS 3). The version comes from `meson.build`'s project version.
+Debian 12+, Fedora 36+, current Arch, Mint 21+, current SteamOS; not verified on each). The version comes from `meson.build`'s project version.
 
 1. **SDL2** 2.30.12 from source (CMake) into `--deps/sdl2`. X11 and Wayland (with libdecor), PipeWire, PulseAudio,
    ALSA and libsamplerate are all `*_SHARED`, so SDL dlopens them on the player's machine. dbus and udev are
@@ -173,6 +173,19 @@ CI repeats the entry checks on the real AppImage (below).
 
 CI never gets game data, so nothing past the data check runs there. The game itself is tested on a player's
 machine.
+
+## Limits and what is not verified
+
+- The glibc floor (2.35) holds by construction, because the build ran against glibc 2.35. Nobody has measured the
+  real minimum symbol versions.
+- The static runtime needs no libfuse2, but mounting still needs the kernel's FUSE and the host's setuid
+  `fusermount3` (or `fusermount`), as every type-2 AppImage does. Ubuntu 22.04+ desktops, Fedora and SteamOS have
+  them. Without them the runtime prints that `--appimage-extract-and-run` works instead.
+- No CI-built package has run on a real desktop yet: no window, GPU driver, audio, Wayland session or GOG data.
+  The menu entry was checked under Xvfb and locally with a stub engine, never in a real applications menu.
+- innoextract 1.9 handles Inno Setup up to 6.0.5 (it says so with `--version`). The current GOG installer
+  (setup data 5.5.7) is within that range. A future GOG installer built with Inno Setup 6.1 or newer would need a
+  newer innoextract.
 
 ## Running it elsewhere
 
