@@ -51,7 +51,9 @@ bad=$(echo "$dlls" | grep -v -i -E '^(SDL2|OPENGL32|KERNEL32|USER32|GDI32|SHELL3
 stage=$(mktemp -d); trap 'rm -rf -- "$stage"' EXIT
 cp "$b/hwi-engine.exe" "$sdl/bin/SDL2.dll" "$stage/"
 crlf() { sed 's/\r$//; s/$/\r/' "$1" > "$2"; }
-sed -e "s/@DATE@/$(date +%Y-%m-%d)/" -e "s/@ENGINE@/$engine/" -e "s/@COMMIT@/$commit/" \
+# the README is the installer's (tools/release/build-windows.sh); this zip fills in its version, date and commit too
+version=$(sed -n "s/^[[:space:]]*version:[[:space:]]*'\([0-9][0-9.]*\)'.*/\1/p" "$root/meson.build" | head -n1)
+sed -e "s/@DATE@/$(date +%Y-%m-%d)/g" -e "s/@ENGINE@/$engine/g" -e "s/@COMMIT@/$commit/g" -e "s/@VERSION@/$version/g" \
 	"$root/tools/release/README-Windows.txt" > "$stage/README.tmp"
 crlf "$stage/README.tmp" "$stage/README-Windows.txt"; rm -f "$stage/README.tmp"
 crlf "$root/src/COPYING.REULA" "$stage/LICENSE-REULA.txt"

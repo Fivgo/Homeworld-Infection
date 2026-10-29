@@ -1,22 +1,38 @@
-Homeworld-Infection for Windows (64-bit)
-========================================
+Homeworld Infection @VERSION@ for Windows (64-bit)
+==============================================
 
-Build @DATE@, engine @ENGINE@ (the build play-tested on 2026-10-21), source commit @COMMIT@.
+Built @DATE@ from source commit @COMMIT@.
 
 WHAT THIS IS
-This is a recreation of the engine of Homeworld: Cataclysm. The game's own files (ships, maps, music, voices) are
-NOT included. They come from your own GOG installation of Homeworld: Emergence (Cataclysm's GOG name).
+Homeworld Infection is a recreation of the engine of Homeworld: Cataclysm. The game's own files (ships, maps, music,
+voices) are NOT included. They come from your own copy of Homeworld: Emergence (Cataclysm's name on GOG).
+
+WHAT YOU NEED
+Homeworld: Emergence from GOG, in either form:
+- installed (with GOG Galaxy or with GOG's offline installer), or
+- just GOG's offline installer, setup_homeworld_emergence_*.exe (about 345 MB; on gog.com: Games -> Homeworld:
+  Emergence -> "Download offline backup game installers").
 
 INSTALL
-1. Extract every file in this zip into the GOG game folder, next to cataclysm.exe and cataclysm.big.
-   (In GOG Galaxy: Homeworld: Emergence -> Manage installation -> Show folder.)
-2. Nothing of the GOG game is changed or replaced. To uninstall, delete hwi-engine.exe, SDL2.dll and the .txt files
-   from this zip.
+Double-click Homeworld-Infection-@VERSION@-Windows-Setup.exe and follow the steps. Windows may warn that the program is
+from an unknown publisher (it is not signed): click "More info", then "Run anyway". No administrator rights are
+needed. It installs for your Windows account only, into
+    %LOCALAPPDATA%\Programs\Homeworld Infection
+and adds "Homeworld Infection" to the Start menu and the Desktop.
 
-RUN
-Double-click hwi-engine.exe. Windows may warn that the program is from an unknown publisher (it is not signed):
-click "More info", then "Run anyway".
-The first run creates the settings folder
+FIRST START
+Start "Homeworld Infection". The game looks for your GOG copy of Homeworld: Emergence by itself. If it does not find
+one, it asks you to choose either
+- the GOG game folder, the one that holds cataclysm.exe and cataclysm.big (in GOG Galaxy: Homeworld: Emergence ->
+  Manage installation -> Show folder), or
+- the offline installer setup_homeworld_emergence_*.exe. The game unpacks it once into
+      %LOCALAPPDATA%\Homeworld-Infection\GameData
+  The installer file itself is not changed.
+Your choice is remembered (the file gamedata-path.txt in the settings folder; delete it to choose again). A GOG
+installation is only read, never changed, and the GOG game keeps working as before.
+
+SETTINGS AND SAVED GAMES
+The first start creates the settings folder
     %APPDATA%\Homeworld-Infection
 (type that into the Explorer address bar to open it). It holds the settings file Cataclysm.cfg, keys.cfg, your saved
 games and screenshots. The GOG game's own saves are not touched.
@@ -28,14 +44,20 @@ as a borderless window covering it. You can also edit Cataclysm.cfg in the setti
     screenWidth 1920
     screenHeight 1080
     fullScreen 0          (1 = fullscreen)
-For one run only, a shortcut's target can add switches after the exe's name:
-    hwi-engine.exe /fullscreen      hwi-engine.exe /window      hwi-engine.exe /1600   (1600x1200)
+For one shortcut only, add a switch at the end of its Target (right-click the shortcut -> Properties), after the
+closing quote:  /fullscreen   /window   /1600 (1600x1200)
+
+UNINSTALL
+Windows Settings -> Apps -> Installed apps -> Homeworld Infection -> Uninstall. The program files are always removed.
+The uninstaller asks whether to remove your settings and saved games and the unpacked game data too; unless you tick
+them, they are kept for a later install.
 
 KNOWN ISSUES
-- Not yet run on Windows: this build was only compiled and checked on Linux; there has been no Wine test either.
-  Please report whether the main menu, a New Game into Mission01, Options -> Video and Quit work.
-- The animatics (the cutscene movies before Mission01 and at its hyperspace jump) and the Sierra and Barking Dog
-  intro logos are not played in this Windows build; the in-engine cutscenes play.
+- Not yet played on Windows: this build was made and checked on Linux, and on Windows it was only installed, started
+  without game data and uninstalled by an automated test. Please report whether the main menu, a New Game into
+  Mission01, Options -> Video and Quit work.
+- The movies (the Sierra and Barking Dog logos at start-up and the animatics before Mission01 and at its hyperspace
+  jump) are in this build but have not been watched on Windows yet: please report if one does not play.
 - The hyperspace gate can look the wrong size for the Kith ship, and parts of ships can pop in just after a
   hyperspace exit.
 - A rare one-frame flicker in a cutscene.
@@ -43,11 +65,17 @@ KNOWN ISSUES
 - No LAN or internet play.
 - Quit may need a second try after a resolution change.
 - Saved games from this build do not load in the GOG game.
-To send a log of a problem: open a Command Prompt in the game folder and run
-    hwi-engine.exe > hwi-log.txt 2>&1
-then send hwi-log.txt.
+To send a log of a problem: press Windows+R, type cmd and press Enter, then paste this line and press Enter:
+    "%LOCALAPPDATA%\Programs\Homeworld Infection\hwi-engine.exe" > "%USERPROFILE%\Desktop\hwi-log.txt" 2>&1
+Play until the problem shows, quit, and send hwi-log.txt from your Desktop.
 
-LICENCES
-The engine is based on Relic Entertainment's Homeworld source code, released under the Relic End User License
-Agreement (LICENSE-REULA.txt): for non-commercial use only. SDL2.dll is the Simple DirectMedia Layer library, zlib
-licence (LICENSE-SDL2.txt). Homeworld and Homeworld: Cataclysm are trademarks of their owners; this is a fan project.
+LICENCES (in the licenses folder next to the game)
+- The engine is based on Relic Entertainment's Homeworld source code, released under the Relic End User License
+  Agreement (REULA.txt): for non-commercial use only.
+- SDL2.dll: Simple DirectMedia Layer, zlib licence (SDL2.txt).
+- avcodec, avformat, avutil and swscale DLLs: FFmpeg, LGPL version 2.1 or later (FFmpeg folder). They are unmodified
+  FFmpeg; FFmpeg\SOURCE.txt names the source download and how it was configured. You may replace these DLLs with
+  your own build of the same FFmpeg version.
+- innoextract.exe: innoextract by Daniel Scharrer, zlib licence, with the licences of the libraries built into it
+  (innoextract folder). Source: https://constexpr.org/innoextract/
+Homeworld and Homeworld: Cataclysm are trademarks of their owners; this is a fan project.
