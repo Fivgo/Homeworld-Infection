@@ -87,7 +87,7 @@ Agreement: for non-commercial use only. The AppImage also carries:
 - SDL2, the Simple DirectMedia Layer library (zlib licence);
 - a minimal build of FFmpeg 6.1 for the cutscene movies (LGPL 2.1 or later; the source URL is in
   SOURCE-FFmpeg.txt);
-- innoextract, which unpacks the GOG offline installer (zlib licence, and the licences of the libraries it is built
-  with).
+- innoextract, which unpacks the GOG offline installer (zlib licence; it is built with Boost, bzip2, liblzma,
+  libstdc++ and zlib, whose licences are included too).
 All the licence texts are in the licenses folder next to this file. Homeworld and Homeworld: Cataclysm are
 trademarks of their owners; this is a fan project.

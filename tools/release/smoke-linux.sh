@@ -38,7 +38,7 @@ mkdir -p "$t/e"; (cd "$t/e" && "$img" --appimage-extract >/dev/null)
 r="$t/e/squashfs-root"
 (cd "$r" && find . \( -type f -o -type l \) -printf '%p %s\n' | sort)
 for f in AppRun homeworld-infection.desktop homeworld-infection.png usr/bin/hwi-engine usr/bin/innoextract \
-	usr/lib/libSDL2-2.0.so.0 usr/share/metainfo/homeworld-infection.appdata.xml \
+	usr/lib/libSDL2-2.0.so.0 usr/share/metainfo/io.github.fivgo.HomeworldInfection.metainfo.xml \
 	usr/share/doc/homeworld-infection/LICENSE-REULA.txt usr/share/doc/homeworld-infection/LICENSE-SDL2.txt \
 	usr/share/doc/homeworld-infection/COPYING-FFmpeg-LGPLv2.1.txt usr/share/doc/homeworld-infection/SOURCE-FFmpeg.txt \
 	usr/share/doc/homeworld-infection/LICENSE-innoextract.txt; do
@@ -72,7 +72,11 @@ else
 fi
 desktop-file-validate "$r/homeworld-infection.desktop" && ok "the AppImage's desktop file validates" || fail "desktop-file-validate (AppDir)"
 if command -v appstreamcli >/dev/null 2>&1; then
-	appstreamcli validate --no-net "$r/usr/share/metainfo/homeworld-infection.appdata.xml" || echo "(appstreamcli findings above are informational)"
+	if appstreamcli validate --no-net "$r/usr/share/metainfo/io.github.fivgo.HomeworldInfection.metainfo.xml"; then
+		ok "appstreamcli validate"
+	else
+		echo "SMOKE note: appstreamcli findings above (informational, not a failure)"
+	fi
 fi
 
 echo "== 3. innoextract"
@@ -90,8 +94,10 @@ run_engine() {   # run_engine <label> <command...>: in $t/cwd under xvfb-run wit
 	rc=$?
 	set -e
 	echo "--- $label: exit $rc; last lines of its output:"; tail -n 25 "$t/$label.out" | sed 's/^/   | /'
+	# 124/137: timeout's own codes; 129..192: killed by a signal (128 + 1..64). The engine's own error exit is
+	# ERR_ErrorStart 0xfed5, seen as 213.
 	if [[ $rc -eq 124 || $rc -eq 137 ]]; then fail "$label: did not exit within 120 s (hang)"
-	elif [[ $rc -gt 128 ]]; then fail "$label: died from signal $((rc - 128))"
+	elif [[ $rc -gt 128 && $rc -le 192 ]]; then fail "$label: died from signal $((rc - 128))"
 	else ok "$label: exited by itself with code $rc"; fi
 	summary "- $label: exit code $rc"
 }

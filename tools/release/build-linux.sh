@@ -27,11 +27,11 @@ VERSION=$(sed -n "s/^[[:space:]]*version: '\([0-9][0-9.]*\)',\$/\1/p" "$root/mes
 # ---- pins (the sha256 of every download; a mismatch stops the build) ------------------------------------------
 SDL2_VERSION=2.30.12
 SDL2_URL="https://github.com/libsdl-org/SDL/releases/download/release-$SDL2_VERSION/SDL2-$SDL2_VERSION.tar.gz"
-SDL2_SHA256=""
+SDL2_SHA256=ac356ea55e8b9dd0b2d1fa27da40ef7e238267ccf9324704850d5d47375b48ea   # first CI download, 2026-10-29
 SDL2_RECIPE=1             # bump when build_sdl2's options change (it is part of the cache key)
 INNOEXTRACT_VERSION=1.9
 INNOEXTRACT_URL="https://github.com/dscharrer/innoextract/releases/download/$INNOEXTRACT_VERSION/innoextract-$INNOEXTRACT_VERSION-linux.tar.xz"
-INNOEXTRACT_SHA256=""
+INNOEXTRACT_SHA256=008efe5011476ccc4aae17c3e22038b5a1bc5c7aad2b9d4d869537bf3874d21f   # first CI download, 2026-10-29
 APPIMAGETOOL_VERSION=1.9.1
 APPIMAGETOOL_URL="https://github.com/AppImage/appimagetool/releases/download/$APPIMAGETOOL_VERSION/appimagetool-x86_64.AppImage"
 APPIMAGETOOL_SHA256=ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
@@ -39,6 +39,7 @@ RUNTIME_VERSION=20251108  # github.com/AppImage/type2-runtime: static, needs no 
 RUNTIME_URL="https://github.com/AppImage/type2-runtime/releases/download/$RUNTIME_VERSION/runtime-x86_64"
 RUNTIME_SHA256=2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d
 FFMPEG_VERSION=$(sed -n 's/^FFMPEG_VERSION=//p' "$root/tools/release/ffmpeg-min.sh")
+APPSTREAM_ID=io.github.fivgo.HomeworldInfection
 
 deps="$root/build/linux-deps"; out="$root/dist"; work="$root/build/linux-package"; deps_only=0; keys_only=0
 while [[ $# -gt 0 ]]; do
@@ -56,7 +57,8 @@ done
 
 distro=$(. /etc/os-release 2>/dev/null && echo "${ID:-linux}${VERSION_ID:-}")
 sdl2_key="sdl2-$SDL2_VERSION-r$SDL2_RECIPE-$distro"
-ffmpeg_key="ffmpeg-$FFMPEG_VERSION-$(sha256sum "$root/tools/release/ffmpeg-min.sh" | cut -c1-16)-$distro"
+# the FFmpeg key hashes ffmpeg-min.sh without its FFMPEG_SHA256 line: pinning the source does not change the build
+ffmpeg_key="ffmpeg-$FFMPEG_VERSION-$(grep -v '^FFMPEG_SHA256=' "$root/tools/release/ffmpeg-min.sh" | sha256sum | cut -c1-16)-$distro"
 if [[ $keys_only -eq 1 ]]; then
 	echo "sdl2=$sdl2_key"
 	echo "ffmpeg=$ffmpeg_key"
@@ -200,8 +202,8 @@ sed "s/@VERSION@/$VERSION/g" "$root/tools/release/linux/AppRun" > "$ad/AppRun"; 
 sed "s/@VERSION@/$VERSION/g" "$root/tools/release/linux/homeworld-infection.desktop" > "$ad/homeworld-infection.desktop"
 cp "$ad/homeworld-infection.desktop" "$ad/usr/share/applications/homeworld-infection.desktop"
 commit_date=$(git -C "$root" log -1 --format=%cs 2>/dev/null || date -u +%F)
-sed -e "s/@VERSION@/$VERSION/g" -e "s/@DATE@/$commit_date/g" "$root/tools/release/linux/homeworld-infection.appdata.xml" \
-	> "$ad/usr/share/metainfo/homeworld-infection.appdata.xml"
+sed -e "s/@VERSION@/$VERSION/g" -e "s/@DATE@/$commit_date/g" "$root/tools/release/linux/$APPSTREAM_ID.metainfo.xml" \
+	> "$ad/usr/share/metainfo/$APPSTREAM_ID.metainfo.xml"
 
 # icons: the original art (tools/release/icon), drawn at the standard sizes
 python3 "$root/tools/release/icon/make_icon.py" "$work/icon-1024.png" --sizes "$work/icons"
@@ -226,9 +228,11 @@ cp "$deps/ffmpeg/share/licenses/ffmpeg/SOURCE.txt" "$doc/SOURCE-FFmpeg.txt"
 	echo
 	"$ie_bin" --license || echo "(this binary has no --license: see the licence files beside this one)"
 } > "$doc/LICENSE-innoextract.txt"
+# the tarball's license/ folder: innoextract's own and those of Boost, libbz2, liblzma, libstdc++ and zlib, which the
+# binary links statically (it needs only glibc's libc and libm)
 while IFS= read -r f; do
-	cp "$f" "$doc/$(basename "$f" .txt)-innoextract.txt"
-done < <(find "$tools/ie" -maxdepth 3 -type f \( -iname 'LICENSE*' -o -iname 'COPYING*' \) | sort)
+	cp "$f" "$doc/LICENSE-innoextract-$(basename "$f").txt"
+done < <(find "$tools/ie" -type f -path '*/license/*' | sort)
 commit=$(git -C "$root" rev-parse --short=7 HEAD 2>/dev/null || echo unknown)
 sed -e "s/@VERSION@/$VERSION/g" -e "s/@DATE@/$commit_date/g" -e "s/@COMMIT@/$commit/g" \
 	"$root/tools/release/README-Linux.txt" > "$doc/README-Linux.txt"

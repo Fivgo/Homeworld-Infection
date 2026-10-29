@@ -59,6 +59,8 @@ jobs:
           key: ${{ steps.keys.outputs.ffmpeg }}
 
       - name: Build SDL2 and FFmpeg
+        env:
+          HWI_REQUIRE_PINS: "1"
         run: tools/release/build-linux.sh --deps ~/hwi-deps --deps-only
 
       # saved right away, so a later failing step does not throw the builds away
@@ -77,6 +79,8 @@ jobs:
           key: ${{ steps.keys.outputs.ffmpeg }}
 
       - name: Build the package
+        env:
+          HWI_REQUIRE_PINS: "1"
         run: tools/release/build-linux.sh --deps ~/hwi-deps --out dist
 
       - name: Upload package-linux
