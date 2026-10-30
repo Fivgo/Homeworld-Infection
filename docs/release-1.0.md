@@ -53,3 +53,23 @@ player README. No step needs a terminal.
 - Never fake mouse or keyboard input. Test runs are silent and never on screen: the harness's offscreen driver,
   `/catHiddenWindow`, or a headless gamescope (a developer screenshot harness only; never part of a package).
 - GPU measurements only on an idle GPU.
+
+## Verification of the v1.0.0 packages (2026-10-30, the draft release's own files)
+
+The three files were downloaded from the draft release and checked against its SHA256SUMS.txt. Every run was hidden
+and silent, with a throwaway home or Wine prefix in the session scratchpad and the user's offline installer
+(`original/setup_homeworld_emergence_1.01_hotfix_(12948).exe`) or links to `original/gog/game`'s 66 files.
+
+| Package | Run | Result |
+|---|---|---|
+| Linux tar.gz | extracted (the AppImage keeps mode 755), started through FUSE with the installer linked into `~/Downloads`, `/catDataSetupScript unpack /catHiddenWindow /catModeQuitTest 1280x720:120`, SDL dummy audio, stub dialog programs | found and unpacked by the bundled innoextract (66 files, 404,999,701 bytes, all match MANIFEST.sha256), the path saved, both intros through the bundled FFmpeg (240/240 and 807/807 frames, 4:3), the switch PASS, 120 frames, rc 0, the menu entry `homeworld-infection-appimage.desktop` written, no dialog |
+| Linux, second start | `/catDataSetupScript quit /disableAVI ...` | the saved path used without a question, PASS, 3 s |
+| Windows Setup.exe | `/S` under GE-Proton 10-34 | the NSIS stub crashes in Wine (page fault in its 32-bit code at 0x00439474: the same GE relocation fault as GOG's Inno stubs, docs/RUNBOOK.md); not a Windows fault (CI's windows-latest install passes) |
+| Windows Setup.exe | `/S` under Proton Experimental 11.0-20261014, in a headless gamescope | rc 0, every file installed |
+| Windows game, first start | `/catDataSetupScript "show;installer:Z:\...exe"` in a headless gamescope, Wine audio drivers off | the bundled innoextract.exe unpacked the installer (66 files match), the progress window shown (captured), the Barking Dog intro captured at 4:3 in the 1440-wide centre; gamescope's headless backend then segfaulted at the window's resize (a harness fault) |
+| Windows game, second start | headless gamescope, `/disableAVI` | the saved path used, the main menu captured, "Emergence 1 1.0.0" |
+| Windows game, mode switch + quit | Wine on the real display with `/catHiddenWindow`, output redirected by a .bat | saved path, `/catModeQuitTest 1280x720:120` PASS, 120 frames, rc 0 |
+| Windows registry detection | GOG's key `HKLM\Software\Wow6432Node\GOG.com\Games\1766413869` `path` = a folder of links to the 66 files; the saved path and GameData moved aside | found in both registry views, used without a question, saved, PASS, rc 0; nothing written into the game folder |
+| Engine on the NVIDIA display | `--mode modequit --res 2560x1600 --mode-to 3840x2160:120 --hidden-x11`; `--mode resize --res 2560x1600 --hidden-x11` (debug ASan build of the tagged tree) | PASS, 120 frames, 0 X errors, quit PASS, rc 0; resize PASS; ASan 0, no leak |
+
+Not verified: a real Windows PC, any Mac, the uninstaller's components page by hand, SmartScreen and Gatekeeper.

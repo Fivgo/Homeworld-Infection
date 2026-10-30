@@ -25,9 +25,9 @@ The packages are not signed. Windows may show "Windows protected your PC": click
 
 ## Known issues
 
-- **Windows:** so far only installed, started without game data and uninstalled by an automated test; not yet played on a Windows PC.
+- **Windows:** tested under Wine with the game files (unpacking the offline installer, finding a GOG installation through its registry entry, the intro movies, the main menu, a resolution change and Quit), and installed, started and uninstalled on a Windows test machine; not yet played on a Windows PC.
 - **macOS:** built and checked automatically on Apple Silicon (the Intel half too); not yet played on a Mac.
-- **Linux:** the engine is played on Pop!_OS 24.04; the AppImage package itself is new, so please report your distribution and desktop. The window uses X11 (XWayland on Wayland desktops).
+- **Linux:** the AppImage is tested on Pop!_OS 24.04 with the game files (the offline installer found in Downloads and unpacked, the intro movies, the main menu, a resolution change, the menu entry); please report other distributions and desktops. The window uses X11 (XWayland on Wayland desktops).
 - The hyperspace gate can look the wrong size for the Kith ship, and parts of ships can pop in just after a hyperspace exit.
 - A rare one-frame flicker in a cutscene.
 - FULL DETAIL costs frame rate in big battles: untick it in Options, Video if a battle stutters.
