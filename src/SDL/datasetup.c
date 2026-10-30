@@ -28,6 +28,9 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <glob.h>
+#ifndef GLOB_ONLYDIR
+#define GLOB_ONLYDIR 0      // HWI-FIX(macos): a GNU extension; dsConsider checks every match for the game files anyway
+#endif
 #include <limits.h>
 #include <poll.h>
 #include <signal.h>
