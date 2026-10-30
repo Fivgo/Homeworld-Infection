@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 120
     env:
       HWI_VERSION: ${{ inputs.version || '1.0.0' }}
-      MACOS_WERROR: 'false'   # first runs list every Apple clang warning; then 'true' (the project's -Werror)
+      MACOS_WERROR: 'true'    # the project's -Werror (Apple clang: 0 warnings on arm64 and x86_64 since run 40977544320)
     steps:
       - uses: actions/checkout@v4
         with:

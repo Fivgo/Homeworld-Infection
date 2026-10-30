@@ -287,9 +287,9 @@ dmg="$out/Homeworld-Infection-$version-macOS.dmg"
 
 # a thin Mach-O: dylib id @rpath/<name>; references to anything but the system @rpath/<name>; every LC_RPATH removed
 # (meson's build rpaths, e.g. @loader_path/../../macos-deps/sdl2/lib, point outside the bundle; universal adds ours)
-fix_macho() {
-	local f=$1 dep rp
-	case "$f" in *.dylib) install_name_tool -id "@rpath/$(basename "$f")" "$f" ;; esac
+fix_macho() {   # FILE NAME: NAME is the file's name in the bundle
+	local f=$1 name=$2 dep rp
+	case "$name" in *.dylib) install_name_tool -id "@rpath/$name" "$f" ;; esac
 	otool -L "$f" | tail -n +2 | awk '{print $1}' | while read -r dep; do
 		case "$dep" in
 			/usr/lib/*|/System/*|@rpath/*|@executable_path/*|@loader_path/*) ;;
@@ -311,7 +311,7 @@ universal() {
 		f="$w/$arch-$(basename "$dst")"
 		if lipo -info "$s" | grep -q '^Non-fat'; then cp "$s" "$f"; else lipo -thin "$arch" "$s" -output "$f"; fi
 		chmod u+w "$f"
-		fix_macho "$f"
+		fix_macho "$f" "$(basename "$dst")"
 		if [[ -n "$rpath" ]]; then install_name_tool -add_rpath "$rpath" "$f"; fi
 		check_arch "$f" "$arch"
 		slices="$slices $f"
@@ -416,6 +416,16 @@ make_dmg() {
 # ---- smoke checks (CI never has game data) ---------------------------------------------------------------------------
 # run CMD... with a time limit in seconds; exit 142 = killed by the alarm
 with_timeout() { local t=$1; shift; perl -e 'alarm shift; exec @ARGV or die "exec: $!\n"' "$t" "$@"; }
+# limited SECONDS CMD...: run CMD, then print "status: exit N", "status: signal N" or "status: timeout" on a line of
+# its own (the last one); an exec failure prints "exec: ..." and counts as exit 2
+limited() {
+	perl -e 'my $t = shift; my $pid = fork() // die "fork: $!\n";
+		if ($pid == 0) { exec @ARGV or die "exec: $!\n"; }
+		my $how; eval { local $SIG{ALRM} = sub { die "alarm\n" }; alarm $t; waitpid($pid, 0); alarm 0; };
+		if ($@ eq "alarm\n") { kill "KILL", $pid; waitpid($pid, 0); $how = "timeout"; }
+		elsif ($? & 127) { $how = "signal " . ($? & 127); } else { $how = "exit " . ($? >> 8); }
+		print "\nstatus: $how\n";' "$@"
+}
 
 smoke() {
 	local f info bad=0 rc tmp eng="$app/Contents/MacOS/hwi-engine" arch out_log mnt
@@ -436,6 +446,9 @@ smoke() {
 				echo "BAD LIBRARY PATH in $f ($arch)"; bad=1
 			fi
 			if otool -arch "$arch" -L "$f" | grep -qE '/opt/homebrew|/usr/local'; then echo "HOMEBREW PATH in $f"; bad=1; fi
+			case "$f" in *.dylib)
+				[[ "$(otool -arch "$arch" -D "$f" | tail -n 1)" == "@rpath/$(basename "$f")" ]] || { echo "BAD ID in $f"; bad=1; } ;;
+			esac
 			otool -arch "$arch" -l "$f" | awk '/cmd LC_RPATH/{getline; getline; print "    rpath " $2}'
 			otool -arch "$arch" -l "$f" | awk '/cmd LC_BUILD_VERSION/{for(i=0;i<5;i++){getline; if($1=="minos") print "    minos " $2}}'
 		done
@@ -459,14 +472,15 @@ smoke() {
 		fi
 		tmp=$(mktemp -d); mkdir "$tmp/home"
 		out_log="$logdir/smoke-engine-$arch.log"
-		set +e
-		(cd "$tmp" && env -i PATH=/usr/bin:/bin HOME="$tmp/home" SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
-			perl -e 'alarm shift; exec @ARGV or die "exec: $!\n"' 60 arch "-$arch" "$eng") > "$out_log" 2>&1
-		rc=$?
-		set -e
-		echo "$arch: exit status $rc; log tail:"; tail -n 8 "$out_log" | sed 's/^/  /'
-		if [[ $rc == 142 ]]; then echo "HANG: $arch did not exit within 60 s"; bad=1
-		elif [[ $rc -ge 128 ]]; then echo "CRASH: $arch died of signal $((rc - 128))"; bad=1; fi
+		(cd "$tmp" && limited 60 env -i PATH=/usr/bin:/bin HOME="$tmp/home" SDL_VIDEODRIVER=dummy \
+			SDL_AUDIODRIVER=dummy arch "-$arch" "$eng") > "$out_log" 2>&1 || true
+		rc=$(tail -n 1 "$out_log")
+		echo "$arch: ${rc#status: }; the engine's last lines:"; tail -n 7 "$out_log" | sed '$d' | grep -v '^$' | sed 's/^/  /'
+		case "$rc" in
+			"status: exit "*) if grep -q '^exec: ' "$out_log"; then echo "NOT STARTED: $arch"; bad=1; fi ;;
+			"status: timeout") echo "HANG: $arch did not exit within 60 s"; bad=1 ;;
+			*) echo "CRASH: $arch: $rc"; bad=1 ;;
+		esac
 		find "$tmp/home" -mindepth 1 | sed "s|$tmp/home|  HOME|" | head -n 10
 		rm -rf "$tmp"
 	done
