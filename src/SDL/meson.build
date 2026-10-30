@@ -5,6 +5,7 @@ src_sdl = files(
     'Titan.c',
     'TitanInterfaceC.c',
     'avi.c',
+    'datasetup.c',
     'font.c',
     'main.c',
     'mainrgn.c',

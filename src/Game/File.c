@@ -1185,6 +1185,13 @@ filehandle fileOpen(char *_fileName, udword flags)
     {
         strcpy(localPath, _fileName);
     }
+    // HWI-FEATURE(data-setup): a settings file (the options file, keys.cfg, AutoLock.txt, a saved game) never comes from
+    //      the game folder: a GOG folder holds the original game's own Cataclysm.cfg and keys.cfg, and the override
+    //      lookup below opened those, for writing too. The game folder is only read
+    else if (bitTest(flags, FF_UserSettingsPath))
+    {
+        strcpy(localPath, filePathPrepend(_fileName, FF_UserSettingsPath));
+    }
     // otherwise try a local filesystem version
     else
     {
