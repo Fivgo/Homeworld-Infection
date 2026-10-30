@@ -74,6 +74,7 @@
 #include "prim3d.h"
 #include "Randy.h"
 #include "regkey.h"
+#include "datasetup.h"                                    // HWI-FEATURE(data-setup)
 #include "render.h"
 #include "ResearchAPI.h"
 #include "ResearchGUI.h"
@@ -3965,17 +3966,21 @@ char* utyGameSystemsPreInit(void)
     // where the Homeworld data files are
 
     char *dataPath = getenv("HW_Data");
-    // default to the current directory
+    // HWI-FEATURE(data-setup): HW_Data unset: datasetup.c finds the folder (GoK: the current directory)
     if (dataPath == NULL)
     {
-        // Check to see if fileHomeworldDataPath is set
-        if (fileHomeworldDataPath[0] == '\0')
-        {
-            getcwd(filePathTempBuffer, PATH_MAX);
-            dataPath = filePathTempBuffer;
+        // HWI-FEATURE(data-setup): the working directory if it holds cataclysm.big, else the saved path, the options
+        //      file's HomeworldDataPath row while it still holds the game, an installed GOG copy, the offline installer
+        //      or the player's choice (datasetup.c). GoK: that row as it was, else the working directory
+        char *dataError = dsGameDataFind(filePathTempBuffer, PATH_MAX, fileHomeworldDataPath);
 
-            fileHomeworldDataPathSet(dataPath);
+        if (dataError != NULL)
+        {
+            return dataError;
         }
+        dataPath = filePathTempBuffer;
+
+        fileHomeworldDataPathSet(dataPath);
     }
     else
     {

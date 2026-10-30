@@ -166,6 +166,8 @@ if host_machine.system() == 'linux'
 	c_base_args += ['-D_LINUX_FIX_ME', '-D_GNU_SOURCE']
 elif host_machine.system() == 'windows'
 	c_base_args += ['-D_LINUX_FIX_ME', '-D_GNU_SOURCE', '-D_WIN32', '-DWIN32', '-DWINDOWS']
+	# HWI-FEATURE(data-setup): the folder and installer pickers (IFileOpenDialog through COM, src/SDL/datasetup.c)
+	base_deps += [cc.find_library('ole32')]
 endif
 
 c_base_args += ['-DHW_GAME_HOMEWORLD']

@@ -84,6 +84,7 @@
 #include "uiscale.h"         // HWI-FEATURE(ui-scale): /uiScale, /testUsableBounds; the window request
 #include "UiScaleTest.h"     // HWI-TEST (M3-R1 ui-scale): /catUiScaleTest
 #include "Instrument.h"      // HWI-FEATURE(instrumentation): /overlay, the overlay's key; HWI-TEST /frameLog
+#include "datasetup.h"       // HWI-FEATURE(data-setup): the player quit the first-run step; HWI-TEST /catDataSetupScript
 
 #ifdef _WIN32
     #define strcasecmp _stricmp
@@ -808,6 +809,12 @@ bool32 CatMovieTestSet(char *string)
     aviFrameCap = (frames > 0) ? frames : 0;
     return TRUE;
 }
+bool32 CatDataSetupScriptSet(char *string)  // HWI-TEST (data-setup): /catDataSetupScript <answers> (datasetup.c)
+{
+    dsTestScriptSet(string);
+    return TRUE;
+}
+
 bool32 CatMovieShotSet(char *string)        // HWI-TEST (M3-R4 intro-movies): /catMovieShot <frame>[,<frame>...]
 {
     aviMovieShotSet(string);
@@ -1639,6 +1646,7 @@ commandoption commandOptions[] =
     entryVr("/catHiddenWindow",         catHiddenWindow, TRUE, " - test: every window is created hidden (never mapped) and the pointer is never warped or grabbed: a run on the real display server (the x11 driver) that nobody sees (the harness's --hidden-x11)."),   // HWI-TEST (M3-R4 mode-switch-fix)
     entryFnParam("/catMovieTest",       CatMovieTestSet, " <level>[:<frames>] - test: once the front end is up, that level's animatic (0 = Animatic01) plays (at most <frames> frames), then quit."),   // HWI-TEST (M3-R4 intro-movies)
     entryFnParam("/catMovieEventAt",    CatMovieEventSet, " <frame>:quit|<W>x<H> - test: once, after that frame of a movie, the window's close request or a new window size (no input event)."),   // HWI-TEST (M3-R4 intro-movies)
+    entryFnParam("/catDataSetupScript", CatDataSetupScriptSet, " <answers> - test: the game-data setup's dialogs and pickers answered from this ;-separated list and logged, never shown: folder[:<path>], installer[:<path>], unpack, other, open, retry, quit (show: the unpack's progress window is not hidden)."),   // HWI-TEST (data-setup)
     entryFnParam("/catMovieShot",       CatMovieShotSet, " <frame>[,<frame>...] - test: those frames of every movie (the intro logos, an animatic) are read back into the settings folder as movie-<name>-<frame>.ppm."),   // HWI-TEST (M3-R4 intro-movies)
     entryFnParam("/catResizeAt",        CatResizeAtSet, " <tick>:<W>x<H> - test: at that universe tick the window is treated as resized to WxH (the in-game relayout)."),   // HWI-TEST (M3-R4 window-modes)
     entryFn("/letterboxBehind",         LetterboxBehindSet, " - this run only: the cutscene letterbox bars drawn behind ships near the camera (the old look; the options file's letterboxBehind row keeps its value)."),   // HWI-FEATURE(letterbox-setting)
@@ -3207,6 +3215,10 @@ int main (int argc, char* argv[])
     } else { // some error on startup, either from preInit or Init()
         if (preInit) {
             (void)utyGameSystemsPreShutdown();
+        }
+        if (dsQuitChosen())                         // HWI-FEATURE(data-setup): the player quit the first-run step
+        {
+            return 0;
         }
         fprintf(stderr, "%s\n", errorString);
         return ERR_ErrorStart;
