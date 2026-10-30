@@ -107,9 +107,9 @@ double catFmathSqrtDouble(double f)
     return catDoubleFromHiLo(hi, lo);
 }
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)        // HWI-FIX(macos): Apple's libm has no fsqrt either
 /*-----------------------------------------------------------------------------
-    Name        : fsqrt (Windows only)
+    Name        : fsqrt (Windows and macOS)
     Description : HWI-FIX(win64): glibc 2.35's C23 narrowing function float fsqrt(double), the square root correctly
                   rounded to float. The Linux build calls it from the files that do not include FastMath.h (whose
                   fsqrt macro is the table square root), through <math.h>'s declaration (_GNU_SOURCE); UCRT has no

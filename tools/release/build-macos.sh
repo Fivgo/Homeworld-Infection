@@ -285,7 +285,8 @@ app_name="Homeworld Infection"
 app="$out/$app_name.app"
 dmg="$out/Homeworld-Infection-$version-macOS.dmg"
 
-# a thin Mach-O: dylib id @rpath/<name>; references to anything but the system @rpath/<name>; no absolute rpaths
+# a thin Mach-O: dylib id @rpath/<name>; references to anything but the system @rpath/<name>; every LC_RPATH removed
+# (meson's build rpaths, e.g. @loader_path/../../macos-deps/sdl2/lib, point outside the bundle; universal adds ours)
 fix_macho() {
 	local f=$1 dep rp
 	case "$f" in *.dylib) install_name_tool -id "@rpath/$(basename "$f")" "$f" ;; esac
@@ -296,7 +297,7 @@ fix_macho() {
 		esac
 	done
 	otool -l "$f" | awk '/cmd LC_RPATH/{getline; getline; print $2}' | while read -r rp; do
-		case "$rp" in @*) ;; *) install_name_tool -delete_rpath "$rp" "$f" ;; esac
+		install_name_tool -delete_rpath "$rp" "$f"
 	done
 }
 
