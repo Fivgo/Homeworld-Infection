@@ -13,7 +13,7 @@
 set -euo pipefail
 FFMPEG_VERSION=6.1.2
 FFMPEG_URL="https://ffmpeg.org/releases/ffmpeg-$FFMPEG_VERSION.tar.xz"
-FFMPEG_SHA256="${FFMPEG_SHA256:-}"   # pinned after the first CI run: set it here
+FFMPEG_SHA256="${FFMPEG_SHA256:-3b624649725ecdc565c903ca6643d41f33bd49239922e45c9b1442c63dca4e38}"   # sha256 of ffmpeg-6.1.2.tar.xz (Homebrew ffmpeg@6 formula; the CI logs print the same)
 prefix=""; target=linux; cross=""; cc=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in

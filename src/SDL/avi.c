@@ -181,6 +181,10 @@ void CALLBACK aviTimeProc(UINT uid, UINT msg, DWORD dwUser, DWORD dw1, DWORD dw2
 
 #endif	/* _WIN32 */
 
+// HWI-FIX(release-1.0): declared outside HW_ENABLE_MOVIES, because aviShotTake (outside that block) reads it; a
+//      -Dmovies=false build (tools/release_win64.sh) did not compile
+static int aviRectLast[4] = { 0, 0, 0, 0 };         // the last frame's picture placement (physical x, y, w, h)
+
 #ifdef HW_ENABLE_MOVIES
 /*-----------------------------------------------------------------------------
     HWI-FEATURE(intro-movies) (M3-R4 intro-movies). The user: "renable the starting cutscenes for sierra and barking dog
@@ -209,7 +213,6 @@ extern int MAIN_WindowHeightActual;
 static GLuint aviTex = 0;                           // this movie's frame texture (0: none)
 static int aviTexW = 0, aviTexH = 0;
 bool32 aviIntroMovie = FALSE;                       // TRUE: an intro logo (the whole frame is the picture; no script)
-static int aviRectLast[4] = { 0, 0, 0, 0 };         // the last frame's picture placement (physical x, y, w, h)
 
 static void aviTexDelete(void)
 {

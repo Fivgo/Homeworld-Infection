@@ -226,9 +226,34 @@ if not meson.is_cross_build()
 endif
 subdir('src')
 
+# HWI-FEATURE(release-1.0): the Windows exe carries the icon and a VERSIONINFO resource
+#      (tools/release/windows/hwi-engine.rc.in, docs/release-windows.md). Every Windows build gets them, so
+#      tools/release_win64.sh and tools/release/build-windows.sh do too.
+win_res = []
+if host_machine.system() == 'windows'
+	v = meson.project_version().split('.')
+	rc_conf = configuration_data()
+	rc_conf.set('V_MAJOR', v[0])
+	rc_conf.set('V_MINOR', v[1])
+	rc_conf.set('V_PATCH', v[2])
+	rc_conf.set('VERSION', meson.project_version())
+	rc_conf.set('BUILD_VERSION', build_version)
+	rc_conf.set('ICON', (meson.project_source_root() / 'tools/release/icon/homeworld-infection.ico').replace('\\', '/'))
+	rc_file = configure_file(
+		input: 'tools/release/windows/hwi-engine.rc.in',
+		output: 'hwi-engine.rc',
+		configuration: rc_conf,
+	)
+	win_res = import('windows').compile_resources(
+		rc_file,
+		depend_files: files('tools/release/icon/homeworld-infection.ico'),
+	)
+endif
+
 executable(
 	'hwi-engine',
 	src,
+	win_res,
 	include_directories: [inc_src, inc_oracle],
 	link_with: [lib_sdl],
 	dependencies: base_deps,
