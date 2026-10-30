@@ -165,6 +165,9 @@ if host_machine.system() == 'linux'
 	c_base_args += ['-D_LINUX_FIX_ME', '-D_GNU_SOURCE']
 elif host_machine.system() == 'windows'
 	c_base_args += ['-D_LINUX_FIX_ME', '-D_GNU_SOURCE', '-D_WIN32', '-DWIN32', '-DWINDOWS']
+	# HWI-FIX(release-1.0): one Windows API level for every file (Windows 7+); without it some include chains end at
+	# sdkddkver.h's Server 2003 default and hide newer calls such as SetProcessDPIAware
+	c_base_args += ['-D_WIN32_WINNT=0x0601', '-DWINVER=0x0601']
 	# HWI-FEATURE(data-setup): the folder and installer pickers (IFileOpenDialog through COM, src/SDL/datasetup.c)
 	base_deps += [cc.find_library('ole32')]
 endif

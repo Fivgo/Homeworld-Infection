@@ -9,6 +9,7 @@
 #include "Debug.h"
 #include "Memory.h"
 #include "SaveGame.h"
+#include <stdio.h>    // HWI-FIX(release-1.0): declared on every platform (mingw does not pull it in)
 
 
 /*=============================================================================

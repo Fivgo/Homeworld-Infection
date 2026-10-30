@@ -1,0 +1,55 @@
+# release.yml - a release (docs/release-1.0.md): the three platform workflows build and test the Windows installer, the
+# Linux AppImage and the macOS dmg; a tag v<version> then gets a DRAFT GitHub Release with the three packages, their
+# SHA256SUMS.txt and the notes docs/release-notes-<version>.md. A draft is only published by hand (Releases page).
+# workflow_dispatch builds and tests the packages without making a release.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    uses: ./.github/workflows/build-windows.yml
+  linux:
+    uses: ./.github/workflows/build-linux.yml
+  macos:
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      version: 1.0.0   # keep equal to meson.build's project version (the other two read it from there)
+
+  release:
+    name: draft release
+    needs: [windows, linux, macos]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: package-*
+          merge-multiple: true
+          path: dist
+      - name: Draft the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"; ver="${tag#v}"
+          meson_ver=$(sed -n "s/^[[:space:]]*version:[[:space:]]*'\([0-9][0-9.]*\)'.*/\1/p" meson.build | head -n1)
+          [[ "$meson_ver" == "$ver" ]] || { echo "tag $tag does not match meson.build's version $meson_ver" >&2; exit 1; }
+          notes="docs/release-notes-$ver.md"
+          [[ -f "$notes" ]] || { echo "missing $notes" >&2; exit 1; }
+          ls -la dist
+          for f in "Homeworld-Infection-$ver-Windows-Setup.exe" "Homeworld-Infection-$ver-Linux-x86_64.tar.gz" "Homeworld-Infection-$ver-macOS.dmg"; do
+            [[ -f "dist/$f" ]] || { echo "missing package dist/$f" >&2; exit 1; }
+          done
+          (cd dist && sha256sum Homeworld-Infection-* > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          gh release create "$tag" dist/Homeworld-Infection-* dist/SHA256SUMS.txt \
+            --draft --verify-tag --title "Homeworld Infection $ver" --notes-file "$notes"

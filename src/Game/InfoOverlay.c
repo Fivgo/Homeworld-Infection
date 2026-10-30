@@ -74,6 +74,7 @@
 #include "Memory.h"
 #include "OracleDump.h"
 #include "utility.h"
+#include <math.h>    // HWI-FIX(release-1.0): declared on every platform (mingw does not pull it in)
 
 void smCullAndFocusSelecting(void);                 // Sensors.c (no prototype in Sensors.h)
 // CAT (M2-R6 oracle-mode-a): the tooltip's object kind is the exe's 0x008ba740, which selShipUnderMouse 0x00506550

@@ -47,6 +47,7 @@
 #include "Instrument.h"      // HWI-FEATURE(instrumentation): the overlay row; the settings line
 #include "texreg.h"           // HWI-FEATURE(sharp-textures): the texLinearFiltering row
 #include "Trails.h"           // HWI-FEATURE(engine-trails): the engineTrails row
+#include <math.h>    // HWI-FIX(release-1.0): declared on every platform (mingw does not pull it in)
 
 #define CAT_CON_PROMPT              "]"                 // 0x0075501c
 #define CAT_CON_CURSOR              "|"                 // 0x00755044

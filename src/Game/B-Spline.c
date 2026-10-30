@@ -11,6 +11,8 @@
 #include "Debug.h"
 #include "Memory.h"
 #include "Vector.h"
+#include <math.h>    // HWI-FIX(release-1.0): declared on every platform (mingw does not pull it in)
+#include <string.h>    // HWI-FIX(release-1.0): declared on every platform (mingw does not pull it in)
 
 /*=============================================================================
     Functions

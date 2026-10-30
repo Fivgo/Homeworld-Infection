@@ -81,6 +81,7 @@
 #include "utility.h"
 #include "KASFunc.h"
 #include "MotionInterp.h"   // HWI-FEATURE(motion-interp): miCaptureTick
+#include <stdio.h>    // HWI-FIX(release-1.0): declared on every platform (mingw does not pull it in)
 
 
 #define DEBUG_COLLISIONS 0

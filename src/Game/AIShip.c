@@ -35,6 +35,7 @@
 #include <math.h>           // HWI-TEST (M3-R3 mines): /catMineLog distances (log only)
 #include "CommandWrap.h"    // HWI-TEST (M3-R3 mines): /catMineChase (clWrapMove)
 #include "Select.h"         // HWI-TEST (M3-R3 mines): sizeofSelectCommand
+#include <stdio.h>    // HWI-FIX(release-1.0): declared on every platform (mingw does not pull it in)
 
 
 #define DEBUG_AISHIP    0

@@ -20,6 +20,7 @@
 #include "StatScript.h"
 #include "Universe.h"
 #include "SinglePlayer.h"      // CAT: singlePlayerGameInfo (mission 13 has no battle assessment)
+#include <stdio.h>    // HWI-FIX(release-1.0): declared on every platform (mingw does not pull it in)
 extern real32 nearestShipDistance;  // CAT: SoundEvent.c (battleShipDyingWithTimeToScream)
 
 /*=============================================================================

@@ -38,6 +38,7 @@
 #include "Sensors.h"
 #include "Select.h"
 #include "PiePlate.h"
+#include <math.h>    // HWI-FIX(release-1.0): declared on every platform (mingw does not pull it in)
 
 // CAT: Mothership.c follows cataclysm.exe's Mothership block (0x005bb730..0x005bd730): the Sect mothership (big gun,
 //      module slots, death sequence), the Beast mothership (infection weapon, "beast systems"), trGhostship, all
