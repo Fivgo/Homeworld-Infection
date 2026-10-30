@@ -5,7 +5,73 @@ The macOS part of [release-1.0.md](release-1.0.md): `Homeworld-Infection-1.0.0-m
 README (`tools/release/README-macOS.txt`) and the licences. Built only on GitHub's macOS runners: nobody on the
 project has a Mac, so **nothing here has run on a real Mac with the game data** (see "Unverified").
 
-RESULTS_PLACEHOLDER
+## Result
+
+| | |
+|---|---|
+| CI run | https://github.com/Fivgo/Homeworld-Infection/actions/runs/40977988388 (commit a302d38, branch `ci/macos`): every step green |
+| artifact | `package-macos` (id 12942219976): `Homeworld-Infection-1.0.0-macOS.dmg`, 9,687,330 bytes, sha256 `38c5c52b6ffbc18616e2148b9665bd75c239984507f3c20636fc625daf534d70` (every build differs: timestamps). Also `logs-macos` (every step's log) |
+| runner | `macos-15` arm64: macOS 15.7.9, Xcode 16.4, Apple clang 17.0.0 (clang-1700.0.13.5), cmake 4.4.3, meson 1.6.1, Rosetta present |
+| engine | arm64 and x86_64 built with `-Werror`: **0 compiler warnings** on each |
+| universal | yes: one dmg; every Mach-O in the bundle is `x86_64 arm64` |
+| time | about 2 min with the third-party cache; a cold third-party build adds about 4 min |
+
+How it got there (each run's fixes in the next commit):
+1. [40976222887](https://github.com/Fivgo/Homeworld-Infection/actions/runs/40976222887): SDL2, both FFmpeg slices,
+   xz and Boost built; innoextract's configure failed (`find_package(ZLIB REQUIRED)` inside its "static first" loop;
+   the SDK has no `libz.a`): zlib, bzip2 and iconv are now taken dynamically from the SDK.
+2. [40976773729](https://github.com/Fivgo/Homeworld-Infection/actions/runs/40976773729): all third-party parts built
+   and cached; the arm64 engine compiled (one warning: `SIG_BLOCK` redefined) and failed to link on `_fsqrt`.
+3. [40977544320](https://github.com/Fivgo/Homeworld-Infection/actions/runs/40977544320): app, dmg and smoke ran;
+   0 warnings; two script bugs: the dylib ids carried the temporary slice names (`@rpath/arm64-libavcodec.60.dylib`)
+   and the smoke read the engine's normal exit status 213 as a signal.
+4. [40977988388](https://github.com/Fivgo/Homeworld-Infection/actions/runs/40977988388): green, `-Werror` on.
+
+`lipo -info` (run 40977988388):
+
+```
+Architectures in the fat file: Homeworld Infection.app/Contents/Frameworks/libavcodec.60.dylib are: x86_64 arm64
+Architectures in the fat file: Homeworld Infection.app/Contents/Frameworks/libavformat.60.dylib are: x86_64 arm64
+Architectures in the fat file: Homeworld Infection.app/Contents/Frameworks/libavutil.58.dylib are: x86_64 arm64
+Architectures in the fat file: Homeworld Infection.app/Contents/Frameworks/libSDL2-2.0.0.dylib are: x86_64 arm64
+Architectures in the fat file: Homeworld Infection.app/Contents/Frameworks/libswscale.7.dylib are: x86_64 arm64
+Architectures in the fat file: Homeworld Infection.app/Contents/MacOS/hwi-engine are: x86_64 arm64
+Architectures in the fat file: Homeworld Infection.app/Contents/MacOS/innoextract are: x86_64 arm64
+```
+
+`otool -L` (the same for both slices; `/System/Library/Frameworks` lists shortened):
+
+```
+MacOS/hwi-engine:      /System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL, @rpath/libSDL2-2.0.0.dylib,
+                       /usr/lib/libSystem.B.dylib, @rpath/libavutil.58.dylib, @rpath/libswscale.7.dylib,
+                       @rpath/libavcodec.60.dylib, @rpath/libavformat.60.dylib; LC_RPATH @executable_path/../Frameworks
+MacOS/innoextract:     /usr/lib/libz.1.dylib, /usr/lib/libbz2.1.0.dylib, /usr/lib/libiconv.2.dylib, /usr/lib/libc++.1.dylib,
+                       /usr/lib/libSystem.B.dylib  (Boost and liblzma static)
+libavcodec.60.dylib:   id @rpath/libavcodec.60.dylib; @rpath/libavutil.58.dylib, libSystem, CoreFoundation, CoreVideo, CoreMedia
+libavformat.60.dylib:  id @rpath/libavformat.60.dylib; @rpath/libavcodec.60.dylib, @rpath/libavutil.58.dylib, libSystem,
+                       CoreFoundation, CoreVideo, CoreMedia
+libavutil.58.dylib:    id @rpath/libavutil.58.dylib; libSystem, CoreFoundation, CoreVideo, CoreMedia
+libswscale.7.dylib:    id @rpath/libswscale.7.dylib; @rpath/libavutil.58.dylib, libSystem
+libSDL2-2.0.0.dylib:   id @rpath/libSDL2-2.0.0.dylib; libSystem, libobjc (weak), Cocoa, AppKit, Foundation, CoreFoundation,
+                       CoreGraphics, CoreServices, CoreVideo, IOKit, ForceFeedback, Carbon, CoreAudio, AudioToolbox,
+                       AVFoundation, GameController/Metal/QuartzCore/CoreHaptics (weak)
+```
+
+No `/opt/homebrew`, `/usr/local` or build-directory path anywhere; the only `LC_RPATH` is the engine's
+`@executable_path/../Frameworks` (meson's build rpaths are stripped); `minos 11.0` on all 14 slices.
+
+Smoke results (run 40977988388):
+- codesign: `valid on disk`, `satisfies its Designated Requirement`; `Identifier=io.github.fivgo.homeworld-infection`,
+  `Format=app bundle with Mach-O universal (x86_64 arm64)`, `Signature=adhoc`, `TeamIdentifier=not set`. `spctl
+  --assess`: `rejected` (expected for an ad-hoc app; printed only).
+- `innoextract --version`, arm64 and x86_64 (Rosetta): `innoextract 1.10-dev`, "Extracts installers created by Inno
+  Setup 1.2.10 to 6.3.3".
+- The engine without data, both slices (x86_64 through Rosetta), dummy video and audio: it loads every bundled dylib,
+  prints `Unable to open file: Music4Cat.wxd` and exits with status 213 (`ERR_ErrorStart`) at once; nothing is
+  written to `HOME`. Once datasetup is merged it exits the same way after its "datasetup:" line (it shows no dialog
+  under the dummy driver, its author says).
+- The dmg mounts and lists `Applications -> /Applications`, `Homeworld Infection.app`, `Licenses`, `README.txt`; the app's
+  signature is valid on it.
 
 ## Port changes (engine)
 
@@ -15,13 +81,15 @@ HEAD, see "Checks on Linux").
 
 | Where | Change | Why |
 |---|---|---|
-| `meson.build` | a `darwin` branch: `-D_LINUX_FIX_ME -D_GNU_SOURCE -DGL_SILENCE_DEPRECATION`; no `x11` dependency; `dependency('gl')` is meson's OpenGL framework | the macOS build follows the tested Linux code paths. GoK's `_MACOSX` / `_MACOSX_FIX_*` (HomeworldSDL's Xcode prefix header) are **not** defined: they switch off movies, sound streaming and LAN, use a fixed 128 MB-ish heap guess and an `Override.big` folder. `__APPLE__` (the compiler's) marks what differs |
+| `meson.build` | a `darwin` branch: `-D_LINUX_FIX_ME -D_GNU_SOURCE -DGL_SILENCE_DEPRECATION`; no `x11` dependency; `dependency('gl')` is meson's OpenGL framework | the macOS build follows the tested Linux code paths. GoK's `_MACOSX` / `_MACOSX_FIX_*` (HomeworldSDL's Xcode prefix header) are **not** defined: they switch off movies, sound streaming and LAN, size the heap from a fixed page count and look for an `Override.big` folder. `__APPLE__` (the compiler's) marks what differs |
 | `meson.build` | comment only: `-ffp-contract=off` (already in `determinism_args` for every build) also overrides clang's arm64 default, which fuses `a*b+c` | the x86-64 results assume no fusion |
 | `src/SDL/utility.c` | the X11 includes and the X11 lock-key code in `utyToggleKeyStatesRestore` are skipped on `__APPLE__` | no X11 on macOS (that function only calls `SDL_SetModState` there) |
 | `src/SDL/regkey.h` | `CONFIGDIR` on `__APPLE__` is `Library/Application Support/Homeworld-Infection` (GoK: `""`, i.e. `$HOME` itself) | contract 4. `utyGameSystemsPreInit`'s non-Windows branch (`$HOME/` CONFIGDIR) and `utyOptionsFileRead` both use it, so `utility.c`'s settings block needed no edit; datasetup's `gamedata-path.txt` and `GameData` use the same `$HOME/` CONFIGDIR. The folder is made on the first write (`fileMakeDestinationDirectory`) |
 | `src/SDL/render.c` `setupPixelFormat` | on `__APPLE__`: `SDL_GL_CONTEXT_MAJOR_VERSION 2`, `MINOR 1`, `PROFILE_MASK 0` (the legacy 2.1 context; SDL's default on macOS, now explicit) and `SDL_WINDOW_ALLOW_HIGHDPI` | the renderer is fixed-function (a core profile has no `glBegin`); Retina: the drawable is the physical size. `uiscale.c` already keeps the window size (points: the mouse, `SDL_WarpMouseInWindow`) apart from the drawable (`SDL_GL_GetDrawableSize`: `MAIN_WindowWidthActual`, the viewport, the screenshots), so nothing else changed |
 | `src/SDL/render.c` | `glGenerateMipmap` falls back to `glGenerateMipmapEXT` when the plain name is not found (all platforms) | a 2.1 context's `EXT_framebuffer_object` name; the texture code calls it unconditionally |
 | `src/SDL/main.c` `ProcessCommandLine` | on `__APPLE__`, a `-psn_...` argument is skipped | older Finders pass the process serial number; an unknown switch prints the help and quits |
+| `src/Game/FastMath.c`, `src/Game/Types.h` | the Windows build's `float fsqrt(double)` (C23, correctly rounded) is also defined and declared on `__APPLE__` | glibc has it (the Linux build reaches it through `<math.h>`), Apple's libm does not: the arm64 link failed on `_fsqrt` |
+| `src/Game/MotionTest.c` | the frame-signature thumbnail block macro `SIG_BLOCK` is `MT_SIG_BLOCK` | macOS's `<sys/signal.h>` defines `SIG_BLOCK` (the one Apple clang warning) |
 
 Checked and left alone:
 - `utyGetFirstCDPath`: the non-Windows branch is `stat()` of `$HW_CDROM` or `/mnt/cdrom` (POSIX); it finds nothing on a
@@ -100,7 +168,7 @@ executable first, then `<base>innoextract`, then `<base>../MacOS/innoextract`.
 | FFmpeg | 6.1.2 | ffmpeg.org `ffmpeg-6.1.2.tar.xz` (ffmpeg-min.sh) | `3b624649725ecdc565c903ca6643d41f33bd49239922e45c9b1442c63dca4e38` | Homebrew's ffmpeg@6 6.1.2 formula; the Linux CI printed the same |
 | XZ Utils (liblzma) | 5.8.4 | github.com/tukaani-project/xz release `xz-5.8.4.tar.gz` | `0014c7886930454fe8bd4228665b51af55eeae560ea135c9c4cd33f55b2591d9` | GitHub's release asset digest |
 | Boost | 1.86.0 | github.com/boostorg/boost release `boost-1.86.0-b2-nodocs.tar.xz` | `a4d99d032ab74c9c5e76eddcecc4489134282245fffa7e079c5804b92b45f51d` | Boost's own `.tar.xz.txt` |
-| innoextract | master `6e9e34ed0876014fdb46e684103ef8c3605e382e` (2025-02-06) | github.com/dscharrer/innoextract archive | INNOEXTRACT_PIN | the first CI download |
+| innoextract | master `6e9e34ed0876014fdb46e684103ef8c3605e382e` (2025-02-06; reports itself as 1.10-dev) | github.com/dscharrer/innoextract archive | `4d885b27e452dcb137a9d97736b19478447f172bcfed1aa98d80138e9a4c08ae` | the first CI download (run 40976222887) |
 
 Why these: Boost 1.86 because innoextract asks for the `system` component, whose stub library Boost 1.89 removed
 (Homebrew carries an unofficial patch for it). innoextract from master rather than release 1.9: 1.9 does not build
@@ -126,4 +194,44 @@ Smoke checks (CI never has game data):
   working directory, no `HW_Data`, under a 60 s alarm: it must exit by itself (a hang or a signal fails).
 - The dmg is mounted read-only and the app's signature checked on it.
 
-UNVERIFIED_PLACEHOLDER
+## Checks on Linux
+
+- `tools/build.sh` (debug, ASan/UBSan) and `tools/build.sh --release` with gcc: 0 warnings, after every port change.
+- A clang 18 release build on Linux: 0 warnings.
+- The release engine headless without data: `Unable to open file: Music4Cat.wxd`, status 213 (the same as the Mac
+  smoke).
+- `tools/m2_harness.sh` default run (sp, offscreen, 60 s): `universe running`, rc 124 at the time-out, the log ending
+  with `AddressSanitizer:DEADLYSIGNAL` during the shutdown the time-out starts. The unmodified HEAD bdf5a0c, built
+  separately, gives the identical result (run macos-baseline-175138), so it predates this port.
+
+## Unverified (no Mac, no game data in CI)
+
+Factually: the engine has been compiled, linked and started on macOS (both slices) only as far as the no-data exit.
+Not seen working:
+- **Rendering**: Apple's legacy OpenGL 2.1 (on Apple Silicon a layer over Metal) with this fixed-function renderer;
+  whether `glGenerateMipmap` resolves in a 2.1 context; Retina (`SDL_WINDOW_ALLOW_HIGHDPI`): drawable 2x the window,
+  the UI scale's auto rule then picks from the physical height (150% on a typical MacBook, 200% at 2160 px or more);
+  fullscreen (`SDL_WINDOW_FULLSCREEN_DESKTOP` is a macOS Space), window resizing, the Video screen's mode list
+  (SDL2 lists display modes in points on macOS).
+- **Input**: keyboard (no Insert/Scroll Lock/Print Screen on Mac keyboards; GoK's `__APPLE__` screenshot alternatives,
+  F13 and keypad +/-, are compiled in), the mouse and trackpad (right-click, relative mouse mode in the camera),
+  Cmd-Q (SDL sends `SDL_QUIT`).
+- **Audio** through CoreAudio, and the movies through the bundled FFmpeg.
+- **Data setup** (datasetup.c, merged separately): the osascript pickers, unpacking the installer with the bundled
+  innoextract, the paths with spaces (`Application Support`, `Homeworld Infection.app`).
+- **Gatekeeper**: the "Open Anyway" flow for an ad-hoc signed, quarantined app on macOS 15 (macOS 11-14: Control-click
+  Open); whether Gatekeeper lets the nested ad-hoc signed `innoextract` run when the app spawns it (it is sealed in
+  the app's signature, so it should); App Translocation when the app is started from the dmg or Downloads.
+- **Determinism**: arm64 arithmetic matches x86-64 SSE2 with `-ffp-contract=off`, but Apple's libm may differ from
+  glibc in the last bit; a Mac run is not an oracle baseline. Single player only, so no lockstep across platforms.
+- **macOS 11-14**: built with `minos 11.0` on every slice but only started on macOS 15.7.9.
+
+## Merge notes
+
+- `tools/release/ffmpeg-min.sh`: only the `FFMPEG_SHA256=` line changes, byte-identical to the Windows branch's.
+- `src/SDL/utility.c`: three guards near the top (includes) and in `utyToggleKeyStatesRestore`; nothing near the
+  data-path / settings-path blocks of `utyGameSystemsPreInit`.
+- With m2's removal of `-Wno-implicit-function-declaration`: the macOS changes add no undeclared call (`fsqrt` is
+  declared in `Types.h` for `__APPLE__`, as for `_WIN32`).
+- After the merge, run the workflow again (`workflow_dispatch` or `ci/macos`): the smoke then covers datasetup's
+  no-data path on macOS.
