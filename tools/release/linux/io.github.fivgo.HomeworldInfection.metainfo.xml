@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata of the Homeworld Infection AppImage (tools/release/build-linux.sh fills in @VERSION@ and @DATE@) -->
+<component type="desktop-application">
+  <id>io.github.fivgo.HomeworldInfection</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+  <name>Homeworld Infection</name>
+  <summary>Homeworld: Cataclysm on a native recreation of its engine</summary>
+  <description>
+    <p>
+      Homeworld Infection is a fan recreation of the engine of Homeworld: Cataclysm, built from Relic Entertainment's
+      Homeworld source code (Relic End User License Agreement, non-commercial use only). It plays the game's own
+      files: you need your GOG copy of Homeworld: Emergence, installed or as the offline installer. The first start
+      finds it or asks for it.
+    </p>
+  </description>
+  <launchable type="desktop-id">homeworld-infection.desktop</launchable>
+  <url type="homepage">https://github.com/Fivgo/Homeworld-Infection</url>
+  <categories>
+    <category>Game</category>
+    <category>StrategyGame</category>
+  </categories>
+  <content_rating type="oars-1.1">
+    <content_attribute id="violence-fantasy">mild</content_attribute>
+  </content_rating>
+  <releases>
+    <release version="@VERSION@" date="@DATE@"/>
+  </releases>
+</component>
