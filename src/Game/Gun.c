@@ -45,6 +45,7 @@
 #include "Universe.h"
 #include "UnivUpdate.h"
 #include "Vector.h"
+#include "Ping.h"    // HWI-FIX(release-1.0): declared, no longer an implicit int function
 
 #define GUNBURST_STATE_READY        0
 #define GUNBURST_STATE_BURST        1

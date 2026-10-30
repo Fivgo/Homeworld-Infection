@@ -73,6 +73,7 @@ void gpGamePick(char *dest);
 //close the picker, either with 'back' or with 'OK'
 void gpDonePicking(char *name, featom *atom);
 void gpBackPicking(char *name, featom *atom);
+void gpLoadGivenGame(char *gamename);     // HWI-FIX(release-1.0)
 
 bool32 gpQuickSave(void);
 bool32 gpQuickLoad(void);

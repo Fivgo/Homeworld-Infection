@@ -165,6 +165,7 @@ sdword rmResearchGUIBegin(regionhandle region, smemsize ID, udword event, udword
 void   rmGUIStartup(void);
 void   rmGUIShutdown(void);
 void rmCloseIfOpen(void);
+void rmResearchItem(char *string, featom *atom);     // HWI-FIX(release-1.0)
 void rmExitMenu(char *string, featom *atom);         // the research manager's Close button
 
 #endif

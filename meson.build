@@ -97,7 +97,6 @@ warning_suppressions = [
 	'-Wno-format-zero-length',
 	'-Wno-format',
 	'-Wno-implicit-fallthrough',
-	'-Wno-implicit-function-declaration',
 	'-Wno-int-conversion',
 	'-Wno-int-in-bool-context',
 	'-Wno-int-to-pointer-cast',

@@ -44,6 +44,7 @@
     #include <libavformat/avformat.h>
     #include <libavcodec/avcodec.h>
     #include <libswscale/swscale.h>
+#include <libavutil/imgutils.h>    // HWI-FIX(release-1.0): av_image_get_buffer_size, av_image_fill_arrays
     #define ALIGN 32
 #endif
 

@@ -76,6 +76,7 @@
 #include "TradeMgr.h"
 #include "TeamColourTest.h"   // HWI-TEST (M3-R1 team-colours-warp): the team-colour checks and the longer run
 #include "Attributes.h"       // HWI-TEST (M3-R3 mission02): CAT_ATTRIBUTES_KillerCollision (the meteors)
+#include "InfoOverlay.h"    // HWI-FIX(release-1.0): declared, no longer an implicit int function
 #ifdef _WIN32
 #undef near     // HWI-FIX(win64): <windows.h> (through SDL) defines near as an empty macro; the self-tests use it as a name
 #endif

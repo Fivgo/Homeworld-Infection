@@ -54,6 +54,9 @@
 #include "utility.h"
 #include "OracleDump.h"
 #include "GamePick.h"
+#include "HiveFrigate.h"    // HWI-FIX(release-1.0): declared, no longer an implicit int function
+#include "Mothership.h"    // HWI-FIX(release-1.0): declared, no longer an implicit int function
+#include "BeastWeapon.h"    // HWI-FIX(release-1.0): declared, no longer an implicit int function
 
 /*=============================================================================
     Data

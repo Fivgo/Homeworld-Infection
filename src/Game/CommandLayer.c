@@ -53,6 +53,7 @@
 #include "Tweak.h"
 #include "Universe.h"
 #include "UnivUpdate.h"
+#include "OracleDump.h"    // HWI-FIX(release-1.0): declared, no longer an implicit int function
 
 
 #define DEBUG_PASSIVE_ATTACK  0

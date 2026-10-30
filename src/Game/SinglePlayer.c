@@ -82,6 +82,7 @@
 #include "ACV.h"              // CAT: cat_acvLinkReset
 #include "avi.h"              // CAT: aviIsPlaying (the Bink player's binkDonePlaying 0x008b6d94)
 #include "TeamColourTest.h"   // HWI-TEST (M3-R1 team-colours-warp): the level change hooks
+#include "Subtitle.h"    // HWI-FIX(release-1.0): declared, no longer an implicit int function
 
 // CAT: DEG_TO_RAD as the exe's float constant 0x0072a4f8 (0x3c8efa35)
 #define CAT_SP_DEG_TO_RAD   0.01745329238474369f

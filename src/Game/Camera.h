@@ -78,6 +78,7 @@ void cameraSetEyePosition(Camera *camera);
 sdword cameraControl(Camera *camera,bool32 EnforceShipDistances);
 void cameraCopyPositionInfo(Camera *dst,Camera *src);
 void cameraChangeLookatpoint(Camera *camera,vector *newlookatpoint);
+real32 cameraMinimumZoom(Camera *camera);     // HWI-FIX(release-1.0): undeclared, cat_ccZoomScripted read its float result as an int
 void cameraRotateAbout(Camera *camera,vector about,real32 deg);
 void cameraSensitivitySet(sdword sens100);
 void cameraRayCast(vector *dest, Camera *cam, sdword screenX, sdword screenY, sdword screenWidth, sdword screenHeight);

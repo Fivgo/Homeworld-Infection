@@ -36,6 +36,7 @@
 #include "StringsOnly.h"
 #include "Tweak.h"
 #include "Universe.h"
+#include "HiveFrigate.h"    // HWI-FIX(release-1.0): declared, no longer an implicit int function
 
 // CAT: the Cataclysm formation types 9/10 (the exe tests command->formation.formationtype == 9 / == 10, e.g.
 //      isShipPassiveAttackCapable 0x00511b10, cat_shipIsSentinelInField 0x005c6ec0) and the command orders 11-17

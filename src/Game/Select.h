@@ -161,6 +161,7 @@ extern sdword selClosestDistance;
 =============================================================================*/
 //startup/shutdown
 void selStartup(void);
+void selShipUnderMouse(SpaceObjRotImpTarg *target);     // HWI-FIX(release-1.0)
 void selShutdown(void);
 void selReset(void);
 

@@ -63,6 +63,9 @@
 #include "UnivUpdate.h"
 #include "OracleDump.h"     // HWI-ORACLE: ORACLE_UNIV_UPDATE at the univUpdate call sites of universeUpdateTask (hook H1; 3 since M2-R3, as in the exe)
 #include "utility.h"
+#include "Alliance.h"    // HWI-FIX(release-1.0): declared, no longer an implicit int function
+#include "ResearchGUI.h"    // HWI-FIX(release-1.0): declared, no longer an implicit int function
+#include "LaunchMgr.h"    // HWI-FIX(release-1.0): declared, no longer an implicit int function
 
 #ifdef _MSC_VER
     #define strcasecmp _stricmp

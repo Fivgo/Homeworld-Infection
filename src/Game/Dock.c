@@ -70,6 +70,8 @@
 #include "CommandWrap.h"
 #include "ConsMgr.h"
 #include "AIPlayer.h"
+#include "RKO.h"    // HWI-FIX(release-1.0): declared, no longer an implicit int function
+#include "InfoOverlay.h"    // HWI-FIX(release-1.0): declared, no longer an implicit int function
 
 
 #ifdef _MSC_VER

@@ -39,6 +39,7 @@
 #include "texreg.h"
 #include "UIControls.h"
 #include "utility.h"
+#include "TradeMgr.h"    // HWI-FIX(release-1.0): declared, no longer an implicit int function
 
 #ifdef _WIN32
     #include <windows.h>
