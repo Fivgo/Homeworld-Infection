@@ -22,9 +22,10 @@
     #endif
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)
 // HWI-FIX(win64): glibc's float fsqrt(double) (C23), which the Linux build reaches through <math.h>, for the files
 // that call fsqrt without FastMath.h's macro; defined in FastMath.c (the parentheses keep that macro out)
+// HWI-FIX(macos): Apple's libm has no fsqrt either
 float (fsqrt)(double x);
 #endif
 

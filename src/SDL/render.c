@@ -991,6 +991,14 @@ bool32 setupPixelFormat()
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 #endif
+#if defined(__APPLE__) && !defined(HW_ENABLE_GLES)
+    // HWI-FIX(macos): the fixed-function renderer needs the legacy 2.1 context (a core profile has no glBegin), and
+    //      the Retina drawable (uiscale.c: the drawable is the physical size, the window size the mouse's points)
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0);
+    flags |= SDL_WINDOW_ALLOW_HIGHDPI;
+#endif
 
 #ifndef __EMSCRIPTEN__
     if (/* main */ fullScreen)
@@ -1139,6 +1147,10 @@ bool32 setupPixelFormat()
     glBufferSubData = SDL_GL_GetProcAddress("glBufferSubData");
     glTexStorage2D = SDL_GL_GetProcAddress("glTexStorage2D");
     glGenerateMipmap = SDL_GL_GetProcAddress("glGenerateMipmap");
+    if (glGenerateMipmap == NULL)
+    {
+        glGenerateMipmap = SDL_GL_GetProcAddress("glGenerateMipmapEXT");   // HWI-FIX(macos): a 2.1 context's EXT_framebuffer_object name
+    }
 #endif
 
     gl_extensions = glGetString(GL_EXTENSIONS);

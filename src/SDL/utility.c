@@ -128,7 +128,7 @@
     #include <windows.h>
     #include <winreg.h>
     #include <shellapi.h>
-#elif defined(_MACOSX)
+#elif defined(_MACOSX) || defined(__APPLE__)   // HWI-FIX(macos): no X11
     #include <sys/types.h>
     #include <sys/mman.h>
     #include <unistd.h>
@@ -5632,7 +5632,7 @@ void utyToggleKeyStatesRestore(void)
 {
     SDL_Keymod target = 0;
     const Uint8* state = SDL_GetKeyboardState(NULL);
-#if !defined(_WIN32) && !defined(_MACOSX) && !defined(__EMSCRIPTEN__)
+#if !defined(_WIN32) && !defined(_MACOSX) && !defined(__APPLE__) && !defined(__EMSCRIPTEN__)   // HWI-FIX(macos): no X11
     SDL_SysWMinfo info;
     SDL_VERSION(&info.version);
     SDL_GetWindowWMInfo(sdlwindow,&info);
@@ -5658,7 +5658,7 @@ void utyToggleKeyStatesRestore(void)
 
         // Simulate a key release
         keybd_event( VK_CAPITAL, 0x45, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
-#elif !defined(_MACOSX) && !defined(__EMSCRIPTEN__)
+#elif !defined(_MACOSX) && !defined(__APPLE__) && !defined(__EMSCRIPTEN__)   // HWI-FIX(macos)
         xe.xkey.keycode = XKeysymToKeycode(info.info.x11.display, XK_Caps_Lock);
 
         // Simulate a key press
@@ -5681,7 +5681,7 @@ void utyToggleKeyStatesRestore(void)
 
         // Simulate a key release
         keybd_event( VK_SCROLL, 0x45, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
-#elif !defined(_MACOSX) && !defined(__EMSCRIPTEN__)
+#elif !defined(_MACOSX) && !defined(__APPLE__) && !defined(__EMSCRIPTEN__)   // HWI-FIX(macos)
         xe.xkey.keycode = XKeysymToKeycode(info.info.x11.display, XK_Scroll_Lock);
 
         // Simulate a key press
@@ -5703,7 +5703,7 @@ void utyToggleKeyStatesRestore(void)
 
         // Simulate a key release
         keybd_event( VK_NUMLOCK, 0x45, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
-#elif !defined(_MACOSX) && !defined(__EMSCRIPTEN__)
+#elif !defined(_MACOSX) && !defined(__APPLE__) && !defined(__EMSCRIPTEN__)   // HWI-FIX(macos)
         xe.xkey.keycode = XKeysymToKeycode(info.info.x11.display, XK_Num_Lock);
 
         // Simulate a key press

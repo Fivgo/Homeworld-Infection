@@ -1561,7 +1561,7 @@ void catMotionTestFrameEnd(void)
     is read by the game: the counters are written by the render path and only
     read here; the read-back changes GL_PACK_ALIGNMENT only (as /catShot).
 =============================================================================*/
-#define SIG_BLOCK           16                      // thumbnail block (physical pixels)
+#define MT_SIG_BLOCK        16                      // thumbnail block (physical pixels); HWI-FIX(macos): not SIG_BLOCK (<signal.h>)
 #define SIG_THUMB_MAX       (512 * 512)
 
 static char sigName[1024] = "";
@@ -1678,8 +1678,8 @@ void catFrameSigEnd(void)
             sigPixels = malloc(size);
             sigPixelsSize = (sigPixels != NULL) ? size : 0;
         }
-        bw = (w + SIG_BLOCK - 1) / SIG_BLOCK;
-        bh = (h + SIG_BLOCK - 1) / SIG_BLOCK;
+        bw = (w + MT_SIG_BLOCK - 1) / MT_SIG_BLOCK;
+        bh = (h + MT_SIG_BLOCK - 1) / MT_SIG_BLOCK;
         if ((udword)(bw * bh) != sigThumbN)
         {
             for (i = 0; i < 3; i++)
@@ -1713,7 +1713,7 @@ void catFrameSigEnd(void)
                 for (x = 0; x < w; x++, p += 4)
                 {
                     udword l = (77u * p[0] + 150u * p[1] + 29u * p[2]) >> 8;
-                    udword b = (udword)((h - 1 - y) / SIG_BLOCK) * (udword)bw + (udword)(x / SIG_BLOCK);
+                    udword b = (udword)((h - 1 - y) / MT_SIG_BLOCK) * (udword)bw + (udword)(x / MT_SIG_BLOCK);
                     if (p[0] > 8 || p[1] > 8 || p[2] > 8)
                     {
                         if (inBar)

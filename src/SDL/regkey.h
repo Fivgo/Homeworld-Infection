@@ -29,7 +29,9 @@
     #define BASEKEYNAME "SOFTWARE\\Sierra On-Line\\Homeworld"
 
     #ifdef __APPLE__
-        #define CONFIGDIR ""
+        // HWI-FIX(macos): $HOME/CONFIGDIR = ~/Library/Application Support/Homeworld-Infection (docs/release-1.0.md
+        //      contract 4; GoK: "", $HOME itself)
+        #define CONFIGDIR "Library/Application Support/Homeworld-Infection"
     #else
         #define CONFIGDIR ".homeworld"
     #endif
