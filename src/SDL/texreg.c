@@ -3746,7 +3746,9 @@ void trFilterEnable(sdword bEnable)
 }
 
 /*-----------------------------------------------------------------------------
-    HWI-FEATURE(sharp-textures) (M3-R3 settings-and-keys, docs/m3-r3-settings-and-keys.md): SHARP TEXTURES.
+    HWI-FEATURE(sharp-textures) (M3-R3 settings-and-keys, docs/m3-r3-settings-and-keys.md): sharp textures (the mod's
+    SHARP TEXTURES checkbox and its alias switch /sharpTextures were removed on 2026-10-31: SURFACE FILTERING is the
+    control).
     The base is the exe's: texLinearFiltering (0x008bb69c; the options-file row "texLinearFiltering") picks the filter at
     each texture's creation (trRGBTextureCreate 0x005866a0, trPalettedTextureCreate 0x00586500, trNoPalTexImage) and
     trFilterEnable 0x005888e0 re-filters the registry's live textures; the exe's own control is SURFACE FILTERING on
@@ -3754,13 +3756,13 @@ void trFilterEnable(sdword bEnable)
     HIGH 1, LOW 0, also at every start, opUpdateSettings 0x004d71d0), and /noFilter sets it to 0. The exe's filters are
     GL_LINEAR / GL_NEAREST for both min and mag with no mip maps; this tree keeps GoK's creation (mip-mapped min filter,
     8x anisotropy) for both settings, so the original look up close (magnification) is the exe's GL_LINEAR and the
-    sharp look is GL_NEAREST magnification. On top (HWI): /noFilter (and /sharpTextures) is run-only, as /noInterp
+    sharp look is GL_NEAREST magnification. On top (HWI): /noFilter is run-only, as /noInterp
     (the saves keep the file's row) and outlives the start's effects preset; every change of the flag reaches the
     live textures (trFilterSync, every frame: the exe's Cancel restored the flag without a pass); every pass is
     counted and read back ("texfilter:" line).
 ----------------------------------------------------------------------------*/
 static sdword trFilterApplied = TRUE;               // HWI-FEATURE(sharp-textures): the filter the live textures carry (creation's default)
-static bool32 trFilterSwitched = FALSE;             // HWI-FEATURE(sharp-textures): /noFilter or /sharpTextures stands
+static bool32 trFilterSwitched = FALSE;             // HWI-FEATURE(sharp-textures): /noFilter stands
 static sdword trFilterFileValue = TRUE;             // HWI-FEATURE(sharp-textures): the options file's value while it stands
 static sdword trFilterRunValue = TRUE;              // HWI-FEATURE(sharp-textures)
 static bool32 trFilterSavedSwitched = FALSE;        // HWI-FEATURE(sharp-textures): the Cancel copy of the switch state
@@ -3888,9 +3890,9 @@ void trFilterSync(void)                                     // HWI-FEATURE(sharp
 }
 
 // HWI-FEATURE(sharp-textures): /noFilter (the exe's switch, there a plain set of the flag that the start's HIGH preset
-//      undid and the start's save then wrote) and /sharpTextures: SHARP TEXTURES for this run only, as /noInterp
-//      (MotionInterp.c miSwitchOff): the saves write the options file's own row; a user's choice (the SHARP TEXTURES or
-//      SURFACE FILTERING box, an effects or frame-rate preset button) ends it; Cancel restores its state
+//      undid and the start's save then wrote): sharp textures for this run only, as /noInterp (MotionInterp.c
+//      miSwitchOff): the saves write the options file's own row; a user's choice (the SURFACE FILTERING box, an effects
+//      or frame-rate preset button) ends it; Cancel restores its state
 void trFilterSwitchSet(void)                                // HWI-FEATURE(sharp-textures)
 {
     if (!trFilterSwitched)

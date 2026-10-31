@@ -154,7 +154,7 @@ CatConsoleCommand catConsoleCommandTable[] =       // 0x008783c8
     { 5, CAT_CON_HWI_ROW_ID + 4, &uiScale, "uiScale", NULL },              // HWI-FEATURE(ui-scale): the UI scale setting (not in the exe's table)
     { 5, CAT_CON_HWI_ROW_ID + 5, &hwiOverlay, "overlay", NULL },           // HWI-FEATURE(instrumentation): the overlay, 0 | 1 (not in the exe's table)
     { 5, CAT_CON_HWI_ROW_ID + 6, &meshImmediate, "meshImmediate", NULL },  // HWI-FEATURE(mesh-batching): 1 = the immediate-mode mesh path (not in the exe's table)
-    { 5, CAT_CON_HWI_ROW_ID + 7, &texLinearFiltering, "texLinearFiltering", NULL },   // HWI-FEATURE(sharp-textures): 0 = SHARP TEXTURES, 1 the original look (not in the exe's table; the live textures follow at the next frame)
+    { 5, CAT_CON_HWI_ROW_ID + 7, &texLinearFiltering, "texLinearFiltering", NULL },   // HWI-FEATURE(sharp-textures): 1 the original look, 0 sharp (the exe's SURFACE FILTERING box off; not in the exe's table; the live textures follow at the next frame)
     { 5, CAT_CON_HWI_ROW_ID + 8, &hwiEngineTrails, "engineTrails", NULL },   // HWI-FEATURE(engine-trails): 1 the missile corvettes' four jet streams, 0 the exe's two (not in the exe's table)
     { 5, CAT_CON_HWI_ROW_ID + 9, &hwiSensorsPoints, "sensorsPoints", NULL }, // HWI-FEATURE(sensors-points): 1 the sensors manager's Dust 2 px and markers 3 px, 0 the exe's 1 / 2 px (not in the exe's table)
     { -1, -1, NULL, NULL, NULL }

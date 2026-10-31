@@ -81,7 +81,7 @@
 #include "Instrument.h"     // HWI-FEATURE(instrumentation): the toggle self-test's overlay and settings-line checks
 #include "Key.h"            // HWI-FEATURE(instrumentation): the overlay key has no virtual-key code
 #include "KeyBindings.h"    // HWI-FEATURE(instrumentation) (M3-R3): the overlay's F key is free
-#include "texreg.h"         // HWI-FEATURE(sharp-textures) (M3-R3): the toggle self-test's SHARP TEXTURES checks
+#include "texreg.h"         // HWI-FEATURE(sharp-textures) (M3-R3): the toggle self-test's texture-filter checks
 #include "Mesh.h"           // HWI-TEST (M3-R3): the switch-label checks (meshImmediate)
 #include "Trails.h"         // HWI-TEST (M3-R4 sensors-points): the M3-R3 switch the table missed (engineTrails, /exeTrails)
 #include "UnivUpdate.h"     // HWI-TEST (M3-R3 pause-freeze): catUnivFrameStep, the Pause key's flag
@@ -2510,139 +2510,181 @@ static sdword mtCfgRow(const char *row, sdword *count)
     return value;
 }
 
-// HWI-FEATURE(sharp-textures) (M3-R3 settings-and-keys): the SHARP TEXTURES option's surfaces: the start-up's save wrote
-//      the file's texLinearFiltering (a /noFilter switch: the file's own value), the Video_Options checkbox (copied from
-//      OP_NoLOD) and its label, the box shows the flag; a click to sharp sets texLinearFiltering 0 and, under the HIGH
-//      preset, the effects level CUSTOM (the OP_Effects radio shows it); the frame's poll labels it "options"; Accept's
-//      steps (trFilterSync, hwiSettingsAccepted, the save) re-filter every live texture (the "texfilter:" counts, none
-//      read back on the old filter), label it "cfg" and write texLinearFiltering 0 and effectsLevel 2, read back; the
-//      start's preset keeps a CUSTOM level's row; Cancel after a click restores it; the HIGH preset sets 1 ("preset");
-//      the switch is run-only (the save keeps the file's row) and outlives the HIGH preset; the in-game Video screen has
-//      the control; the start state back. "toggletest: sharp ..." lines; the failures count into the done line
-static void mtToggleSharp(sdword start, bool32 switched, sdword startEffects)
+// HWI-FEATURE(sharp-textures) (M3-R3 settings-and-keys; the mod's SHARP TEXTURES checkbox removed 2026-10-31: the exe's
+//      SURFACE FILTERING box does the same): the texture filter's surfaces through the exe's own control. The start-up's
+//      save wrote the file's texLinearFiltering (a /noFilter switch: the file's own value); neither Video screen has a
+//      SHARP TEXTURES control any more; CUSTOM EFFECTS (Options_New) pushed: its SURFACE FILTERING box (VO_Filter) shows
+//      the flag; a click to off sets 0 and re-filters every live texture at once (utyFilterToggle -> trFilterEnable: the
+//      "texfilter:" counts, none read back on the old filter); the frame's poll labels it "options"; the screen's
+//      ACCEPT makes the effects level CUSTOM (opEffectsToVideoAccept) and the Video screen's OP_Effects radio shows it;
+//      the Video screen's Accept steps (trFilterSync, hwiSettingsAccepted, the save) label it "cfg" and write
+//      texLinearFiltering 0 and effectsLevel 2, read back; the start's preset keeps a CUSTOM level's row; CANCEL after a
+//      click restores the flag (opEffectsToVideoCancel) and the next frame's trFilterSync re-filters the live textures
+//      (the CAT-FIX: the exe's Cancel restores without a pass); the HIGH preset sets 1 ("preset"); the switch is
+//      run-only and outlives the HIGH preset; the in-game CUSTOM EFFECTS screen has the box; the start state back.
+//      "toggletest: filter ..." lines; the failures count into the done line
+static featom *mtToggleFind(char *screenName, char *atomName, char *text)
+{
+    fescreen *screen = feScreenFind(screenName);
+    sdword i;
+
+    for (i = 0; screen != NULL && i < screen->nAtoms; i++)
+    {
+        if (atomName != NULL && screen->atoms[i].name != NULL && strcmp(screen->atoms[i].name, atomName) == 0)
+        {
+            return &screen->atoms[i];
+        }
+        if (text != NULL && screen->atoms[i].type == FA_StaticText && screen->atoms[i].pData != NULL &&
+            strcmp((char *)screen->atoms[i].pData, text) == 0)
+        {
+            return &screen->atoms[i];
+        }
+    }
+    return NULL;
+}
+
+static void mtToggleFilter(sdword start, bool32 switched, sdword startEffects)
 {
     sdword file, count, value, effects, effectsCount, passes, i;
-    fescreen *screen;
-    featom *box = NULL, *label = NULL, *custom = NULL;
+    featom *box, *custom, *button;
     char what[160];
+    static char *videoScreens[2] = { "Video_Options", "Video" };
 
     trFilterFileValues(TRUE);                       // the value the options file keeps
     file = texLinearFiltering ? 1 : 0;
     trFilterFileValues(FALSE);
     value = mtCfgRow("texLinearFiltering", &count);
-    dbgMessagef("toggletest: sharp start texLinearFiltering=%d switch=%d file=%d saved row=%d rows=%d effectsLevel=%d line='%s'",
+    dbgMessagef("toggletest: filter start texLinearFiltering=%d switch=%d file=%d saved row=%d rows=%d effectsLevel=%d line='%s'",
                 (int)start, (int)switched, (int)file, (int)value, (int)count, (int)startEffects, hwiSettingsLast());
-    mtToggleCheck(count == 1 && value == file, "sharp: the saves wrote the options file's texLinearFiltering");
-    mtToggleCheck(switched ? (start == 0) : (start == file), "sharp: the original look by default (the switch: sharp over the file's row)");
-    trFilterSwitchEnd();                            // the round trip on the option itself
+    mtToggleCheck(count == 1 && value == file, "filter: the saves wrote the options file's texLinearFiltering");
+    mtToggleCheck(switched ? (start == 0) : (start == file), "filter: the original look by default (the switch: off over the file's row)");
+    // the mod's SHARP TEXTURES checkbox is gone from both Video screens
+    for (i = 0; i < 2; i++)
+    {
+        box = mtToggleFind(videoScreens[i], "OP_SharpTextures", NULL);
+        button = mtToggleFind(videoScreens[i], NULL, "SHARP TEXTURES");
+        dbgMessagef("toggletest: filter %s sharp-textures checkbox=%s label=%s", videoScreens[i], (box != NULL) ? "yes" : "no",
+                    (button != NULL) ? "yes" : "no");
+        snprintf(what, sizeof(what), "filter: no SHARP TEXTURES control on %s", videoScreens[i]);
+        mtToggleCheck(box == NULL && button == NULL, what);
+    }
+    trFilterSwitchEnd();                            // the round trip on the exe's box itself
     texLinearFiltering = file;
     opEffectsVal = 0;                               // the HIGH effects preset (the harness file's effectsLevel 0)
     trFilterSync();
-    // the checkbox on Video_Options
-    feScreenStart(ghMainRegion, "Video_Options");
-    screen = feScreenFind("Video_Options");
-    for (i = 0; screen != NULL && i < screen->nAtoms; i++)
+    // CUSTOM EFFECTS: the SURFACE FILTERING box
+    opOptionsSaveSettings();                        // the options screens' Cancel copies, as opening them saves
+    feScreenStart(ghMainRegion, "Options_New");
+    box = mtToggleFind("Options_New", "VO_Filter", NULL);
+    button = mtToggleFind("Options_New", "OP_Effects_To_Video_Accept", NULL);
+    dbgMessagef("toggletest: filter SURFACE FILTERING box=%s accept=%s shown=%d", (box != NULL) ? "yes" : "no",
+                (button != NULL) ? "yes" : "no", (box != NULL) ? (int)(FECHECKED(box) ? 1 : 0) : -1);
+    mtToggleCheck(box != NULL && button != NULL && box->type == FA_CheckBox && box->region != NULL,
+                  "filter: the SURFACE FILTERING box on CUSTOM EFFECTS");
+    if (box != NULL && button != NULL)
     {
-        if (screen->atoms[i].name != NULL && strcmp(screen->atoms[i].name, "OP_SharpTextures") == 0)
-        {
-            box = &screen->atoms[i];
-        }
-        if (screen->atoms[i].type == FA_StaticText && screen->atoms[i].pData != NULL &&
-            strcmp((char *)screen->atoms[i].pData, "SHARP TEXTURES") == 0)
-        {
-            label = &screen->atoms[i];
-        }
-        if (screen->atoms[i].type == FA_RadioButton && screen->atoms[i].name != NULL &&
-            strcmp(screen->atoms[i].name, "OP_Effects") == 0 && (sdword)(smemsize)screen->atoms[i].pData == 2)
-        {
-            custom = &screen->atoms[i];
-        }
-    }
-    dbgMessagef("toggletest: sharp checkbox=%s label=%s at %d,%d (label %d,%d) shown=%d", (box != NULL) ? "yes" : "no",
-                (label != NULL) ? "yes" : "no", (box != NULL) ? (int)box->x : -1, (box != NULL) ? (int)box->y : -1,
-                (label != NULL) ? (int)label->x : -1, (label != NULL) ? (int)label->y : -1,
-                (box != NULL) ? (int)(FECHECKED(box) ? 1 : 0) : -1);
-    mtToggleCheck(box != NULL && label != NULL && box->type == FA_CheckBox && box->region != NULL && label->region != NULL,
-                  "sharp: the SHARP TEXTURES checkbox and its label on Video_Options");
-    if (box != NULL && custom != NULL)
-    {
-        mtToggleCheck((FECHECKED(box) ? 1 : 0) == (texLinearFiltering ? 0 : 1), "sharp: the checkbox shows the flag (unticked: the original look)");
+        mtToggleCheck((FECHECKED(box) ? 1 : 0) == (texLinearFiltering ? 1 : 0), "filter: the box shows the flag (ticked: the original look)");
         passes = trFilterPasses();
-        feToggleButtonSet("OP_SharpTextures", TRUE);    // the FE's checkbox: the state toggled, then the callback
-        opSharpTextures("OP_SharpTextures", box);
-        hwiSettingsChanged("toggletest click");        // the frame's poll (rndRenderTask: hwiFrameEnd)
-        dbgMessagef("toggletest: sharp click to 1: texLinearFiltering=%d effectsLevel=%d custom=%d line='%s'",
-                    (int)texLinearFiltering, (int)opEffectsVal, (int)(FECHECKED(custom) ? 1 : 0), hwiSettingsLast());
-        mtToggleCheck(texLinearFiltering == 0 && opEffectsVal == 2 && FECHECKED(custom), "sharp: the click sets 0 and the effects level CUSTOM");
-        mtToggleCheck(mtToggleLineHas("texLinearFiltering=0 (options)", NULL), "sharp: the click's line has source options");
-        // Accept's steps after the screen (opOptionsAcceptHelper: trFilterSync, hwiSettingsAccepted; the save)
+        feToggleButtonSet("VO_Filter", FALSE);      // the FE's checkbox: the state toggled, then the callback
+        feFunctionExecute("VO_Filter", box, FALSE);
+        hwiSettingsChanged("toggletest click");     // the frame's poll (rndRenderTask: hwiFrameEnd)
+        dbgMessagef("toggletest: filter click to 0: texLinearFiltering=%d passes=%d textures=%d globjects=%d wrong=%d line='%s'",
+                    (int)texLinearFiltering, (int)(trFilterPasses() - passes), (int)trFilterLastTextures(),
+                    (int)trFilterLastObjects(), (int)trFilterLastWrong(), hwiSettingsLast());
+        mtToggleCheck(texLinearFiltering == 0 && trFilterPasses() == passes + 1 && trFilterLastWrong() == 0,
+                      "filter: the click sets 0 and re-filters every live texture at once (none left on the old filter)");
+        mtToggleCheck(mtToggleLineHas("texLinearFiltering=0 (options)", NULL), "filter: the click's line has source options");
+        // CUSTOM EFFECTS' ACCEPT: the effects level CUSTOM, back on Video_Options
+        feFunctionExecute("OP_Effects_To_Video_Accept", button, FALSE);
+        custom = NULL;
+        {
+            fescreen *video = feScreenFind("Video_Options");
+
+            for (i = 0; video != NULL && i < video->nAtoms; i++)
+            {
+                if (video->atoms[i].type == FA_RadioButton && video->atoms[i].name != NULL &&
+                    strcmp(video->atoms[i].name, "OP_Effects") == 0 && (sdword)(smemsize)video->atoms[i].pData == 2)
+                {
+                    custom = &video->atoms[i];
+                }
+            }
+        }
+        dbgMessagef("toggletest: filter custom accept screen=%s effectsLevel=%d custom=%d", (feStackIndex >= 0 &&
+                    feStack[feStackIndex].screen != NULL) ? feStack[feStackIndex].screen->name : "-", (int)opEffectsVal,
+                    (custom != NULL) ? (int)(FECHECKED(custom) ? 1 : 0) : -1);
+        mtToggleCheck(opEffectsVal == 2 && custom != NULL && FECHECKED(custom), "filter: CUSTOM EFFECTS' ACCEPT makes the effects level CUSTOM");
+        // the Video screen's Accept steps after the screen (opOptionsAcceptHelper: trFilterSync, hwiSettingsAccepted; the
+        // save). Video_Options' opening above re-applied the level's filter (the exe's opEffects first call ->
+        // opEffectsHelper -> trFilterEnable), so the live textures are already on it: Accept's sync makes no pass
+        passes = trFilterPasses();
         feCurrentScreenDelete();
         trFilterSync();
         hwiSettingsAccepted();
         opOptionsSaveSettings();
         value = mtCfgRow("texLinearFiltering", &count);
         effects = mtCfgRow("effectsLevel", &effectsCount);
-        dbgMessagef("toggletest: sharp accept passes=%d textures=%d globjects=%d wrong=%d row=%d rows=%d effectsLevel=%d line='%s'",
-                    (int)(trFilterPasses() - passes), (int)trFilterLastTextures(), (int)trFilterLastObjects(),
-                    (int)trFilterLastWrong(), (int)value, (int)count, (int)effects, hwiSettingsLast());
-        mtToggleCheck(trFilterPasses() == passes + 1 && trFilterLastWrong() == 0, "sharp: Accept re-filters every live texture (none left on the old filter)");
-        mtToggleCheck(count == 1 && value == 0 && effectsCount == 1 && effects == 2, "sharp: Accept writes texLinearFiltering 0 and effectsLevel 2");
-        mtToggleCheck(mtToggleLineHas("texLinearFiltering=0 (cfg)", "[options accept]"), "sharp: Accept's line has source cfg");
-        texLinearFiltering = 1;                         // scrambled: the file must set them back
+        dbgMessagef("toggletest: filter accept passes=%d wrong=%d row=%d rows=%d effectsLevel=%d line='%s'",
+                    (int)(trFilterPasses() - passes), (int)trFilterLastWrong(), (int)value, (int)count, (int)effects, hwiSettingsLast());
+        mtToggleCheck(trFilterPasses() == passes && trFilterLastWrong() == 0,
+                      "filter: at Accept every live texture is already on the flag's filter (no pass needed, none wrong)");
+        mtToggleCheck(count == 1 && value == 0 && effectsCount == 1 && effects == 2, "filter: Accept writes texLinearFiltering 0 and effectsLevel 2");
+        mtToggleCheck(mtToggleLineHas("texLinearFiltering=0 (cfg)", "[options accept]"), "filter: Accept's line has source cfg");
+        texLinearFiltering = 1;                     // scrambled: the file must set them back
         opEffectsVal = 0;
         catUtyOptionsFileReadBack();
-        dbgMessagef("toggletest: sharp read back texLinearFiltering=%d effectsLevel=%d", (int)texLinearFiltering, (int)opEffectsVal);
-        mtToggleCheck(texLinearFiltering == 0 && opEffectsVal == 2, "sharp: the rows read back");
-        opEffectsHelper();                              // the next start's preset (opUpdateSettings): CUSTOM keeps the row
-        mtToggleCheck(texLinearFiltering == 0, "sharp: the start's effects preset keeps a CUSTOM level's row");
-        // Cancel after a click: the flag back (the live textures follow at the next frame)
-        opOptionsSaveSettings();
-        feScreenStart(ghMainRegion, "Video_Options");
-        feToggleButtonSet("OP_SharpTextures", FALSE);
-        opSharpTextures("OP_SharpTextures", box);
-        opRestoreSavedSettings();                       // Cancel: the restore first,
-        feCurrentScreenDelete();                        // then the screen's deletion (its FAS_OnDelete calls)
+        dbgMessagef("toggletest: filter read back texLinearFiltering=%d effectsLevel=%d", (int)texLinearFiltering, (int)opEffectsVal);
+        mtToggleCheck(texLinearFiltering == 0 && opEffectsVal == 2, "filter: the rows read back");
+        opEffectsHelper();                          // the next start's preset (opUpdateSettings): CUSTOM keeps the row
+        mtToggleCheck(texLinearFiltering == 0, "filter: the start's effects preset keeps a CUSTOM level's row");
         trFilterSync();
-        dbgMessagef("toggletest: sharp cancel texLinearFiltering=%d effectsLevel=%d", (int)texLinearFiltering, (int)opEffectsVal);
-        mtToggleCheck(texLinearFiltering == 0 && opEffectsVal == 2, "sharp: Cancel after a click restores it");
+        // CUSTOM EFFECTS' CANCEL after a click: the flag back; the live textures follow at the next frame (trFilterSync)
+        opOptionsSaveSettings();
+        feScreenStart(ghMainRegion, "Options_New");
+        box = mtToggleFind("Options_New", "VO_Filter", NULL);
+        button = mtToggleFind("Options_New", "OP_Effects_To_Video_Cancel", NULL);
+        if (box != NULL && button != NULL)
+        {
+            feToggleButtonSet("VO_Filter", TRUE);
+            feFunctionExecute("VO_Filter", box, FALSE);
+            passes = trFilterPasses();
+            feFunctionExecute("OP_Effects_To_Video_Cancel", button, FALSE);
+            feCurrentScreenDelete();                // Video_Options, which the cancel opened
+            trFilterSync();                         // the next frame's sync (render.c)
+            dbgMessagef("toggletest: filter cancel texLinearFiltering=%d effectsLevel=%d passes=%d wrong=%d", (int)texLinearFiltering,
+                        (int)opEffectsVal, (int)(trFilterPasses() - passes), (int)trFilterLastWrong());
+            mtToggleCheck(texLinearFiltering == 0 && opEffectsVal == 2, "filter: CUSTOM EFFECTS' CANCEL after a click restores it");
+            mtToggleCheck(trFilterPasses() == passes + 1 && trFilterLastWrong() == 0,
+                          "filter: after CANCEL the next frame's sync re-filters the live textures");
+        }
+        else
+        {
+            mtToggleCheck(FALSE, "filter: CUSTOM EFFECTS opened again for the cancel");
+            feCurrentScreenDelete();
+        }
         // the HIGH preset: the original look
         opEffectsVal = 0;
         opEffectsHelper();
-        dbgMessagef("toggletest: sharp high preset texLinearFiltering=%d line='%s'", (int)texLinearFiltering, hwiSettingsLast());
+        dbgMessagef("toggletest: filter high preset texLinearFiltering=%d line='%s'", (int)texLinearFiltering, hwiSettingsLast());
         mtToggleCheck(texLinearFiltering == 1 && mtToggleLineHas("texLinearFiltering=1 (preset)", "[effects preset]"),
-                      "sharp: the HIGH effects preset sets the original look (source preset)");
-        // the switch, run-only: the save keeps the file's 1, and the HIGH preset keeps the run sharp
+                      "filter: the HIGH effects preset sets the original look (source preset)");
+        // the switch, run-only: the save keeps the file's 1, and the HIGH preset keeps the run unfiltered
         trFilterSwitchSet();
         opEffectsHelper();
         opOptionsSaveSettings();
         value = mtCfgRow("texLinearFiltering", &count);
-        dbgMessagef("toggletest: sharp switch run-only texLinearFiltering=%d row=%d rows=%d", (int)texLinearFiltering, (int)value,
+        dbgMessagef("toggletest: filter switch run-only texLinearFiltering=%d row=%d rows=%d", (int)texLinearFiltering, (int)value,
                     (int)count);
-        mtToggleCheck(texLinearFiltering == 0 && count == 1 && value == 1, "sharp: the switch is run-only and outlives the HIGH preset");
+        mtToggleCheck(texLinearFiltering == 0 && count == 1 && value == 1, "filter: the switch is run-only and outlives the HIGH preset");
         trFilterSwitchEnd();
     }
     else
     {
         feCurrentScreenDelete();
     }
-    // the in-game Video screen has the control too (not pushed: no game runs)
-    box = label = NULL;
-    screen = feScreenFind("Video");
-    for (i = 0; screen != NULL && i < screen->nAtoms; i++)
-    {
-        if (screen->atoms[i].name != NULL && strcmp(screen->atoms[i].name, "OP_SharpTextures") == 0)
-        {
-            box = &screen->atoms[i];
-        }
-        if (screen->atoms[i].type == FA_StaticText && screen->atoms[i].pData != NULL &&
-            strcmp((char *)screen->atoms[i].pData, "SHARP TEXTURES") == 0)
-        {
-            label = &screen->atoms[i];
-        }
-    }
-    dbgMessagef("toggletest: sharp in-game Video screen checkbox=%s label=%s", (box != NULL) ? "yes" : "no",
-                (label != NULL) ? "yes" : "no");
-    mtToggleCheck(box != NULL && label != NULL && box->type == FA_CheckBox, "sharp: the in-game Video screen's checkbox");
+    // the in-game CUSTOM EFFECTS screen has the box too (not pushed: no game runs)
+    box = mtToggleFind("Custom_options", "VO_Filter", NULL);
+    dbgMessagef("toggletest: filter in-game Custom_options box=%s", (box != NULL) ? "yes" : "no");
+    mtToggleCheck(box != NULL && box->type == FA_CheckBox, "filter: the in-game CUSTOM EFFECTS screen's SURFACE FILTERING box");
     // the start state back
     texLinearFiltering = file;
     opEffectsVal = startEffects;
@@ -2654,8 +2696,8 @@ static void mtToggleSharp(sdword start, bool32 switched, sdword startEffects)
     trFilterSync();
     value = mtCfgRow("texLinearFiltering", &count);
     effects = mtCfgRow("effectsLevel", &effectsCount);
-    snprintf(what, sizeof(what), "sharp: the start-up's state and file rows back");
-    dbgMessagef("toggletest: sharp end texLinearFiltering=%d switch=%d row=%d effectsLevel=%d", (int)texLinearFiltering,
+    snprintf(what, sizeof(what), "filter: the start-up's state and file rows back");
+    dbgMessagef("toggletest: filter end texLinearFiltering=%d switch=%d row=%d effectsLevel=%d", (int)texLinearFiltering,
                 (int)trFilterSwitchStands(), (int)value, (int)effects);
     mtToggleCheck(texLinearFiltering == start && trFilterSwitchStands() == switched && count == 1 && value == file &&
                   effects == startEffects, what);
@@ -2740,7 +2782,7 @@ void catToggleRunSelfTest(void)
     mtToggleLetterbox(startLetterbox);              // HWI-FEATURE(letterbox-setting)
     mtToggleFullDetail(startNoLOD, startLodSwitch); // HWI-FEATURE(full-detail)
     mtToggleOverlay(startOverlay);                  // HWI-FEATURE(instrumentation)
-    mtToggleSharp(startFilter, startFilterSwitch, startEffects);   // HWI-FEATURE(sharp-textures)
+    mtToggleFilter(startFilter, startFilterSwitch, startEffects);  // HWI-FEATURE(sharp-textures): the exe's SURFACE FILTERING box
     dbgMessagef("toggletest: done start=%d/%d fails=%d result=%s", (int)startObj, (int)startNis, (int)mtToggleFails,
                 (mtToggleFails == 0) ? "PASS" : "FAIL");
 }

@@ -59,6 +59,9 @@ MANIFEST = 'assets-manifest.txt'
 PAGES = 'assets-pages.txt'
 README = 'README.txt'
 MASK_SUFFIX = {'team0': '_teambase', 'team1': '_teamstripe'}
+# the front end's screen pictures (src/Game/ScreenBackground.c, docs/features/screen-background.md): the user's own
+# files, never written, listed or replaced by this tool or by the engine's Assets index
+BACKGROUNDS = 'feman/backgrounds/'
 NATIVE_IMAGES = ('.jpg', '.tga')
 
 
@@ -154,6 +157,8 @@ class Writer(object):
     def write(self, rel, data):
         rel = rel.replace('\\', '/')
         key = rel.lower()
+        if key.startswith(BACKGROUNDS):
+            return                                        # the screen pictures are the user's (never written)
         path = os.path.join(self.out, rel)
         if isinstance(data, str):
             data = data.encode('utf-8')
@@ -379,6 +384,8 @@ What is here
                                               "pages" (page0.png, page1.png ...)
   .jpg, .tga                                  the game's other pictures (credits, backgrounds), as they are
   assets-manifest.txt, assets-pages.txt       the export's own lists: do not edit them
+  feman/backgrounds/                          pictures behind the front-end screens (<Screen>.png, see the
+                                              README.txt there); not part of this export, never touched by it
 
 Repainting a texture
 --------------------
@@ -427,7 +434,8 @@ def export(args):
         die('no extracted archives at %s (use --game DIR to read the game folder\'s .big files)' % data)
     check_out(out, [data, update, args.game])
     old = read_manifest(out) if os.path.isdir(out) else None
-    if old is None and os.path.isdir(out) and os.listdir(out) and not args.force:
+    if old is None and os.path.isdir(out) and not args.force and \
+            any(k for k in scan(out) if not k.startswith(BACKGROUNDS)):
         print('note: %s has files but no %s: they are kept and stay in use' % (out, MANIFEST))
     os.makedirs(out, exist_ok=True)
     tree = hf.DataTree(data, update)
@@ -534,6 +542,8 @@ def status(args, refresh=False):
         die('no %s in %s' % (MANIFEST, out))
     tree = hf.DataTree(args.data, args.update) if os.path.isdir(args.data) else None
     found = scan(out)
+    backgrounds = [k for k in found if k.startswith(BACKGROUNDS)]
+    found = dict((k, v) for k, v in found.items() if not k.startswith(BACKGROUNDS))
     changed, touched, new, missing = [], [], [], []
     for key, (rel, path) in sorted(found.items()):
         if key == MANIFEST:
@@ -558,7 +568,7 @@ def status(args, refresh=False):
         write_manifest(out, old, 'refreshed %s' % time.strftime('%Y-%m-%d %H:%M:%S'))
         print('re-stamped %d files whose content is as exported' % len(touched))
         return 0
-    skip = ('models/', 'feman/backgrounds/')
+    skip = ('models/', BACKGROUNDS)
 
     def what(rel):
         key = rel.lower()
@@ -567,6 +577,9 @@ def status(args, refresh=False):
         t = target_of(tree, key) if tree else '?'
         return 'replaces %s' % t if t else 'matches no game file: ignored'
     print('Assets folder %s: %d files, manifest %d' % (out, len(found), len(old)))
+    if backgrounds:
+        print('feman/backgrounds: %d files (the front end\'s screen pictures, docs/features/screen-background.md; not '
+              'checked here)' % len(backgrounds))
     print('changed since the export (in use): %d' % len(changed))
     for rel in changed:
         print('  %s  -> %s' % (rel, what(rel)))

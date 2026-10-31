@@ -65,5 +65,6 @@ const char *hwiBuildVersion(void);                 // HWI-TEST: main.c: the buil
 void hwiOverlayKeyAtSet(char *spec);               // HWI-TEST: /catOverlayKeyAt <tick>[,<tick>..]: F1 as an SDL_KEYDOWN / UP to HandleEvent
 void hwiConsoleAtSet(char *spec);                  // HWI-TEST: /catConsoleAt <tick>:<row>=<value>[,..]: a console row (cat_consoleRunCommand)
 void hwiFeScreenSet(char *spec);                   // HWI-TEST: /catFeScreen <screen>[@<tick>]: a front-end screen pushed (feScreenStart)
+void hwiFeClickSet(char *spec);                    // HWI-TEST: /catFeClick <atom>[@<tick>]: a click on the top screen's atom (its callback)
 
 #endif

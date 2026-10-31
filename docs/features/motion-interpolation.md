@@ -55,6 +55,9 @@ lock on the focus cancels the focus's angular motion and nobody else's, which is
    - Options → Video: a checkbox "Smooth motion" (ship an overridden options screen .fib under the recreation's data
      dir; docs/formats/fib.md has the format; if the .fib edit cannot be done this round, bind to a free control and
      say so in STATE.md, but the button is required, not optional);
+     [as built: added in code to both Video screens, the .fib files untouched (Options.c `opSmoothMotionAtomsAdd`);
+     since 2026-10-31 one row, the checkbox left of "SMOOTH MOTION" (front end right of the panel under UI SCALE, in
+     game under NUMBER OF EFFECTS): docs/features/screen-background.md "The Video screens' layout"]
    - `Cataclysm.cfg` keys `objInterpolate 0|1` and `nisInterpolate 0|1` (persisted like the other options);
    - command line `/noInterp` (both off) and `/noNISInterp`, plus dev-console commands, for scripted runs.
 4. **Comparison tooling (so changes are measurable, not just eyeballed).** Harness mode `motion`: run a mission headless at a fixed virtual frame rate (144 fps) with the camera focused on one ship and a second ship crossing the view; dump per-frame screen-space positions of both; report max and 95th-percentile per-frame SCREEN-SPACE displacement (pixels, i.e. angular motion) and repeated-frame counts for focused vs unfocused objects, interpolation on and off; include one object moving across the view and one moving along the line of sight, since only the first shows the defect. Plus harness mode `nis`: play a given NIS headless

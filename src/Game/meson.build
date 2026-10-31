@@ -121,6 +121,7 @@ src_game = files('AIAttackMan.c',
                  'SaveCat32.c',
                  'SaveGame.c',
                  'ScenPick.c',
+                 'ScreenBackground.c',    # HWI-FEATURE(screen-background): the user's picture behind a front-end screen
                  'Scroller.c',
                  'Select.c',
                  'Sensors.c',

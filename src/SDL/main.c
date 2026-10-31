@@ -83,6 +83,7 @@
 #include "OracleDump.h"     // HWI-ORACLE: /oracleDump, /oracleSelfTest
 #include "uiscale.h"         // HWI-FEATURE(ui-scale): /uiScale, /testUsableBounds; the window request
 #include "UiScaleTest.h"     // HWI-TEST (M3-R1 ui-scale): /catUiScaleTest
+#include "ScreenBackground.h"   // HWI-FEATURE(screen-background): the pictures' textures at a render reset; HWI-TEST /catScreenBgExport
 #include "Instrument.h"      // HWI-FEATURE(instrumentation): /overlay, the overlay's key; HWI-TEST /frameLog
 #include "datasetup.h"       // HWI-FEATURE(data-setup): the player quit the first-run step; HWI-TEST /catDataSetupScript
 #include "AssetsFolder.h"    // HWI-FEATURE(assets-folder): /assetsPath, /noAssets
@@ -679,10 +680,10 @@ bool32 NoHsAssemblySet(char *string)                // HWI-FEATURE(hyperspace-as
 // HWI-FEATURE(mesh-batching): /meshImmediate: this run only, the CPU-lit mesh renderers submit their corners one GL call
 //      at a time (GoK's immediate mode) instead of in arrays (Mesh.c meshImmediate): the exact A/B of the batched path;
 //      no options-file row (the console row meshImmediate sets it for the run too)
-// HWI-FEATURE(sharp-textures): /noFilter (the exe's switch: "disable bi-linear filtering of textures") and its alias
-//      /sharpTextures: SHARP TEXTURES (texLinearFiltering 0) for this run only, run-only as /noInterp (texreg.c
-//      trFilterSwitchSet: the saves keep the file's texLinearFiltering row) and kept over the start's effects preset
-//      (opUpdateSettings -> opEffectsHelper's HIGH sets 1: in the exe the switch was lost at every start)
+// HWI-FEATURE(sharp-textures): /noFilter (the exe's switch: "disable bi-linear filtering of textures", the SURFACE
+//      FILTERING box of CUSTOM EFFECTS off) for this run only, run-only as /noInterp (texreg.c trFilterSwitchSet: the
+//      saves keep the file's texLinearFiltering row) and kept over the start's effects preset (opUpdateSettings ->
+//      opEffectsHelper's HIGH sets 1: in the exe the switch was lost at every start)
 bool32 NoFilterSet(char *string)                    // HWI-FEATURE(sharp-textures)
 {                                                   // HWI-FEATURE(sharp-textures)
     trFilterSwitchSet();                            // HWI-FEATURE(sharp-textures)
@@ -744,6 +745,22 @@ bool32 CatConsoleAtSet(char *string)
 bool32 CatFeScreenSet(char *string)
 {
     hwiFeScreenSet(string);
+    return TRUE;
+}
+bool32 CatFeClickSet(char *string)                  // HWI-TEST: /catFeClick <atom>[@<tick>] (Instrument.c)
+{
+    hwiFeClickSet(string);
+    return TRUE;
+}
+// HWI-TEST (screen-background): /catScreenBgExport <screen>, /catScreenBgDir <dir> (ScreenBackground.c)
+bool32 CatScreenBgExportSet(char *string)
+{
+    sbgExportSet(string);
+    return TRUE;
+}
+bool32 CatScreenBgDirSet(char *string)
+{
+    sbgExportDirSet(string);
     return TRUE;
 }
 bool32 CatTexListSet(char *string)                  // HWI-TEST (M3-R3): /catTexList <substring> (texreg.c trFilterCount)
@@ -1627,7 +1644,6 @@ commandoption commandOptions[] =
     entryFn("/meshImmediate",           MeshImmediateSet, " - this run only: the ship meshes drawn one GL call per vertex (the old immediate-mode path) instead of in vertex arrays: the A/B of the mesh batching (the console row meshImmediate toggles it)."),   // HWI-FEATURE(mesh-batching)
     entryFn("/exeTrails",               ExeTrailsSet, " - this run only: the missile corvettes' two engine ribbons as cataclysm.exe draws them (one per mex Eng chunk) instead of the four jet streams from the engine circles (the console row engineTrails toggles it)."),   // HWI-FEATURE(engine-trails)
     entryFn("/exePoints",               ExePointsSet, " - this run only: the sensors manager's points at cataclysm.exe's sizes (the Dust 1 pixel, the resource, mine and crate markers 2) instead of the Dust 2 and the markers 3 (the console row sensorsPoints toggles it)."),   // HWI-FEATURE(sensors-points)
-    entryFn("/sharpTextures",           NoFilterSet, " - this run only: SHARP TEXTURES (the ship, derelict and asteroid textures magnified as square texels: texLinearFiltering 0, as /noFilter; the options file keeps its row)."),   // HWI-FEATURE(sharp-textures)
     entryFn("/lodBands",                LodBandsSet, " - this run only: FULL DETAIL off (the exe's levels of detail by size on screen and frame time; the options file's noLOD row keeps its value)."),   // HWI-FEATURE(full-detail)
     entryFnParam("/catLodTest",         CatLodTestSet, " <tick>[:far][:fleet] - log every object's level of detail (the exe's and the one drawn) in the main view's first frame of that universe tick (\"lodtest:\" lines); :far pulls the camera out to its farthest zoom, :fleet closes the sensors manager at tick 16 and focuses the camera on every ship."),   // HWI-TEST
     entryFn("/overlay",                 OverlaySet, " - this run only: the on-screen overlay on (frame time, universe tick, interpolation alpha, the settings, the vertices drawn; the console row overlay, F1 and the Menu key toggle it)."),   // HWI-FEATURE(instrumentation)
@@ -1640,6 +1656,9 @@ commandoption commandOptions[] =
     entryFnParam("/catMineLog",         CatMineLogSet, " <ticks> - test: log every mine state change with its reason and <ticks> ticks of state, target, distance and speeds for the first 8 mines that start an attack run on a target (minelog: lines)."),   // HWI-TEST (M3-R3 mines)
     entryFnParam("/catMineChase",       CatMineChaseSet, " <tick>[:<shiptype>] - test: at that universe tick order up to 4 of player 0's ships of that type (default sRecon) past the nearest level mine, 2000 beside it and 20000 beyond (minechase: line)."),   // HWI-TEST (M3-R3 mines)
     entryFnParam("/catFeScreen",        CatFeScreenSet, " <screen>[@<tick>] - test: a front-end screen pushed once (in the front end, or in game at the tick)."),   // HWI-TEST
+    entryFnParam("/catFeClick",         CatFeClickSet, " <atom>[@<tick>] - test: a click on the top front-end screen's atom of that name once it is shown (in game from the tick): a check box changes state, then its callback runs."),   // HWI-TEST
+    entryFnParam("/catScreenBgExport",  CatScreenBgExportSet, " <screen> - test: once that front-end screen is shown, write its art and its controls read back at the physical scale (<screen>-reference.png, <screen>-controls.png, <screen>.ora for GIMP, README.txt; see /catScreenBgDir), then exit."),   // HWI-TEST (screen-background)
+    entryFnParam("/catScreenBgDir",     CatScreenBgDirSet, " <dir> - test: the folder /catScreenBgExport writes to (default: the settings folder's Assets/feman/backgrounds)."),   // HWI-TEST (screen-background)
     entryFnParam("/catModeQuitTest",    CatModeQuitTestSet, " <W>x<H> - test: once the front end is up, the Video screen's render switch to that resolution, then one quit."),   // HWI-TEST
     entryFnParam("/frameLog",           FrameLogSet, " <file> - test: one line a second to <file>: frame-time percentiles, frames over the refresh interval, universe ticks and their cost, the main heap, the vertices drawn."),   // HWI-TEST
     entryFnParam("/catLodStats",        CatLodStatsSet, " <from>-<to>[:fleet] - per frame of those universe ticks: the render time (to the flip, glFinish), the objects and the mesh vertices and polygons drawn (\"lodstats:\" lines, the median and 99th percentile at the end)."),   // HWI-TEST
@@ -2262,6 +2281,7 @@ void mainResetRender(void)
     feRenderEverything = TRUE;
     frReset();
     ferReset();
+    sbgDiscardGL();                                 // HWI-FEATURE(screen-background): the pictures load again when next drawn
     mouseReset();
     feReset();
     // CAT: mainResetRender 0x00560420 (also inlined in mainOpenRender 0x00560470): then the overlay icons' textures, the

@@ -32,6 +32,7 @@
 #include "BigFile.h"          // CAT: /catFeScreensTest (port diagnostic)
 #include "Region.h"
 #include "Options.h"          // HWI-FEATURE(motion-interp): opSmoothMotionAtomsAdd
+#include "ScreenBackground.h" // HWI-FEATURE(screen-background): sbgRegionsAdded
 #include <limits.h>
 #include <ctype.h>
 
@@ -1438,6 +1439,8 @@ regionhandle feRegionsAdd(regionhandle parent, fescreen *screen, bool32 moveToFr
         feFindChildren(baseRegion);
     }
 
+    sbgRegionsAdded(screen, baseRegion);    // HWI-FEATURE(screen-background): the user's picture behind the screen, if any
+
     return(baseRegion);
 }
 
@@ -2092,7 +2095,6 @@ fibfileheader *feScreensImageLoad(void *image, sdword length, char *fileName)
 
     opSmoothMotionAtomsAdd(header);     // HWI-FEATURE(motion-interp): the Smooth motion checkbox on the Video screens (Options.c)
     opUiScaleAtomsAdd(header);          // HWI-FEATURE(ui-scale): the UI SCALE radio buttons on the Video screens (Options.c)
-    opSharpTexturesAtomsAdd(header);    // HWI-FEATURE(sharp-textures): the SHARP TEXTURES checkbox on the Video screens (Options.c)
 //    return(header->nScreens);
     return(header);
 }
