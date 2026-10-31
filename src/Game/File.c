@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "AssetsFolder.h"   // HWI-FEATURE(assets-folder)
 #include "BitIO.h"
 #include "Debug.h"
 #include "File.h"
@@ -842,8 +843,16 @@ sdword fileLoadAlloc(char *_fileName, void **address, udword flags)
            lengthRead    = 0,
            bigFileIndex  = 0;
     sdword bigfileResult = 0;
+    char *assetsPath;
 
     dbgAssertOrIgnore(address != NULL);
+
+    // HWI-FEATURE(assets-folder): a replacement in the Assets folder comes first
+    if ((assetsPath = assetsFileFind(_fileName, flags)) != NULL)
+    {
+        _fileName = assetsPath;
+        flags = (flags & (NonVolatile | Pyrophoric)) | FF_IgnorePrepend | FF_IgnoreBIG;
+    }
 
     //  try to load from bigfile
     if (!IgnoreBigfiles && !bitTest(flags, FF_CDROM|FF_IgnoreBIG|FF_UserSettingsPath))
@@ -937,6 +946,14 @@ sdword fileLoad(char *_fileName, void *address, udword flags)
            lengthRead    = 0,
            bigFileIndex  = 0;
     sdword bigfileResult = 0;
+    char *assetsPath;
+
+    // HWI-FEATURE(assets-folder): a replacement in the Assets folder comes first
+    if ((assetsPath = assetsFileFind(_fileName, flags)) != NULL)
+    {
+        _fileName = assetsPath;
+        flags = FF_IgnorePrepend | FF_IgnoreBIG;
+    }
 
     //  try to load from bigfile
     if (!IgnoreBigfiles && !bitTest(flags, FF_CDROM|FF_IgnoreBIG|FF_UserSettingsPath))
@@ -1095,6 +1112,14 @@ sdword fileSizeGet(char *_fileName, udword flags)
     FILE *file;
     sdword length;
     char *fileName;
+    char *assetsPath;
+
+    // HWI-FEATURE(assets-folder): a replacement in the Assets folder comes first
+    if ((assetsPath = assetsFileFind(_fileName, flags)) != NULL)
+    {
+        _fileName = assetsPath;
+        flags = FF_IgnorePrepend | FF_IgnoreBIG;
+    }
 
     if (!IgnoreBigfiles && !bitTest(flags, FF_CDROM|FF_IgnoreBIG|FF_UserSettingsPath))
     {
@@ -1191,6 +1216,11 @@ filehandle fileOpen(char *_fileName, udword flags)
     else if (bitTest(flags, FF_UserSettingsPath))
     {
         strcpy(localPath, filePathPrepend(_fileName, FF_UserSettingsPath));
+    }
+    // HWI-FEATURE(assets-folder): a replacement in the Assets folder comes first (reading only)
+    else if (assetsFileFind(_fileName, flags) != NULL)
+    {
+        strcpy(localPath, assetsFileFind(_fileName, flags));
     }
     // otherwise try a local filesystem version
     else

@@ -155,6 +155,11 @@ Blender drops a triangle that repeats the three corners of another (253 such pai
 
 ## Return trip (plan for the next tool)
 
+**For the recreation this is done by the Assets folder** (HWI-FEATURE(assets-folder), docs/features/assets-folder.md,
+2026-10-31): `tools/assets/export_assets.py` writes every texture as a PNG at its archive path into the settings folder's
+`Assets/`, and the engine loads a changed PNG (any size), its team masks, and rebuilds the atlas pages of changed source
+textures at start-up. The plan below remains the route for the GOG game itself.
+
 The user puts revised PNGs at `original/assets-return/<race>/<ship>/lod<N>/<name>.png` (the path under
 `textures/`), with masks beside them, and returns only what they changed: anything missing keeps the original.
 `manifest.json` maps each PNG to its `.lif` (`lif`, `return_png`), records the original size and flags, and gives a

@@ -21,6 +21,7 @@
 #include "AutoDownloadMap.h"
 #include "AutoLOD.h"
 #include "Battle.h"
+#include "AssetsFolder.h"    // HWI-FEATURE(assets-folder)
 #include "BigFile.h"
 //#include "bink.h"
 #include "Bounties.h"
@@ -4250,6 +4251,7 @@ char* utyGameSystemsPreInit(void)
     utySet(SSA_MemoryModule);
 
     bigOpenAllBigFiles();
+    assetsStartup();                                        // HWI-FEATURE(assets-folder): index the Assets folder once
 
 #if 0       // ShortCircuitWON done in titaninterface.cpp now
     if (ShortCircuitWON)
@@ -4952,6 +4954,7 @@ char* utyGameSystemsPreShutdown(void)
     }
 
     bigCloseAllBigFiles();
+    assetsShutdown();                                       // HWI-FEATURE(assets-folder)
 
     keyClose();
 
@@ -5302,6 +5305,7 @@ char *utyGameSystemsShutdown(void)
     meshShutdown();
 
     bigCloseAllBigFiles();
+    assetsShutdown();                                       // HWI-FEATURE(assets-folder)
 
     keyClose();
 

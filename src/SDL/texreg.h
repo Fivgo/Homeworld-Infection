@@ -407,10 +407,10 @@ extern sdword catTrCramLimit;
 
 //misc utility functions
 void trFilterEnable(sdword bEnable);
-// HWI-FEATURE(sharp-textures) (M3-R3 settings-and-keys, docs/m3-r3-settings-and-keys.md): SHARP TEXTURES = texLinearFiltering
-//      0 (the exe's own option: Video -> CUSTOM EFFECTS -> SURFACE FILTERING, utyFilterToggle 0x005a86d0); the run-only
-//      switch /noFilter (alias /sharpTextures), the registry's live textures kept on the flag's filter (trFilterSync)
-void trFilterSwitchSet(void);                       // HWI-FEATURE(sharp-textures): /noFilter, /sharpTextures (this run only)
+// HWI-FEATURE(sharp-textures) (M3-R3 settings-and-keys, docs/m3-r3-settings-and-keys.md): sharp textures =
+//      texLinearFiltering 0 (the exe's own option: Video -> CUSTOM EFFECTS -> SURFACE FILTERING, utyFilterToggle
+//      0x005a86d0); the run-only switch /noFilter, the registry's live textures kept on the flag's filter (trFilterSync)
+void trFilterSwitchSet(void);                       // HWI-FEATURE(sharp-textures): /noFilter (this run only)
 void trFilterSwitchEnd(void);                       // HWI-FEATURE(sharp-textures): a user's choice ends the switch's run-only state
 bool32 trFilterSwitchStands(void);                  // HWI-FEATURE(sharp-textures)
 void trFilterFileValues(bool32 begin);              // HWI-FEATURE(sharp-textures): utyOptionsFileWrite: the file's own value
