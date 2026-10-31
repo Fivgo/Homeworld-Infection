@@ -85,6 +85,7 @@
 #include "UiScaleTest.h"     // HWI-TEST (M3-R1 ui-scale): /catUiScaleTest
 #include "Instrument.h"      // HWI-FEATURE(instrumentation): /overlay, the overlay's key; HWI-TEST /frameLog
 #include "datasetup.h"       // HWI-FEATURE(data-setup): the player quit the first-run step; HWI-TEST /catDataSetupScript
+#include "AssetsFolder.h"    // HWI-FEATURE(assets-folder): /assetsPath, /noAssets
 
 #ifdef _WIN32
     #define strcasecmp _stricmp
@@ -1351,6 +1352,9 @@ commandoption commandOptions[] =
     entryFnParam("/prepath",        cat_mainPrependPathSet,             " <path> - Sets path to search for opening files."),
     entryFnParam("/CDpath",         cat_mainCDROMPathSet,               " <path> - Sets path to CD-ROM in case of ambiguity."),
     entryFnParam("/settingspath",   fileUserSettingsPathSet,            " <path> - Sets the path to store settings, saved games, and screenshots (defaults to ~/.homeworld)."),
+    // HWI-FEATURE(assets-folder): docs/features/assets-folder.md
+    entryFnParam("/assetsPath",     assetsPathSet,                      " <path> - Sets the Assets folder (default: Assets in the settings folder)."),
+    entryFn("/noAssets",            assetsOffSet,                       " - Ignores the Assets folder."),
 #if MAIN_MOUSE_FREE
 #ifdef HW_BUILD_FOR_DEBUGGING
     entryVr("/freemouse",           startupClipMouse, FALSE,            " - Mouse free to move about entire screen at startup.  Use <CTRL>F11 to toggle during play."),

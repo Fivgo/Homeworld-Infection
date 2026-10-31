@@ -4,6 +4,7 @@ src_sdl = files(
     'TimeoutTimer.c',
     'Titan.c',
     'TitanInterfaceC.c',
+    'assettex.c',       # HWI-FEATURE(assets-folder)
     'avi.c',
     'datasetup.c',
     'font.c',

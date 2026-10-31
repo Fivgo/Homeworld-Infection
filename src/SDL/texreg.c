@@ -31,6 +31,8 @@
 #include "Universe.h"
 
 #include "CatSort.h"         // CAT (M2-R9 oracle-rung-physics): the exe's qsort
+#include "AssetsFolder.h"    // HWI-FEATURE(assets-folder)
+#include "assettex.h"        // HWI-FEATURE(assets-folder)
 #ifdef _MSC_VER
 #define strcasecmp _stricmp
 #endif
@@ -40,6 +42,20 @@
 =============================================================================*/
 //configuration information:
 static bool32 trNoPalInitialized = FALSE;
+
+// HWI-FEATURE(assets-folder): textures replaced in the Assets folder. The registry's loads take any size (and RGB for
+//      a paletted texture); a replaced texture keeps its original's place in the texture-memory fit, so the others
+//      are scaled as without the replacement. Set when a pending entry is measured (trRegistryRefresh).
+typedef struct
+{
+    sword width, height;            // the game's own size
+    ubyte on;                       // replaced
+    ubyte built;                    // built from a PNG / page (not a whole .lif): both team maps present
+    ubyte paletted;                 // the game's own is paletted
+}
+trassetsorig;
+static trassetsorig trAssetsOrig[TR_RegistrySize];
+static bool32 trAssetsRegistryLoad = FALSE;
 
 sdword trTextureChanges = 0;
 sdword trAvoidedChanges = 0;
@@ -1578,6 +1594,16 @@ lifheader *trLIFFileLoad(char *fileName, udword flags)
 #ifdef HW_PTR_64
     sdword loadLength= 0;
     lifheader *oldHeader;
+#endif
+
+    // HWI-FEATURE(assets-folder): a PNG, team masks or a rebuilt atlas page from the Assets folder
+    newHeader = assetsLifLoad(fileName, flags, trAssetsRegistryLoad);
+    if (newHeader != NULL)
+    {
+        return(newHeader);
+    }
+
+#ifdef HW_PTR_64
     loadLength = fileLoadAlloc(fileName, (void**)&oldHeader, flags);             //load in the .LiF file
     newHeader = tr64LifAdjustLoad((lifheader_disk *)oldHeader, loadLength);
 #else
@@ -1913,7 +1939,19 @@ void trMeshSortListLoad(trmeshsort *sortList)
                 strcpy(fullName, reg->fileName);
             }
             strcat(fullName, ".LiF");                       //create full filename
+            // HWI-FEATURE(assets-folder): the registry's load (any size); a shared file name is the share parent's own
+            //      file, never its replacement
+            trAssetsRegistryLoad = TRUE;
+            if (bitTest(reg->flags, TRF_SharedFileName))
+            {
+                assetsSuspend(TRUE);
+            }
             lifFile = trLIFFileLoad(fullName, 0);           //load in the file
+            if (bitTest(reg->flags, TRF_SharedFileName))
+            {
+                assetsSuspend(FALSE);
+            }
+            trAssetsRegistryLoad = FALSE;
 
             bitClear(reg->flags, TRF_TeamColor0);
             bitClear(reg->flags, TRF_TeamColor1);
@@ -1934,6 +1972,13 @@ void trMeshSortListLoad(trmeshsort *sortList)
             if (bitTest(lifFile->flags, TRF_Alpha))
             {
                 bitSet(reg->flags, TRF_Alpha);
+            }
+            // HWI-FEATURE(assets-folder): a paletted texture built from a PNG is RGB now; colour it by its list's team
+            //      flags, as the paletted path colours its palette (both team maps are in the built image)
+            if (trAssetsOrig[sortList->textureList[index]].on && trAssetsOrig[sortList->textureList[index]].built &&
+                trAssetsOrig[sortList->textureList[index]].paletted && !bitTest(lifFile->flags, TRF_Paletted))
+            {
+                reg->flags |= (ubyte)(sortList->teamFlags & (TRF_TeamColor0 | TRF_TeamColor1));
             }
 
 #if TR_ERROR_CHECKING
@@ -3034,10 +3079,22 @@ void cat_trPrecacheShipTextures(void)
     }
 }
 
+// HWI-FEATURE(assets-folder): the size the texture-memory fit counts: a replaced texture's original
+static void trAssetsCramDims(texreg *reg, sdword *width, sdword *height)
+{
+    trassetsorig *orig = &trAssetsOrig[reg - trTextureRegistry];
+
+    *width = orig->on ? orig->width : reg->diskWidth;
+    *height = orig->on ? orig->height : reg->diskHeight;
+}
+
 // CAT: bytes one registry entry needs at its current shifts: paletted w*h, RGB nPalettes * w*h * 2
 static sdword catTrCramSize(texreg *reg)
 {
-    sdword size = (sdword)(sword)(reg->diskWidth >> reg->scaleShiftX) * (sdword)(sword)(reg->diskHeight >> reg->scaleShiftY);
+    sdword width, height, size;
+
+    trAssetsCramDims(reg, &width, &height);                 // HWI-FEATURE(assets-folder)
+    size = (sdword)(sword)(width >> reg->scaleShiftX) * (sdword)(sword)(height >> reg->scaleShiftY);
 
     if (!bitTest(reg->flags, TRF_Paletted))
     {
@@ -3091,8 +3148,9 @@ void trCramRAMComputeAndScale(void)
         reg = &trTextureRegistry[trSizeSortList[index].index];
         if (reg->bScalable)
         {
-            width = (sword)(reg->diskWidth >> reg->scaleShiftX);
-            height = (sword)(reg->diskHeight >> reg->scaleShiftY);
+            trAssetsCramDims(reg, &width, &height);         // HWI-FEATURE(assets-folder)
+            width = (sword)(width >> reg->scaleShiftX);
+            height = (sword)(height >> reg->scaleShiftY);
             if (width > 8 || height > 8)
             {
                 total -= catTrCramSize(reg);
@@ -3159,6 +3217,8 @@ void trRegistryRefresh(void)
     llelement *lifListing;
     sdword listingLength;
     udword listFlags;
+    assetstexture *assetsTex;           // HWI-FEATURE(assets-folder)
+    bool32 measured, listed;            // HWI-FEATURE(assets-folder)
 
 #if TR_NIL_TEXTURE
     if (GLOBAL_NO_TEXTURES)
@@ -3220,17 +3280,30 @@ void trRegistryRefresh(void)
         if (trAllocated(index) && trPending(index))
         {                                                   //texture slot not free
             reg = &trTextureRegistry[index];                //get pointer to current texture reg struct
+            // HWI-FEATURE(assets-folder): replaced in the Assets folder? It is measured as the game's own first
+            assetsTex = assetsTextureFind(reg->fileName);
+            trAssetsOrig[index].on = FALSE;
             if (trPending(index))
             {                                               //if pending a load
                 //... get width/height/flags trying several methods
-                if (!trImageMeasureFromListing(reg->fileName, lifListing, listingLength, &width, &height, &listFlags, &pSharedFrom))
+                listed = trImageMeasureFromListing(reg->fileName, lifListing, listingLength, &width, &height, &listFlags, &pSharedFrom);
+                if (!listed)
                 {
 #if TR_VERBOSE_LEVEL >= 1
                     dbgMessagef("Image '%s' not found in listing", reg->fileName);
 #endif
                     strcpy(fullName, reg->fileName);
                     strcat(fullName, ".LiF");
-                    if (trLiFMeasure(fullName, &width, &height, &listFlags))
+                    if (assetsTex != NULL)
+                    {
+                        assetsSuspend(TRUE);                // HWI-FEATURE(assets-folder): the game's own header
+                    }
+                    measured = trLiFMeasure(fullName, &width, &height, &listFlags);
+                    if (assetsTex != NULL)
+                    {
+                        assetsSuspend(FALSE);
+                    }
+                    if (measured)
                     {
 #if TR_VERBOSE_LEVEL >= 1
                         dbgMessagef("...regular .LiF", reg->fileName);
@@ -3264,13 +3337,17 @@ void trRegistryRefresh(void)
                     reg->diskWidth = (sword)width;
                     reg->diskHeight = (sword)height;
                     reg->flags |= (ubyte)(listFlags & TRM_ListFlag);//plug these flags straight in
-                    if (pSharedFrom == NULL)
-                    {                                       //this texture not shared
+                    if (pSharedFrom == NULL || assetsTex != NULL)
+                    {                                       //this texture not shared (HWI-FEATURE(assets-folder): nor a replaced one)
                         reg->sharedFrom = TR_NotShared;
                     }
                     else
                     {                                       //this texture is shared
                         reg->sharedFrom = trFindTextureIndexByName(pSharedFrom);//find what texture it's shared to
+                        if (assetsTextureFind(pSharedFrom) != NULL)
+                        {                                   // HWI-FEATURE(assets-folder): the parent is replaced: load the parent's own file
+                            reg->sharedFrom = TR_NotShared;
+                        }
                         if (reg->sharedFrom == TR_NotShared)
                         {                                   //the share parent is not loaded
                             trSharedFilenameCreate(index, lifListing, listingLength);//make the shared filename
@@ -3312,6 +3389,19 @@ void trRegistryRefresh(void)
                         bitSet(reg->flags, TRF_Paletted);   //else it has to be paletted
                     }
                 }
+            }
+            // HWI-FEATURE(assets-folder): the replacement's size; the fit below counts the original's
+            if (assetsTex != NULL)
+            {
+                trAssetsOrig[index].width = reg->diskWidth;
+                trAssetsOrig[index].height = reg->diskHeight;
+                trAssetsOrig[index].on = TRUE;
+                trAssetsOrig[index].built = (assetsTex->kinds & AF_Native) == 0;
+                trAssetsOrig[index].paletted = bitTest(reg->flags, TRF_Paletted) != 0;
+                assetsTextureShared(assetsTex, listed ? pSharedFrom : NULL);   // the file the game draws for it
+                assetsTextureSize(assetsTex, reg->diskWidth, reg->diskHeight);
+                reg->diskWidth = (sword)assetsTex->outWidth;
+                reg->diskHeight = (sword)assetsTex->outHeight;
             }
             //only pending textures get here (CAT: see above; HW1: pending and pre-loaded)
             dbgAssertOrIgnore(trAllocated(index));
