@@ -158,6 +158,7 @@ src_game = files('AIAttackMan.c',
                  'Types.c',
                  'UIControls.c',
                  'UiScaleTest.c',         # HWI-TEST (M3-R1 ui-scale): /catUiScaleTest
+                 'VideoLayoutTest.c',     # HWI-TEST (video-layout): /catVideoLayoutTest
                  'Undo.c',
                  'Universe.c',
                  'UnivUpdate.c',

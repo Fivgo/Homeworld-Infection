@@ -118,6 +118,11 @@
 # 200%), with alpha; the game's panels, buttons and text are drawn over it. The folder's README.txt and .ora files (GIMP,
 # with layers: the game's art and an empty layer to paint on) say how. Delete the PNG for the original look.
 #
+# The Escape menu's Video screen (HWI-FEATURE(video-layout), docs/features/video-layout.md): laid out again, the sliders
+# inside their boxes, FULL DETAIL on its own row, TEXTURE INFO centred, UI SCALE with SMOOTH MOTION under NUMBER OF
+# EFFECTS; the main menu's Video screen keeps cataclysm.exe's layout.
+#   switch              -- /exeVideoLayout   (this run only: the screen as cataclysm.exe's file lays it out, for an A/B)
+#
 # Hyperspace of a modular ship (M3-R2, the Kuun-Lan): the gate is sized as cataclysm.exe sizes it (the .shp's
 # hyperspaceBoxScale: 6x the spine for the Kuun-Lan, so it spans the whole ship) and the modules are never cut away
 # after the jump (the M3-R1 builds cut the back modules for ~1 s at the end of an arrival and while a departure began).

@@ -2746,6 +2746,221 @@ void opUiScaleAtomsAdd(fibfileheader *header)                           // HWI-F
     }                                                                   // HWI-FEATURE(ui-scale)
 }                                                                       // HWI-FEATURE(ui-scale)
 
+/*-----------------------------------------------------------------------------
+    HWI-FEATURE(video-layout): the Escape menu's Video screen (in_game_esc_menu.fib "Video") laid out again when its
+    file is loaded, at the user's request (2026-10-31: "while in a mission, can we shift the position of the UI scale
+    settings to be next to the smooth motion toggle? we also need to shift the slider for in game brightness to the
+    right so that it fits inside the box. Model detail also need a similar adjustment. We need to center the texture
+    info button to the center of the texture memory box and ensure that these changes are compatible with any
+    resolution"). These are deliberate departures from cataclysm.exe, which draws the file's layout the same way
+    (docs/features/screen-background.md "The exe's own overlaps"); the front end's Video_Options keeps the exe's.
+    The positions are the file's 640x480 coordinates (loadedX / loadedY): the loader centres them as every atom
+    (feResRepositionCentredX / Y) and a relayout centres them again from loaded* (feAllScreensReposition), so they
+    hold at every window size and UI scale.
+    - The sliders: ferDrawHorizSlider draws the rail 11 beyond the slider's rectangle on each side (the end caps at
+      x0 - 12 and x1 - 4), and the file puts the rectangles flush with their boxes' rectangles, so each rail ran over
+      its box's frame (drawn 7 outside the box's rectangle). opVlSliderFit moves the slider right until the rail starts
+      at the box's left edge, and narrows it only if the rail would pass the box's right edge; the labels under its
+      ends (LO / HI, BEST FRAMERATE / BEST DETAIL) keep their offsets from the slider's ends. A click maps through the
+      slider's own rectangle (SetHSliderValue: max * (x - x0) / (x1 - x0), the press clipping the mouse to it) and
+      the knob is drawn from the same rectangle, so its ends stay 0 and max.
+    - MODEL DETAIL: FULL DETAIL (the file has the label on the box's top border and the box at the slider's end) on a
+      row of its own under BEST FRAMERATE, box left of the text as the screens' radio buttons read, its click area
+      spanning the label; the box 21 taller to hold the row (the gap to TEXTURE MEMORY then IN GAME BRIGHTNESS ->
+      MODEL QUALITY's).
+    - TEXTURE MEMORY: 2 lower for that row, TEXTURE INFO centred in its box (the file has it at the box's right end).
+    - The right column: EFFECTS and NUMBER OF EFFECTS 22 up (the EFFECTS title on IN GAME BRIGHTNESS's row, its box's
+      top on that box's top), and the mod's UI SCALE (title, two rows of two) with SMOOTH MOTION as one block under
+      NUMBER OF EFFECTS: the title 11 under that box (as MODEL QUALITY's under IN GAME BRIGHTNESS's), the EFFECTS radio
+      buttons' title-to-row 20 and row pitch 19, SMOOTH MOTION 21 under the second row, clear of ACCEPT.
+    - Its own item (the user did not name it): NUMBER OF EFFECTS' slider is wider than its box with the rail, so the
+      fit narrows it (138 -> 116); its LO / HI follow the ends.
+    The atoms are found by type, name or text and the file's position: a screen that differs is left as it is (one
+    "videolayout:" line). /exeVideoLayout (this run only) leaves the screen as the file has it, with UI SCALE and
+    SMOOTH MOTION where they were before this layout.
+----------------------------------------------------------------------------*/
+bool32 opVideoLayoutExe = FALSE;                                        // HWI-FEATURE(video-layout): /exeVideoLayout
+
+#define OP_SLIDER_OVERHANG  11                                          // HWI-FEATURE(video-layout): the rail past each end of the rectangle
+
+static featom *opVlFind(fescreen *screen, ubyte type, char *name, char *text, sword x, sword y, sdword *missing)   // HWI-FEATURE(video-layout)
+{                                                                       // HWI-FEATURE(video-layout)
+    sdword i;                                                           // HWI-FEATURE(video-layout)
+                                                                        // HWI-FEATURE(video-layout)
+    for (i = 0; i < screen->nAtoms; i++)                                // HWI-FEATURE(video-layout)
+    {                                                                   // HWI-FEATURE(video-layout)
+        featom *atom = &screen->atoms[i];                               // HWI-FEATURE(video-layout)
+                                                                        // HWI-FEATURE(video-layout)
+        if (atom->type != type || atom->loadedX != x || atom->loadedY != y)   // HWI-FEATURE(video-layout)
+        {                                                               // HWI-FEATURE(video-layout)
+            continue;                                                   // HWI-FEATURE(video-layout)
+        }                                                               // HWI-FEATURE(video-layout)
+        if (name != NULL && (atom->name == NULL || strcmp(atom->name, name) != 0))   // HWI-FEATURE(video-layout)
+        {                                                               // HWI-FEATURE(video-layout)
+            continue;                                                   // HWI-FEATURE(video-layout)
+        }                                                               // HWI-FEATURE(video-layout)
+        if (text != NULL && (atom->pData == NULL || strcmp((char *)atom->pData, text) != 0))   // HWI-FEATURE(video-layout)
+        {                                                               // HWI-FEATURE(video-layout)
+            continue;                                                   // HWI-FEATURE(video-layout)
+        }                                                               // HWI-FEATURE(video-layout)
+        return atom;                                                    // HWI-FEATURE(video-layout)
+    }                                                                   // HWI-FEATURE(video-layout)
+    dbgMessagef("videolayout: %s: no %s '%s' at %d,%d", screen->name, (text != NULL) ? "text" : "atom",   // HWI-FEATURE(video-layout)
+                (text != NULL) ? text : ((name != NULL) ? name : "(box)"), (int)x, (int)y);   // HWI-FEATURE(video-layout)
+    (*missing)++;                                                       // HWI-FEATURE(video-layout)
+    return NULL;                                                        // HWI-FEATURE(video-layout)
+}                                                                       // HWI-FEATURE(video-layout)
+
+// to (x, y) of the file's layout, keeping the screen's centring (x - loadedX)
+static void opVlMove(featom *atom, sdword x, sdword y)                  // HWI-FEATURE(video-layout)
+{                                                                       // HWI-FEATURE(video-layout)
+    atom->x = (sword)(atom->x + x - atom->loadedX);                     // HWI-FEATURE(video-layout)
+    atom->y = (sword)(atom->y + y - atom->loadedY);                     // HWI-FEATURE(video-layout)
+    atom->loadedX = (sword)x;                                           // HWI-FEATURE(video-layout)
+    atom->loadedY = (sword)y;                                           // HWI-FEATURE(video-layout)
+}                                                                       // HWI-FEATURE(video-layout)
+
+static void opVlSize(featom *atom, sdword width, sdword height)         // HWI-FEATURE(video-layout)
+{                                                                       // HWI-FEATURE(video-layout)
+    atom->width = atom->loadedWidth = (sword)width;                     // HWI-FEATURE(video-layout)
+    atom->height = atom->loadedHeight = (sword)height;                  // HWI-FEATURE(video-layout)
+}                                                                       // HWI-FEATURE(video-layout)
+
+// the slider's drawn rail inside its box's rectangle (above); lo / hi keep their offsets from x0 / x1
+static void opVlSliderFit(featom *slider, featom *box, featom *lo, featom *hi)   // HWI-FEATURE(video-layout)
+{                                                                       // HWI-FEATURE(video-layout)
+    sdword x0 = box->loadedX + OP_SLIDER_OVERHANG, width = slider->loadedWidth;   // HWI-FEATURE(video-layout)
+    sdword right = box->loadedX + box->loadedWidth - OP_SLIDER_OVERHANG, dx0, dx1;   // HWI-FEATURE(video-layout)
+                                                                        // HWI-FEATURE(video-layout)
+    if (x0 + width > right)                                             // HWI-FEATURE(video-layout)
+    {                                                                   // HWI-FEATURE(video-layout)
+        width = right - x0;                     // HWI-FEATURE(video-layout): narrower: the ends still map to 0 and max
+    }                                                                   // HWI-FEATURE(video-layout)
+    dx0 = x0 - slider->loadedX;                                         // HWI-FEATURE(video-layout)
+    dx1 = (x0 + width) - (slider->loadedX + slider->loadedWidth);       // HWI-FEATURE(video-layout)
+    opVlMove(slider, x0, slider->loadedY);                              // HWI-FEATURE(video-layout)
+    opVlSize(slider, width, slider->loadedHeight);                      // HWI-FEATURE(video-layout)
+    opVlMove(lo, lo->loadedX + dx0, lo->loadedY);                       // HWI-FEATURE(video-layout)
+    opVlMove(hi, hi->loadedX + dx1, hi->loadedY);                       // HWI-FEATURE(video-layout)
+}                                                                       // HWI-FEATURE(video-layout)
+
+static void opVideoLayoutApply(fescreen *screen)                        // HWI-FEATURE(video-layout)
+{                                                                       // HWI-FEATURE(video-layout)
+    sdword i, n = 0, missing = 0, title, row1, row2, x, y;              // HWI-FEATURE(video-layout)
+    featom *right[16];                                                  // HWI-FEATURE(video-layout)
+    // the file's atoms
+    featom *brightSlider = opVlFind(screen, FA_HorizSlider, "OP_Brightness", NULL, 123, 118, &missing);   // HWI-FEATURE(video-layout)
+    featom *brightBox    = opVlFind(screen, 0, NULL, NULL, 123, 118, &missing);   // HWI-FEATURE(video-layout)
+    featom *brightLo     = opVlFind(screen, FA_StaticText, NULL, "LO", 120, 135, &missing);   // HWI-FEATURE(video-layout)
+    featom *brightHi     = opVlFind(screen, FA_StaticText, NULL, "HI", 249, 135, &missing);   // HWI-FEATURE(video-layout)
+    featom *detailSlider = opVlFind(screen, FA_HorizSlider, "OP_Detail_Threshold", NULL, 125, 226, &missing);   // HWI-FEATURE(video-layout)
+    featom *detailBox    = opVlFind(screen, 0, NULL, NULL, 125, 226, &missing);   // HWI-FEATURE(video-layout)
+    featom *detailLo     = opVlFind(screen, FA_StaticText, NULL, "BEST FRAMERATE", 123, 243, &missing);   // HWI-FEATURE(video-layout)
+    featom *detailHi     = opVlFind(screen, FA_StaticText, NULL, "BEST DETAIL", 231, 243, &missing);   // HWI-FEATURE(video-layout)
+    featom *noLod        = opVlFind(screen, FA_CheckBox, "OP_NoLOD", NULL, 294, 227, &missing);   // HWI-FEATURE(video-layout)
+    featom *noLodText    = opVlFind(screen, FA_StaticText, NULL, "FULL DETAIL", 294, 215, &missing);   // HWI-FEATURE(video-layout)
+    featom *texTitle     = opVlFind(screen, FA_StaticText, NULL, "TEXTURE MEMORY", 118, 281, &missing);   // HWI-FEATURE(video-layout)
+    featom *texBox       = opVlFind(screen, 0, NULL, NULL, 125, 302, &missing);   // HWI-FEATURE(video-layout)
+    featom *texButton    = opVlFind(screen, FA_Button, "Video-TO-InGameVideo_Explanation", NULL, 206, 298, &missing);   // HWI-FEATURE(video-layout)
+    featom *texText      = opVlFind(screen, FA_StaticText, NULL, "TEXTURE &INFO", 224, 307, &missing);   // HWI-FEATURE(video-layout)
+    featom *numBox       = opVlFind(screen, 0, NULL, NULL, 382, 257, &missing);   // HWI-FEATURE(video-layout)
+    featom *numSlider    = opVlFind(screen, FA_HorizSlider, "OP_NumEffects", NULL, 382, 257, &missing);   // HWI-FEATURE(video-layout)
+    featom *numLo        = opVlFind(screen, FA_StaticText, NULL, "LO", 379, 274, &missing);   // HWI-FEATURE(video-layout)
+    featom *numHi        = opVlFind(screen, FA_StaticText, NULL, "HI", 490, 274, &missing);   // HWI-FEATURE(video-layout)
+    // the mod's controls (opUiScaleAtomsAdd, opSmoothMotionAtomsAdd)
+    featom *uiTitle      = opVlFind(screen, FA_StaticText, NULL, "UI SCALE", 373, 51, &missing);   // HWI-FEATURE(video-layout)
+    featom *smooth       = opVlFind(screen, FA_CheckBox, "OP_SmoothMotion", NULL, 379, 306, &missing);   // HWI-FEATURE(video-layout)
+    featom *smoothText   = opVlFind(screen, FA_StaticText, NULL, "SMOOTH MOTION", 399, 308, &missing);   // HWI-FEATURE(video-layout)
+    featom *uiRadio[4], *uiText[4];                                     // HWI-FEATURE(video-layout)
+    static sword uiX[4] = { 379, 449, 379, 449 }, uiY[4] = { 70, 70, 89, 89 };   // HWI-FEATURE(video-layout)
+    static char *uiLabel[4] = { "AUTO", "100%", "150%", "200%" };       // HWI-FEATURE(video-layout)
+                                                                        // HWI-FEATURE(video-layout)
+    for (i = 0; i < 4; i++)                                             // HWI-FEATURE(video-layout)
+    {                                                                   // HWI-FEATURE(video-layout)
+        uiRadio[i] = opVlFind(screen, FA_RadioButton, "OP_UiScale", NULL, uiX[i], uiY[i], &missing);   // HWI-FEATURE(video-layout)
+        uiText[i] = opVlFind(screen, FA_StaticText, NULL, uiLabel[i], (sword)(uiX[i] + OP_ROW_LABEL_DX),   // HWI-FEATURE(video-layout)
+                             (sword)(uiY[i] + OP_ROW_LABEL_DY), &missing);   // HWI-FEATURE(video-layout)
+    }                                                                   // HWI-FEATURE(video-layout)
+    // the right column above them: EFFECTS (title, box, three radio buttons and labels, CUSTOM EFFECTS and its text)
+    // and NUMBER OF EFFECTS (title, box, slider, LO, HI)
+    right[n++] = opVlFind(screen, FA_StaticText, NULL, "EFFECTS", 373, 119, &missing);   // HWI-FEATURE(video-layout)
+    right[n++] = opVlFind(screen, 0, NULL, NULL, 380, 140, &missing);   // HWI-FEATURE(video-layout)
+    right[n++] = opVlFind(screen, FA_RadioButton, "OP_Effects", NULL, 379, 139, &missing);   // HWI-FEATURE(video-layout)
+    right[n++] = opVlFind(screen, FA_RadioButton, "OP_Effects", NULL, 379, 158, &missing);   // HWI-FEATURE(video-layout)
+    right[n++] = opVlFind(screen, FA_RadioButton, "OP_Effects", NULL, 379, 177, &missing);   // HWI-FEATURE(video-layout)
+    right[n++] = opVlFind(screen, FA_StaticText, NULL, "HIGH", 399, 141, &missing);   // HWI-FEATURE(video-layout)
+    right[n++] = opVlFind(screen, FA_StaticText, NULL, "LOW", 399, 160, &missing);   // HWI-FEATURE(video-layout)
+    right[n++] = opVlFind(screen, FA_StaticText, NULL, "CUSTOM", 399, 179, &missing);   // HWI-FEATURE(video-layout)
+    right[n++] = opVlFind(screen, FA_Button, "Video-TO-Custom_options", NULL, 375, 195, &missing);   // HWI-FEATURE(video-layout)
+    right[n++] = opVlFind(screen, FA_StaticText, NULL, "CUSTOM &EFFECTS", 388, 203, &missing);   // HWI-FEATURE(video-layout)
+    right[n++] = opVlFind(screen, FA_StaticText, NULL, "NUMBER OF EFFECTS", 373, 236, &missing);   // HWI-FEATURE(video-layout)
+    right[n++] = numBox;                                                // HWI-FEATURE(video-layout)
+    right[n++] = numSlider;                                             // HWI-FEATURE(video-layout)
+    right[n++] = numLo;                                                 // HWI-FEATURE(video-layout)
+    right[n++] = numHi;                                                 // HWI-FEATURE(video-layout)
+    if (missing > 0)                                                    // HWI-FEATURE(video-layout)
+    {                                                                   // HWI-FEATURE(video-layout)
+        dbgMessagef("videolayout: %s: %d atoms not where the install's file has them: the screen left as it is",   // HWI-FEATURE(video-layout)
+                    screen->name, (int)missing);                        // HWI-FEATURE(video-layout)
+        return;                                                         // HWI-FEATURE(video-layout)
+    }                                                                   // HWI-FEATURE(video-layout)
+                                                                        // HWI-FEATURE(video-layout)
+    // the right column 22 up
+    for (i = 0; i < n; i++)                                             // HWI-FEATURE(video-layout)
+    {                                                                   // HWI-FEATURE(video-layout)
+        opVlMove(right[i], right[i]->loadedX, right[i]->loadedY - 22);  // HWI-FEATURE(video-layout)
+    }                                                                   // HWI-FEATURE(video-layout)
+    // the sliders' rails inside their boxes
+    opVlSliderFit(brightSlider, brightBox, brightLo, brightHi);         // HWI-FEATURE(video-layout)
+    opVlSliderFit(detailSlider, detailBox, detailLo, detailHi);         // HWI-FEATURE(video-layout)
+    opVlSliderFit(numSlider, numBox, numLo, numHi);   // HWI-FEATURE(video-layout): its own item: narrowed into its box
+    // MODEL DETAIL: FULL DETAIL's row under BEST FRAMERATE, inside a box 21 taller
+    opVlSize(detailBox, detailBox->loadedWidth, detailBox->loadedHeight + 21);   // HWI-FEATURE(video-layout)
+    opVlMove(noLod, detailLo->loadedX, detailLo->loadedY + 12);         // HWI-FEATURE(video-layout)
+    opVlSize(noLod, OP_ROW_LABEL_DX + OP_SMOOTH_LABEL_W, noLod->loadedHeight);   // HWI-FEATURE(video-layout)
+    opVlMove(noLodText, noLod->loadedX + OP_ROW_LABEL_DX, noLod->loadedY + OP_ROW_LABEL_DY);   // HWI-FEATURE(video-layout)
+    // TEXTURE MEMORY: 2 lower, TEXTURE INFO (and its text) centred in the box
+    opVlMove(texTitle, texTitle->loadedX, texTitle->loadedY + 2);       // HWI-FEATURE(video-layout)
+    opVlMove(texBox, texBox->loadedX, texBox->loadedY + 2);             // HWI-FEATURE(video-layout)
+    x = texBox->loadedX + (texBox->loadedWidth - texButton->loadedWidth) / 2;   // HWI-FEATURE(video-layout)
+    y = texBox->loadedY + (texBox->loadedHeight - texButton->loadedHeight) / 2;   // HWI-FEATURE(video-layout)
+    opVlMove(texText, texText->loadedX + x - texButton->loadedX, texText->loadedY + y - texButton->loadedY);   // HWI-FEATURE(video-layout)
+    opVlMove(texButton, x, y);                                          // HWI-FEATURE(video-layout)
+    // UI SCALE and SMOOTH MOTION, one block under NUMBER OF EFFECTS
+    title = numBox->loadedY + numBox->loadedHeight + 11;                // HWI-FEATURE(video-layout)
+    row1 = title + 20;                                                  // HWI-FEATURE(video-layout)
+    row2 = row1 + 19;                                                   // HWI-FEATURE(video-layout)
+    opVlMove(uiTitle, uiTitle->loadedX, title);                         // HWI-FEATURE(video-layout)
+    for (i = 0; i < 4; i++)                                             // HWI-FEATURE(video-layout)
+    {                                                                   // HWI-FEATURE(video-layout)
+        y = (i < 2) ? row1 : row2;                                      // HWI-FEATURE(video-layout)
+        opVlMove(uiRadio[i], uiRadio[i]->loadedX, y);                   // HWI-FEATURE(video-layout)
+        opVlMove(uiText[i], uiText[i]->loadedX, y + OP_ROW_LABEL_DY);   // HWI-FEATURE(video-layout)
+    }                                                                   // HWI-FEATURE(video-layout)
+    opVlMove(smooth, smooth->loadedX, row2 + 21);                       // HWI-FEATURE(video-layout)
+    opVlMove(smoothText, smoothText->loadedX, smooth->loadedY + OP_ROW_LABEL_DY);   // HWI-FEATURE(video-layout)
+    dbgMessagef("videolayout: %s: sliders in their boxes (IN GAME BRIGHTNESS x %d, MODEL DETAIL x %d, NUMBER OF EFFECTS "   // HWI-FEATURE(video-layout)
+                "x %d w %d), FULL DETAIL at %d,%d, TEXTURE INFO at %d,%d, EFFECTS at %d, UI SCALE at %d, SMOOTH MOTION "   // HWI-FEATURE(video-layout)
+                "at %d", screen->name, (int)brightSlider->loadedX, (int)detailSlider->loadedX, (int)numSlider->loadedX,   // HWI-FEATURE(video-layout)
+                (int)numSlider->loadedWidth, (int)noLod->loadedX, (int)noLod->loadedY, (int)texButton->loadedX,   // HWI-FEATURE(video-layout)
+                (int)texButton->loadedY, (int)right[0]->loadedY, (int)title, (int)smooth->loadedY);   // HWI-FEATURE(video-layout)
+}                                                                       // HWI-FEATURE(video-layout)
+
+// called for every loaded .fib (FEFlow.c feScreensImageLoad), after the UI SCALE buttons and the SMOOTH MOTION checkbox
+void opVideoLayoutAtomsAdd(fibfileheader *header)                       // HWI-FEATURE(video-layout)
+{                                                                       // HWI-FEATURE(video-layout)
+    fescreen *screen = (fescreen *)((ubyte *)header + FIB_ScreensOffset);   // HWI-FEATURE(video-layout)
+    sdword i;                                                           // HWI-FEATURE(video-layout)
+                                                                        // HWI-FEATURE(video-layout)
+    for (i = 0; !opVideoLayoutExe && i < header->nScreens; i++, screen++)   // HWI-FEATURE(video-layout)
+    {                                                                   // HWI-FEATURE(video-layout)
+        if (strcmp(screen->name, "Video") == 0)                         // HWI-FEATURE(video-layout)
+        {                                                               // HWI-FEATURE(video-layout)
+            opVideoLayoutApply(screen);                                 // HWI-FEATURE(video-layout)
+        }                                                               // HWI-FEATURE(video-layout)
+    }                                                                   // HWI-FEATURE(video-layout)
+}                                                                       // HWI-FEATURE(video-layout)
+
 void opDetailThreshold(char* name, featom* atom)
 {
     udword f;
