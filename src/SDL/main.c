@@ -1368,9 +1368,10 @@ commandoption commandOptions[] =
     // CAT: the exe's name of that switch (row 0x008b88e8, cat_mainPrependPathSet 0x0055f3d0)
     entryFnParam("/prepath",        cat_mainPrependPathSet,             " <path> - Sets path to search for opening files."),
     entryFnParam("/CDpath",         cat_mainCDROMPathSet,               " <path> - Sets path to CD-ROM in case of ambiguity."),
-    entryFnParam("/settingspath",   fileUserSettingsPathSet,            " <path> - Sets the path to store settings, saved games, and screenshots (defaults to ~/.homeworld)."),
+    entryFnParam("/settingspath",   fileUserSettingsPathSet,            " <path> - Sets the path to store settings and saved games (defaults to ~/.homeworld)."),
+    entryFnParam("/userFilesPath",  fileUserFilesPathSet,               " <path> - Sets the visible folder for your own files: Assets (textures, screen pictures) and Screenshots (defaults to Documents/Homeworld Infection)."),   // HWI-FEATURE(user-files)
     // HWI-FEATURE(assets-folder): docs/features/assets-folder.md
-    entryFnParam("/assetsPath",     assetsPathSet,                      " <path> - Sets the Assets folder (default: Assets in the settings folder)."),
+    entryFnParam("/assetsPath",     assetsPathSet,                      " <path> - Sets the Assets folder (default: Assets in the user-files folder, see /userFilesPath)."),
     entryFn("/noAssets",            assetsOffSet,                       " - Ignores the Assets folder."),
 #if MAIN_MOUSE_FREE
 #ifdef HW_BUILD_FOR_DEBUGGING
@@ -1658,7 +1659,7 @@ commandoption commandOptions[] =
     entryFnParam("/catFeScreen",        CatFeScreenSet, " <screen>[@<tick>] - test: a front-end screen pushed once (in the front end, or in game at the tick)."),   // HWI-TEST
     entryFnParam("/catFeClick",         CatFeClickSet, " <atom>[@<tick>] - test: a click on the top front-end screen's atom of that name once it is shown (in game from the tick): a check box changes state, then its callback runs."),   // HWI-TEST
     entryFnParam("/catScreenBgExport",  CatScreenBgExportSet, " <screen> - test: once that front-end screen is shown, write its art and its controls read back at the physical scale (<screen>-reference.png, <screen>-controls.png, <screen>.ora for GIMP, README.txt; see /catScreenBgDir), then exit."),   // HWI-TEST (screen-background)
-    entryFnParam("/catScreenBgDir",     CatScreenBgDirSet, " <dir> - test: the folder /catScreenBgExport writes to (default: the settings folder's Assets/feman/backgrounds)."),   // HWI-TEST (screen-background)
+    entryFnParam("/catScreenBgDir",     CatScreenBgDirSet, " <dir> - test: the folder /catScreenBgExport writes to (default: the Assets folder's feman/backgrounds)."),   // HWI-TEST (screen-background)
     entryFnParam("/catModeQuitTest",    CatModeQuitTestSet, " <W>x<H> - test: once the front end is up, the Video screen's render switch to that resolution, then one quit."),   // HWI-TEST
     entryFnParam("/frameLog",           FrameLogSet, " <file> - test: one line a second to <file>: frame-time percentiles, frames over the refresh interval, universe ticks and their cost, the main heap, the vertices drawn."),   // HWI-TEST
     entryFnParam("/catLodStats",        CatLodStatsSet, " <from>-<to>[:fleet] - per frame of those universe ticks: the render time (to the flip, glFinish), the objects and the mesh vertices and polygons drawn (\"lodstats:\" lines, the median and 99th percentile at the end)."),   // HWI-TEST

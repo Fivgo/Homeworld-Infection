@@ -1,5 +1,9 @@
 # Copyrighted game binaries and extracted game data: never commit
 original/
+# The user folder of tools/play.sh (HWI-FEATURE(user-files)): the textures exported from the game (copyrighted art)
+# and the game's screenshots, at the top of the checkout so they are easy to find; never commit
+/Assets/
+/Screenshots/
 # Third-party reference clones (separate repos)
 /reference/
 # Ghidra projects and exports

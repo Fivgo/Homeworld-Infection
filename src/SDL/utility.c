@@ -76,6 +76,7 @@
 #include "Randy.h"
 #include "regkey.h"
 #include "datasetup.h"                                    // HWI-FEATURE(data-setup)
+#define HWI_USER_FILES_DIR  "Homeworld Infection"         // HWI-FEATURE(user-files): the folder in Documents
 #include "render.h"
 #include "ResearchAPI.h"
 #include "ResearchGUI.h"
@@ -4059,6 +4060,29 @@ char* utyGameSystemsPreInit(void)
 		}
 #endif
 	}
+
+    // HWI-FEATURE(user-files) (the user, 2026-10-31: "keep everything that can be intentionally edited by the user, in
+    //      viewable space"): the player's own files (the Assets folder with the screen pictures, the screenshots) go
+    //      in a visible folder, Documents/Homeworld Infection, not in the hidden settings folder (~/.homeworld,
+    //      %APPDATA%, ~/Library); /userFilesPath sets another (tools/play.sh: the project folder)
+    if (fileUserFilesPath[0] == '\0')
+    {
+        char documents[PATH_MAX];
+
+        if (dsDocumentsDir(documents, sizeof(documents)))
+        {
+#ifdef _WIN32
+            snprintf(filePathTempBuffer, PATH_MAX, "%s\\" HWI_USER_FILES_DIR, documents);
+#else
+            snprintf(filePathTempBuffer, PATH_MAX, "%s/" HWI_USER_FILES_DIR, documents);
+#endif
+            fileUserFilesPathSet(filePathTempBuffer);
+        }
+        else
+        {
+            fileUserFilesPathSet(fileUserSettingsPath);     // no Documents folder (no HOME): the settings folder
+        }
+    }
 
     // CD-ROM path
     if (fileCDROMPath[0] == '\0')

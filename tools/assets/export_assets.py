@@ -7,9 +7,9 @@ Usage:
   tools/assets/export_assets.py --refresh [--out DIR]     re-stamp files whose content is still as exported
                                                           (after a copy that lost the file times)
 
-Default --out: original/play-home/.homeworld/Assets (the settings folder of tools/play.sh). The game's own Assets
-folder is <settings folder>/Assets: ~/.homeworld/Assets on Linux, %APPDATA%\\Homeworld-Infection\\Assets on Windows,
-~/Library/Application Support/Homeworld-Infection/Assets on macOS.
+Default --out: Assets at the top of the main checkout (the user folder of tools/play.sh, HWI-FEATURE(user-files)).
+A player's game reads Documents/Homeworld Infection/Assets on Windows, Linux and macOS (a visible folder, never the
+hidden settings folder); the engine switch /userFilesPath <dir> moves it, /assetsPath <dir> points at another.
 
 Default source: the extracted archives original/game_extracted/{cataclysm,update} (update.big first, as the game
 reads them); --game DIR reads cataclysm.big / update.big of a game folder instead (unpacked into a temporary folder,
@@ -52,7 +52,7 @@ REPO = os.path.abspath(os.path.join(HERE, '..', '..'))
 # a worktree (.claude/worktrees/<name>) has no original/: use the main checkout's, as tools/play.sh does
 MAIN = REPO if os.path.isdir(os.path.join(REPO, 'original', 'game')) else \
     os.path.abspath(os.path.join(REPO, '..', '..', '..'))
-DEF_OUT = os.path.join(MAIN, 'original', 'play-home', '.homeworld', 'Assets')
+DEF_OUT = os.path.join(MAIN, 'Assets')     # HWI-FEATURE(user-files): visible, gitignored
 DEF_DATA = os.path.join(MAIN, 'original', 'game_extracted', 'cataclysm')
 DEF_UPDATE = os.path.join(MAIN, 'original', 'game_extracted', 'update')
 MANIFEST = 'assets-manifest.txt'

@@ -1474,6 +1474,33 @@ static int dsDownloadsDir(char *out, size_t size)
 }
 #endif
 
+// HWI-FEATURE(user-files): the player's Documents folder, where utyGameSystemsPreInit puts the visible
+//      "Homeworld Infection" folder (Assets, Screenshots). Windows: the Documents known folder (it may be in OneDrive);
+//      Linux: XDG_DOCUMENTS_DIR of user-dirs.dirs, else ~/Documents; macOS: ~/Documents
+int dsDocumentsDir(char *out, int size)
+{
+#ifdef _WIN32
+    static const GUID dsFOLDERID_Documents = { 0xfdd39ad0, 0x238f, 0x46af, { 0xad, 0xb4, 0x6c, 0x85, 0x48, 0x03, 0x69, 0xc7 } };
+
+    return dsKnownFolder(&dsFOLDERID_Documents, out, (size_t)size);
+#else
+    const char *home = getenv("HOME");
+
+#ifndef __APPLE__
+    if (dsXdgUserDir("DOCUMENTS", out, (size_t)size))
+    {
+        return 1;
+    }
+#endif
+    if (home == NULL || home[0] == '\0')
+    {
+        return 0;
+    }
+    snprintf(out, (size_t)size, "%s/Documents", home);
+    return 1;
+#endif
+}
+
 static int dsPickFolder(char *out, size_t size)
 {
 #ifdef _WIN32

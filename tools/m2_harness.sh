@@ -569,8 +569,11 @@
 #                    never warped or grabbed; the real GLX driver path (the NVIDIA driver under Xwayland), e.g. a mode
 #                    switch: --mode modequit --res 2560x1600 --mode-to 3840x2160 --hidden-x11. Silent like every run
 #   --settings-file SRC:REL  any mode, repeatable (HWI-FEATURE(screen-background)): copies the file SRC into the run's
-#                    fresh settings dir (the engine's settings folder, /settingspath) as REL, before the start, e.g.
-#                    --settings-file pic.png:Assets/feman/backgrounds/Video_Options.png (a picture behind that screen)
+#                    fresh settings dir (the engine's settings folder, /settingspath) as REL, before the start
+#   --user-file SRC:REL  any mode, repeatable (HWI-FEATURE(user-files)): copies the file SRC into the run's fresh user
+#                    folder <run>/user (the engine's /userFilesPath, which every run passes, so a run never reads the
+#                    user's Documents/Homeworld Infection or the project's Assets/) as REL, e.g.
+#                    --user-file pic.png:Assets/feman/backgrounds/Video_Options.png (a picture behind that screen)
 #   --data DIR       HW_Data dir to use instead of the harness data dir. ONLY for isolation runs of one item while
 #                    other stage-1 items are still missing; the summary prints it, and such a run is never the gate.
 #   --bin PATH       engine binary (default build/debug/hwi-engine)
@@ -641,7 +644,7 @@ conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0; mtmission=1; sav
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""; skticks=600; skmap=LiveFireExercise2
 warplevel=10; savesrc=""; training=0; recordname=""; recordstop=""; skbigotry=""; failjump=0
 shotspec=""; shotlb=0; res=""; cfgrows=(); teamcolour=0; lodtest=""; lodstats=""; scene=""; realclock=""
-modeto=1280x720; framelog=0; framesig=0; anyfps=""; resizeat=""; hiddenx11=0; setfiles=()
+modeto=1280x720; framelog=0; framesig=0; anyfps=""; resizeat=""; hiddenx11=0; setfiles=(); userfiles=()
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -689,6 +692,7 @@ while [[ $# -gt 0 ]]; do
 		--resize-at) resizeat=$2; shift ;;   # M3-R4 window-modes
 		--cfg) cfgrows+=("$2"); shift ;;
 		--settings-file) setfiles+=("$2"); shift ;;   # HWI-FEATURE(screen-background)
+		--user-file) userfiles+=("$2"); shift ;;      # HWI-FEATURE(user-files)
 		--player-colours)
 			[[ "$2" =~ ^([0-9a-fA-F]{8})/([0-9a-fA-F]{8})$ ]] || { echo "m2_harness: --player-colours wants BASE/STRIPE (8 hex digits each)" >&2; exit 2; }
 			pcb=$(( 16#${BASH_REMATCH[1]} )); pcs=$(( 16#${BASH_REMATCH[2]} ))
@@ -719,6 +723,13 @@ for sf in "${setfiles[@]}"; do                     # HWI-FEATURE(screen-backgrou
 	mkdir -p "$out/settings/$(dirname -- "${sf#*:}")"
 	cp -f -- "${sf%%:*}" "$out/settings/${sf#*:}"
 done
+mkdir -p "$out/user"
+for uf in "${userfiles[@]}"; do                    # HWI-FEATURE(user-files): --user-file SRC:REL
+	[[ "$uf" == *:* && -f "${uf%%:*}" && -n "${uf#*:}" && "${uf#*:}" != /* && "${uf#*:}" != *..* ]] || \
+		{ echo "m2_harness: --user-file wants SRC:REL (an existing file, a relative path)" >&2; exit 2; }
+	mkdir -p "$out/user/$(dirname -- "${uf#*:}")"
+	cp -f -- "${uf%%:*}" "$out/user/${uf#*:}"
+done
 options_template
 cp -r "$HARNESS/home-template" "$out/home"
 # M3-R1: --res / --cfg rows appended to this run's own copy of the options file (the template stays as it is)
@@ -731,6 +742,8 @@ for row in "${cfgrows[@]}"; do printf '%s\n' "$row" >> "$out/home/.homeworld/Cat
 args=(/window /nodebugInt /logFileLoads /settingspath "$out/settings")
 # a release binary (tools/build.sh --release, the build oracle runs use) has no /logFileLoads switch and rejects it
 grep -q -a "/logFileLoads" "$bin" || args=(/window /nodebugInt /settingspath "$out/settings")
+# HWI-FEATURE(user-files): the run's own user folder (Assets/, Screenshots/), never the user's real one
+grep -q -a -- "/userFilesPath" "$bin" && args+=(/userFilesPath "$out/user")
 [[ "$mode" == sp ]] && args+=(/debugScreenshots)
 [[ "$mode" == statics ]] && args+=(/catShipStaticsTest)
 [[ "$mode" == textures ]] && args+=(/catTexturesTest)

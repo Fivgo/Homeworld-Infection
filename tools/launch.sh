@@ -4,7 +4,8 @@
 #   - the engine is built first when it is missing or older than the source (a notification says so; about a minute);
 #   - a second click while the game runs only says that it is running;
 #   - if the game cannot start, or stops with an error, a dialog says why and where the log is.
-# The settings, saved games and screenshots live in original/play-home (see tools/play.sh); each session's log is
+# The settings and saved games live in original/play-home (see tools/play.sh); the files you edit or look at, Assets/
+# (textures, models, menu pictures) and Screenshots/, are at the top of the project folder; each session's log is
 # original/play-home/logs/play-<date>-<time>.log, and this launcher's own messages go to original/play-home/logs/launch.log.
 # Any arguments are passed to tools/play.sh (e.g. tools/launch.sh -- /noInterp).
 set -uo pipefail

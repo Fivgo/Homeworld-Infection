@@ -77,6 +77,7 @@ char fileOverrideBigPath   [PATH_MAX] = "";
 // the user's personal configuration/private file area
 // (config/screenshots/savegames)
 char fileUserSettingsPath  [PATH_MAX] = "";
+char fileUserFilesPath     [PATH_MAX] = "";   // HWI-FEATURE(user-files): the visible folder for the player's own files (Assets, Screenshots)
 
 // where the CD ROM drive is mounted
 char fileCDROMPath         [PATH_MAX] = "";
@@ -1990,6 +1991,12 @@ bool32 fileOverrideBigPathSet(char *path) {
 
 bool32 fileUserSettingsPathSet(char *path) {
     filePathMaxBufferSet(fileUserSettingsPath, path);
+    return TRUE;
+}
+
+// HWI-FEATURE(user-files): /userFilesPath <dir>; utyGameSystemsPreInit sets Documents/Homeworld Infection otherwise
+bool32 fileUserFilesPathSet(char *path) {
+    filePathMaxBufferSet(fileUserFilesPath, path);
     return TRUE;
 }
 

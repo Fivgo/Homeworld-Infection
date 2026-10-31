@@ -100,6 +100,7 @@ typedef struct {
 
 extern char fileHomeworldDataPath [];
 extern char fileUserSettingsPath  [];
+extern char fileUserFilesPath     [];   // HWI-FEATURE(user-files)
 extern char fileOverrideBigPath   [];
 extern char fileCDROMPath         [];
 extern char filePathTempBuffer    [];
@@ -116,6 +117,7 @@ bool32 fileCDROMPathSet(char *path);
 void fileHomeworldDataPathSet(char *path);
 bool32 fileOverrideBigPathSet(char *path);
 bool32 fileUserSettingsPathSet(char *path);
+bool32 fileUserFilesPathSet(char *path);     // HWI-FEATURE(user-files)
 
 
 //load files directly into memory

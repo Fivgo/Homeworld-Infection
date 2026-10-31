@@ -22,9 +22,10 @@ it seems to be redundant"
   controls sat in. The in-game screens have no fills: the game shows behind them.
 
 ## Design
-- **The file**: `<settings folder>/Assets/feman/backgrounds/<screen name>.png`. The settings folder is
-  `fileUserSettingsPath`: `~/.homeworld` on Linux (or `/settingspath`), `%APPDATA%\Homeworld-Infection` on Windows; the
-  user's development runs use `original/play-home/.homeworld`. The screen names are the `.fib`'s: `Video_Options`
+- **The file**: `<Assets folder>/feman/backgrounds/<screen name>.png`, the Assets folder of
+  `docs/features/assets-folder.md` (`assetsFolderPath`): `Documents/Homeworld Infection/Assets`, a visible folder
+  (HWI-FEATURE(user-files), 2026-10-31; it was first the hidden settings folder's `Assets`); the user's development runs
+  use the project's `Assets/`. The screen names are the `.fib`'s: `Video_Options`
   (Options -> Video in the main menu), `Video` (the Escape menu's Video screen); any other screen works the same way.
   Loaded with stb_image (any PNG stb reads; RGBA). This loader is self-contained: it does not go through the general
   `Assets/` override folder (File.c / texreg.c), which overrides the game's own files by their archive paths.
@@ -50,8 +51,8 @@ it seems to be redundant"
   streams are identical).
 
 ## The picture to paint on (HWI-TEST `/catScreenBgExport`)
-- `/catScreenBgExport <screen>` (and `/catScreenBgDir <dir>`, default the settings folder's
-  `Assets/feman/backgrounds`): once `<screen>` is the top screen (30 frames to settle), four frames are drawn and read
+- `/catScreenBgExport <screen>` (and `/catScreenBgDir <dir>`, default the Assets folder's
+  `feman/backgrounds`): once `<screen>` is the top screen (30 frames to settle), four frames are drawn and read
   back over the layout area at the physical scale: the screen's art only (its panels, boxes, decorative pieces and
   cut-outs; no buttons, text, sliders, lists or user regions: their regions' draws are switched off for two frames), then
   the whole screen, each once over black and once over white (the base region clears the area to the pass's colour, the
@@ -68,10 +69,11 @@ it seems to be redundant"
   `tools/m2_harness.sh <label> --mode fe --res 3840x2160 --timeout 120 -- /catFeScreen Video_Options /catScreenBgExport Video_Options /catScreenBgDir <dir>`
   and for the in-game screen
   `tools/m2_harness.sh <label> --mode sp --res 3840x2160 --timeout 180 -- /catFeScreen Video@60 /catScreenBgExport Video /catScreenBgDir <dir>`.
-- The harness's `--settings-file SRC:REL` copies a file into a run's fresh settings folder (e.g. a test picture as
-  `Assets/feman/backgrounds/Video_Options.png`); the summary prints the "screenbg" lines.
-- The files for the user are game-derived (the game's own art): they live in `original/play-home/.homeworld/Assets/feman/
-  backgrounds/` and are never committed.
+- The harness's `--user-file SRC:REL` copies a file into a run's fresh user folder (every run passes
+  `/userFilesPath <run>/user`), e.g. a test picture as `Assets/feman/backgrounds/Video_Options.png`; the summary prints
+  the "screenbg" lines. (`--settings-file` copies into the settings folder, where the picture is no longer read.)
+- The files for the user are game-derived (the game's own art): they live in the project's `Assets/feman/backgrounds/`
+  (gitignored) and are never committed.
 
 ## How the user paints one (the README.txt next to the files)
 1. Open `Video_Options.ora` in GIMP (File > Open): "Controls guide" (hidden; switch it on to see where the controls

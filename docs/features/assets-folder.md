@@ -13,10 +13,15 @@ updated assets."
 
 ## The folder
 
-`<settings folder>/Assets`: `~/.homeworld/Assets` on Linux, `%APPDATA%\Homeworld-Infection\Assets` on Windows,
-`~/Library/Application Support/Homeworld-Infection/Assets` on macOS (`fileUserSettingsPath`; `/settingspath` moves it).
-The user's development runs (`tools/play.sh`, HOME = `original/play-home`) use `original/play-home/.homeworld/Assets`.
-`/assetsPath <dir>` points a run at another folder (the tests use it); `/noAssets` ignores the folder.
+`Documents/Homeworld Infection/Assets` on Windows, Linux and macOS: the visible user-files folder
+(HWI-FEATURE(user-files), `fileUserFilesPath`; the user, 2026-10-31: "keep everything that can be intentionally edited by
+the user, in viewable space. I want to refrain from causing confusion"). Documents is the Windows Documents known folder
+(it may be in OneDrive), Linux's `XDG_DOCUMENTS_DIR` (else `~/Documents`), macOS's `~/Documents` (macOS asks the player
+once to allow access to Documents). It was first `<settings folder>/Assets`, which is hidden on every system
+(`~/.homeworld`, `%APPDATA%`, `~/Library`). `/userFilesPath <dir>` moves the user-files folder (Assets and Screenshots);
+the user's development runs (`tools/play.sh`) use the project's top folder, so `Homeworld-Infection/Assets` (gitignored).
+`/assetsPath <dir>` points a run at another Assets folder (the tests use it); `/noAssets` ignores the folder (and the
+screen pictures in it).
 
 What the export puts there (`tools/assets/export_assets.py`, below):
 
@@ -93,8 +98,8 @@ paint the source textures with the main OBJ (`Models/<race>/<ship>/<ship>_lod0.o
 ## The export (`tools/assets/export_assets.py`)
 
 ```
-python3 tools/assets/export_assets.py                     # into original/play-home/.homeworld/Assets (about 11 s)
-python3 tools/assets/export_assets.py --out DIR           # another folder (e.g. ~/.homeworld/Assets)
+python3 tools/assets/export_assets.py                     # into the project's Assets/ (about 11 s)
+python3 tools/assets/export_assets.py --out DIR           # another folder (e.g. ~/Documents/Homeworld Infection/Assets)
 python3 tools/assets/export_assets.py --status            # what changed since the export, and what each file replaces
 python3 tools/assets/export_assets.py --refresh           # re-stamp files whose content is as exported
 python3 tools/assets/export_assets.py --game DIR          # read cataclysm.big / update.big of a game folder (unpacked
@@ -108,7 +113,8 @@ python3 tools/assets/export_assets.py --game DIR          # read cataclysm.big /
   into or above `original/gog`, `original/game`, `original/game_extracted`, the harness data folder, the source folders
   or any folder holding `cataclysm.big`. It never writes into `feman/backgrounds/`.
 - A re-export writes only files whose content changed (the others keep their time, so they stay inactive).
-- The export of 2026-10-31 into `original/play-home/.homeworld/Assets` (11 s): 25,413 files, 81.2 MB (161 MB on disk):
+- The export of 2026-10-31 (made into `original/play-home/.homeworld/Assets`, moved with its file times to the
+  project's `Assets/` the same day) (11 s): 25,413 files, 81.2 MB (161 MB on disk):
   12,096 texture PNGs (11,060 of them paletted in the game, 1,036 RGBA, 182 not a power of two; 3,156 from their
   `textures.ll` parent) and 10,364 team masks, 127 `.jpg` / `.tga`, 1,412 OBJ + 1,412 MTL for 158 ships, 702 pages with
   2,874 placements in `assets-pages.txt`; the 7 files already in `feman/backgrounds/` were left as they were.

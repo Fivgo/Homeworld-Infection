@@ -14,6 +14,8 @@ char *dsGameDataFind(char *path, int pathSize, const char *optionsRow);
 // TRUE when the player chose Quit in the first-run step (main.c: exit 0, no error line)
 int dsQuitChosen(void);
 
+// HWI-FEATURE(user-files): the player's Documents folder in path (1), or 0 when there is none
+int dsDocumentsDir(char *out, int size);
 // HWI-TEST: /catDataSetupScript <answers>: every dialog and picker answered from the list (main.c)
 void dsTestScriptSet(char *answers);
 

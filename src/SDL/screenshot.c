@@ -41,8 +41,9 @@ static void _ssAppendScreenshotFilename(char* savePath);
 
 
 // CAT: ssSaveScreenshot 0x0057ef80 names a shot "shota%03d.jpg", the first of 000..199 not there yet, else
-//      "shot200.jpg" (GoK: "shot_<date>_<time>_<zone>.jpg"). HWI: in the user settings path's ScreenShots/ (GoK's
-//      directory; the exe: %HW_Data%\screenshots\ or screenshots\ in the current directory)
+//      "shot200.jpg" (GoK: "shot_<date>_<time>_<zone>.jpg"). HWI: in the visible user-files folder's Screenshots/
+//      (HWI-FEATURE(user-files): Documents/Homeworld Infection/Screenshots; GoK: the settings path's ScreenShots/;
+//      the exe: %HW_Data%\screenshots\ or screenshots\ in the current directory)
 static void _ssAppendScreenshotFilename(char* savePath)
 {
     FILE        *imageFile;
@@ -70,11 +71,11 @@ static void _ssAppendScreenshotFilename(char* savePath)
 
 static void _ssSaveScreenshot(ubyte* buf, const char* targetFilename)
 {
-    char *fname;
+    static char fname[PATH_MAX + 64];               // HWI-FEATURE(user-files)
     unsigned char *pTempLine;
     long Top, Bot, i, Size;
 
-    fname = filePathPrepend("ScreenShots/", FF_UserSettingsPath);
+    snprintf(fname, PATH_MAX, "%sScreenshots/", fileUserFilesPath);   // HWI-FEATURE(user-files): the visible folder
     if (!fileMakeDirectory(fname))
         return;
 

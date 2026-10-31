@@ -1,7 +1,7 @@
 /*=============================================================================
     AssetsFolder.h: HWI-FEATURE(assets-folder) the moddable Assets folder.
 
-    <settings folder>/Assets holds files that replace the game's own (same relative path as inside the archives or the
+    <user files folder>/Assets (Documents/Homeworld Infection/Assets; HWI-FEATURE(user-files)) holds files that replace the game's own (same relative path as inside the archives or the
     game folder, case ignored), PNG versions of .lif textures and their team-colour masks. A file is used only when it
     is not in the export's manifest or its size or time differs. docs/features/assets-folder.md
 =============================================================================*/
@@ -55,6 +55,7 @@ void assetsStartup(void);
 void assetsShutdown(void);
 
 bool32 assetsPathSet(char *path);       // /assetsPath <dir>
+char *assetsFolderPath(void);           // the folder (no trailing separator), NULL with /noAssets
 bool32 assetsOffSet(char *string);      // /noAssets
 
 // a native replacement for a game file, or NULL (flags as for fileOpen; settings, CD and absolute paths never)

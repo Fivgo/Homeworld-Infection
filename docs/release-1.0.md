@@ -33,9 +33,11 @@ player README. No step needs a terminal.
 3. **innoextract sits next to the engine binary** (found through `SDL_GetBasePath()`): Windows `innoextract.exe`
    beside the exe; Linux `usr/bin/innoextract` beside `usr/bin/hwi-engine` inside the AppImage; macOS
    `Contents/MacOS/innoextract` beside the engine.
-4. **Per-user folders.** Settings (options, keys, saves, screenshots): Windows `%APPDATA%\Homeworld-Infection`
+4. **Per-user folders.** Settings (options, keys, saves): Windows `%APPDATA%\Homeworld-Infection`
    (exists); Linux `~/.homeworld` (unchanged: play.sh and the harness set HOME); macOS
-   `~/Library/Application Support/Homeworld-Infection`. Game data unpacked from the offline installer: Windows
+   `~/Library/Application Support/Homeworld-Infection`. The player's own files, in a visible folder
+   (HWI-FEATURE(user-files), 2026-10-31): `Documents/Homeworld Infection/Assets` (replacement textures, menu pictures)
+   and `Documents/Homeworld Infection/Screenshots` on all three systems (`/userFilesPath` moves it). Game data unpacked from the offline installer: Windows
    `%LOCALAPPDATA%\Homeworld-Infection\GameData`; Linux `${XDG_DATA_HOME:-~/.local/share}/homeworld-infection/GameData`;
    macOS `~/Library/Application Support/Homeworld-Infection/GameData`.
 5. **Minimal FFmpeg** (`tools/release/ffmpeg-min.sh`): FFmpeg 6.1.x, LGPL, shared libraries, only what the movie

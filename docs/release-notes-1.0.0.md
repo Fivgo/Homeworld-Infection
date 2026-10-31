@@ -22,6 +22,8 @@ The packages are not signed. Windows may show "Windows protected your PC": click
 - Any resolution, in a window, a borderless window or fullscreen, with an automatic UI scale for large screens (Options, Video).
 - Smooth motion, full detail at every distance, and the original intro logos and cutscene movies in their own shape.
 - Your settings and saved games are kept apart from the GOG game: `%APPDATA%\Homeworld-Infection` (Windows), `~/.homeworld` (Linux), `~/Library/Application Support/Homeworld-Infection` (macOS).
+- Screenshots go in your Documents folder, under `Homeworld Infection\Screenshots`. On macOS the game asks once for access to Documents.
+- Moddable textures: a PNG placed in `Documents/Homeworld Infection/Assets`, under the game's own path and name, replaces that texture from the next start. A picture in `Assets/feman/backgrounds/` is drawn behind that menu screen.
 
 ## Known issues
 

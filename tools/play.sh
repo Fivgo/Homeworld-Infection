@@ -2,7 +2,7 @@
 # play.sh - launch the recreation (hwi-engine) in a real window for play-testing. NOT a harness run: audio on,
 # a real display, the user's own persistent settings.
 #
-# Usage: tools/play.sh [--debug] [--bin PATH] [--data DIR] [--home DIR] [--driver x11|wayland] [--rebuild] [-- <engine switches>]
+# Usage: tools/play.sh [--debug] [--bin PATH] [--data DIR] [--home DIR] [--user-folder DIR] [--driver x11|wayland] [--rebuild] [-- <engine switches>]
 #   build     release (build/release/hwi-engine; built with tools/build.sh --release if missing or --rebuild);
 #             (also rebuilt when older than the newest src/ commit or the tree has uncommitted src/ changes)
 #             --debug uses build/debug/hwi-engine (ASan: much slower, prints sanitizer reports);
@@ -13,9 +13,13 @@
 #             script then uses the main checkout's original/ for the data and the home (the engine binary stays the
 #             worktree's own build)
 #   home      --home DIR, default original/play-home: a private HOME so the recreation's Cataclysm.cfg, keys.cfg,
-#             saved games, recordings and screenshots live there and never touch ~/ or the GOG install. Seeded on
+#             saved games and recordings live there and never touch ~/ or the GOG install. Seeded on
 #             first use with TutorialNeeded 0 (edit .homeworld/Cataclysm.cfg there to change). [M3-R4 intro-movies:
 #             no longer PlayIntros 0: the intro logos play, see below]
+#   user folder  --user-folder DIR, default the main checkout's top folder (HWI-FEATURE(user-files), the engine's
+#             /userFilesPath): the files you edit or look at, in plain sight: Assets/ (the textures, models and screen
+#             pictures, tools/assets/export_assets.py) and Screenshots/. Both are gitignored. (A player's game uses
+#             Documents/Homeworld Infection instead.)
 # The shortcut: tools/launch.sh runs this script with its defaults from the "Homeworld Infection" shortcut (./setup.sh
 #   installs it); with HWI_LAUNCHER=1 in the environment a build sends a desktop notification first.
 #   driver    SDL video driver, default x11 (XWayland on COSMIC); --driver wayland to try SDL's native backend
@@ -104,8 +108,12 @@
 #   console row         uiScale N   (the developer console's; as in cataclysm.exe no key opens that console)
 #   switch              -- /uiScale N   (this run only: the options file keeps its own uiScale row)
 #
+# Your own textures (HWI-FEATURE(assets-folder), docs/features/assets-folder.md): <user folder>/Assets (the project's
+# Assets/) holds every texture as a PNG and the ships as Blender models (tools/assets/export_assets.py fills it); a
+# repainted file is used from the next start, a deleted one goes back to the game's own.
+#
 # Menu backgrounds (HWI-FEATURE(screen-background), docs/features/screen-background.md): a picture of your own behind a
-# menu screen: <home>/.homeworld/Assets/feman/backgrounds/<screen>.png (Video_Options = Options -> Video in the main
+# menu screen: <user folder>/Assets/feman/backgrounds/<screen>.png (Video_Options = Options -> Video in the main
 # menu, Video = the Escape menu's Video screen), stretched over the screen's 640x480 layout (1280x960 is sharp up to
 # 200%), with alpha; the game's panels, buttons and text are drawn over it. The folder's README.txt and .ora files (GIMP,
 # with layers: the game's art and an empty layer to paint on) say how. Delete the PNG for the original look.
@@ -206,12 +214,14 @@ if [[ ! -e "$orig/scratch-m2/m2r2-harness/data/cataclysm.big" ]]; then
 	[[ -n "$common" && -e "${common%/.git}/original/scratch-m2/m2r2-harness/data/cataclysm.big" ]] && orig="${common%/.git}/original"
 fi
 build=release; bin=""; data="$orig/scratch-m2/m2r2-harness/data"; home="$orig/play-home"; drv=x11; rebuild=0
+userdir="${orig%/original}"     # HWI-FEATURE(user-files): Assets/ and Screenshots/ at the top of the main checkout
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--debug) build=debug; shift ;;
 		--bin) bin="$2"; shift 2 ;;
 		--data) data="$2"; shift 2 ;;
 		--home) home="$2"; shift 2 ;;
+		--user-folder) userdir="$2"; shift 2 ;;
 		--driver) drv="$2"; shift 2 ;;
 		--rebuild) rebuild=1; shift ;;
 		--) shift; break ;;
@@ -250,7 +260,9 @@ fi
 mkdir -p "$home/.homeworld" "$home/logs"
 [[ -e "$home/.homeworld/Cataclysm.cfg" ]] || printf 'TutorialNeeded    0\n' > "$home/.homeworld/Cataclysm.cfg"
 log="$home/logs/play-$(date +%Y%m%d-%H%M%S).log"
-echo "play.sh: $bin  data=$data  home=$home  driver=$drv  switches: $*  log=$log" >&2
+# HWI-FEATURE(user-files): the visible folder for Assets/ and Screenshots/ (an older binary has no such switch)
+if grep -q -a -- "/userFilesPath" "$bin"; then set -- /userFilesPath "$userdir" "$@"; fi
+echo "play.sh: $bin  data=$data  home=$home  user folder=$userdir  driver=$drv  switches: $*  log=$log" >&2
 export HOME="$home" HW_Data="$data" SDL_VIDEODRIVER="$drv"
 unset SDL_AUDIODRIVER   # audio on: this is a play session
 cd "$data"

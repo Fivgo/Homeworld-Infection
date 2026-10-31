@@ -738,6 +738,34 @@ static void afPagesLoad(void)
     Functions:
 =============================================================================*/
 
+// HWI-FEATURE(user-files): the Assets folder, without a trailing separator: /assetsPath, else Assets in the visible
+//      user-files folder (fileUserFilesPath: Documents/Homeworld Infection, or /userFilesPath); NULL with /noAssets.
+//      ScreenBackground.c reads its pictures from feman/backgrounds/ in it
+char *assetsFolderPath(void)
+{
+    static char path[PATH_MAX];
+    size_t n;
+
+    if (afOff)
+    {
+        return NULL;
+    }
+    if (afPathSwitch[0])
+    {
+        snprintf(path, sizeof(path), "%s", afPathSwitch);
+    }
+    else
+    {
+        snprintf(path, sizeof(path), "%s%s", fileUserFilesPath, AF_FolderName);
+    }
+    n = strlen(path);
+    while (n > 1 && (path[n - 1] == '/' || path[n - 1] == '\\'))
+    {
+        path[--n] = 0;
+    }
+    return path;
+}
+
 bool32 assetsPathSet(char *path)
 {
     snprintf(afPathSwitch, sizeof(afPathSwitch), "%s", path);
@@ -774,19 +802,8 @@ void assetsStartup(void)
         printf("assets: off (/noAssets)\n");
         return;
     }
-    if (afPathSwitch[0])
-    {
-        snprintf(afFolder, sizeof(afFolder), "%s", afPathSwitch);
-    }
-    else
-    {
-        snprintf(afFolder, sizeof(afFolder), "%s%s", fileUserSettingsPath, AF_FolderName);
-    }
+    snprintf(afFolder, sizeof(afFolder), "%s", assetsFolderPath());    // HWI-FEATURE(user-files): the visible folder
     n = strlen(afFolder);
-    while (n > 1 && (afFolder[n - 1] == '/' || afFolder[n - 1] == '\\'))
-    {
-        afFolder[--n] = 0;
-    }
     if (stat(afFolder, &st) != 0 || !S_ISDIR(st.st_mode))
     {
         printf("assets: folder %s: none (nothing replaced)\n", afFolder);

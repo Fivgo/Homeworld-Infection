@@ -4,8 +4,9 @@
               menu in the main menu. Right now the UI scale and smooth motion settings are put to the side where they
               are in the complete black. Please provide the background image so I can edit it in gimp").
 
-              A picture behind a front-end screen: <settings folder>/Assets/feman/backgrounds/<screen name>.png (the
-              settings folder is fileUserSettingsPath; the screen names are the .fib's, e.g. Video_Options for the
+              A picture behind a front-end screen: <Assets folder>/feman/backgrounds/<screen name>.png (the Assets
+              folder is AssetsFolder.c assetsFolderPath: Documents/Homeworld Infection/Assets, the visible user-files
+              folder, HWI-FEATURE(user-files); the screen names are the .fib's, e.g. Video_Options for the
               front end's Options -> Video and Video for the Escape menu's). It is mapped onto the screen's 640x480
               layout area, which the front end draws centred at the logical size (feResRepositionCentredX/Y), so it
               moves and scales with the UI scale and the window; its alpha shows the screen's own look through. Any
@@ -27,13 +28,14 @@
               alpha (a = 1 - (white - black)); the background fills draw the pass's colour, so they come out
               transparent. Written: <screen>-reference.png, <screen>-controls.png, <screen>.ora (OpenRaster, a zip
               GIMP opens with its layers: a hidden controls guide, an empty "Your paint" layer, the art) and
-              README.txt, into <dir> (default: the settings folder's Assets/feman/backgrounds); then the engine quits.
+              README.txt, into <dir> (default: the Assets folder's feman/backgrounds); then the engine quits.
 
     Created 2026-10-31 for Homeworld-Infection. Not Relic or Cataclysm code: the whole file is
     HWI-FEATURE(screen-background) (the export: HWI-TEST). This tree is REULA-licensed, see src/COPYING.REULA.
 =============================================================================*/
 
 #include "ScreenBackground.h"
+#include "AssetsFolder.h"     // HWI-FEATURE(user-files): assetsFolderPath
 
 #include <limits.h>
 #include <stdio.h>
@@ -65,7 +67,7 @@ unsigned char *stbi_write_png_to_mem(const unsigned char *pixels, int stride_byt
 #define SBG_AREA_H          480
 #define SBG_PICTURES        8
 #define SBG_LOOK_MS         1000                // the file is looked at again once a second while drawn
-#define SBG_DIR             "Assets/feman/backgrounds/"
+#define SBG_DIR             "feman/backgrounds/"       // in the Assets folder (AssetsFolder.c assetsFolderPath)
 
 typedef struct
 {
@@ -88,7 +90,14 @@ static sbgpicture sbgPicture[SBG_PICTURES];
 -----------------------------------------------------------------------------*/
 static void sbgPath(char *out, size_t size, const char *screenName)
 {
-    snprintf(out, size, "%s" SBG_DIR "%s.png", fileUserSettingsPath, screenName);
+    const char *folder = assetsFolderPath();            // HWI-FEATURE(user-files): the visible Assets folder
+
+    if (folder == NULL)
+    {
+        out[0] = '\0';                                  // /noAssets: no pictures either
+        return;
+    }
+    snprintf(out, size, "%s/" SBG_DIR "%s.png", folder, screenName);
 }
 
 static void sbgDrop(sbgpicture *p)
@@ -721,7 +730,16 @@ static void sbgExportWrite(void)
     }
     else
     {
-        snprintf(dir, sizeof(dir), "%s" SBG_DIR, fileUserSettingsPath);
+        const char *folder = assetsFolderPath();
+
+        if (folder != NULL)
+        {
+            snprintf(dir, sizeof(dir), "%s/" SBG_DIR, folder);
+        }
+        else
+        {
+            snprintf(dir, sizeof(dir), "%sAssets/" SBG_DIR, fileUserFilesPath);
+        }
     }
     fileMakeDirectory(dir);
     if (art != NULL && ctl != NULL && clear != NULL && thumb != NULL)
