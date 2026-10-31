@@ -413,3 +413,29 @@ for the fix round's look review). 27 -> 28 tags; the 23 stage-5 sites untouched;
 * Frame pacing / the 4K soak are untouched (M3 soak).
 * The intermittent AddressSanitizer:DEADLYSIGNAL in the quit path after a timeout kill (m3r1-ui-g-sp-4k, once in four 4K
   sp runs of 1,200 s or more; no stack): owner M3 soak (the headless hour's shutdown and growth heaps).
+
+## Later fix (2026-10-31): the frame specks at 150% (HWI-FIX(ui-scale), `src/Game/FEReg.c ferDraw`)
+
+The user: "lets fix the corner-speck issue". At 150% (2560x1440) every menu box showed one-pixel specks just under its
+bottom corners, and thin stray lines, notches and dots ran along the frame lines; 100% and 200% were clean.
+
+**Cause.** Every front-end frame piece (box corners, sides, slider ends, buttons) is a small texture drawn by `ferDraw`
+with nearest sampling. At 1.5x a screen pixel centre falls exactly on a texel boundary every third row (centres at 0,
+1/3, 2/3 of a texel), and on a piece's own bottom edge. There:
+- the piece above owns the pixel, and its texture coordinate is exactly the picture's end, so the nearest texel is one
+  past it: with Relic's `GL_REPEAT` the picture's opposite edge (a corner's side line wrapped to below its bottom line:
+  the specks), or the uninitialised padding of a texture widened to a power of two;
+- inside a piece, the rounding at the boundary differs from one triangle to the next, so a line row flips between its
+  two neighbours along its length (the notches and dots).
+At 100% and 200% the centres sit at 1/2 or 1/4 texel from any boundary, so neither case occurs.
+
+**Fix.** The texture's padding repeats its last column and row, it clamps to its edge (`GL_CLAMP_TO_EDGE`), and the
+texture coordinates are nudged by 1/64 texel up and left, so every boundary pixel takes the texel above / to the left,
+the same as the edge rule. Drawing positions are unchanged.
+
+**Fence** (debug ASan, `--shot` frames, before = the same tree without the fix): Video_Options, the main menu and
+Audio_Options at 1920x1080 (100%), 3840x2160 (200%) and 1234x777 are pixel-identical to before; at 2560x1440 the
+changes are inside the panels only, and the zooms show the specks, the stray lines and the notches gone; the in-game
+Video screen at 1440p likewise (its scene differs run to run, so judged by eye); `/catVideoLayoutTest Video` at 1440p,
+fescreens at 1024x768 and 1440p, toggle, uiscale (1024x768, 4K), modequit, resize PASS; mission 6000 IDENTICAL; Linux
+release and win64 0 warnings.

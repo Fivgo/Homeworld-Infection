@@ -1086,13 +1086,28 @@ void ferDraw(sdword x, sdword y, lifheader *texture)
 
             memcpy(dp, cp, 4 * texture->width);
         }
+        // HWI-FIX(ui-scale): at a UI scale that is not a whole number (150%) a screen pixel centre can fall exactly on
+        // a piece's edge; the nearest texel there is the one past the picture: the padding of a widened texture, or,
+        // with GL_REPEAT, the picture's opposite edge (the specks under the box corners: a corner's side line wrapped
+        // to below its bottom line). The padding repeats the last column and row, and the texture clamps to its edge.
+        {
+            udword *pixels = (udword *)data;
+            for (iy = 0; iy < texture->height; iy++)
+            {
+                udword *row = pixels + newwidth * iy;
+                for (ix = texture->width; ix < newwidth; ix++)
+                    row[ix] = row[texture->width - 1];
+            }
+            for (iy = texture->height; iy < newheight; iy++)
+                memcpy(pixels + newwidth * iy, pixels + newwidth * (texture->height - 1), 4 * newwidth);
+        }
 
         glGenTextures(1, &thandle);
         trClearCurrent();
         glBindTexture(GL_TEXTURE_2D, thandle);
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);   // HWI-FIX(ui-scale): was GL_REPEAT
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);   // HWI-FIX(ui-scale)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
@@ -1115,7 +1130,15 @@ void ferDraw(sdword x, sdword y, lifheader *texture)
     oldTex = rndTextureEnable(TRUE);
     oldMode = rndTextureEnvironment(RTE_Replace);
 
-    GLfloat t[8] = { 0.0f, heightFrac, widthFrac, heightFrac, 0.0f, 0.0f, widthFrac, 0.0f };
+    // HWI-FIX(ui-scale): at 150% every third screen row (and, nearly, some columns) has its pixel centre exactly on a
+    // texel boundary; plain rounding then picks the texel above in one triangle and the one below in the next (dots and
+    // notches along the frame lines). A nudge of 1/64 texel up and left decides every such pixel the same way: the
+    // texel above / to the left, as the piece above owns a pixel on the shared edge. Pixel centres at 100% and 200% sit
+    // a quarter texel or more from any boundary, so those scales draw exactly as before.
+    real32 nudgeS = (1.0f / 64.0f) / (real32)newwidth;
+    real32 nudgeT = (1.0f / 64.0f) / (real32)newheight;
+    GLfloat t[8] = { -nudgeS, heightFrac - nudgeT, widthFrac - nudgeS, heightFrac - nudgeT,
+                     -nudgeS, -nudgeT, widthFrac - nudgeS, -nudgeT };
     GLfloat v[8] = { primScreenToGLX(x), primScreenToGLY(y),
                         primScreenToGLX(x + texture->width), primScreenToGLY(y),
                         primScreenToGLX(x), primScreenToGLY(y - texture->height),
