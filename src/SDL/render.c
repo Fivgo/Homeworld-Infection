@@ -109,6 +109,7 @@
 #include "uiscale.h"         // HWI-FEATURE(ui-scale): the logical / physical sizes, the window fit
 #include "Instrument.h"      // HWI-FEATURE(instrumentation): the overlay, the frame's clocks
 #include "ScreenBackground.h" // HWI-TEST (screen-background): /catScreenBgExport's read-back
+#include "VideoLayoutTest.h"  // HWI-TEST (video-layout): /catVideoLayoutTest's read-back
 #include "OracleDump.h"    // HWI-FIX(release-1.0): declared, no longer an implicit int function
 #ifdef HW_ENABLE_GLES
 #include "SDL_syswm.h"
@@ -5593,6 +5594,7 @@ DEFINE_TASK(rndRenderTask)
 #endif
 #endif
         sbgExportFrameEnd();                                // HWI-TEST (screen-background): /catScreenBgExport, before the overlay
+        catVideoLayoutFrameEnd();                           // HWI-TEST (video-layout): /catVideoLayoutTest, the knobs read back
         hwiOverlayDraw();                                   // HWI-FEATURE(instrumentation): the overlay (off by default), on top
         catShotFrameEnd();                                  // HWI-TEST (M3-R1 letterbox-front): /catShot, the any-mode capture
         catTeamColourFrameEnd();                            // HWI-TEST (M3-R1 team-colours-warp): /catTeamColourTest

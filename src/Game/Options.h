@@ -118,6 +118,8 @@ void opRestoreSavedSettings(void);                                         // HW
 void opSmoothMotionAtomsAdd(struct tagfibfileheader *header);              // HWI-FEATURE(motion-interp): added to the screens
 void opUiScale(char *name, struct tagfeatom *atom);                       // HWI-FEATURE(ui-scale): the UI SCALE radio buttons
 void opUiScaleAtomsAdd(struct tagfibfileheader *header);                   // HWI-FEATURE(ui-scale): added to the Video screens
+void opVideoLayoutAtomsAdd(struct tagfibfileheader *header);              // HWI-FEATURE(video-layout): the in-game Video screen laid out again
+extern bool32 opVideoLayoutExe;                                            // HWI-FEATURE(video-layout): /exeVideoLayout
 void opEffectsHelper(void);                                                // HWI-FEATURE(sharp-textures): declared for /catToggleTest (the presets)
 
 extern udword opPauseOrders;

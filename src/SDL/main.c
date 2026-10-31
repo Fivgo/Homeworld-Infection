@@ -83,6 +83,7 @@
 #include "OracleDump.h"     // HWI-ORACLE: /oracleDump, /oracleSelfTest
 #include "uiscale.h"         // HWI-FEATURE(ui-scale): /uiScale, /testUsableBounds; the window request
 #include "UiScaleTest.h"     // HWI-TEST (M3-R1 ui-scale): /catUiScaleTest
+#include "VideoLayoutTest.h"    // HWI-TEST (video-layout): /catVideoLayoutTest
 #include "ScreenBackground.h"   // HWI-FEATURE(screen-background): the pictures' textures at a render reset; HWI-TEST /catScreenBgExport
 #include "Instrument.h"      // HWI-FEATURE(instrumentation): /overlay, the overlay's key; HWI-TEST /frameLog
 #include "datasetup.h"       // HWI-FEATURE(data-setup): the player quit the first-run step; HWI-TEST /catDataSetupScript
@@ -689,6 +690,13 @@ bool32 NoFilterSet(char *string)                    // HWI-FEATURE(sharp-texture
     trFilterSwitchSet();                            // HWI-FEATURE(sharp-textures)
     return TRUE;                                    // HWI-FEATURE(sharp-textures)
 }                                                   // HWI-FEATURE(sharp-textures)
+// HWI-FEATURE(video-layout): /exeVideoLayout: this run only, the Escape menu's Video screen as cataclysm.exe's file lays
+//      it out (Options.c opVideoLayoutAtomsAdd), the mod's UI SCALE and SMOOTH MOTION where they were before: an A/B
+bool32 ExeVideoLayoutSet(char *string)              // HWI-FEATURE(video-layout)
+{                                                   // HWI-FEATURE(video-layout)
+    opVideoLayoutExe = TRUE;                        // HWI-FEATURE(video-layout)
+    return TRUE;                                    // HWI-FEATURE(video-layout)
+}                                                   // HWI-FEATURE(video-layout)
 bool32 MeshImmediateSet(char *string)               // HWI-FEATURE(mesh-batching)
 {                                                   // HWI-FEATURE(mesh-batching)
     meshImmediateSwitch();                          // HWI-FEATURE(mesh-batching)
@@ -761,6 +769,11 @@ bool32 CatScreenBgExportSet(char *string)
 bool32 CatScreenBgDirSet(char *string)
 {
     sbgExportDirSet(string);
+    return TRUE;
+}
+bool32 CatVideoLayoutTestSet(char *string)          // HWI-TEST (video-layout): /catVideoLayoutTest <screen> (VideoLayoutTest.c)
+{
+    catVideoLayoutTestSet(string);
     return TRUE;
 }
 bool32 CatTexListSet(char *string)                  // HWI-TEST (M3-R3): /catTexList <substring> (texreg.c trFilterCount)
@@ -1644,6 +1657,7 @@ commandoption commandOptions[] =
     entryFn("/noHsAssembly",            NoHsAssemblySet, " - this run only: a modular ship (the Kuun-Lan) hyperspaces as the exe draws it: the gate and the reveal sized from its core hull, its modules shown at their own exits."),   // HWI-FEATURE(hyperspace-assembly)
     entryFn("/meshImmediate",           MeshImmediateSet, " - this run only: the ship meshes drawn one GL call per vertex (the old immediate-mode path) instead of in vertex arrays: the A/B of the mesh batching (the console row meshImmediate toggles it)."),   // HWI-FEATURE(mesh-batching)
     entryFn("/exeTrails",               ExeTrailsSet, " - this run only: the missile corvettes' two engine ribbons as cataclysm.exe draws them (one per mex Eng chunk) instead of the four jet streams from the engine circles (the console row engineTrails toggles it)."),   // HWI-FEATURE(engine-trails)
+    entryFn("/exeVideoLayout",          ExeVideoLayoutSet, " - this run only: the Escape menu's Video screen as cataclysm.exe's file lays it out (the sliders over their boxes' edges, FULL DETAIL on the MODEL DETAIL box's border, TEXTURE INFO at the right), UI SCALE and SMOOTH MOTION where they were before: an A/B."),   // HWI-FEATURE(video-layout)
     entryFn("/exePoints",               ExePointsSet, " - this run only: the sensors manager's points at cataclysm.exe's sizes (the Dust 1 pixel, the resource, mine and crate markers 2) instead of the Dust 2 and the markers 3 (the console row sensorsPoints toggles it)."),   // HWI-FEATURE(sensors-points)
     entryFn("/lodBands",                LodBandsSet, " - this run only: FULL DETAIL off (the exe's levels of detail by size on screen and frame time; the options file's noLOD row keeps its value)."),   // HWI-FEATURE(full-detail)
     entryFnParam("/catLodTest",         CatLodTestSet, " <tick>[:far][:fleet] - log every object's level of detail (the exe's and the one drawn) in the main view's first frame of that universe tick (\"lodtest:\" lines); :far pulls the camera out to its farthest zoom, :fleet closes the sensors manager at tick 16 and focuses the camera on every ship."),   // HWI-TEST
@@ -1658,6 +1672,7 @@ commandoption commandOptions[] =
     entryFnParam("/catMineChase",       CatMineChaseSet, " <tick>[:<shiptype>] - test: at that universe tick order up to 4 of player 0's ships of that type (default sRecon) past the nearest level mine, 2000 beside it and 20000 beyond (minechase: line)."),   // HWI-TEST (M3-R3 mines)
     entryFnParam("/catFeScreen",        CatFeScreenSet, " <screen>[@<tick>] - test: a front-end screen pushed once (in the front end, or in game at the tick)."),   // HWI-TEST
     entryFnParam("/catFeClick",         CatFeClickSet, " <atom>[@<tick>] - test: a click on the top front-end screen's atom of that name once it is shown (in game from the tick): a check box changes state, then its callback runs."),   // HWI-TEST
+    entryFnParam("/catVideoLayoutTest", CatVideoLayoutTestSet, " <screen> - test: once that front-end screen is shown (e.g. Video, pushed in a game with /catFeScreen Video@<tick>), check every control inside its box with no overlaps, the sliders' knobs at 0 / half / max (read back) and their clicks and drags reaching 0 and max, then exit."),   // HWI-TEST (video-layout)
     entryFnParam("/catScreenBgExport",  CatScreenBgExportSet, " <screen> - test: once that front-end screen is shown, write its art and its controls read back at the physical scale (<screen>-reference.png, <screen>-controls.png, <screen>.ora for GIMP, README.txt; see /catScreenBgDir), then exit."),   // HWI-TEST (screen-background)
     entryFnParam("/catScreenBgDir",     CatScreenBgDirSet, " <dir> - test: the folder /catScreenBgExport writes to (default: the Assets folder's feman/backgrounds)."),   // HWI-TEST (screen-background)
     entryFnParam("/catModeQuitTest",    CatModeQuitTestSet, " <W>x<H> - test: once the front end is up, the Video screen's render switch to that resolution, then one quit."),   // HWI-TEST

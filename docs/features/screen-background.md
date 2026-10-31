@@ -94,9 +94,12 @@ untouched.
 - **In game (Video)**: "UI SCALE" at 373,51 on the row of VIDEO SETTINGS (the space SHARP TEXTURES left and the top of
   the right column), its buttons at 379 / 449 on rows 70 / 89 (the EFFECTS column's x and pitch; the second row ends 14
   above the EFFECTS title instead of 4); SMOOTH MOTION at 379,306 under NUMBER OF EFFECTS, its row centred on TEXTURE
-  INFO's.
+  INFO's. [Since the video-layout job (docs/features/video-layout.md) the in-game screen is laid out again: UI SCALE
+  and SMOOTH MOTION one block under NUMBER OF EFFECTS, the right column 22 up, the sliders inside their boxes, FULL
+  DETAIL on a row of its own, TEXTURE INFO centred; these are the positions `/exeVideoLayout` keeps.]
 - The labels carry one string per language (`feStaticTextDraw` takes the strCurLanguage-th string of an atom's text).
-- **The exe's own overlaps, not changed**: on both Video screens "FULL DETAIL" sits on the MODEL DETAIL box's top border
+- **The exe's own overlaps, not changed** [in game they are changed since, at the user's request:
+  docs/features/video-layout.md; the front end keeps them]: on both Video screens "FULL DETAIL" sits on the MODEL DETAIL box's top border
   and the NUMBER OF EFFECTS knob at HI touches the box's right edge. Both come from the `.fib` and are drawn the same by
   cataclysm.exe: its text draw prints at the atom's y (`fontPrint(x, rect.y0, ..)` at 0x004735af, the exe's
   feStaticTextDraw at 0x004734f0; the label's y 215 / 293 is inside the box's frame, drawn about 8 above the rect at 226 /

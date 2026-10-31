@@ -2095,6 +2095,7 @@ fibfileheader *feScreensImageLoad(void *image, sdword length, char *fileName)
 
     opSmoothMotionAtomsAdd(header);     // HWI-FEATURE(motion-interp): the Smooth motion checkbox on the Video screens (Options.c)
     opUiScaleAtomsAdd(header);          // HWI-FEATURE(ui-scale): the UI SCALE radio buttons on the Video screens (Options.c)
+    opVideoLayoutAtomsAdd(header);      // HWI-FEATURE(video-layout): the in-game Video screen laid out again (Options.c)
 //    return(header->nScreens);
     return(header);
 }
