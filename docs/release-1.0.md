@@ -56,7 +56,27 @@ player README. No step needs a terminal.
   `/catHiddenWindow`, or a headless gamescope (a developer screenshot harness only; never part of a package).
 - GPU measurements only on an idle GPU.
 
-## Verification of the v1.0.0 packages (2026-10-30, the draft release's own files)
+## The published v1.0.0 (2026-10-31)
+
+The user: "these changes look stable. lets cut a new release", then chose to replace the unpublished draft (tag v1.0.0
+at d49a990, never downloaded) with a new 1.0.0 and to publish it. `release.yml` by workflow_dispatch on 3ead149 first
+(all four jobs PASS), then the draft and its tag deleted, v1.0.0 tagged at 3ead149 (the assets folder, the visible
+user-files folder, both Video screens' layouts), the CI's draft built and published on 2026-10-31 19:40 UTC as Latest:
+Windows-Setup.exe 3,748,283 bytes, Linux tar.gz 4,908,175, macOS dmg 9,626,952, SHA256SUMS.txt.
+
+The three files were downloaded from the draft and checked against its SHA256SUMS.txt, then run hidden and silent as
+below (a throwaway home and a fresh Wine prefix in the session scratchpad):
+
+| Package | Run | Result |
+|---|---|---|
+| Linux tar.gz, first start | the installer linked into `~/Downloads`, `/catDataSetupScript unpack /catHiddenWindow /catModeQuitTest 1280x720:120` | unpacked by the bundled innoextract (66 files, 404,999,701 bytes, 13 s), the path saved, both intros (240/240, 807/807 frames, 4:3), PASS, 120 frames, rc 0, the menu entry written, no dialog; `assets: folder ~/Documents/Homeworld Infection/Assets: none` |
+| Linux, second start | a picture as `Documents/Homeworld Infection/Assets/feman/backgrounds/Video_Options.png`; `/catFeScreen Video_Options` | the saved path used, PASS, rc 0; `screenbg: Video_Options: ~/Documents/Homeworld Infection/Assets/feman/backgrounds/Video_Options.png 1280x960 loaded` (the texture scan skips feman/backgrounds by design) |
+| Windows Setup.exe | `/S` under Proton Experimental in a headless gamescope | rc 0, every file installed |
+| Windows game | GOG's registry key -> a folder of links to the 66 files; a .bat, `/catHiddenWindow /catModeQuitTest 1280x720:120`, twice | found through the registry (both views), saved, PASS, 120 frames, rc 0; the second start used the saved path; `assets: folder C:\users\steamuser\Documents\Homeworld Infection\Assets` (FOLDERID_Documents); the GOG copy unchanged |
+
+Not verified: a real Windows PC, any Mac (CI's build and smoke checks only), macOS's Documents prompt.
+
+## Verification of the first v1.0.0 draft (2026-10-30, replaced on 2026-10-31)
 
 The three files were downloaded from the draft release and checked against its SHA256SUMS.txt. Every run was hidden
 and silent, with a throwaway home or Wine prefix in the session scratchpad and the user's offline installer
