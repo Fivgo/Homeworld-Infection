@@ -396,7 +396,7 @@ Repainting a texture
   - Keep the colours opaque where the original is opaque.
   - Bigger pictures (2x, 4x the size) work for the textures of ships and other objects in space. Pictures of the
     interface (menus, icons, cursors) are shown at the original size.
-  - The game shrinks textures to fit its texture memory (Options > TEXTURE DETAIL): set it to the top to see your
+  - The game shrinks textures to fit its texture memory (Options > Video > TEXTURE MEMORY): slide it to HI to see
     bigger textures at full size.
   - Team colours: paint the _teambase / _teamstripe masks. A mask you change replaces the game's own; a mask you
     leave alone keeps working with your repainted texture.
