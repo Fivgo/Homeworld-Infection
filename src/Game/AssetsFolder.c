@@ -35,6 +35,7 @@
 #define AF_PagesName        "assets-pages.txt"
 #define AF_ReadmeName       "README.txt"
 #define AF_MaxIgnoredLogged 20
+#define AF_MaxDepth         24              // folder levels scanned (a symbolic-link loop ends here)
 
 /*=============================================================================
     Data:
@@ -445,7 +446,7 @@ static void afFileSeen(const char *path, const char *rel, uqword size, sqword mt
 }
 
 // path: the folder's full path (PATH_MAX buffer), rel: its path under Assets (PATH_MAX buffer)
-static void afScan(char *path, size_t pathLength, char *rel, size_t relLength)
+static void afScan(char *path, size_t pathLength, char *rel, size_t relLength, sdword depth)
 {
     char relLower[PATH_MAX];
 #ifdef _WIN32
@@ -453,6 +454,10 @@ static void afScan(char *path, size_t pathLength, char *rel, size_t relLength)
     HANDLE handle;
     char spec[PATH_MAX];
 
+    if (depth > AF_MaxDepth)
+    {
+        return;
+    }
     snprintf(spec, sizeof(spec), "%s\\*", path);
     handle = FindFirstFileA(spec, &find);
     if (handle == INVALID_HANDLE_VALUE)
@@ -482,7 +487,7 @@ static void afScan(char *path, size_t pathLength, char *rel, size_t relLength)
         {
             if (isFolder)
             {
-                afScan(path, pathLength + 1 + n, rel, relLength + (relLength ? 1 : 0) + n);
+                afScan(path, pathLength + 1 + n, rel, relLength + (relLength ? 1 : 0) + n, depth + 1);
             }
             else
             {
@@ -498,7 +503,7 @@ static void afScan(char *path, size_t pathLength, char *rel, size_t relLength)
     while (FindNextFileA(handle, &find));
     FindClose(handle);
 #else
-    DIR *dir = opendir(path);
+    DIR *dir = (depth > AF_MaxDepth) ? NULL : opendir(path);
     struct dirent *entry;
     struct stat st;
 
@@ -532,7 +537,7 @@ static void afScan(char *path, size_t pathLength, char *rel, size_t relLength)
             {
                 if (isFolder)
                 {
-                    afScan(path, pathLength + 1 + n, rel, relLength + (relLength ? 1 : 0) + n);
+                    afScan(path, pathLength + 1 + n, rel, relLength + (relLength ? 1 : 0) + n, depth + 1);
                 }
                 else
                 {
@@ -794,7 +799,7 @@ void assetsStartup(void)
     }
     snprintf(path, sizeof(path), "%s", afFolder);
     rel[0] = 0;
-    afScan(path, strlen(path), rel, 0);
+    afScan(path, strlen(path), rel, 0, 0);
     afHashFree(&afManifest);
     free(afManifestEntries);
     afManifestEntries = NULL;
