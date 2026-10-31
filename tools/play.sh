@@ -54,19 +54,19 @@
 #   console row         meshImmediate 0|1   (the developer console's; as in cataclysm.exe no key opens that console)
 #   the settings line   "meshImmediate=0 (default)" (1 (switch) with -- /meshImmediate)
 #
-# Sharp textures (M3-R3, HWI-FEATURE(sharp-textures)): the ship, derelict and asteroid textures magnified as square texels
-# (GL_NEAREST) instead of the original game's smooth (linear) look. OFF by default: the default is the original look.
-# The effect sprites and the trails' billboard sprites stay smooth either way, as in cataclysm.exe (its particle drawing always filters
-# them) [audit: said "the ship, asteroid and effect textures"].
-#   Options -> Video    SHARP TEXTURES (the front end's Video screen, right column under UI SCALE; the Escape menu's
-#                       Video screen, top middle): ticked = sharp. The textures change at once (a live preview); Accept
-#                       saves it, Cancel puts it back. It is cataclysm.exe's own SURFACE FILTERING box (Video -> CUSTOM
-#                       EFFECTS) the other way round: ticking it makes the EFFECTS level CUSTOM, as that box does,
-#                       because the HIGH effects preset means filtering on and is re-applied at every start
+# Texture filtering (M3-R3, HWI-FEATURE(sharp-textures)): cataclysm.exe's own SURFACE FILTERING box. Unticked, the ship,
+# derelict and asteroid textures are magnified as square texels (GL_NEAREST) instead of the original game's smooth
+# (linear) look; ticked (the default) is the original look. The effect sprites and the trails' billboard sprites stay
+# smooth either way, as in cataclysm.exe (its particle drawing always filters them). (The mod's own SHARP TEXTURES
+# checkbox did the same thing the other way round and was removed on 2026-10-31.)
+#   Options -> Video -> CUSTOM EFFECTS   SURFACE FILTERING (in game: the Escape menu's Video -> CUSTOM EFFECTS): the
+#                       textures change at once (a live preview); that screen's ACCEPT makes the EFFECTS level CUSTOM,
+#                       because the HIGH effects preset means filtering on and is re-applied at every start; the Video
+#                       screen's Accept saves it, Cancel puts it back
 #   Cataclysm.cfg row   texLinearFiltering 0|1   (1 = the original look; 0 = sharp. NOTE: by hand it only holds with
 #                       effectsLevel 2 (CUSTOM): with effectsLevel 0 (HIGH) the game turns it back to 1 at every start,
 #                       exactly as cataclysm.exe does; the log then says "texLinearFiltering=1 (preset) [effects preset]")
-#   switch              -- /sharpTextures  or  -- /noFilter   (this run only, over any effects level; the file keeps its row)
+#   switch              -- /noFilter   (this run only, over any effects level; the file keeps its row)
 #   console row         texLinearFiltering 0|1   (the developer console's; as in cataclysm.exe no key opens that console)
 #   the log             "texfilter: filter=sharp|linear textures=N globjects=M wrong=0" at every change (wrong must be 0)
 #
@@ -103,6 +103,12 @@
 #                       in the front end applies it at once; in a game it is saved and applies at the next start
 #   console row         uiScale N   (the developer console's; as in cataclysm.exe no key opens that console)
 #   switch              -- /uiScale N   (this run only: the options file keeps its own uiScale row)
+#
+# Menu backgrounds (HWI-FEATURE(screen-background), docs/features/screen-background.md): a picture of your own behind a
+# menu screen: <home>/.homeworld/Assets/feman/backgrounds/<screen>.png (Video_Options = Options -> Video in the main
+# menu, Video = the Escape menu's Video screen), stretched over the screen's 640x480 layout (1280x960 is sharp up to
+# 200%), with alpha; the game's panels, buttons and text are drawn over it. The folder's README.txt and .ora files (GIMP,
+# with layers: the game's art and an empty layer to paint on) say how. Delete the PNG for the original look.
 #
 # Hyperspace of a modular ship (M3-R2, the Kuun-Lan): the gate is sized as cataclysm.exe sizes it (the .shp's
 # hyperspaceBoxScale: 6x the spine for the Kuun-Lan, so it spans the whole ship) and the modules are never cut away

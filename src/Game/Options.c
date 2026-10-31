@@ -1287,7 +1287,7 @@ void opOptionsAcceptHelper(char* name, featom* atom, char* linkName)
     //      made (the reflow of a resolution change: uiscale.c uiScaleApply); in game, as the exe allows no render switch
     //      there (the return below), it is saved and takes effect at the next start
     uiScaleUpdate();                                // HWI-FEATURE(ui-scale)
-    trFilterSync();                                 // HWI-FEATURE(sharp-textures): SHARP TEXTURES on every live texture now
+    trFilterSync();                                 // HWI-FEATURE(sharp-textures): the filter on every live texture now
     hwiSettingsAccepted();                          // HWI-FEATURE(instrumentation): the settings line, the rows the save writes
 
     opOptionsEndHelper(linkName);
@@ -2406,7 +2406,6 @@ void opEffectsHelper(void)
         hwiSettingsPreset("texLinearFiltering", "effects preset");   // HWI-FEATURE(sharp-textures): the line's source
     }                                               // HWI-FEATURE(sharp-textures)
     trFilterEnable(texLinearFiltering);
-    opSharpTexturesShow();                          // HWI-FEATURE(sharp-textures): the SHARP TEXTURES box follows the preset
 }
 
 // CAT: no opUpdateVideoSettings: opUpdateSettings 0x004d71d0 inlines the effects, the LOD frame rate, the gamma and
@@ -2520,14 +2519,23 @@ void opSmoothMotion(char* name, featom* atom)                           // HWI-F
 static featom *opSmoothMotionBlocks[OP_SMOOTH_BLOCKS];                  // HWI-FEATURE(motion-interp): kept, never freed
 static sdword opSmoothMotionNumBlocks = 0;                              // HWI-FEATURE(motion-interp)
 static char opSmoothMotionName[] = "OP_SmoothMotion";                   // HWI-FEATURE(motion-interp)
-static char opSmoothMotionText[] = "SMOOTH MOTION";                     // HWI-FEATURE(motion-interp)
+// the added labels' texts, one per language: feStaticTextDraw draws an atom's strCurLanguage-th string (the files hold
+// one per language, FE_NumberLanguages)
+#define OP_TEXT_LANGUAGES(s)    s "\0" s "\0" s "\0" s "\0" s           // HWI-FEATURE(motion-interp)
+static char opSmoothMotionText[] = OP_TEXT_LANGUAGES("SMOOTH MOTION");  // HWI-FEATURE(motion-interp)
+#define OP_ROW_LABEL_DX     20                                          // HWI-FEATURE(motion-interp): a row's label 20 right of its
+#define OP_ROW_LABEL_DY     2                                           // HWI-FEATURE(motion-interp):  box and 2 down: the screens' radio labels
+#define OP_SMOOTH_LABEL_W   96                                          // HWI-FEATURE(motion-interp): the label's width (the text is ~72)
 
-// the checkbox and its label behind the screen's atoms, at (dx, dy) from the OP_NoLOD checkbox and its "FULL DETAIL"
-// label in the file's 640x480 coordinates (the loaded positions carry the same centring, so the offsets move them)
-static void opSmoothMotionAddToScreen(fescreen *screen, sword boxDx, sword boxDy, sword labelDx, sword labelDy)   // HWI-FEATURE(motion-interp)
+// the checkbox at (x, y) of the file's 640x480 layout and its label on the same row (box left of the text, as the
+// screens' radio buttons and the CUSTOM EFFECTS screen's checkboxes read: the 16-high glyph and the text centred on one
+// line); the box's click area spans the label. Copies of the screen's OP_NoLOD checkbox and its "FULL DETAIL" label,
+// centred as the loader centred the screen (the copied box's x - loadedX)
+static void opSmoothMotionAddToScreen(fescreen *screen, sword x, sword y)   // HWI-FEATURE(motion-interp)
 {                                                                       // HWI-FEATURE(motion-interp)
     featom *atoms, *box = NULL, *label = NULL;                          // HWI-FEATURE(motion-interp)
     sdword i, n = screen->nAtoms;                                       // HWI-FEATURE(motion-interp)
+    sword ox, oy;                                                       // HWI-FEATURE(motion-interp)
                                                                         // HWI-FEATURE(motion-interp)
     for (i = 0; i < n; i++)                                             // HWI-FEATURE(motion-interp)
     {                                                                   // HWI-FEATURE(motion-interp)
@@ -2551,27 +2559,36 @@ static void opSmoothMotionAddToScreen(fescreen *screen, sword boxDx, sword boxDy
     {                                                                   // HWI-FEATURE(motion-interp)
         return;                                                         // HWI-FEATURE(motion-interp)
     }                                                                   // HWI-FEATURE(motion-interp)
+    ox = (sword)(box->x - box->loadedX);                                // HWI-FEATURE(motion-interp): the screen's centring
+    oy = (sword)(box->y - box->loadedY);                                // HWI-FEATURE(motion-interp)
     memcpy(atoms, screen->atoms, n * sizeof(featom));                   // HWI-FEATURE(motion-interp)
     atoms[n] = *box;                                                    // HWI-FEATURE(motion-interp)
     atoms[n].name = opSmoothMotionName;                                 // HWI-FEATURE(motion-interp)
     atoms[n].status = 0;                                                // HWI-FEATURE(motion-interp)
     atoms[n].region = NULL;                                             // HWI-FEATURE(motion-interp)
-    atoms[n].x += boxDx; atoms[n].loadedX += boxDx;                     // HWI-FEATURE(motion-interp)
-    atoms[n].y += boxDy; atoms[n].loadedY += boxDy;                     // HWI-FEATURE(motion-interp)
+    atoms[n].tabstop = 0;                                               // HWI-FEATURE(motion-interp): not OP_NoLOD's tab stop again
+    atoms[n].loadedX = x;                                               // HWI-FEATURE(motion-interp)
+    atoms[n].loadedY = y;                                               // HWI-FEATURE(motion-interp)
+    atoms[n].x = (sword)(x + ox);                                       // HWI-FEATURE(motion-interp)
+    atoms[n].y = (sword)(y + oy);                                       // HWI-FEATURE(motion-interp)
+    atoms[n].width = atoms[n].loadedWidth = OP_ROW_LABEL_DX + OP_SMOOTH_LABEL_W;   // HWI-FEATURE(motion-interp): box and label
     atoms[n + 1] = *label;                                              // HWI-FEATURE(motion-interp)
     atoms[n + 1].pData = (ubyte *)opSmoothMotionText;                   // HWI-FEATURE(motion-interp)
     atoms[n + 1].region = NULL;                                         // HWI-FEATURE(motion-interp)
-    atoms[n + 1].x += labelDx; atoms[n + 1].loadedX += labelDx;         // HWI-FEATURE(motion-interp)
-    atoms[n + 1].y += labelDy; atoms[n + 1].loadedY += labelDy;         // HWI-FEATURE(motion-interp)
-    atoms[n + 1].width += 24; atoms[n + 1].loadedWidth += 24;           // HWI-FEATURE(motion-interp): the longer text
+    atoms[n + 1].loadedX = (sword)(x + OP_ROW_LABEL_DX);                // HWI-FEATURE(motion-interp)
+    atoms[n + 1].loadedY = (sword)(y + OP_ROW_LABEL_DY);                // HWI-FEATURE(motion-interp)
+    atoms[n + 1].x = (sword)(x + OP_ROW_LABEL_DX + ox);                 // HWI-FEATURE(motion-interp)
+    atoms[n + 1].y = (sword)(y + OP_ROW_LABEL_DY + oy);                 // HWI-FEATURE(motion-interp)
+    atoms[n + 1].width = atoms[n + 1].loadedWidth = OP_SMOOTH_LABEL_W;  // HWI-FEATURE(motion-interp)
     screen->atoms = atoms;                                              // HWI-FEATURE(motion-interp)
     screen->nAtoms = (uword)(n + 2);                                    // HWI-FEATURE(motion-interp)
     opSmoothMotionBlocks[opSmoothMotionNumBlocks++] = atoms;            // HWI-FEATURE(motion-interp)
 }                                                                       // HWI-FEATURE(motion-interp)
 
-// called for every loaded .fib (FEFlow.c feScreensImageLoad): the front end's Video_Options (front_end.fib: box at
-// 500,268, label at 500,250, under the tab buttons) and the in-game Video screen (in_game_esc_menu.fib: box at 379,316,
-// label at 373,298, under "NUMBER OF EFFECTS")
+// called for every loaded .fib (FEFlow.c feScreensImageLoad), before the UI SCALE buttons: the front end's Video_Options
+// (502,316: right of the panel, under UI SCALE, left-aligned with the AUDIO / VIDEO / GAMEPLAY / KEY BINDINGS tabs) and
+// the in-game Video screen (379,306: under NUMBER OF EFFECTS on the EFFECTS radio buttons' column, the row centred on
+// TEXTURE INFO's)
 void opSmoothMotionAtomsAdd(fibfileheader *header)                      // HWI-FEATURE(motion-interp)
 {                                                                       // HWI-FEATURE(motion-interp)
     fescreen *screen = (fescreen *)((ubyte *)header + FIB_ScreensOffset);   // HWI-FEATURE(motion-interp)
@@ -2579,13 +2596,13 @@ void opSmoothMotionAtomsAdd(fibfileheader *header)                      // HWI-F
                                                                         // HWI-FEATURE(motion-interp)
     for (i = 0; i < header->nScreens; i++, screen++)                    // HWI-FEATURE(motion-interp)
     {                                                                   // HWI-FEATURE(motion-interp)
-        if (strcmp(screen->name, "Video_Options") == 0)                 // HWI-FEATURE(motion-interp): OP_NoLOD 244,303; FULL DETAIL 232,293
+        if (strcmp(screen->name, "Video_Options") == 0)                 // HWI-FEATURE(motion-interp)
         {                                                               // HWI-FEATURE(motion-interp)
-            opSmoothMotionAddToScreen(screen, 500 - 244, 268 - 303, 500 - 232, 250 - 293);   // HWI-FEATURE(motion-interp)
+            opSmoothMotionAddToScreen(screen, 502, 316);                // HWI-FEATURE(motion-interp)
         }                                                               // HWI-FEATURE(motion-interp)
-        else if (strcmp(screen->name, "Video") == 0)                    // HWI-FEATURE(motion-interp): OP_NoLOD 294,227; FULL DETAIL 294,215
+        else if (strcmp(screen->name, "Video") == 0)                    // HWI-FEATURE(motion-interp)
         {                                                               // HWI-FEATURE(motion-interp)
-            opSmoothMotionAddToScreen(screen, 379 - 294, 316 - 227, 373 - 294, 298 - 215);   // HWI-FEATURE(motion-interp)
+            opSmoothMotionAddToScreen(screen, 379, 306);                // HWI-FEATURE(motion-interp)
         }                                                               // HWI-FEATURE(motion-interp)
     }                                                                   // HWI-FEATURE(motion-interp)
 }                                                                       // HWI-FEATURE(motion-interp)
@@ -2618,12 +2635,16 @@ void opUiScale(char* name, featom* atom)                                // HWI-F
 static featom *opUiScaleBlocks[OP_SMOOTH_BLOCKS];                       // HWI-FEATURE(ui-scale): kept, never freed
 static sdword opUiScaleNumBlocks = 0;                                   // HWI-FEATURE(ui-scale)
 static char opUiScaleName[] = "OP_UiScale";                             // HWI-FEATURE(ui-scale)
-static char opUiScaleTitle[] = "UI SCALE";                              // HWI-FEATURE(ui-scale)
-static char *opUiScaleText[OP_UISCALE_BUTTONS] = { "AUTO", "100%", "150%", "200%" };   // HWI-FEATURE(ui-scale)
+static char opUiScaleTitle[] = OP_TEXT_LANGUAGES("UI SCALE");          // HWI-FEATURE(ui-scale): one per language
+static char opUiScaleText0[] = OP_TEXT_LANGUAGES("AUTO");               // HWI-FEATURE(ui-scale)
+static char opUiScaleText1[] = OP_TEXT_LANGUAGES("100%");               // HWI-FEATURE(ui-scale)
+static char opUiScaleText2[] = OP_TEXT_LANGUAGES("150%");               // HWI-FEATURE(ui-scale)
+static char opUiScaleText3[] = OP_TEXT_LANGUAGES("200%");               // HWI-FEATURE(ui-scale)
+static char *opUiScaleText[OP_UISCALE_BUTTONS] = { opUiScaleText0, opUiScaleText1, opUiScaleText2, opUiScaleText3 };   // HWI-FEATURE(ui-scale)
 static sdword opUiScaleValue[OP_UISCALE_BUTTONS] = { UI_SCALE_AUTO, 100, 150, 200 };   // HWI-FEATURE(ui-scale)
 
 // the title at (titleX, titleY) and the four buttons in two rows of two from (x, y) (columns dx, rows dy apart), each
-// label 20 to the right of its button as the screens' own radio labels
+// label 20 to the right of its button and 2 down, as the screens' own radio labels
 static void opUiScaleAddToScreen(fescreen *screen, sword titleX, sword titleY, sword x, sword y, sword dx, sword dy)  // HWI-FEATURE(ui-scale)
 {                                                                       // HWI-FEATURE(ui-scale)
     featom *atoms, *radio = NULL, *label = NULL, *atom;                 // HWI-FEATURE(ui-scale)
@@ -2691,10 +2712,10 @@ static void opUiScaleAddToScreen(fescreen *screen, sword titleX, sword titleY, s
         *atom = *label;                                                 // HWI-FEATURE(ui-scale)
         atom->pData = (ubyte *)opUiScaleText[i];                        // HWI-FEATURE(ui-scale)
         atom->region = NULL;                                            // HWI-FEATURE(ui-scale)
-        atom->loadedX = (sword)(bx + 20);                               // HWI-FEATURE(ui-scale)
-        atom->loadedY = (sword)(by + 2);                                // HWI-FEATURE(ui-scale)
-        atom->x = (sword)(bx + 20 + ox);                                // HWI-FEATURE(ui-scale): centred as the screen [audit]
-        atom->y = (sword)(by + 2 + oy);                                 // HWI-FEATURE(ui-scale)
+        atom->loadedX = (sword)(bx + OP_ROW_LABEL_DX);                  // HWI-FEATURE(ui-scale)
+        atom->loadedY = (sword)(by + OP_ROW_LABEL_DY);                  // HWI-FEATURE(ui-scale)
+        atom->x = (sword)(bx + OP_ROW_LABEL_DX + ox);                   // HWI-FEATURE(ui-scale): centred as the screen [audit]
+        atom->y = (sword)(by + OP_ROW_LABEL_DY + oy);                   // HWI-FEATURE(ui-scale)
         atom->width = atom->loadedWidth = 34;                           // HWI-FEATURE(ui-scale)
     }                                                                   // HWI-FEATURE(ui-scale)
     screen->atoms = atoms;                                              // HWI-FEATURE(ui-scale)
@@ -2703,9 +2724,10 @@ static void opUiScaleAddToScreen(fescreen *screen, sword titleX, sword titleY, s
 }                                                                       // HWI-FEATURE(ui-scale)
 
 // called for every loaded .fib (FEFlow.c feScreensImageLoad), after the Smooth motion checkbox: the front end's
-// Video_Options (the title at 500,290 and the buttons at 500 / 560, rows 307 / 325: in the right-hand column under SMOOTH
-// MOTION, above the ACCEPT button) and the in-game Video screen (the title at 373,64, the buttons at 379 / 459, rows
-// 81 / 99: right of IN GAME BRIGHTNESS, above EFFECTS)
+// Video_Options (the title at 502,251, the buttons at 502 / 562, rows 270 / 289: right of the panel under the tab
+// buttons, left-aligned with them, on their 50-row pitch; SMOOTH MOTION below) and the in-game Video screen (the title at
+// 373,51 on VIDEO SETTINGS' row, the buttons at 379 / 449, rows 70 / 89: the EFFECTS column's x and its radio buttons'
+// 19-row pitch, the second row ending 14 above the EFFECTS title)
 void opUiScaleAtomsAdd(fibfileheader *header)                           // HWI-FEATURE(ui-scale)
 {                                                                       // HWI-FEATURE(ui-scale)
     fescreen *screen = (fescreen *)((ubyte *)header + FIB_ScreensOffset);   // HWI-FEATURE(ui-scale)
@@ -2715,145 +2737,14 @@ void opUiScaleAtomsAdd(fibfileheader *header)                           // HWI-F
     {                                                                   // HWI-FEATURE(ui-scale)
         if (strcmp(screen->name, "Video_Options") == 0)                 // HWI-FEATURE(ui-scale)
         {                                                               // HWI-FEATURE(ui-scale)
-            opUiScaleAddToScreen(screen, 500, 290, 500, 307, 60, 18);   // HWI-FEATURE(ui-scale)
+            opUiScaleAddToScreen(screen, 502, 251, 502, 270, 60, 19);   // HWI-FEATURE(ui-scale)
         }                                                               // HWI-FEATURE(ui-scale)
         else if (strcmp(screen->name, "Video") == 0)                    // HWI-FEATURE(ui-scale)
         {                                                               // HWI-FEATURE(ui-scale)
-            opUiScaleAddToScreen(screen, 373, 64, 379, 81, 80, 18);     // HWI-FEATURE(ui-scale)
+            opUiScaleAddToScreen(screen, 373, 51, 379, 70, 70, 19);     // HWI-FEATURE(ui-scale)
         }                                                               // HWI-FEATURE(ui-scale)
     }                                                                   // HWI-FEATURE(ui-scale)
 }                                                                       // HWI-FEATURE(ui-scale)
-
-/*-----------------------------------------------------------------------------
-    HWI-FEATURE(sharp-textures) (M3-R3 settings-and-keys): the SHARP TEXTURES checkbox of Options -> Video (the front
-    end's Video_Options and the in-game Video screen), added in code as the Smooth motion checkbox is (the .fib files
-    are game data): a copy of the screen's own FULL DETAIL checkbox (OP_NoLOD) and of its label. Ticked = sharp =
-    texLinearFiltering 0 (the options file's row, the exe's own: the SURFACE FILTERING box of CUSTOM EFFECTS,
-    utyFilterToggle 0x005a86d0, is the same flag the other way round). A click is the user's choice: it ends a /noFilter
-    switch's run-only state and, when the HIGH or LOW effects preset no longer describes the flag, makes the effects
-    level CUSTOM as the exe's SURFACE FILTERING box does (utyFilterToggle -> opEffectsToVideoAccept 0x004d88a0:
-    effectsLevel 2), or the next start's preset (opUpdateSettings 0x004d71d0 -> opEffectsHelper 0x004d9b90) would
-    undo it. The live textures follow at the next frame (render.c trFilterSync) and at Accept (opOptionsAcceptHelper),
-    which saves the row with the others; Cancel restores it. Default: unticked (the original look, the exe's linear
-    filtering).
-----------------------------------------------------------------------------*/
-static char opSharpTexturesName[] = "OP_SharpTextures";                 // HWI-FEATURE(sharp-textures)
-static char opSharpTexturesText[] = "SHARP TEXTURES";                   // HWI-FEATURE(sharp-textures)
-
-static bool32 opAtomOnStack(char *name)                                 // HWI-FEATURE(sharp-textures): a screen on the stack has it
-{                                                                       // HWI-FEATURE(sharp-textures)
-    sdword iScreen;                                                     // HWI-FEATURE(sharp-textures)
-                                                                        // HWI-FEATURE(sharp-textures)
-    for (iScreen = feStackIndex; iScreen >= 0; iScreen--)               // HWI-FEATURE(sharp-textures)
-    {                                                                   // HWI-FEATURE(sharp-textures)
-        featom *atom = feAtomFindInScreen(feStack[iScreen].screen, name);   // HWI-FEATURE(sharp-textures)
-        if (atom != NULL && atom->region != NULL)                       // HWI-FEATURE(sharp-textures)
-        {                                                               // HWI-FEATURE(sharp-textures)
-            return TRUE;                                                // HWI-FEATURE(sharp-textures)
-        }                                                               // HWI-FEATURE(sharp-textures)
-    }                                                                   // HWI-FEATURE(sharp-textures)
-    return FALSE;                                                       // HWI-FEATURE(sharp-textures)
-}                                                                       // HWI-FEATURE(sharp-textures)
-
-void opSharpTexturesShow(void)                                          // HWI-FEATURE(sharp-textures): the box shows the flag
-{                                                                       // HWI-FEATURE(sharp-textures)
-    if (opAtomOnStack(opSharpTexturesName))                             // HWI-FEATURE(sharp-textures)
-    {                                                                   // HWI-FEATURE(sharp-textures)
-        feToggleButtonSet(opSharpTexturesName, texLinearFiltering ? FALSE : TRUE);   // HWI-FEATURE(sharp-textures)
-    }                                                                   // HWI-FEATURE(sharp-textures)
-}                                                                       // HWI-FEATURE(sharp-textures)
-
-void opSharpTextures(char* name, featom* atom)                          // HWI-FEATURE(sharp-textures)
-{                                                                       // HWI-FEATURE(sharp-textures)
-    if (FEFIRSTCALL(atom))                                              // HWI-FEATURE(sharp-textures)
-    {                                                                   // HWI-FEATURE(sharp-textures)
-        feToggleButtonSet(name, texLinearFiltering ? FALSE : TRUE);     // HWI-FEATURE(sharp-textures)
-    }                                                                   // HWI-FEATURE(sharp-textures)
-    else if (!FELASTCALL(atom))                                         // HWI-FEATURE(sharp-textures): a click only (the copy keeps
-    {                                                                   // HWI-FEATURE(sharp-textures):  OP_NoLOD's FAF_CallOnDelete)
-        trFilterSwitchEnd();                                            // HWI-FEATURE(sharp-textures): the user's choice
-        texLinearFiltering = FECHECKED(atom) ? FALSE : TRUE;            // HWI-FEATURE(sharp-textures)
-        if ((opEffectsVal == 0 && !texLinearFiltering) || (opEffectsVal == 1 && texLinearFiltering))   // HWI-FEATURE(sharp-textures)
-        {                                                               // HWI-FEATURE(sharp-textures): the preset no longer says it:
-            opEffectsVal = 2;                                           // HWI-FEATURE(sharp-textures):  CUSTOM, as SURFACE FILTERING's
-            if (opAtomOnStack("OP_Effects"))                            // HWI-FEATURE(sharp-textures)
-            {                                                           // HWI-FEATURE(sharp-textures)
-                feRadioButtonSet("OP_Effects", opEffectsVal);           // HWI-FEATURE(sharp-textures)
-            }                                                           // HWI-FEATURE(sharp-textures)
-        }                                                               // HWI-FEATURE(sharp-textures)
-    }                                                                   // HWI-FEATURE(sharp-textures)
-}                                                                       // HWI-FEATURE(sharp-textures)
-
-static featom *opSharpTexturesBlocks[OP_SMOOTH_BLOCKS];                 // HWI-FEATURE(sharp-textures): kept, never freed
-static sdword opSharpTexturesNumBlocks = 0;                             // HWI-FEATURE(sharp-textures)
-
-// the checkbox and its label behind the screen's atoms, at (dx, dy) from the OP_NoLOD checkbox and its "FULL DETAIL"
-// label in the file's 640x480 coordinates (the loaded positions carry the same centring, so the offsets move them)
-static void opSharpTexturesAddToScreen(fescreen *screen, sword boxDx, sword boxDy, sword labelDx, sword labelDy)   // HWI-FEATURE(sharp-textures)
-{                                                                       // HWI-FEATURE(sharp-textures)
-    featom *atoms, *box = NULL, *label = NULL;                          // HWI-FEATURE(sharp-textures)
-    sdword i, n = screen->nAtoms;                                       // HWI-FEATURE(sharp-textures)
-                                                                        // HWI-FEATURE(sharp-textures)
-    for (i = 0; i < n; i++)                                             // HWI-FEATURE(sharp-textures)
-    {                                                                   // HWI-FEATURE(sharp-textures)
-        if (screen->atoms[i].name != NULL && strcmp(screen->atoms[i].name, opSharpTexturesName) == 0)   // HWI-FEATURE(sharp-textures)
-        {                                                               // HWI-FEATURE(sharp-textures)
-            return;                                                     // HWI-FEATURE(sharp-textures): already there
-        }                                                               // HWI-FEATURE(sharp-textures)
-        if (screen->atoms[i].type == FA_CheckBox && screen->atoms[i].name != NULL &&   // HWI-FEATURE(sharp-textures)
-            strcmp(screen->atoms[i].name, "OP_NoLOD") == 0)             // HWI-FEATURE(sharp-textures)
-        {                                                               // HWI-FEATURE(sharp-textures)
-            box = &screen->atoms[i];                                    // HWI-FEATURE(sharp-textures)
-        }                                                               // HWI-FEATURE(sharp-textures)
-        if (screen->atoms[i].type == FA_StaticText && screen->atoms[i].pData != NULL &&   // HWI-FEATURE(sharp-textures)
-            strcmp((char *)screen->atoms[i].pData, "FULL DETAIL") == 0) // HWI-FEATURE(sharp-textures)
-        {                                                               // HWI-FEATURE(sharp-textures)
-            label = &screen->atoms[i];                                  // HWI-FEATURE(sharp-textures)
-        }                                                               // HWI-FEATURE(sharp-textures)
-    }                                                                   // HWI-FEATURE(sharp-textures)
-    if (box == NULL || label == NULL || opSharpTexturesNumBlocks >= OP_SMOOTH_BLOCKS ||   // HWI-FEATURE(sharp-textures)
-        (atoms = malloc((n + 2) * sizeof(featom))) == NULL)             // HWI-FEATURE(sharp-textures): not the game's pools
-    {                                                                   // HWI-FEATURE(sharp-textures)
-        return;                                                         // HWI-FEATURE(sharp-textures)
-    }                                                                   // HWI-FEATURE(sharp-textures)
-    memcpy(atoms, screen->atoms, n * sizeof(featom));                   // HWI-FEATURE(sharp-textures)
-    atoms[n] = *box;                                                    // HWI-FEATURE(sharp-textures)
-    atoms[n].name = opSharpTexturesName;                                // HWI-FEATURE(sharp-textures)
-    atoms[n].status = 0;                                                // HWI-FEATURE(sharp-textures)
-    atoms[n].region = NULL;                                             // HWI-FEATURE(sharp-textures)
-    atoms[n].x += boxDx; atoms[n].loadedX += boxDx;                     // HWI-FEATURE(sharp-textures)
-    atoms[n].y += boxDy; atoms[n].loadedY += boxDy;                     // HWI-FEATURE(sharp-textures)
-    atoms[n + 1] = *label;                                              // HWI-FEATURE(sharp-textures)
-    atoms[n + 1].pData = (ubyte *)opSharpTexturesText;                  // HWI-FEATURE(sharp-textures)
-    atoms[n + 1].region = NULL;                                         // HWI-FEATURE(sharp-textures)
-    atoms[n + 1].x += labelDx; atoms[n + 1].loadedX += labelDx;         // HWI-FEATURE(sharp-textures)
-    atoms[n + 1].y += labelDy; atoms[n + 1].loadedY += labelDy;         // HWI-FEATURE(sharp-textures)
-    atoms[n + 1].width += 24; atoms[n + 1].loadedWidth += 24;           // HWI-FEATURE(sharp-textures): the longer text
-    screen->atoms = atoms;                                              // HWI-FEATURE(sharp-textures)
-    screen->nAtoms = (uword)(n + 2);                                    // HWI-FEATURE(sharp-textures)
-    opSharpTexturesBlocks[opSharpTexturesNumBlocks++] = atoms;          // HWI-FEATURE(sharp-textures)
-}                                                                       // HWI-FEATURE(sharp-textures)
-
-// called for every loaded .fib (FEFlow.c feScreensImageLoad), after the UI SCALE buttons: the front end's Video_Options
-// (box at 500,364, label at 500,346: the right-hand column under UI SCALE, above the ACCEPT button) and the in-game Video
-// screen (box at 256,81, label at 250,64: between VIDEO SETTINGS and UI SCALE, above IN GAME BRIGHTNESS's slider)
-void opSharpTexturesAtomsAdd(fibfileheader *header)                     // HWI-FEATURE(sharp-textures)
-{                                                                       // HWI-FEATURE(sharp-textures)
-    fescreen *screen = (fescreen *)((ubyte *)header + FIB_ScreensOffset);   // HWI-FEATURE(sharp-textures)
-    sdword i;                                                           // HWI-FEATURE(sharp-textures)
-                                                                        // HWI-FEATURE(sharp-textures)
-    for (i = 0; i < header->nScreens; i++, screen++)                    // HWI-FEATURE(sharp-textures)
-    {                                                                   // HWI-FEATURE(sharp-textures)
-        if (strcmp(screen->name, "Video_Options") == 0)                 // HWI-FEATURE(sharp-textures): OP_NoLOD 244,303; FULL DETAIL 232,293
-        {                                                               // HWI-FEATURE(sharp-textures)
-            opSharpTexturesAddToScreen(screen, 500 - 244, 364 - 303, 500 - 232, 346 - 293);   // HWI-FEATURE(sharp-textures)
-        }                                                               // HWI-FEATURE(sharp-textures)
-        else if (strcmp(screen->name, "Video") == 0)                    // HWI-FEATURE(sharp-textures): OP_NoLOD 294,227; FULL DETAIL 294,215
-        {                                                               // HWI-FEATURE(sharp-textures)
-            opSharpTexturesAddToScreen(screen, 256 - 294, 81 - 227, 250 - 294, 64 - 215);   // HWI-FEATURE(sharp-textures)
-        }                                                               // HWI-FEATURE(sharp-textures)
-    }                                                                   // HWI-FEATURE(sharp-textures)
-}                                                                       // HWI-FEATURE(sharp-textures)
 
 void opDetailThreshold(char* name, featom* atom)
 {

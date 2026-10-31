@@ -119,8 +119,8 @@ static const char *hwiSwNameLetterbox(void) { return "/letterboxBehind"; }
 static const char *hwiSwNameLod(void)       { return "/lodBands"; }
 static const char *hwiSwNameUiScale(void)   { static char name[24]; snprintf(name, sizeof(name), "/uiScale %d", (int)uiScale); return name; }
 static const char *hwiSwNameOverlay(void)   { return "/overlay"; }
-static sdword hwiValFilter(void)    { return texLinearFiltering ? 1 : 0; }   // HWI-FEATURE(sharp-textures): 0 = SHARP TEXTURES
-static const char *hwiSwNameFilter(void)    { return "/noFilter"; }        // HWI-FEATURE(sharp-textures): or /sharpTextures
+static sdword hwiValFilter(void)    { return texLinearFiltering ? 1 : 0; }   // HWI-FEATURE(sharp-textures): 0 = SURFACE FILTERING off
+static const char *hwiSwNameFilter(void)    { return "/noFilter"; }        // HWI-FEATURE(sharp-textures)
 static sdword hwiValEngTrails(void) { return hwiEngineTrails ? 1 : 0; }    // HWI-FEATURE(engine-trails): 1 the four jet streams, 0 the exe's two
 static bool32 hwiSwEngTrails(void)  { return hwiEngineTrailsSwitch; }      // HWI-FEATURE(engine-trails)
 static const char *hwiSwNameEngTrails(void) { return "/exeTrails"; }       // HWI-FEATURE(engine-trails)
@@ -137,7 +137,7 @@ static const HwiSetting hwiSettings[] =
     { "uiScale",         hwiValUiScale,   uiScaleSwitchStands,      hwiSwNameUiScale,   TRUE  },   // HWI-FEATURE(ui-scale)
     { "overlay",         hwiValOverlay,   hwiSwOverlay,             hwiSwNameOverlay,   FALSE },   // HWI-FEATURE(instrumentation)
     { "meshImmediate",   hwiValMeshImm,   hwiSwMeshImm,             hwiSwNameMeshImm,   FALSE },   // HWI-FEATURE(mesh-batching): no options-file row
-    { "texLinearFiltering", hwiValFilter, trFilterSwitchStands,     hwiSwNameFilter,    TRUE  },   // HWI-FEATURE(sharp-textures): 1 the original look, 0 SHARP TEXTURES
+    { "texLinearFiltering", hwiValFilter, trFilterSwitchStands,     hwiSwNameFilter,    TRUE  },   // HWI-FEATURE(sharp-textures): 1 the original look, 0 sharp (SURFACE FILTERING off)
     { "engineTrails",    hwiValEngTrails, hwiSwEngTrails,           hwiSwNameEngTrails, FALSE },   // HWI-FEATURE(engine-trails): no options-file row
     { "sensorsPoints",   hwiValSmPoints,  hwiSwSmPoints,            hwiSwNameSmPoints,  FALSE },   // HWI-FEATURE(sensors-points): no options-file row
 };
@@ -522,6 +522,9 @@ static sdword hwiConN = 0, hwiConNext = 0;
 static char hwiFeScreenName[64] = "";
 static sdword hwiFeScreenTick = -1;
 static bool32 hwiFeScreenDone = TRUE;
+static char hwiFeClickName[64] = "";               // HWI-TEST (screen-background round): /catFeClick <atom>[@<tick>]
+static sdword hwiFeClickTick = -1;
+static bool32 hwiFeClickDone = TRUE;
 
 void hwiOverlayKeyAtSet(char *spec)                             // HWI-TEST
 {
@@ -564,6 +567,19 @@ void hwiFeScreenSet(char *spec)                                 // HWI-TEST
     snprintf(hwiFeScreenName, sizeof(hwiFeScreenName), "%.*s", (int)((at != NULL) ? (size_t)(at - spec) : strlen(spec)), spec);
     hwiFeScreenTick = (at != NULL) ? (sdword)strtol(at + 1, NULL, 10) : -1;
     hwiFeScreenDone = FALSE;
+}
+
+// HWI-TEST: /catFeClick <atom>[@<tick>]: once the top front-end screen has that atom (with a tick: in game from that
+//      tick), a click as the front end's button processing makes it: a check box or toggle button changes state, then
+//      the atom's callback runs (feFunctionExecute, not its first call). E.g. the exe's SURFACE FILTERING box in game:
+//      /catFeScreen Custom_options@60 /catFeClick VO_Filter@64
+void hwiFeClickSet(char *spec)                                  // HWI-TEST
+{
+    char *at = strchr(spec, '@');
+
+    snprintf(hwiFeClickName, sizeof(hwiFeClickName), "%.*s", (int)((at != NULL) ? (size_t)(at - spec) : strlen(spec)), spec);
+    hwiFeClickTick = (at != NULL) ? (sdword)strtol(at + 1, NULL, 10) : -1;
+    hwiFeClickDone = FALSE;
 }
 
 static void hwiScriptKey(SDL_Scancode scancode)
@@ -615,6 +631,24 @@ static void hwiScriptFrame(void)
         hwiFeScreenDone = TRUE;
         feScreenStart(ghMainRegion, hwiFeScreenName);
         printf("hwiscript: tick=%u screen %s pushed\n", (unsigned)tick, hwiFeScreenName);
+    }
+    if (!hwiFeClickDone && feStackIndex >= 0 && feStack[feStackIndex].screen != NULL &&
+        (hwiFeClickTick < 0 || (gameIsRunning && (sdword)tick >= hwiFeClickTick)))
+    {                                               // HWI-TEST: /catFeClick
+        featom *atom = feAtomFindInScreen(feStack[feStackIndex].screen, hwiFeClickName);
+
+        if (atom != NULL && atom->region != NULL)
+        {
+            hwiFeClickDone = TRUE;
+            if (atom->type == FA_CheckBox || atom->type == FA_ToggleButton)
+            {
+                feToggleButtonSet(hwiFeClickName, FECHECKED(atom) ? FALSE : TRUE);
+            }
+            printf("hwiscript: tick=%u click %s on %s checked=%d\n", (unsigned)tick, hwiFeClickName,
+                   feStack[feStackIndex].screen->name, FECHECKED(atom) ? 1 : 0);
+            fflush(stdout);
+            feFunctionExecute(hwiFeClickName, atom, FALSE);
+        }
     }
     fflush(stdout);
 }

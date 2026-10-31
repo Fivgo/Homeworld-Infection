@@ -108,6 +108,12 @@ console"; m3r3-sk-toggle-letterboxBehind is that run with this tree.)
 
 ## (c) SHARP TEXTURES (HWI-FEATURE(sharp-textures))
 
+**Update 2026-10-31: the SHARP TEXTURES checkbox and the alias switch `/sharpTextures` are removed** (the user: "the
+sharp textures option does the same work as the original "surface filtering" option"): the exe's SURFACE FILTERING box
+(CUSTOM EFFECTS) is the control. What stays and why (the run-only `/noFilter`, the live `trFilterSync`, the CAT-FIX, the
+console row, the settings line, the "texfilter:" line) and the toggle self-test's new steps through the exe's box:
+docs/features/screen-background.md "SHARP TEXTURES removed". The rest of this section is the M3-R3 record.
+
 ### The base: what cataclysm.exe does (read first)
 
 - **The filters.** `trRGBTextureCreate 0x005866a0` (disassembly) and `trPalettedTextureCreate 0x00586500` set

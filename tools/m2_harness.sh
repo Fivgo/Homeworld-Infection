@@ -568,6 +568,9 @@
 #                    server ($DISPLAY) with every window created HIDDEN (never mapped: nothing on screen) and the pointer
 #                    never warped or grabbed; the real GLX driver path (the NVIDIA driver under Xwayland), e.g. a mode
 #                    switch: --mode modequit --res 2560x1600 --mode-to 3840x2160 --hidden-x11. Silent like every run
+#   --settings-file SRC:REL  any mode, repeatable (HWI-FEATURE(screen-background)): copies the file SRC into the run's
+#                    fresh settings dir (the engine's settings folder, /settingspath) as REL, before the start, e.g.
+#                    --settings-file pic.png:Assets/feman/backgrounds/Video_Options.png (a picture behind that screen)
 #   --data DIR       HW_Data dir to use instead of the harness data dir. ONLY for isolation runs of one item while
 #                    other stage-1 items are still missing; the summary prints it, and such a run is never the gate.
 #   --bin PATH       engine binary (default build/debug/hwi-engine)
@@ -638,7 +641,7 @@ conticks=400; bticks=7000; aiticks=400; mtticks=20000; mttut=0; mtmission=1; sav
 motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=""; skticks=600; skmap=LiveFireExercise2
 warplevel=10; savesrc=""; training=0; recordname=""; recordstop=""; skbigotry=""; failjump=0
 shotspec=""; shotlb=0; res=""; cfgrows=(); teamcolour=0; lodtest=""; lodstats=""; scene=""; realclock=""
-modeto=1280x720; framelog=0; framesig=0; anyfps=""; resizeat=""; hiddenx11=0
+modeto=1280x720; framelog=0; framesig=0; anyfps=""; resizeat=""; hiddenx11=0; setfiles=()
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -685,6 +688,7 @@ while [[ $# -gt 0 ]]; do
 		--res) res=$2; shift ;;
 		--resize-at) resizeat=$2; shift ;;   # M3-R4 window-modes
 		--cfg) cfgrows+=("$2"); shift ;;
+		--settings-file) setfiles+=("$2"); shift ;;   # HWI-FEATURE(screen-background)
 		--player-colours)
 			[[ "$2" =~ ^([0-9a-fA-F]{8})/([0-9a-fA-F]{8})$ ]] || { echo "m2_harness: --player-colours wants BASE/STRIPE (8 hex digits each)" >&2; exit 2; }
 			pcb=$(( 16#${BASH_REMATCH[1]} )); pcs=$(( 16#${BASH_REMATCH[2]} ))
@@ -709,6 +713,12 @@ done
 
 out="$HARNESS/runs/$label"
 rm -rf -- "$out"; mkdir -p "$out/settings"
+for sf in "${setfiles[@]}"; do                     # HWI-FEATURE(screen-background): --settings-file SRC:REL
+	[[ "$sf" == *:* && -f "${sf%%:*}" && -n "${sf#*:}" && "${sf#*:}" != /* && "${sf#*:}" != *..* ]] || \
+		{ echo "m2_harness: --settings-file wants SRC:REL (an existing file, a relative path)" >&2; exit 2; }
+	mkdir -p "$out/settings/$(dirname -- "${sf#*:}")"
+	cp -f -- "${sf%%:*}" "$out/settings/${sf#*:}"
+done
 options_template
 cp -r "$HARNESS/home-template" "$out/home"
 # M3-R1: --res / --cfg rows appended to this run's own copy of the options file (the template stays as it is)
@@ -1037,6 +1047,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == sound ]] && echo "soundtest: $(grep -h 'soundtest: ' "$L" | sed 's/^.*soundtest: //' | paste -sd';'); UBSan reports in fquant.c/fqcodec.c: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c 'fquant\.c\|fqcodec\.c'); PATCH reports: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c "struct PATCH")"
 	[[ "$mode" == etg ]] && echo "etg: $(grep -c . "$out/etg.list" 2>/dev/null) listed; $(grep -h 'etgtest: etgStartup done\|etgtest: self-test done\|etgtest: created\|etgtest: effect self-test done' "$L" | sed 's/^.*etgtest: //' | paste -sd';')"
 	[[ -n "$shotspec" ]] && echo "catshot: $(grep -c 'catshot: tick=' "$L") files ($(grep -h 'catshot: tick=' "$L" | head -n 1 | sed 's/^.*catshot: //; s/ file=.*//') ..); FAIL lines: $(grep -c 'catshot: FAIL' "$L")"
+	grep -q 'screenbg' "$L" && echo "screenbg: $(grep -h 'screenbg: \|screenbgexport: ' "$L" | sed 's/^.*\(screenbg[a-z]*: \)/\1/' | paste -sd';')"   # HWI-FEATURE(screen-background)
 	[[ -n "$lodtest" ]] && echo "lodtest: $(grep -c 'lodtest: obj ' "$L") objects; $(grep -h 'lodtest: frame' "$L" | sed 's/^.*lodtest: //' | cut -c1-300); $(grep -h 'lodtest: done' "$L" | sed 's/^.*lodtest: //' | cut -c1-300)"
 	[[ -n "$lodstats" ]] && echo "lodstats: $(grep -c 'lodstats: tick=' "$L") frames; $(grep -h 'lodstats: done' "$L" | sed 's/^.*lodstats: //' | cut -c1-300)"
 	[[ -n "$scene" ]] && echo "scene: $(grep -h 'motiontest: scene done' "$L" | sed 's/^.*motiontest: //' | cut -c1-300)"
