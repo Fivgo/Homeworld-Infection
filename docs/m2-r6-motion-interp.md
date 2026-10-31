@@ -185,7 +185,8 @@ Spec item 3.
   `Video` screen (in_game_esc_menu.fib): a copy of the screen's own "full detail" checkbox (`OP_NoLOD`, `FA_CheckBox`)
   renamed `OP_SmoothMotion`, and a copy of its "FULL DETAIL" static text with the text "SMOOTH MOTION", moved into free
   space by file-coordinate offsets (front end: box at 500,268 and label at 500,250, under the tab buttons; in game:
-  box at 379,316 and label at 373,298, under "NUMBER OF EFFECTS"). The atom arrays are malloc'd (not the game's pools)
+  box at 379,316 and label at 373,298, under "NUMBER OF EFFECTS") [update 2026-10-31: one row since, box at 502,316 /
+  379,306 with the label 20 right of it: docs/features/screen-background.md]. The atom arrays are malloc'd (not the game's pools)
   and kept. The callback `opSmoothMotion` (registered as `OP_SmoothMotion` in utility.c's callback table) shows the
   flags at its first call and sets both on a click. `opOptionsSaveSettings` / `opRestoreSavedSettings` save and restore
   both flags with the other video options, so **Accept** (which ends with `opOptionsSaveSettings`, writing the options
