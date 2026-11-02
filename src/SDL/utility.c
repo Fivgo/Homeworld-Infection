@@ -4777,6 +4777,14 @@ DONE_INTROS:
 
     utySet(SS2_SystemStarted);                              //!!! leave this at the end of this function
 
+    // HWI-TEST /catAssetsModelTest (HWI-FEATURE(assets-models)): every model OBJ built and compared, then quit
+    if (catAssetsModelTestOn)
+    {
+        catAssetsModelRunTest();
+        utyGameQuit(NULL, NULL);
+        return(NULL);
+    }
+
     // CAT: /catMeshLoadTest (port diagnostic): load every mesh in the list once, log it, and quit
     if (catMeshSelfTestList[0] != '\0')
     {

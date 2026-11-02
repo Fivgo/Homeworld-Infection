@@ -5,7 +5,9 @@
     (assets-manifest.txt) does not list it or lists another size or time; an untouched export has no active file and
     changes nothing. An active file is used when its path (case ignored) names a game file, or when it is a PNG of a
     .lif texture (<name>.png, <name>_teambase.png, <name>_teamstripe.png). Atlas pages whose source textures changed
-    are rebuilt from assets-pages.txt (the export writes it). Everything else is ignored.
+    are rebuilt from assets-pages.txt (the export writes it). An edited ship model (an OBJ of Models/ that
+    assets-models.txt names, HWI-FEATURE(assets-models)) replaces its mesh, built when the game loads that mesh
+    (src/Game/AssetsModels.c). Everything else is ignored.
 
     Memory comes from malloc, not the game heap, so a run without active files has the same heap as a run without
     the folder. The pixels are built in src/SDL/assettex.c.
@@ -28,12 +30,15 @@
 #include <SDL2/SDL.h>
 
 #include "AssetsFolder.h"
+#include "AssetsModels.h"       // HWI-FEATURE(assets-models)
 #include "File.h"
+#include "Memory.h"
 
 #define AF_FolderName       "Assets"
 #define AF_ManifestName     "assets-manifest.txt"
 #define AF_PagesName        "assets-pages.txt"
 #define AF_ReadmeName       "README.txt"
+#define AF_ModelsName       "assets-models.txt"     // HWI-FEATURE(assets-models)
 #define AF_MaxIgnoredLogged 20
 #define AF_MaxDepth         24              // folder levels scanned (a symbolic-link loop ends here)
 
@@ -89,6 +94,36 @@ static afhash afTextures = {NULL, 0, 0};    // texture key -> assetstexture
 static sdword afActive = 0;
 
 static sdword afScanned = 0, afUnchanged = 0, afFolders = 0, afIgnored = 0;
+
+// HWI-FEATURE(assets-models): an edited OBJ and the game mesh it replaces
+typedef struct
+{
+    char *ship;                     // race_x/ship
+    sdword level;
+    char *meshName;                 // the template: the source mesh (main OBJ) or the in-game mesh (ingame/ OBJ)
+    char *objRel;                   // Models/.../<ship>_lodN.obj
+    char *objPath;
+    sdword state;                   // 0: not built yet, 1: built, -1: cannot be used
+    ubyte *image;                   // the mesh image (malloc)
+    sdword length;
+}
+afmodel;
+
+typedef struct
+{
+    char *ship;
+    sdword level;
+    char *base;                     // the mesh path without its extension (key)
+    afmodel *model;                 // edited, else NULL
+}
+afmodelline;
+
+static afhash afModels = {NULL, 0, 0};      // mesh base key -> afmodel (edited, or the level it stands in for)
+static afmodel **afModelList = NULL;
+static sdword afModelN = 0, afModelStandIns = 0;
+static afmodelline *afModelLines = NULL;
+static sdword afModelLineN = 0;
+static afhash afModelLogged = {NULL, 0, 0}; // base keys whose stand-in use was logged
 
 /*=============================================================================
     Helpers:
@@ -417,7 +452,7 @@ static bool32 afSkipped(const char *relLower, bool32 isFolder, bool32 atTop)
         return (atTop && strcmp(relLower, "models") == 0) || strcmp(relLower, "feman/backgrounds") == 0;
     }
     return atTop && (strcmp(relLower, "readme.txt") == 0 || strcmp(relLower, AF_ManifestName) == 0 ||
-                     strcmp(relLower, AF_PagesName) == 0);
+                     strcmp(relLower, AF_PagesName) == 0 || strcmp(relLower, AF_ModelsName) == 0);
 }
 
 static void afFileSeen(const char *path, const char *rel, uqword size, sqword mtime)
@@ -735,6 +770,533 @@ static void afPagesLoad(void)
 }
 
 /*=============================================================================
+    HWI-FEATURE(assets-models): edited ship models (docs/features/assets-models.md)
+=============================================================================*/
+
+// size and whole-second time of a file, as the scan reads them (FALSE: no such file)
+static bool32 afFileTime(const char *path, uqword *size, sqword *mtime)
+{
+#ifdef _WIN32
+    WIN32_FIND_DATAA find;
+    HANDLE handle = FindFirstFileA(path, &find);
+    uqword ft;
+
+    if (handle == INVALID_HANDLE_VALUE)
+    {
+        return FALSE;
+    }
+    FindClose(handle);
+    if (find.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+    {
+        return FALSE;
+    }
+    *size = ((uqword)find.nFileSizeHigh << 32) | find.nFileSizeLow;
+    ft = ((uqword)find.ftLastWriteTime.dwHighDateTime << 32) | find.ftLastWriteTime.dwLowDateTime;
+    *mtime = (sqword)(ft / 10000000ULL) - 11644473600LL;
+    return TRUE;
+#else
+    struct stat st;
+
+    if (stat(path, &st) != 0 || !S_ISREG(st.st_mode))
+    {
+        return FALSE;
+    }
+    *size = (uqword)st.st_size;
+    *mtime = (sqword)st.st_mtime;
+    return TRUE;
+#endif
+}
+
+// is this file of the folder changed from the export (or not listed)? FALSE also when it does not exist
+static bool32 afChanged(const char *rel, bool32 *exists)
+{
+    char path[PATH_MAX], key[PATH_MAX];
+    uqword size;
+    sqword mtime;
+    afmanifestentry *entry;
+
+    snprintf(path, sizeof(path), "%s/%s", afFolder, rel);
+    *exists = afFileTime(path, &size, &mtime);
+    if (!*exists)
+    {
+        return FALSE;
+    }
+    afKey(rel, key, sizeof(key));
+    entry = afHashGet(&afManifest, key);
+    return entry == NULL || entry->size != size || entry->mtime != mtime;
+}
+
+// an OBJ is edited when it or its .mtl changed
+static bool32 afModelEdited(const char *objRel)
+{
+    char mtl[PATH_MAX];
+    bool32 exists, mtlExists, changed;
+    size_t n = strlen(objRel);
+
+    if (strcmp(objRel, "-") == 0 || n < 5)
+    {
+        return FALSE;
+    }
+    changed = afChanged(objRel, &exists);
+    if (!exists)
+    {
+        return FALSE;                                       // deleted: the game's own mesh
+    }
+    snprintf(mtl, sizeof(mtl), "%.*s.mtl", (int)(n - 4), objRel);
+    return changed || (afChanged(mtl, &mtlExists) && mtlExists);
+}
+
+static void afBaseKey(const char *path, char *out, size_t size)
+{
+    char *dot, *slash;
+
+    afKey(path, out, size);
+    dot = strrchr(out, '.');
+    slash = strrchr(out, '/');
+    if (dot != NULL && (slash == NULL || dot > slash))
+    {
+        *dot = 0;
+    }
+}
+
+static afmodel *afModelNew(const char *ship, sdword level, const char *meshName, const char *objRel)
+{
+    char path[PATH_MAX];
+    afmodel *model = calloc(1, sizeof(afmodel));
+
+    snprintf(path, sizeof(path), "%s/%s", afFolder, objRel);
+    model->ship = afStrdup(ship);
+    model->level = level;
+    model->meshName = afStrdup(meshName);
+    model->objRel = afStrdup(objRel);
+    model->objPath = afStrdup(path);
+    afModelList = realloc(afModelList, sizeof(afmodel *) * (size_t)(afModelN + 1));
+    afModelList[afModelN++] = model;
+    return model;
+}
+
+// assets-models.txt: "ship<TAB>level<TAB>source mesh<TAB>OBJ<TAB>in-game mesh<TAB>in-game OBJ or -"
+static char **afModelsFields(char *line, sdword *n)
+{
+    static char *fields[8];
+    char *p = line;
+
+    *n = 0;
+    while (*n < 8)
+    {
+        fields[(*n)++] = p;
+        p = strchr(p, '\t');
+        if (p == NULL)
+        {
+            break;
+        }
+        *p++ = 0;
+    }
+    return fields;
+}
+
+// read at start-up, while the manifest is loaded: which OBJs are edited, and the levels they stand in for
+static void afModelsLoad(void)
+{
+    char path[PATH_MAX], base[PATH_MAX];
+    char *text, *line, *next;
+    sdword i, j, edited = 0;
+
+    snprintf(path, sizeof(path), "%s/%s", afFolder, AF_ModelsName);
+    text = afReadText(path);
+    if (text == NULL)
+    {
+        snprintf(path, sizeof(path), "%s/Models", afFolder);
+        {
+            struct stat st;
+
+            if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
+            {
+                printf("assets: no %s: edited models are not read (an older export)\n", AF_ModelsName);
+            }
+        }
+        return;
+    }
+    for (line = text; line != NULL && *line; line = next)
+    {
+        char **f;
+        sdword n;
+        size_t len;
+        afmodelline *ml;
+        bool32 mainEdited, gameEdited;
+
+        next = strchr(line, '\n');
+        if (next != NULL)
+        {
+            *next++ = 0;
+        }
+        len = strlen(line);
+        while (len > 0 && (line[len - 1] == '\r' || line[len - 1] == ' '))
+        {
+            line[--len] = 0;
+        }
+        if (line[0] == '#' || line[0] == 0)
+        {
+            continue;
+        }
+        f = afModelsFields(line, &n);
+        if (n < 6)
+        {
+            continue;
+        }
+        afBaseKey(f[2], base, sizeof(base));
+        afModelLines = realloc(afModelLines, sizeof(afmodelline) * (size_t)(afModelLineN + 1));
+        ml = &afModelLines[afModelLineN++];
+        ml->ship = afStrdup(f[0]);
+        ml->level = (sdword)strtol(f[1], NULL, 10);
+        ml->base = afStrdup(base);
+        ml->model = NULL;
+        mainEdited = afModelEdited(f[3]);
+        gameEdited = afModelEdited(f[5]);
+        if (!mainEdited && !gameEdited)
+        {
+            continue;
+        }
+        if (afHashGet(&afModels, ml->base) != NULL)
+        {
+            afmodel *other = afHashGet(&afModels, ml->base);
+
+            if (strcmp(other->objRel, mainEdited ? f[3] : f[5]) != 0)
+            {
+                printf("assets: model %s: its mesh %s is already replaced by %s; not used\n",
+                       mainEdited ? f[3] : f[5], f[2], other->objRel);
+            }
+            ml->model = other;
+            continue;
+        }
+        if (mainEdited && gameEdited)
+        {
+            printf("assets: model %s and %s are both edited: %s is used (the main model wins)\n", f[3], f[5], f[3]);
+        }
+        ml->model = mainEdited ? afModelNew(f[0], ml->level, f[2], f[3]) : afModelNew(f[0], ml->level, f[4], f[5]);
+        afHashPut(&afModels, ml->base, ml->model);
+        printf("assets: model %s edited: it replaces %s (%s level %d)\n", ml->model->objRel,
+               mainEdited ? "the mesh and its paged version" : "the paged mesh", f[0], (int)ml->level);
+        edited++;
+    }
+    free(text);
+    // a level without an edited model takes the nearest lower edited level of its ship, so the edit shows at any
+    // distance
+    for (i = 0; i < afModelLineN; i++)
+    {
+        afmodelline *ml = &afModelLines[i];
+        afmodelline *best = NULL;
+
+        if (ml->model != NULL || afHashGet(&afModels, ml->base) != NULL)
+        {
+            continue;
+        }
+        for (j = 0; j < afModelLineN; j++)
+        {
+            afmodelline *o = &afModelLines[j];
+
+            if (o->model != NULL && o->level < ml->level && strcmp(o->ship, ml->ship) == 0 &&
+                (best == NULL || o->level > best->level))
+            {
+                best = o;
+            }
+        }
+        if (best != NULL)
+        {
+            afHashPut(&afModels, ml->base, best->model);
+            afModelStandIns++;
+        }
+    }
+    // one line per ship with stand-ins
+    for (i = 0; i < afModelN; i++)
+    {
+        afmodel *model = afModelList[i];
+        char levels[256] = "";
+        size_t len = 0;
+
+        for (j = 0; j < afModelLineN; j++)
+        {
+            afmodelline *o = &afModelLines[j];
+
+            if (o->model == NULL && afHashGet(&afModels, o->base) == model && strcmp(o->ship, model->ship) == 0 &&
+                len + 8 < sizeof(levels))
+            {
+                len += (size_t)snprintf(levels + len, sizeof(levels) - len, "%s%d", len ? ", " : "", (int)o->level);
+            }
+        }
+        if (len)
+        {
+            printf("assets: model %s also stands in for %s level%s %s (no edited model of its own)\n", model->objRel,
+                   model->ship, strchr(levels, ',') ? "s" : "", levels);
+        }
+    }
+    if (edited)
+    {
+        printf("assets: models: %d edited, %d levels stand in\n", (int)edited, (int)afModelStandIns);
+    }
+}
+
+static bool32 afGameFile(const char *path)
+{
+    char key[PATH_MAX];
+
+    afKey(path, key, sizeof(key));
+    return afGameFileExists(key);
+}
+
+// a picture an imported model names that the game does not have
+static bool32 afNewPicture(const char *key, const char *pngPath)
+{
+    assetstexture *tex = afHashGet(&afTextures, key);
+    sdword width, height, i;
+    char mask[PATH_MAX];
+    size_t n = strlen(pngPath);
+
+    if (tex != NULL)
+    {
+        return (tex->kinds & AF_New) && tex->pngPath != NULL && strcmp(tex->pngPath, pngPath) == 0;
+    }
+    if (!afPngSize(pngPath, &width, &height))
+    {
+        printf("assets: %s is not a PNG of 1 to %d pixels a side\n", pngPath, AF_MaxSide);
+        return FALSE;
+    }
+    tex = afTextureGet(key);
+    tex->kinds = AF_Png | AF_New;
+    tex->pngPath = afStrdup(pngPath);
+    tex->pngWidth = width;
+    tex->pngHeight = height;
+    for (i = 0; i < 2 && n > 4; i++)
+    {
+        snprintf(mask, sizeof(mask), "%.*s%s.png", (int)(n - 4), pngPath, i == 0 ? "_teambase" : "_teamstripe");
+        if (afPngSize(mask, &width, &height))
+        {
+            tex->kinds |= (i == 0) ? AF_TeamBase : AF_TeamStripe;
+            tex->teamPath[i] = afStrdup(mask);
+        }
+    }
+    return TRUE;
+}
+
+// HWI-FEATURE(assets-models): the mesh image of an edited model for this mesh file (a .geo or .peo path as the game
+//      names it), built once; meshName gets the game mesh it was made from (its folder holds the textures)
+bool32 assetsModelFind(char *fileName, const ubyte **image, sdword *length, char *meshName, size_t meshNameSize)
+{
+    char base[PATH_MAX];
+    afmodel *model;
+
+    if (afModels.count == 0 || afSuspended > 0 || fileName == NULL)
+    {
+        return FALSE;
+    }
+    afBaseKey(fileName, base, sizeof(base));
+    model = afHashGet(&afModels, base);
+    if (model == NULL || model->state < 0)
+    {
+        return FALSE;
+    }
+    if (model->state == 0)
+    {
+        char why[512];
+        amstats stats;
+        void *tmpl = NULL;
+        sdword tmplLength = 0;
+        Uint64 t0 = SDL_GetPerformanceCounter();
+
+        model->state = -1;
+        assetsSuspend(TRUE);                                // the game's own mesh is the template
+        if (fileExists(model->meshName, 0))
+        {
+            tmplLength = fileLoadAlloc(model->meshName, &tmpl, NonVolatile);
+        }
+        assetsSuspend(FALSE);
+        if (tmpl == NULL)
+        {
+            printf("assets: model %s: the game has no %s; not used\n", model->objRel, model->meshName);
+            return FALSE;
+        }
+        model->image = amObjToMesh(afFolder, model->objPath, model->objRel, model->meshName, tmpl, tmplLength,
+                                   afNewPicture, afGameFile, &model->length, &stats, why, sizeof(why));
+        memFree(tmpl);
+        if (model->image == NULL)
+        {
+            printf("assets: model %s: %s; the game's own mesh is used\n", model->objRel, why);
+            return FALSE;
+        }
+        model->state = 1;
+        printf("assets: model %s: %d objects with faces, %d triangles from %d faces, %d vertices, %d new material%s, "
+               "%d new picture%s, glow from the game's mesh at %d vertices, %.1f ms\n", model->objRel,
+               (int)stats.objects, (int)stats.triangles, (int)stats.faces, (int)stats.vertices,
+               (int)stats.newMaterials, stats.newMaterials == 1 ? "" : "s", (int)stats.newPictures,
+               stats.newPictures == 1 ? "" : "s", (int)stats.glowCopied,
+               (double)(SDL_GetPerformanceCounter() - t0) * 1000.0 / (double)SDL_GetPerformanceFrequency());
+    }
+    if (afHashGet(&afModelLogged, base) == NULL)
+    {
+        printf("assets: model %s drawn for %s\n", model->objRel, fileName);
+        afHashPut(&afModelLogged, afStrdup(base), model);
+    }
+    *image = model->image;
+    *length = model->length;
+    snprintf(meshName, meshNameSize, "%s", model->meshName);
+    return TRUE;
+}
+
+// HWI-TEST /catAssetsModelTest: every OBJ assets-models.txt names, built from the file as it is and compared with
+//      the game's mesh (the export's own OBJs: the same objects, triangles, positions, UVs, normals, materials, glow)
+char catAssetsModelTestOn = FALSE;
+
+void catAssetsModelRunTest(void)
+{
+    char path[PATH_MAX];
+    char *text, *line, *next;
+    sdword files = 0, pass = 0, fail = 0, polygons = 0, nanNormals = 0;
+    real64 maxPosition = 0.0, maxUV = 0.0, maxNormal = 0.0, maxSmoothFace = 0.0;
+    Uint64 t0 = SDL_GetPerformanceCounter();
+
+    snprintf(path, sizeof(path), "%s/%s", afFolder, AF_ModelsName);
+    text = afFolder[0] ? afReadText(path) : NULL;
+    if (text == NULL)
+    {
+        printf("modeltest: no %s in the Assets folder (%s); result=FAIL\n", AF_ModelsName, afFolder);
+        return;
+    }
+    for (line = text; line != NULL && *line; line = next)
+    {
+        char **f;
+        sdword n, k;
+        size_t len;
+
+        next = strchr(line, '\n');
+        if (next != NULL)
+        {
+            *next++ = 0;
+        }
+        len = strlen(line);
+        while (len > 0 && (line[len - 1] == '\r' || line[len - 1] == ' '))
+        {
+            line[--len] = 0;
+        }
+        if (line[0] == '#' || line[0] == 0)
+        {
+            continue;
+        }
+        f = afModelsFields(line, &n);
+        if (n < 6)
+        {
+            continue;
+        }
+        for (k = 0; k < 2; k++)
+        {
+            const char *objRel = (k == 0) ? f[3] : f[5];
+            const char *meshName = (k == 0) ? f[2] : f[4];
+            char objPath[PATH_MAX], why[512] = "";
+            void *tmpl = NULL;
+            sdword tmplLength = 0, imageLength = 0;
+            ubyte *image;
+            amstats stats;
+            amcompare cmp;
+            bool32 ok = FALSE;
+
+            if (strcmp(objRel, "-") == 0)
+            {
+                continue;
+            }
+            files++;
+            snprintf(objPath, sizeof(objPath), "%s/%s", afFolder, objRel);
+            assetsSuspend(TRUE);
+            if (fileExists((char *)meshName, 0))
+            {
+                tmplLength = fileLoadAlloc((char *)meshName, &tmpl, 0);
+            }
+            assetsSuspend(FALSE);
+            memset(&cmp, 0, sizeof(cmp));
+            if (tmpl == NULL)
+            {
+                snprintf(why, sizeof(why), "the game has no %s", meshName);
+                image = NULL;
+            }
+            else
+            {
+                image = amObjToMesh(afFolder, objPath, objRel, meshName, tmpl, tmplLength, afNewPicture, afGameFile,
+                                    &imageLength, &stats, why, sizeof(why));
+            }
+            if (image != NULL && amCompare(tmpl, tmplLength, image, imageLength, &cmp, why, sizeof(why)))
+            {
+                real64 tolerancePosition = 1e-4;
+
+                ok = cmp.maxPosition <= tolerancePosition && cmp.maxUV <= 1e-5 && cmp.maxNormal <= 1e-4 &&
+                     cmp.materialDiffers == 0 && cmp.glowDiffers == 0;
+                if (!ok)
+                {
+                    snprintf(why, sizeof(why), "outside the tolerances");
+                }
+                polygons += cmp.polygons;
+                nanNormals += cmp.nanNormals;
+                maxPosition = max(maxPosition, cmp.maxPosition);
+                maxUV = max(maxUV, cmp.maxUV);
+                maxNormal = max(maxNormal, cmp.maxNormal);
+                maxSmoothFace = max(maxSmoothFace, cmp.maxSmoothFace);
+            }
+            printf("modeltest: %s objects=%d polygons=%d pos=%.2g uv=%.2g normal=%.2g smoothface=%.2g materials=%d "
+                   "glow=%d nan=%d result=%s%s%s\n", objRel, (int)cmp.objects, (int)cmp.polygons, cmp.maxPosition,
+                   cmp.maxUV, cmp.maxNormal, cmp.maxSmoothFace, (int)cmp.materialDiffers, (int)cmp.glowDiffers,
+                   (int)cmp.nanNormals,
+                   ok ? "PASS" : "FAIL", ok ? "" : " ", ok ? "" : why);
+            pass += ok;
+            fail += !ok;
+            free(image);
+            if (tmpl != NULL)
+            {
+                memFree(tmpl);
+            }
+        }
+    }
+    free(text);
+    printf("modeltest: done files=%d pass=%d fail=%d polygons=%d maxpos=%.3g maxuv=%.3g maxnormal=%.3g "
+           "maxsmoothface=%.3g nan=%d %.1f s result=%s\n", (int)files, (int)pass, (int)fail, (int)polygons,
+           maxPosition, maxUV, maxNormal, maxSmoothFace, (int)nanNormals,
+           (double)(SDL_GetPerformanceCounter() - t0) / (double)SDL_GetPerformanceFrequency(),
+           (files > 0 && fail == 0) ? "PASS" : "FAIL");
+}
+
+static void afModelsShutdown(void)
+{
+    sdword i;
+    udword j;
+
+    for (i = 0; i < afModelN; i++)
+    {
+        free(afModelList[i]->ship);
+        free(afModelList[i]->meshName);
+        free(afModelList[i]->objRel);
+        free(afModelList[i]->objPath);
+        free(afModelList[i]->image);
+        free(afModelList[i]);
+    }
+    free(afModelList);
+    afModelList = NULL;
+    afModelN = afModelStandIns = 0;
+    for (i = 0; i < afModelLineN; i++)
+    {
+        free(afModelLines[i].ship);
+        free(afModelLines[i].base);
+    }
+    free(afModelLines);
+    afModelLines = NULL;
+    afModelLineN = 0;
+    afHashFree(&afModels);                                  // keys: the lines' bases
+    if (afModelLogged.slot != NULL)
+    {
+        for (j = 0; j <= afModelLogged.mask; j++)
+        {
+            free(afModelLogged.slot[j].key);
+        }
+    }
+    afHashFree(&afModelLogged);
+}
+
+/*=============================================================================
     Functions:
 =============================================================================*/
 
@@ -817,6 +1379,7 @@ void assetsStartup(void)
     snprintf(path, sizeof(path), "%s", afFolder);
     rel[0] = 0;
     afScan(path, strlen(path), rel, 0, 0);
+    afModelsLoad();                                         // HWI-FEATURE(assets-models): needs the manifest
     afHashFree(&afManifest);
     free(afManifestEntries);
     afManifestEntries = NULL;
@@ -858,6 +1421,12 @@ void assetsShutdown(void)
 
             if (afTextures.slot[i].key != NULL)
             {
+                if (tex->kinds & AF_New)                    // HWI-FEATURE(assets-models): its own copies
+                {
+                    free(tex->pngPath);
+                    free(tex->teamPath[0]);
+                    free(tex->teamPath[1]);
+                }
                 free(tex->placed);
                 free(tex->shareParent);
                 free(tex->key);
@@ -867,6 +1436,7 @@ void assetsShutdown(void)
     }
     afHashFree(&afTextures);
     afHashFree(&afNative);
+    afModelsShutdown();                                     // HWI-FEATURE(assets-models)
     for (j = 0; j < afFilesN; j++)
     {
         free(afFiles[j].key);

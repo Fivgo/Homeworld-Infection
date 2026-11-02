@@ -391,6 +391,14 @@ bool32 CatShipStaticsSkipSet(char *string)
     return TRUE;
 }
 
+// HWI-TEST /catAssetsModelTest (AssetsFolder.c catAssetsModelRunTest), HWI-FEATURE(assets-models)
+bool32 CatAssetsModelTestSet(char *string)
+{
+    (void)string;
+    catAssetsModelTestOn = TRUE;
+    return TRUE;
+}
+
 // CAT: port diagnostic: /catMeshLoadTest <listfile> (Mesh.c catMeshRunSelfTest)
 bool32 CatMeshLoadTestSet(char *string)
 {
@@ -1615,6 +1623,7 @@ commandoption commandOptions[] =
     entryVr("/catShipStaticsStaticInit", catShipStaticsRunStaticInit, TRUE, " - with /catShipStaticsTest, also run each type's CustShipStaticInit."),
     // CAT: port diagnostic, not a Cataclysm option (Mesh.c catMeshRunSelfTest)
     entryFnParam("/catMeshLoadTest",    CatMeshLoadTestSet, " <listfile> - load every mesh named in listfile, log one line per file, then exit."),
+    entryFn("/catAssetsModelTest",      CatAssetsModelTestSet, " - build every model of the Assets folder's assets-models.txt from its OBJ, compare it with the game's mesh (\"modeltest:\" lines), then exit."),
     // CAT: port diagnostics, not Cataclysm options (ETG.c catEtgRunParseSelfTest, catEtgRunEffectSelfTest)
     entryFnParam("/catEtgParseTest",    CatEtgParseTestSet, " <listfile> - start the effects module and load every etg script and effect named in listfile, then exit."),
     entryFnParam("/catEtgEffectTest",   CatEtgEffectTestSet, " <ticks> - with /catEtgParseTest: create a sample of the effects and run them for <ticks> universe ticks."),
