@@ -24,6 +24,7 @@ What it writes (every path lower case):
                                                      textured with the PNGs above
   Models/<race>/<ship>/ingame/<ship>_lodN.obj|.mtl   the paged mesh the game draws, with its atlas pages
   assets-pages.txt                      where each source texture sits in its atlas page (Paco's placements)
+  assets-models.txt                     which OBJ is which game mesh, per ship and level (the game reads edited OBJs)
   README.txt                            for the user
   assets-manifest.txt                   "<size> <mtime> <sha256> <path>" of every file written: the game uses a file
                                         only when it is not listed or its size or time differs
@@ -57,6 +58,7 @@ DEF_DATA = os.path.join(MAIN, 'original', 'game_extracted', 'cataclysm')
 DEF_UPDATE = os.path.join(MAIN, 'original', 'game_extracted', 'update')
 MANIFEST = 'assets-manifest.txt'
 PAGES = 'assets-pages.txt'
+MODELS = 'assets-models.txt'
 README = 'README.txt'
 MASK_SUFFIX = {'team0': '_teambase', 'team1': '_teamstripe'}
 # the front end's screen pictures (src/Game/ScreenBackground.c, docs/features/screen-background.md): the user's own
@@ -362,6 +364,24 @@ def export_models(tree, writer, info, report):
         es.write_file = saved
     report['ships'] = ex.totals['ships']
     report['obj_files'] = ex.totals['obj_files']
+    write_models(writer, ex.ships)
+
+
+def write_models(writer, ships):
+    """assets-models.txt: one line per ship level that has a mesh: the ship, the level, the source mesh and its OBJ,
+    the mesh the game draws and its OBJ ('-' when the game draws the source mesh). Paths as the game names them (lower
+    case, '/'); the engine maps an edited OBJ back to its mesh with it (HWI-FEATURE(assets-models))."""
+    lines = ['# assets-models.txt: which OBJ is which game mesh (written by the export; do not edit)',
+             '# ship<TAB>level<TAB>source mesh<TAB>OBJ<TAB>in-game mesh<TAB>in-game OBJ (- = the game draws the source '
+             'mesh)']
+    for key in sorted(ships):
+        for lrec in ships[key]['lods']:
+            if not lrec.get('obj'):
+                continue
+            ig = lrec.get('ingame') or {}
+            lines.append('\t'.join([key, str(lrec['level']), lrec['source_mesh'], lrec['obj'], lrec['ingame_mesh'],
+                                    ig.get('obj') or '-']))
+    writer.write(MODELS, '\n'.join(lines) + '\n')
 
 
 # ------------------------------------------------------------------------------------------------------------
@@ -572,7 +592,7 @@ def status(args, refresh=False):
 
     def what(rel):
         key = rel.lower()
-        if key.startswith(skip) or key in (README.lower(), PAGES):
+        if key.startswith(skip) or key in (README.lower(), PAGES, MODELS):
             return 'not used by the game'
         t = target_of(tree, key) if tree else '?'
         return 'replaces %s' % t if t else 'matches no game file: ignored'
