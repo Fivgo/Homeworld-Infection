@@ -88,6 +88,7 @@
 #include "Instrument.h"      // HWI-FEATURE(instrumentation): /overlay, the overlay's key; HWI-TEST /frameLog
 #include "datasetup.h"       // HWI-FEATURE(data-setup): the player quit the first-run step; HWI-TEST /catDataSetupScript
 #include "AssetsFolder.h"    // HWI-FEATURE(assets-folder): /assetsPath, /noAssets
+#include "AssetsExport.h"    // HWI-FEATURE(assets-autoexport): /noAssetsExport, /catAssetsExportWait
 
 #ifdef _WIN32
     #define strcasecmp _stricmp
@@ -1386,6 +1387,8 @@ commandoption commandOptions[] =
     // HWI-FEATURE(assets-folder): docs/features/assets-folder.md
     entryFnParam("/assetsPath",     assetsPathSet,                      " <path> - Sets the Assets folder (default: Assets in the user-files folder, see /userFilesPath)."),
     entryFn("/noAssets",            assetsOffSet,                       " - Ignores the Assets folder."),
+    entryFn("/noAssetsExport",      assetsExportOffSet,                 " - Never writes the Assets folder (by default the game exports its textures and ships into it when it has no assets-manifest.txt)."),
+    entryFn("/catAssetsExportWait", assetsExportWaitSet,                " - Test: at quit, lets a running Assets export finish instead of stopping it."),
 #if MAIN_MOUSE_FREE
 #ifdef HW_BUILD_FOR_DEBUGGING
     entryVr("/freemouse",           startupClipMouse, FALSE,            " - Mouse free to move about entire screen at startup.  Use <CTRL>F11 to toggle during play."),

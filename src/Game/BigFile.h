@@ -179,6 +179,7 @@ crc32 bigTOCCRC(bigTOC *toc);
     sdword bigFileLoadAlloc(bigTOC *toc, FILE *bigFP, char *filename, udword fileNum, void **address);
     sdword bigFileLoad(bigTOC *toc, FILE *bigFP, udword fileNum, void *address);
     sdword catBigFileLoadAllocFrom(char *bigFileName, char *filename, void **address);   // HWI: /catFeScreensTest
+    udword bigOpenedFilePaths(char **paths, udword max);    // HWI-FEATURE(assets-autoexport)
 #endif
 
 #endif

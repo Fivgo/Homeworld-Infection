@@ -27,7 +27,9 @@
 
 #include <SDL2/SDL.h>
 
+#include "AssetsExport.h"   // HWI-FEATURE(assets-autoexport)
 #include "AssetsFolder.h"
+#include "BigFile.h"
 #include "File.h"
 
 #define AF_FolderName       "Assets"
@@ -349,7 +351,14 @@ static sdword afManifestLoad(void)
     afManifestText = afReadText(path);
     if (afManifestText == NULL)
     {
-        return -1;
+        // HWI-FEATURE(assets-autoexport): an unfinished export's journal lists the files it wrote, as exported
+        snprintf(path, sizeof(path), "%s/%s", afFolder, AE_JournalName);
+        afManifestText = afReadText(path);
+        if (afManifestText == NULL)
+        {
+            return -1;
+        }
+        printf("assets: an unfinished export (%s): its files are as exported\n", AE_JournalName);
     }
     for (p = afManifestText; *p; p++)
     {
@@ -417,7 +426,8 @@ static bool32 afSkipped(const char *relLower, bool32 isFolder, bool32 atTop)
         return (atTop && strcmp(relLower, "models") == 0) || strcmp(relLower, "feman/backgrounds") == 0;
     }
     return atTop && (strcmp(relLower, "readme.txt") == 0 || strcmp(relLower, AF_ManifestName) == 0 ||
-                     strcmp(relLower, AF_PagesName) == 0);
+                     strcmp(relLower, AF_PagesName) == 0 || strcmp(relLower, AE_ModelsName) == 0 ||
+                     strcmp(relLower, AE_JournalName) == 0);   // HWI-FEATURE(assets-autoexport)
 }
 
 static void afFileSeen(const char *path, const char *rel, uqword size, sqword mtime)
@@ -789,6 +799,33 @@ sdword assetsActiveCount(void)
     return afActive;
 }
 
+// HWI-FEATURE(assets-autoexport): no assets-manifest.txt (first start, or the player deleted it or the folder): the
+//      game writes the folder on a background thread (src/Game/AssetsExport.c), from the archives just opened
+static void afExportMaybe(void)
+{
+    char path[PATH_MAX], *archives[8];
+    struct stat st;
+    udword n;
+
+    snprintf(path, sizeof(path), "%s/%s", afFolder, AF_ManifestName);
+    if (stat(path, &st) == 0)
+    {
+        return;
+    }
+    if (assetsExportIsOff())
+    {
+        printf("assets: export: off (/noAssetsExport)\n");
+        return;
+    }
+    n = bigOpenedFilePaths(archives, 8);
+    if (n == 0)
+    {
+        printf("assets: export: no archives open\n");
+        return;
+    }
+    assetsExportStart(afFolder, archives, (sdword)n);
+}
+
 void assetsStartup(void)
 {
     char path[PATH_MAX], rel[PATH_MAX];
@@ -807,6 +844,7 @@ void assetsStartup(void)
     if (stat(afFolder, &st) != 0 || !S_ISDIR(st.st_mode))
     {
         printf("assets: folder %s: none (nothing replaced)\n", afFolder);
+        afExportMaybe();                                    // HWI-FEATURE(assets-autoexport)
         return;
     }
     manifestN = afManifestLoad();
@@ -843,12 +881,15 @@ void assetsStartup(void)
     {
         printf("assets: no %s: every file that names a game file is used\n", AF_ManifestName);
     }
+    afExportMaybe();                                        // HWI-FEATURE(assets-autoexport): after the scan
 }
 
 void assetsShutdown(void)
 {
     udword i;
     sdword j;
+
+    assetsExportStop();                                     // HWI-FEATURE(assets-autoexport): stops or waits, once
 
     if (afTextures.slot != NULL)
     {

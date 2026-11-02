@@ -574,6 +574,10 @@
 #                    folder <run>/user (the engine's /userFilesPath, which every run passes, so a run never reads the
 #                    user's Documents/Homeworld Infection or the project's Assets/) as REL, e.g.
 #                    --user-file pic.png:Assets/feman/backgrounds/Video_Options.png (a picture behind that screen)
+#   --assets-export  any mode (HWI-FEATURE(assets-autoexport)): let the engine export its Assets folder into the run's
+#                    user folder (about 80 MB, on a background thread) when it has no assets-manifest.txt; without it
+#                    every run passes /noAssetsExport. With --assets-wait the quit waits for the export to finish
+#                    (/catAssetsExportWait)
 #   --data DIR       HW_Data dir to use instead of the harness data dir. ONLY for isolation runs of one item while
 #                    other stage-1 items are still missing; the summary prints it, and such a run is never the gate.
 #   --bin PATH       engine binary (default build/debug/hwi-engine)
@@ -645,6 +649,7 @@ motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01; recsrc=""; recas=
 warplevel=10; savesrc=""; training=0; recordname=""; recordstop=""; skbigotry=""; failjump=0
 shotspec=""; shotlb=0; res=""; cfgrows=(); teamcolour=0; lodtest=""; lodstats=""; scene=""; realclock=""
 modeto=1280x720; framelog=0; framesig=0; anyfps=""; resizeat=""; hiddenx11=0; setfiles=(); userfiles=()
+assetsexport=0; assetswait=0
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -693,6 +698,8 @@ while [[ $# -gt 0 ]]; do
 		--cfg) cfgrows+=("$2"); shift ;;
 		--settings-file) setfiles+=("$2"); shift ;;   # HWI-FEATURE(screen-background)
 		--user-file) userfiles+=("$2"); shift ;;      # HWI-FEATURE(user-files)
+		--assets-export) assetsexport=1 ;;            # HWI-FEATURE(assets-autoexport)
+		--assets-wait) assetsexport=1; assetswait=1 ;;
 		--player-colours)
 			[[ "$2" =~ ^([0-9a-fA-F]{8})/([0-9a-fA-F]{8})$ ]] || { echo "m2_harness: --player-colours wants BASE/STRIPE (8 hex digits each)" >&2; exit 2; }
 			pcb=$(( 16#${BASH_REMATCH[1]} )); pcs=$(( 16#${BASH_REMATCH[2]} ))
@@ -744,6 +751,11 @@ args=(/window /nodebugInt /logFileLoads /settingspath "$out/settings")
 grep -q -a "/logFileLoads" "$bin" || args=(/window /nodebugInt /settingspath "$out/settings")
 # HWI-FEATURE(user-files): the run's own user folder (Assets/, Screenshots/), never the user's real one
 grep -q -a -- "/userFilesPath" "$bin" && args+=(/userFilesPath "$out/user")
+# HWI-FEATURE(assets-autoexport): no run writes the 80 MB export unless asked (--assets-export)
+if grep -q -a -- "/noAssetsExport" "$bin"; then
+	[[ $assetsexport -eq 0 ]] && args+=(/noAssetsExport)
+	[[ $assetswait -eq 1 ]] && args+=(/catAssetsExportWait)
+fi
 [[ "$mode" == sp ]] && args+=(/debugScreenshots)
 [[ "$mode" == statics ]] && args+=(/catShipStaticsTest)
 [[ "$mode" == textures ]] && args+=(/catTexturesTest)

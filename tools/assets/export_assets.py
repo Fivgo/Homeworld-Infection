@@ -389,9 +389,9 @@ def write_models(writer, ships):
 README_TEXT = """Homeworld Infection - the Assets folder
 =======================================
 
-This folder holds the game's textures as PNG pictures, and its ships as models for Blender. Change a picture, and the
-game uses your version from its next start. Only the files you change are used: everything else still comes from the
-game's own files.
+This folder holds the game's textures as PNG pictures, and its ships as models for Blender. The game wrote it by
+itself at its first start. Change a picture or a ship, and the game uses your version from its next start. Only the
+files you change are used: everything else still comes from the game's own files.
 
 What is here
 ------------
@@ -399,11 +399,13 @@ What is here
                                               the game uses (for example race_sect/sacolyte/rl0/lod0/0aco1.png)
   <name>_teambase.png, <name>_teamstripe.png  where the team's base colour and stripe colour show on that texture
                                               (white = all team colour, black = none)
-  Models/<race>/<ship>/<ship>_lod0.obj        each ship for Blender, textured with these PNGs (lod0 = most detail)
+  Models/<race>/<ship>/<ship>_lod0.obj        each ship for Blender, textured with these PNGs (lod0 = most detail;
+                                              lod1, lod2 ... are the simpler models the game draws far away)
   Models/<race>/<ship>/ingame/...obj          the ship as the game draws it: many small textures combined into
                                               "pages" (page0.png, page1.png ...)
   .jpg, .tga                                  the game's other pictures (credits, backgrounds), as they are
-  assets-manifest.txt, assets-pages.txt       the export's own lists: do not edit them
+  assets-manifest.txt, assets-pages.txt,      the export's own lists: do not edit them
+  assets-models.txt
   feman/backgrounds/                          pictures behind the front-end screens (<Screen>.png, see the
                                               README.txt there); not part of this export, never touched by it
 
@@ -421,6 +423,18 @@ Repainting a texture
   - Team colours: paint the _teambase / _teamstripe masks. A mask you change replaces the game's own; a mask you
     leave alone keeps working with your repainted texture.
 
+Changing a ship's shape
+-----------------------
+  1. Blender: File > Import > Wavefront (.obj), pick Models/<race>/<ship>/<ship>_lod0.obj.
+  2. Change the model. Keep the names of its parts (the objects in Blender's Outliner): the game finds the ship's
+     guns, engines, docking and animations by those names.
+  3. File > Export > Wavefront (.obj), over the same file, with Blender's default settings.
+
+  The game uses your model from its next start. A changed lod0 is drawn at every distance, unless you also change
+  the lower levels (lod1, lod2 ...).
+  A new shape does not change the ship's size for collisions, where its guns fire from, its engine glows and trails,
+  or its docking points: they stay where the original model has them.
+
 Small textures in pages
 -----------------------
 Most ships draw their small textures from combined pictures ("pages"). When you change a small texture, the game
@@ -429,15 +443,15 @@ changed small texture sits, it wins over the page.
 
 Undoing
 -------
-Delete the file you changed: the game uses its own again at the next start. Deleting the whole folder undoes
-everything. Exporting again (tools/assets/export_assets.py) restores missing files and never overwrites a file you
-changed.
+Delete the file you changed: the game uses its own again at the next start. To get the original files back, delete
+assets-manifest.txt: at its next start the game writes the folder again, and it never overwrites a file you changed.
+Deleting the whole folder undoes everything, and the game writes a fresh copy.
 
 Other files
 -----------
 A file with the same path and name as one of the game's files replaces it (a .lif texture, a .geo / .peo mesh, a
 script, ...). Changing ship statistics or scripts changes the game itself; in a multiplayer game every player needs
-the same files. An edited .obj model is NOT used by the game: only the pictures are.
+the same files.
 
 The game's log lists every file it uses from here: the lines that start with "assets:".
 """

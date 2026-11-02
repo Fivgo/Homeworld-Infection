@@ -95,6 +95,7 @@ bigFileConfiguration bigFilePrecedence[] = {
 #define NUMBER_CONFIGURED_BIG_FILES  (sizeof(bigFilePrecedence) / sizeof(bigFileConfiguration))
 
 static udword numOpenedBigFiles = 0;
+static char bigOpenedPath[NUMBER_CONFIGURED_BIG_FILES][PATH_MAX];   // HWI-FEATURE(assets-autoexport)
 
 //
 //  1. convert all slashes to either forward slashes or backslashes based on
@@ -2560,6 +2561,7 @@ bool32 bigOpenAllBigFiles(void)
         if (bigFilePrecedence[bigfile_i].filePtr != NULL)
         {
             numOpenedBigFiles++;
+            strcpy(bigOpenedPath[bigfile_i], bigFilePath);  // HWI-FEATURE(assets-autoexport): read again by its own handle
 
             bigTOCRead(bigFilePrecedence[bigfile_i].filePtr,
                       &bigFilePrecedence[bigfile_i].tableOfContents);
@@ -2589,6 +2591,21 @@ bool32 bigOpenAllBigFiles(void)
     bigFilesystemCompare(fileOverrideBigPath, "");
 
     return TRUE;
+}
+
+// HWI-FEATURE(assets-autoexport): the archives opened, highest precedence first (Update.big before Cataclysm.big)
+udword bigOpenedFilePaths(char **paths, udword max)
+{
+    udword i, n = 0;
+
+    for (i = 0; i < NUMBER_CONFIGURED_BIG_FILES && n < max; i++)
+    {
+        if (bigFilePrecedence[i].filePtr != NULL && bigOpenedPath[i][0])
+        {
+            paths[n++] = bigOpenedPath[i];
+        }
+    }
+    return n;
 }
 
 //
