@@ -9,6 +9,8 @@
 #ifndef ___ASSETSFOLDER_H
 #define ___ASSETSFOLDER_H
 
+#include <stddef.h>
+
 #include "Types.h"
 
 // what replaces a texture (assetstexture.kinds)
@@ -17,6 +19,7 @@
 #define AF_TeamBase     0x04        // <name>_teambase.png (TeamColor0 weight)
 #define AF_TeamStripe   0x08        // <name>_teamstripe.png (TeamColor1 weight)
 #define AF_Page         0x10        // an atlas page with changed source textures (assets-pages.txt)
+#define AF_New          0x20        // HWI-FEATURE(assets-models): a picture the game does not have, named by an edited model
 
 #define AF_MaxSide      4096        // largest texture side accepted
 
@@ -74,5 +77,15 @@ void assetsTextureShared(assetstexture *tex, char *parentName);
 void assetsTextureSize(assetstexture *tex, sdword origWidth, sdword origHeight);
 
 sdword assetsActiveCount(void);
+
+// HWI-FEATURE(assets-models): the mesh image of an edited model (Models/ OBJ) for a mesh file the game loads (.geo or
+//      .peo, as the game names it), or FALSE; meshName gets the game mesh it was built from (its folder holds the
+//      textures). The image stays owned by the Assets folder: copy it
+bool32 assetsModelFind(char *fileName, const ubyte **image, sdword *length, char *meshName, size_t meshNameSize);
+
+// HWI-TEST /catAssetsModelTest: every OBJ of assets-models.txt built and compared with the game's mesh ("modeltest:")
+extern char catAssetsModelTestOn;
+extern char catAssetsModelDump[];   // /catAssetsModelDump <dir>
+void catAssetsModelRunTest(void);
 
 #endif

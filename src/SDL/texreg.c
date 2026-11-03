@@ -3294,14 +3294,21 @@ void trRegistryRefresh(void)
 #endif
                     strcpy(fullName, reg->fileName);
                     strcat(fullName, ".LiF");
-                    if (assetsTex != NULL)
-                    {
-                        assetsSuspend(TRUE);                // HWI-FEATURE(assets-folder): the game's own header
+                    if (assetsTex != NULL && (assetsTex->kinds & AF_New))
+                    {                                       // HWI-FEATURE(assets-models): a new picture: its PNG
+                        measured = assetsNewPictureMeasure(assetsTex, &width, &height, &listFlags);
                     }
-                    measured = trLiFMeasure(fullName, &width, &height, &listFlags);
-                    if (assetsTex != NULL)
+                    else
                     {
-                        assetsSuspend(FALSE);
+                        if (assetsTex != NULL)
+                        {
+                            assetsSuspend(TRUE);            // HWI-FEATURE(assets-folder): the game's own header
+                        }
+                        measured = trLiFMeasure(fullName, &width, &height, &listFlags);
+                        if (assetsTex != NULL)
+                        {
+                            assetsSuspend(FALSE);
+                        }
                     }
                     if (measured)
                     {

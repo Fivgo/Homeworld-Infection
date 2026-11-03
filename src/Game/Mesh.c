@@ -44,6 +44,7 @@
 #include "FastMath.h"
 #include "Collision.h"   // CAT (M2-R5 render): cat_collLineTriangleIntersect
 #include "ShipDefs.h"
+#include "AssetsFolder.h"   // HWI-FEATURE(assets-models): edited ship models from the Assets folder
 
 #ifdef _MSC_VER
 #define strcasecmp _stricmp
@@ -880,7 +881,7 @@ static memsize meshConvertOffset64(udword fileOffset, udword payloadStart, memsi
                   then the verbatim data block
     Return      : length of the new image
 ----------------------------------------------------------------------------*/
-sdword meshLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
+sdword meshLoadAndConvertTo64Bit(char *fileName, void** loadAddress, const ubyte *image, sdword imageLength)
 {
     ubyte *oldbase = NULL;
     ubyte *newbase;
@@ -894,7 +895,16 @@ sdword meshLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
     udword oldObjectsEnd, oldMaterialsEnd;
     memsize newObjects, newMaterials, blobStart, newLength;
 
-    oldLength = fileLoadAlloc(fileName, (void **)&oldbase, NonVolatile);
+    if (image != NULL)
+    {                                                       // HWI-FEATURE(assets-models): an edited model's image
+        oldbase = memAlloc(imageLength, fileName, NonVolatile);
+        memcpy(oldbase, image, (size_t)imageLength);
+        oldLength = imageLength;
+    }
+    else
+    {
+        oldLength = fileLoadAlloc(fileName, (void **)&oldbase, NonVolatile);
+    }
     if (oldLength < (sdword)sizeof(GeoFileHeader_disk))
     {
         dbgFatalf(DBG_Loc, "meshLoad: %s is too short for a mesh header (%d bytes)", fileName, oldLength);
@@ -1057,10 +1067,17 @@ meshdata *meshLoad(char *inFileName)
 
     char  pagedName[1024];
     char* fileName;
+    const ubyte *modelImage = NULL;                         // HWI-FEATURE(assets-models)
+    sdword modelLength = 0;
+    char modelName[FL_Path];
 
     allowPacking = mainAllowPacking;
 
-    if (allowPacking && meshPagedVersionExists(inFileName))
+    if (assetsModelFind(inFileName, &modelImage, &modelLength, modelName, sizeof(modelName)))
+    {                                                       // HWI-FEATURE(assets-models): an edited model; its
+        fileName = modelName;                               // textures are those of the mesh it was made from
+    }
+    else if (allowPacking && meshPagedVersionExists(inFileName))
     {
         meshPagedName(pagedName, inFileName);
         fileName = pagedName;
@@ -1071,9 +1088,18 @@ meshdata *meshLoad(char *inFileName)
     }
 
 #ifdef HW_PTR_64
-    fileLength = meshLoadAndConvertTo64Bit(fileName, (void **)&loadAddress);
+    fileLength = meshLoadAndConvertTo64Bit(fileName, (void **)&loadAddress, modelImage, modelLength);
 #else
-    fileLength = fileLoadAlloc(fileName, (void **)&loadAddress, NonVolatile);     //load in the file
+    if (modelImage != NULL)
+    {                                                       // HWI-FEATURE(assets-models)
+        loadAddress = memAlloc(modelLength, fileName, NonVolatile);
+        memcpy(loadAddress, modelImage, (size_t)modelLength);
+        fileLength = modelLength;
+    }
+    else
+    {
+        fileLength = fileLoadAlloc(fileName, (void **)&loadAddress, NonVolatile);     //load in the file
+    }
 #endif
     
     memcpy(&header, loadAddress, sizeof(GeoFileHeader));

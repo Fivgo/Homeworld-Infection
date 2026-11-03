@@ -250,6 +250,56 @@ static bool32 atPngLoad(const char *path, sdword channels, ubyte **pixels, sdwor
 // the pixels of a replaced texture at its load size; lif: the game's own (raw freed by the caller). shared: the
 // registry's load, which draws the share parent's file for a texture textures.ll lists as a copy (texreg.c
 // trRegistryRefresh); the export's PNG holds those pixels too
+// HWI-FEATURE(assets-models): a picture the game does not have: no .lif of its own; flags from
+//      assetsNewPictureMeasure (alpha, team masks), the pixels from the PNG
+static bool32 atNewPicture(assetstexture *tex, atlif *lif, atimage *orig)
+{
+    ubyte *pixels;
+    sdword w, h;
+
+    memset(lif, 0, sizeof(atlif));
+    memset(orig, 0, sizeof(atimage));
+    if (!atPngLoad(tex->pngPath, 4, &pixels, &w, &h))
+    {
+        return FALSE;
+    }
+    lif->flags = tex->origFlags;
+    lif->width = w;
+    lif->height = h;
+    lif->paletted = FALSE;
+    atImageAlloc(orig, w, h);
+    memcpy(orig->rgba, pixels, (size_t)w * (size_t)h * 4);
+    stbi_image_free(pixels);
+    return TRUE;
+}
+
+bool32 assetsNewPictureMeasure(assetstexture *tex, sdword *width, sdword *height, udword *flags)
+{
+    ubyte *pixels;
+    sdword w, h;
+    size_t i, n;
+    bool32 alpha = FALSE;
+
+    if (!atPngLoad(tex->pngPath, 4, &pixels, &w, &h))
+    {
+        return FALSE;
+    }
+    n = (size_t)w * (size_t)h;
+    for (i = 0; i < n && !alpha; i++)
+    {
+        alpha = (pixels[i * 4 + 3] != 255);
+    }
+    stbi_image_free(pixels);
+    tex->origFlags = (alpha ? TRF_Alpha : 0) | ((tex->kinds & AF_TeamBase) ? TRF_TeamColor0 : 0) |
+                     ((tex->kinds & AF_TeamStripe) ? TRF_TeamColor1 : 0);
+    *width = w;
+    *height = h;
+    *flags = tex->origFlags;
+    printf("assets: new picture %s %dx%d%s%s%s\n", tex->pngPath, (int)w, (int)h, alpha ? " with transparency" : "",
+           (tex->kinds & AF_TeamBase) ? " + team base mask" : "", (tex->kinds & AF_TeamStripe) ? " + team stripe mask" : "");
+    return TRUE;
+}
+
 static bool32 atBuild(assetstexture *tex, atlif *lif, atimage *out, bool32 shared)
 {
     char name[PATH_MAX];
@@ -258,7 +308,8 @@ static bool32 atBuild(assetstexture *tex, atlif *lif, atimage *out, bool32 share
     sdword w, h, i;
 
     snprintf(name, sizeof(name), "%s.lif", (shared && tex->shareParent != NULL) ? tex->shareParent : tex->key);
-    if (!atLifLoad(name, (tex->kinds & AF_Native) != 0, lif, &orig))
+    if ((tex->kinds & AF_New) ? !atNewPicture(tex, lif, &orig)
+                              : !atLifLoad(name, (tex->kinds & AF_Native) != 0, lif, &orig))
     {
         return FALSE;
     }
@@ -305,7 +356,10 @@ static bool32 atBuild(assetstexture *tex, atlif *lif, atimage *out, bool32 share
             {
                 continue;
             }
-            memFree(sourceLif.raw);
+            if (sourceLif.raw != NULL)
+            {
+                memFree(sourceLif.raw);
+            }
             if (p->transposed)
             {
                 atImageTranspose(&source);
@@ -447,6 +501,9 @@ lifheader *assetsLifLoad(char *fileName, udword memFlags, bool32 registry)
         tex->logged = TRUE;
     }
     atImageFree(&image);
-    memFree(orig.raw);
+    if (orig.raw != NULL)                                   // HWI-FEATURE(assets-models): a new picture has none
+    {
+        memFree(orig.raw);
+    }
     return lif;
 }

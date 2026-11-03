@@ -34,8 +34,9 @@ same files):
 | `race_sect/sacolyte/rl0/lod0/0aco1.png` ... | every `.lif` texture of the archives as a PNG, at the path the game uses, lower case |
 | `<name>_teambase.png`, `<name>_teamstripe.png` | the team base / stripe colour weight per pixel (greyscale), for a `.lif` with that flag |
 | `credits/english/01.jpg`, `btg/bitmaps/*.tga` ... | the archives' other pictures, copied as they are (they are replaced as native files) |
-| `Models/<race>/<ship>/<ship>_lodN.obj` / `.mtl` | each ship's source mesh for Blender, textured with the PNGs above |
-| `Models/<race>/<ship>/ingame/<ship>_lodN.obj` / `.mtl` | the paged mesh the game draws, textured with its atlas pages |
+| `Models/<race>/<ship>/<ship>_lodN.obj` / `.mtl` | each ship's source mesh for Blender, textured with the PNGs above; edited, the game draws it (HWI-FEATURE(assets-models), [assets-models.md](assets-models.md)) |
+| `Models/<race>/<ship>/ingame/<ship>_lodN.obj` / `.mtl` | the paged mesh the game draws, textured with its atlas pages; edited, it replaces the paged mesh |
+| `assets-models.txt` | which OBJ is which game mesh, per ship and level (since 2026-11-02; the engine reads edited OBJs with it) |
 | `assets-manifest.txt` | `<size> <mtime> <sha256> <path>` of every exported file |
 | `assets-pages.txt` | where each source texture sits in its atlas page |
 | `assets-models.txt` | which OBJ is which game mesh: ship, level, source mesh and its OBJ, in-game mesh and its OBJ |
@@ -59,7 +60,8 @@ names a file of the archives or of the game folder replaces it, whatever its typ
 scripts, `.jpg`... The Assets folder comes before `update.big`, `cataclysm.big` and the loose game folder. It applies to
 the game's reads (`fileLoadAlloc`, `fileLoad`, `fileSizeGet`, `fileOpen` for reading); never to settings files,
 CD paths, absolute paths or writes. A file that names nothing is ignored (logged as `assets: ignored`), so OBJ, MTL,
-`.blend` files and notes can live anywhere in the folder. Changing gameplay files (`.shp`, scripts) changes the game
+`.blend` files and notes can live anywhere in the folder; the OBJs `assets-models.txt` names are the models (rule in
+[assets-models.md](assets-models.md)). Changing gameplay files (`.shp`, scripts) changes the game
 itself, and every player of a multiplayer game would need the same files.
 
 **3. PNG textures.** For a texture `<name>.lif`, an active `<name>.png` replaces its pixels, and `<name>_teambase.png`
@@ -167,19 +169,10 @@ The ship scene is the Kuun-Lan at its closest zoom (skirmish LiveFireExercise2, 
 | ASan / LSan | `ASan errors: 0; LeakSanitizer at exit: no unsuppressed leak` in every run |
 | `export_assets.py --status` after every test | 0 changed, 0 new, 0 touched, 0 missing (the tests put every file back with its time) |
 
-## Not done: loading an edited mesh
+## Edited meshes: done (2026-11-02)
 
-The game uses the pictures only; an edited OBJ is not read. A native `.geo` / `.peo` in the folder does replace the game's
-mesh (rule 2), so the missing piece is a writer from OBJ to the game's mesh format. What it would take:
-- **The format** (docs/formats/mesh.md): the 0x44 header, 0x74-byte polygon objects with their hierarchy (mother /
-  daughter / sister) and local matrices, 0x20 materials (colours, flags: smoothing, 2-sided, self-illumination, team
-  colour), 16-byte vertices with a vertex-normal index, face and vertex normal tables, 40-byte polygons (face normal,
-  three corners, material, UVs, flags and Paco's seam bytes). The OBJ has the world positions in Blender's axes: they must
-  go back through the axis turn and each object's inverse world matrix, and object names must be kept, because the
-  ship's `.mex` (guns, docking, engine glows), its `.mad` animations and the code find parts by object.
-- **Two files per level**: the game draws the `.peo` (paged). A new mesh needs either a `.peo` with pages re-packed
-  (Paco), or a `.geo` with the `.peo` ignored for that mesh (a new rule: an Assets `.geo` turns off its `.peo`).
-- **Every level of detail** (`.lod`; with FULL DETAIL on, LOD 0 is drawn at any distance) and the data that depends on
-  the mesh's size: collision spheres and sizes in the `.shp`, the `.mex` points, the engine trail positions.
-- **Validation**: the round trip of an unchanged OBJ must give the same polygons, normals and UVs (the export's own
-  checks in docs/assets-export.md are the start).
+This section listed what reading an edited OBJ would take (the format, the two files per level, every level of
+detail, validation). It is built: HWI-FEATURE(assets-models), [assets-models.md](assets-models.md). An edited OBJ is
+turned into the game's `.geo` image with the game's mesh as the template, replaces that level's `.geo` and `.peo` (an
+`ingame/` OBJ: the `.peo`), and stands in for the ship's levels above it that have no edit of their own. The `.shp`
+and `.mex` data stays as it is; the hit tests, the ramming frigate and the repair droids read the edited shape.

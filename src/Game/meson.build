@@ -18,6 +18,7 @@ src_game = files('AIAttackMan.c',
                  'Animatic.c',
                  'AssetsExport.c',          # HWI-FEATURE(assets-autoexport)
                  'AssetsFolder.c',          # HWI-FEATURE(assets-folder)
+                 'AssetsModels.c',          # HWI-FEATURE(assets-models)
                  'Attack.c',
                  'AutoDownloadMap.c',
                  'AutoLOD.c',

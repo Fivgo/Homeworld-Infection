@@ -13,4 +13,9 @@
 // texture; any other caller gets the original's size and format (a paletted one is mapped to its own palette)
 lifheader *assetsLifLoad(char *fileName, udword memFlags, bool32 registry);
 
+// HWI-FEATURE(assets-models): the size and the .lif flags (TRF_Alpha when it has transparency, team flags for its
+// masks) of a picture the game does not have (AF_New), as the registry measures a .lif
+struct assetstexture;
+bool32 assetsNewPictureMeasure(struct assetstexture *tex, sdword *width, sdword *height, udword *flags);
+
 #endif
