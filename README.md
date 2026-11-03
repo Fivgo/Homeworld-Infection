@@ -2,7 +2,7 @@
 
 A native recreation of **Homeworld: Cataclysm** (2000) for Windows, Linux and macOS. GOG sells the game as *Homeworld: Emergence*. No game files are included: you need your own copy from GOG.
 
-## Download and play (version 1.1.0)
+## Download and play (version 1.1.1)
 
 **You need** your GOG copy of Homeworld: Emergence, in either form:
 - installed on Windows with GOG Galaxy or GOG's installer, or
@@ -11,17 +11,17 @@ A native recreation of **Homeworld: Cataclysm** (2000) for Windows, Linux and ma
 Download the package for your system from the [Releases page](https://github.com/Fivgo/Homeworld-Infection/releases). No step needs a terminal.
 
 ### Windows 10 or 11 (64-bit)
-1. Download `Homeworld-Infection-1.1.0-Windows-Setup.exe` and double-click it. If Windows says it protected your PC, click **More info**, then **Run anyway** (the installer is not signed).
+1. Download `Homeworld-Infection-1.1.1-Windows-Setup.exe` and double-click it. If Windows says it protected your PC, click **More info**, then **Run anyway** (the installer is not signed).
 2. Follow the installer. It needs no administrator rights, and it adds Homeworld Infection to the Start menu and the Desktop.
 3. Start Homeworld Infection. A GOG installation of Homeworld: Emergence is found automatically. Otherwise the game asks for the GOG game folder or the offline installer, and unpacks the installer by itself in about a minute.
 
 ### Linux (64-bit PC)
-1. Download `Homeworld-Infection-1.1.0-Linux-x86_64.tar.gz` and extract it in your file manager ("Extract Here").
-2. Double-click `Homeworld-Infection-1.1.0-x86_64.AppImage`. The first start adds Homeworld Infection to your applications menu.
+1. Download `Homeworld-Infection-1.1.1-Linux-x86_64.tar.gz` and extract it in your file manager ("Extract Here").
+2. Double-click `Homeworld-Infection-1.1.1-x86_64.AppImage`. The first start adds Homeworld Infection to your applications menu.
 3. The game looks for an installed copy (for example through Heroic or Lutris) and for the offline installer in your Downloads folder. If it finds neither, it asks for one of them.
 
 ### macOS 11 or newer
-1. Download `Homeworld-Infection-1.1.0-macOS.dmg`, open it and drag **Homeworld Infection** into Applications.
+1. Download `Homeworld-Infection-1.1.1-macOS.dmg`, open it and drag **Homeworld Infection** into Applications.
 2. The first time, macOS blocks it because it is not from an identified developer. Open **System Settings**, then **Privacy & Security**, scroll down and click **Open Anyway**, then confirm.
 3. The game asks for the offline installer (or a GOG game folder copied from a Windows PC) and unpacks it.
 

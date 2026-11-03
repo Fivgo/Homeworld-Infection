@@ -11,13 +11,13 @@ on:
       version:
         description: Release version
         type: string
-        default: 1.1.0
+        default: 1.1.1
   workflow_call:
     inputs:
       version:
         description: Release version
         type: string
-        default: 1.1.0
+        default: 1.1.1
 
 permissions:
   contents: read
@@ -31,7 +31,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 120
     env:
-      HWI_VERSION: ${{ inputs.version || '1.1.0' }}
+      HWI_VERSION: ${{ inputs.version || '1.1.1' }}
       MACOS_WERROR: 'true'    # the project's -Werror (Apple clang: 0 warnings on arm64 and x86_64 since run 40977544320)
     steps:
       - uses: actions/checkout@v4
