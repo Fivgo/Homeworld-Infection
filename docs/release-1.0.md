@@ -58,6 +58,24 @@ player README. No step needs a terminal.
   `/catHiddenWindow`, or a headless gamescope (a developer screenshot harness only; never part of a package).
 - GPU measurements only on an idle GPU.
 
+## The published v1.1.1 (2026-11-03)
+
+The user, reading the 1.1.0 package's readme: "where do I find the section about where the obj files can be located?",
+then "lets cut a patch release with an updated readme". The game is 1.1.0's; the player readmes gained "Where the game
+puts its files" and "Changing textures and ships (the Assets folder)" (0259c2d), and lost the old claim that screenshots
+go in the settings folder. Version 1.1.1 in the same seven places as 1.1.0, with `docs/release-notes-1.1.1.md` in the
+tagged commit this time (67667bc). Tag v1.1.1 at 67667bc: all five jobs PASS on the first try (the three builds, the
+Windows smoke test, the draft). Published 2026-11-03 as Latest: Windows-Setup.exe 3,800,665 bytes, Linux tar.gz
+4,969,837, macOS dmg 9,620,902, SHA256SUMS.txt (every file OK).
+
+| Package | Run | Result |
+|---|---|---|
+| Linux tar.gz | 1.1.0's two starts (a throwaway home, the offline installer in `~/Downloads`) | README-Linux.txt has both sections (built from 67667bc); unpacked 66 files, the export `done in 5.5 s`, 25,414 files, 90.5 MB, EQUAL; modequit PASS; the menu entry written; no dialog; second start `models: 1 edited, 4 levels stand in`, model test 1,479 PASS + the edited one |
+| Windows Setup.exe | `/S` under Proton Experimental in a headless gamescope, a fresh prefix | install rc 0 (gamescope's own exit segfault, a harness fault); the installed README.txt has both sections, CRLF |
+| Windows game | 1.1.0's two runs (GOG's registry key, a folder of links) | found through the registry, saved; the export 19.9 s, EQUAL; modequit PASS, rc 0; second run the edited model read (1 edited, 4 stand in); nothing written into the GOG copy |
+
+Not verified: the dmg's README (CI's build and smoke checks only), a real Windows PC, any Mac.
+
 ## The published v1.1.0 (2026-11-02)
 
 The user chose to publish 1.1.0 once the shape rule was settled ("Looks only"). Contents since v1.0.0: the Assets folder
