@@ -22,7 +22,8 @@ the new shape. Deleting the file (or exporting the folder again) brings the game
    in-game OBJ or `-`; game paths, lower case) is read at start-up while the manifest is loaded. An OBJ is **edited**
    when it or its `.mtl` has another size or time than `assets-manifest.txt` lists (or is not listed): the textures'
    rule. OBJs it does not name are ignored. Without `assets-models.txt` (an export from before 2026-11-02) models are
-   not read, and the log says so once. Cost: 1,412 OBJs and their MTLs checked in 6 to 18 ms (release).
+   not read, and the log says so once. A folder without `assets-manifest.txt` counts every OBJ it names as edited (as
+   it uses every texture PNG). Cost: 1,412 OBJs and their MTLs checked in 6 to 18 ms (release).
 2. **Main or in-game model.** An edited main OBJ (`Models/<race>/<ship>/<ship>_lodN.obj`, made from the `.geo`)
    replaces that level's mesh, `.geo` and `.peo` both: the paged mesh is not used, the source textures are registered
    as for a `.geo`. An edited `ingame/` OBJ (made from the `.peo`) replaces the paged mesh and draws from the atlas
