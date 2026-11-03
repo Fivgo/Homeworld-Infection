@@ -34,6 +34,7 @@
     #include <direct.h>
 #else
     #include <dirent.h>
+    #include <strings.h>                // strcasecmp (macOS)
     #include <unistd.h>
 #endif
 
@@ -1408,8 +1409,6 @@ typedef struct
     FILE *journalFp;
     sdword written, unchanged, kept, keptUnlisted, failed;
     uqword bytes;
-    // the passes' results
-    char **pageSlots;               // "page\tsrc\tx\ty\tw\th\tt" lines are not used: see aeslot
 }
 aeexport;
 
