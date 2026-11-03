@@ -10,7 +10,7 @@
 #
 # usage: tools/release/build-macos.sh [--version V] [--deps DIR] [--out DIR] [--jobs N] [--deps-only | --smoke-only]
 #        tools/release/build-macos.sh --deps-key      print the third-party cache key and exit
-#   --version V   the release version (default 1.0.0): -Dbuild_version, Info.plist, the dmg's name
+#   --version V   the release version (default 1.1.0): -Dbuild_version, Info.plist, the dmg's name
 #   --deps DIR    third-party builds (default build/macos-deps); each is rebuilt only when its recipe changes
 #   --out DIR     engine builds, the app, the dmg and the logs (default build/macos-release)
 #   --deps-only   stop after the third-party builds (CI caches them on their own)
@@ -40,7 +40,7 @@ INNOEXTRACT_COMMIT=6e9e34ed0876014fdb46e684103ef8c3605e382e   # master 2025-02-0
 INNOEXTRACT_URL="https://github.com/dscharrer/innoextract/archive/$INNOEXTRACT_COMMIT.tar.gz"
 INNOEXTRACT_SHA256=4d885b27e452dcb137a9d97736b19478447f172bcfed1aa98d80138e9a4c08ae   # the first CI download (2026-10-29)
 
-version=1.0.0
+version=1.1.0
 deps="$root/build/macos-deps"
 out="$root/build/macos-release"
 jobs=$(sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN)

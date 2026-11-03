@@ -9,7 +9,7 @@
 # usage: smoke-test.ps1 -Setup <Homeworld-Infection-x.y.z-Windows-Setup.exe> [-Version x.y.z] [-TimeoutSec 60]
 param(
 	[Parameter(Mandatory = $true)][string]$Setup,
-	[string]$Version = '1.0.0',
+	[string]$Version = '1.1.0',
 	[int]$TimeoutSec = 60
 )
 $ErrorActionPreference = 'Continue'

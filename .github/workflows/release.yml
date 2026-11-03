@@ -20,7 +20,7 @@ jobs:
   macos:
     uses: ./.github/workflows/build-macos.yml
     with:
-      version: 1.0.0   # keep equal to meson.build's project version (the other two read it from there)
+      version: 1.1.0   # keep equal to meson.build's project version (the other two read it from there)
 
   release:
     name: draft release

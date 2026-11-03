@@ -1,6 +1,6 @@
 ; installer.nsi - the Homeworld Infection installer for Windows (NSIS 3, Modern UI 2; docs/release-windows.md).
 ; tools/release/build-windows.sh compiles it:
-;   makensis -DVERSION=1.0.0 -DSTAGE=<staged files> -DICON=<.ico> -DFILES_INSTALL=<.nsh> -DFILES_UNINSTALL=<.nsh>
+;   makensis -DVERSION=1.1.0 -DSTAGE=<staged files> -DICON=<.ico> -DFILES_INSTALL=<.nsh> -DFILES_UNINSTALL=<.nsh>
 ;            -DOUTFILE=<Setup.exe> installer.nsi
 ; FILES_INSTALL / FILES_UNINSTALL are the File and Delete lists the script writes from the stage, so the uninstaller
 ; removes exactly what was installed (never a whole folder the user may have chosen for something else).
