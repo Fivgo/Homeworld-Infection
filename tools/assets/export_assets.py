@@ -60,6 +60,9 @@ DEF_OUT = os.path.join(MAIN, 'Assets')     # HWI-FEATURE(user-files): visible, g
 DEF_DATA = os.path.join(MAIN, 'original', 'game_extracted', 'cataclysm')
 DEF_UPDATE = os.path.join(MAIN, 'original', 'game_extracted', 'update')
 MANIFEST = 'assets-manifest.txt'
+# the export's version, the manifest header line '# export-version N' (src/Game/AssetsExport.h AE_ExportVersion): the
+# game refreshes a folder whose manifest has none or an older one. Raise both when the export's output changes.
+EXPORT_VERSION = 1
 PAGES = 'assets-pages.txt'
 MODELS = 'assets-models.txt'
 README = 'README.txt'
@@ -106,11 +109,26 @@ def read_manifest(out):
     return entries
 
 
-def write_manifest(out, entries, note):
-    lines = ['# Homeworld-Infection Assets folder manifest (tools/assets/export_assets.py, %s)' % note,
+def manifest_version(out):
+    """The '# export-version N' of the folder's manifest header: 0 without one, None without a manifest."""
+    path = os.path.join(out, MANIFEST)
+    if not os.path.isfile(path):
+        return None
+    with open(path, encoding='utf-8') as fh:
+        for line in fh:
+            if not line.startswith('#'):
+                break
+            if line.startswith('# export-version '):
+                return int(line.split()[2])
+    return 0
+
+
+def write_manifest(out, entries, note, version=EXPORT_VERSION):
+    lines = ['# Homeworld-Infection Assets folder manifest (tools/assets/export_assets.py, %s)' % note] + \
+            (['# export-version %d' % version] if version else []) + [
              '# The game uses a file of this folder only when this list does not name it or names another size or',
-             '# time: so an untouched export changes nothing. Do not edit; delete it and the game uses every file',
-             '# that names a game file.',
+             '# time: so an untouched export changes nothing. Do not edit; delete it and the game exports the',
+             '# folder again at its next start (your changed files are kept and stay in use).',
              '# <size> <mtime (seconds)> <sha256> <path>']
     for key in sorted(entries):
         size, mtime, sha, rel = entries[key]
@@ -602,7 +620,8 @@ def status(args, refresh=False):
             rel, path = found[key]
             size, mtime = stat_pair(path)
             old[key] = (size, mtime, old[key][2], old[key][3])
-        write_manifest(out, old, 'refreshed %s' % time.strftime('%Y-%m-%d %H:%M:%S'))
+        # re-stamping adds no file: the folder keeps its export version (the game refreshes an older one)
+        write_manifest(out, old, 'refreshed %s' % time.strftime('%Y-%m-%d %H:%M:%S'), manifest_version(out) or 0)
         print('re-stamped %d files whose content is as exported' % len(touched))
         return 0
     skip = ('models/', BACKGROUNDS)

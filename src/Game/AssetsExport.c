@@ -1405,9 +1405,12 @@ typedef struct
     char folder[PATH_MAX];
     aetree tree;
     aerecords journal;              // what an unfinished export wrote (sorted by key)
+    aerecords old;                  // a refresh: the manifest in force (an older export version)
+    bool32 refresh;
+    sdword oldVersion;
     aerecords entries;              // this export's manifest
     FILE *journalFp;
-    sdword written, unchanged, kept, keptUnlisted, failed;
+    sdword written, unchanged, kept, keptUnlisted, failed, restored;
     uqword bytes;
 }
 aeexport;
@@ -1611,7 +1614,43 @@ static void aeWrite(aeexport *ae, const char *rel, const void *data, size_t leng
     if (aeStat(path, &size, &mtime, NULL))
     {
         j = aeRecordsFind(&ae->journal, key);
-        if (j == NULL)
+        if (j == NULL && ae->refresh)
+        {
+            // a refresh (export_assets.Writer with a manifest): a file the manifest does not list is not ours; a listed
+            // file the player changed is kept with its old record (so it stays in use); a listed file still as
+            // exported is rewritten only when its content differs
+            aerecord *prev = aeRecordsFind(&ae->old, key);
+
+            if (prev == NULL)
+            {
+                ae->keptUnlisted++;
+                if (ae->keptUnlisted <= 20)
+                {
+                    printf("assets: export: kept %s (not from an export)\n", rel);
+                }
+                return;
+            }
+            if (!aeShaFile(path, cur) || strcmp(cur, prev->sha) != 0)
+            {
+                ae->kept++;
+                if (ae->kept <= 20)
+                {
+                    printf("assets: export: kept your %s\n", rel);
+                }
+                aeRecordsAdd(&ae->entries, key, prev->rel, prev->size, prev->mtime, prev->sha);
+                return;
+            }
+            if (strcmp(cur, sha) == 0)
+            {
+                aeRecordsAdd(&ae->entries, key, rel, size, mtime, sha);
+                aeJournal(ae, &ae->entries.r[ae->entries.n - 1]);
+                ae->unchanged++;
+                ae->bytes += length;
+                return;
+            }
+            // as exported by an older version, with other content now: rewritten below
+        }
+        else if (j == NULL)
         {
             if (size != length || !aeShaFile(path, cur) || strcmp(cur, sha) != 0)
             {
@@ -1629,7 +1668,7 @@ static void aeWrite(aeexport *ae, const char *rel, const void *data, size_t leng
             ae->bytes += length;
             return;
         }
-        if (!aeShaFile(path, cur) || strcmp(cur, j->sha) != 0)
+        else if (!aeShaFile(path, cur) || strcmp(cur, j->sha) != 0)
         {
             ae->kept++;                                     // changed since the export wrote it: the player's work
             if (ae->kept <= 20)
@@ -1639,7 +1678,7 @@ static void aeWrite(aeexport *ae, const char *rel, const void *data, size_t leng
             aeRecordsAdd(&ae->entries, key, j->rel, j->size, j->mtime, j->sha);
             return;
         }
-        if (strcmp(cur, sha) == 0)
+        else if (strcmp(cur, sha) == 0)
         {
             aeRecordsAdd(&ae->entries, key, rel, size, mtime, sha);
             aeJournal(ae, &ae->entries.r[ae->entries.n - 1]);
@@ -1647,6 +1686,10 @@ static void aeWrite(aeexport *ae, const char *rel, const void *data, size_t leng
             ae->bytes += length;
             return;
         }
+    }
+    else if (ae->refresh && aeRecordsFind(&ae->old, key) != NULL && aeRecordsFind(&ae->journal, key) == NULL)
+    {
+        ae->restored++;                                     // listed but deleted: written again (as exported)
     }
     // a temporary name the folder scans skip (a leading '.'), then a rename: never half a file
     {
@@ -1769,27 +1812,15 @@ static void aePngChunk(aebuf *b, const char *tag, const ubyte *data, size_t n)
     aeBufAdd(b, head, 4);
 }
 
-// an existing PNG the export did not write but with the export's size, colour type and pixels (e.g. written by
-// tools/assets/export_assets.py, whose deflate differs): taken over as exported
-static bool32 aePngAdopt(aeexport *ae, const char *rel, sdword w, sdword h, sdword comp, const ubyte *pixels)
+// the PNG at path has the export's size, colour type (8-bit grey or RGBA) and pixels
+static bool32 aePngSamePixels(const char *path, sdword w, sdword h, sdword comp, const ubyte *pixels)
 {
-    char key[PATH_MAX], path[PATH_MAX], sha[65];
-    uqword size;
-    sqword mtime;
     ubyte head[26];
-    FILE *fp;
+    FILE *fp = fopen(path, "rb");
     int fw, fh, fn;
     ubyte *px;
     bool32 same;
 
-    snprintf(key, sizeof(key), "%s", rel);
-    aeLower(key);
-    aeFullPath(ae, rel, path, sizeof(path));
-    if (!aeStat(path, &size, &mtime, NULL) || aeRecordsFind(&ae->journal, key) != NULL)
-    {
-        return FALSE;
-    }
-    fp = fopen(path, "rb");
     if (fp == NULL)
     {
         return FALSE;
@@ -1802,14 +1833,45 @@ static bool32 aePngAdopt(aeexport *ae, const char *rel, sdword w, sdword h, sdwo
         return FALSE;
     }
     px = stbi_load(path, &fw, &fh, &fn, comp);
-    same = px != NULL && fw == w && fh == h &&
-           memcmp(px, pixels, (size_t)w * (size_t)h * (size_t)comp) == 0;
+    same = px != NULL && fw == w && fh == h && memcmp(px, pixels, (size_t)w * (size_t)h * (size_t)comp) == 0;
     stbi_image_free(px);
-    if (!same || !aeShaFile(path, sha))
+    return same;
+}
+
+// an existing PNG with the export's pixels whose bytes may differ (the Python tool's deflate, an older export): taken
+// over as it is instead of being encoded and written again. Without a manifest: a file the export did not write but
+// with these pixels. In a refresh: a listed file still as exported (its size and time as the manifest says)
+static bool32 aePngTakeOver(aeexport *ae, const char *rel, sdword w, sdword h, sdword comp, const ubyte *pixels)
+{
+    char key[PATH_MAX], path[PATH_MAX], sha[65];
+    uqword size;
+    sqword mtime;
+
+    snprintf(key, sizeof(key), "%s", rel);
+    aeLower(key);
+    aeFullPath(ae, rel, path, sizeof(path));
+    if (!aeStat(path, &size, &mtime, NULL) || aeRecordsFind(&ae->journal, key) != NULL)
     {
         return FALSE;
     }
-    aeRecordsAdd(&ae->entries, key, rel, size, mtime, sha);
+    if (ae->refresh)
+    {
+        aerecord *prev = aeRecordsFind(&ae->old, key);
+
+        if (prev == NULL || prev->size != size || prev->mtime != mtime || !aePngSamePixels(path, w, h, comp, pixels))
+        {
+            return FALSE;                                   // not listed, touched, or other pixels: aeWrite decides
+        }
+        aeRecordsAdd(&ae->entries, key, prev->rel, prev->size, prev->mtime, prev->sha);
+    }
+    else
+    {
+        if (!aePngSamePixels(path, w, h, comp, pixels) || !aeShaFile(path, sha))
+        {
+            return FALSE;
+        }
+        aeRecordsAdd(&ae->entries, key, rel, size, mtime, sha);
+    }
     aeJournal(ae, &ae->entries.r[ae->entries.n - 1]);
     ae->unchanged++;
     ae->bytes += size;
@@ -1824,7 +1886,7 @@ static void aePngWrite(aeexport *ae, const char *rel, sdword w, sdword h, sdword
     ubyte *z;
     aebuf b = {NULL, 0, 0};
 
-    if (aePngAdopt(ae, rel, w, h, comp, pixels))
+    if (aePngTakeOver(ae, rel, w, h, comp, pixels))
     {
         return;
     }
@@ -3970,7 +4032,7 @@ static bool32 aeOff = FALSE;
 static bool32 aeWaitAtQuit = FALSE;
 static aeexport *aeRunning = NULL;
 
-static void aeWriteManifest(aeexport *ae, const char *archives)
+static bool32 aeWriteManifest(aeexport *ae, const char *archives)
 {
     aebuf b = {NULL, 0, 0};
     char path[PATH_MAX], tmp[PATH_MAX], when[64];
@@ -3981,6 +4043,11 @@ static void aeWriteManifest(aeexport *ae, const char *archives)
 
     strftime(when, sizeof(when), "%Y-%m-%d %H:%M:%S", tmNow);
     aeBufPrintf(&b, "# Homeworld-Infection Assets folder manifest (the game, exported %s from %s)\n", when, archives);
+    if (ae->failed == 0)
+    {
+        // a run with failed files leaves the version out: the next start refreshes the folder and retries them
+        aeBufPrintf(&b, "%s%d\n", AE_VersionTag, AE_ExportVersion);
+    }
     aeBufStr(&b, "# The game uses a file of this folder only when this list does not name it or names another size or\n"
                  "# time: so an untouched export changes nothing. Do not edit; delete it and the game exports the\n"
                  "# folder again at its next start (your changed files are kept and stay in use).\n"
@@ -4008,14 +4075,40 @@ static void aeWriteManifest(aeexport *ae, const char *archives)
         }
         ae->failed++;
         aeBufFree(&b);
-        return;
+        return FALSE;
     }
     fclose(fp);
+    aeBufFree(&b);
     if (!aeReplace(tmp, path))
     {
+        remove(tmp);
         ae->failed++;
+        return FALSE;
     }
-    aeBufFree(&b);
+    return TRUE;
+}
+
+sdword assetsExportManifestVersion(const char *manifestPath)
+{
+    FILE *fp = fopen(manifestPath, "rb");
+    char line[PATH_MAX * 3];
+    sdword version = 0;
+    size_t tag = strlen(AE_VersionTag);
+
+    if (fp == NULL)
+    {
+        return -1;
+    }
+    while (fgets(line, sizeof(line), fp) != NULL && line[0] == '#')     // the header comes first
+    {
+        if (strncmp(line, AE_VersionTag, tag) == 0)
+        {
+            version = atoi(line + tag);
+            break;
+        }
+    }
+    fclose(fp);
+    return version;
 }
 
 static int aeMain(void *data)
@@ -4035,12 +4128,28 @@ static int aeMain(void *data)
         snprintf(archives + strlen(archives), sizeof(archives) - strlen(archives), "%s%s", i ? ", " : "",
                  ae->tree.path[i] ? ae->tree.path[i] : "?");
     }
+    aeFullPath(ae, AE_ManifestName, path, sizeof(path));
+    ae->oldVersion = assetsExportManifestVersion(path);
+    if (ae->oldVersion >= 0)
+    {
+        aeRecordsLoad(&ae->old, path);                      // a refresh: the manifest in force until the new one
+        ae->refresh = TRUE;
+    }
     aeFullPath(ae, AE_JournalName, path, sizeof(path));
     aeRecordsLoad(&ae->journal, path);
     resumed = ae->journal.n;
     ae->journalFp = fopen(path, "ab");
-    printf("assets: export: %s into %s (%d archive files%s)\n", resumed ? "resuming" : "started", ae->folder,
-           (int)ae->tree.n, resumed ? ", an unfinished export's files kept" : "");
+    if (ae->refresh)
+    {
+        printf("assets: export: refreshing %s (its export version %d, this game's %d; %d files listed%s)\n",
+               ae->folder, (int)ae->oldVersion, AE_ExportVersion, (int)ae->old.n,
+               resumed ? ", an unfinished refresh resumed" : "");
+    }
+    else
+    {
+        printf("assets: export: %s into %s (%d archive files%s)\n", resumed ? "resuming" : "started", ae->folder,
+               (int)ae->tree.n, resumed ? ", an unfinished export's files kept" : "");
+    }
     fflush(stdout);
     if (ae->journalFp == NULL)
     {
@@ -4076,18 +4185,17 @@ static int aeMain(void *data)
                (int)ae->entries.n, (int)ae->written);
         goto finish;
     }
-    aeWriteManifest(ae, archives);
     fclose(ae->journalFp);
     ae->journalFp = NULL;
-    if (ae->failed == 0)
+    if (aeWriteManifest(ae, archives))
     {
         remove(path);                                       // the journal: the manifest has it all now
     }
-    printf("assets: export: done in %.1f s: %d files in the manifest (written %d, already there %d, kept yours %d, "
-           "kept not ours %d, failed %d), %.1f MB\n",
+    printf("assets: export: done in %.1f s: %d files in the manifest (written %d, of them %d deleted ones again; already "
+           "there %d, kept yours %d, kept not ours %d, failed %d), %.1f MB\n",
            (double)(SDL_GetPerformanceCounter() - t0) / (double)SDL_GetPerformanceFrequency(), (int)ae->entries.n,
-           (int)ae->written, (int)ae->unchanged, (int)ae->kept, (int)ae->keptUnlisted, (int)ae->failed,
-           (double)ae->bytes / 1e6);
+           (int)ae->written, (int)ae->restored, (int)ae->unchanged, (int)ae->kept, (int)ae->keptUnlisted,
+           (int)ae->failed, (double)ae->bytes / 1e6);
     printf("assets: export: textures %d (paletted %d, rgba %d, not a power of two %d), team masks %d, other pictures "
            "%d; atlas pages %d with %d placements (%d not exact copies); textures from their share parent %d; ship "
            "models: %d ships, %d OBJ files; texture errors %d, page notes %d%s%s\n",
@@ -4128,6 +4236,7 @@ finish:
     free(st.firstPageProblem);
     aeTreeClose(&ae->tree);
     aeRecordsFree(&ae->journal);
+    aeRecordsFree(&ae->old);
     aeRecordsFree(&ae->entries);
     SDL_AtomicSet(&aeDone, 1);
     return 0;

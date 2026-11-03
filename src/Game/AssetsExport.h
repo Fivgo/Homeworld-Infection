@@ -17,6 +17,11 @@
 #define AE_ModelsName       "assets-models.txt"
 #define AE_ReadmeName       "README.txt"
 
+// the export's version, a manifest header line "# export-version N" (tools/assets/export_assets.py EXPORT_VERSION):
+// a folder whose manifest has none or an older one is refreshed at start-up. Raise it when the export's output changes
+#define AE_ExportVersion    1
+#define AE_VersionTag       "# export-version "
+
 // start the export into folder (no trailing separator) from the archives, highest precedence first; FALSE when not
 // started (logged)
 bool32 assetsExportStart(const char *folder, char **archives, sdword nArchives);
@@ -24,6 +29,9 @@ bool32 assetsExportStart(const char *folder, char **archives, sdword nArchives);
 // quit: stop a running export (it resumes at the next start) and wait for the thread; with /catAssetsExportWait the
 // export is allowed to finish first
 void assetsExportStop(void);
+
+// the "# export-version N" of a manifest's header, 0 when it has none, -1 when there is no such file
+sdword assetsExportManifestVersion(const char *manifestPath);
 
 bool32 assetsExportOffSet(char *string);     // /noAssetsExport
 bool32 assetsExportWaitSet(char *string);    // /catAssetsExportWait (tests)

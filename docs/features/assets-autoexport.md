@@ -24,7 +24,8 @@ At start-up, right after the archives are opened and the Assets folder is indexe
 - the first start of a new install, whatever the data source (a GOG folder, the offline installer unpacked by the game,
   `HW_Data`): the archives are the ones the engine opened;
 - the player deleted the manifest (to get missing files back) or the whole folder (a fresh copy);
-- an earlier export was stopped (quit, crash, power): it resumes.
+- an earlier export was stopped (quit, crash, power): it resumes;
+- the manifest's export version is older than this game's, or it has none: the folder is **refreshed** (below).
 
 Not with `/noAssets`; `/noAssetsExport` turns it off. A folder that holds `cataclysm.big` (or is inside one that does)
 is never written, like the Python tool's `check_out`. `tools/play.sh` runs use the project's `Assets/`, which has its
@@ -68,7 +69,32 @@ given.
 | not journalled, different (the player's own) | kept, not listed, so it stays in use; logged `kept <file> (not from an export)` |
 | anything in `feman/backgrounds/` | never written, never listed (the screen pictures, HWI-FEATURE(screen-background)) |
 
-- **The log**: `assets: export: started|resuming into <folder>`, `stopped at quit after N files`, and at the end
+- **Export versions and the refresh** (the coordinator, 2026-11-02: "add an export version so a newer game refreshes
+  an existing folder"). The manifest's header carries `# export-version N` (`AE_ExportVersion` in
+  `src/Game/AssetsExport.h`, `EXPORT_VERSION` in `export_assets.py`: raise both whenever the export's output changes;
+  it is 1 now). Both readers skip it as a comment. At start-up a manifest without the line, or with an older number,
+  starts the same background export as a refresh, under the Python Writer's rules with the manifest:
+
+| a file in the folder, during a refresh | the export |
+|---|---|
+| listed, still as exported (its sha256 is the manifest's), the same content as now | taken over; a PNG whose size and time are the manifest's and whose pixels are the new ones is taken over without being encoded again, whatever its deflate (a folder made by the Python tool keeps its PNGs) |
+| listed, still as exported, other content now (the export changed) | rewritten |
+| listed, changed by the player | kept; the new manifest keeps its old record, so it stays in use (`kept your <file>`) |
+| not listed (the player's own) | kept, not listed, in use (`kept <file> (not from an export)`) |
+| listed but deleted | written again, as exported (`of them N deleted ones again`) |
+| not there, not listed (a file the newer export adds, e.g. `assets-models.txt`) | written |
+
+  Re-creating a deleted file is the Python tool's rule too, and it is safe: the file comes back exactly as exported,
+  so the manifest lists it as unchanged and the game keeps drawing its own, as it did while the file was missing; only
+  the reference copy is back. (Not re-creating would give the same game, but the two tools would then write different
+  folders.)
+
+  The old manifest stays in force until the new one replaces it (a rename at the end). The engine's scan reads the
+  journal after the manifest, its records winning, so a file a stopped refresh already rewrote stays unused at the next
+  start. A run with failed files writes its manifest without the version line, so the next start refreshes again and
+  retries them. `export_assets.py --refresh` (re-stamping file times) keeps the folder's version, since it adds no file.
+- **The log**: `assets: export: started|resuming into <folder>`, `refreshing <folder> (its export version N, this
+  game's M; F files listed)`, `stopped at quit after N files`, and at the end
   `done in S s: N files in the manifest (written, already there, kept yours, kept not ours, failed), MB` plus the
   same counts the Python tool prints.
 
@@ -90,6 +116,9 @@ colour type and pixels, and that each manifest lists exactly its folder with tru
 | Mission01, 6,000 ticks, debug ASan build, the export running beside it (`--mode mission --mission-ticks 6000 --assets-wait`) | **IDENTICAL** to `m3r3i-e-mission-a` (`hwo_compare`: 6,001 ticks, no difference); the export done in 30.4 s (ASan, -O0) and EQUAL; `ASan errors: 0; LeakSanitizer at exit: no unsuppressed leak` |
 | stopped at quit under ASan (`--mode modequit --assets-export`) | `stopped at quit after 3 files`; ASan 0, no leak; no temporary file left |
 | Windows build (`tools/release_win64.sh`, llvm-mingw) under Proton Experimental's Wine, a fresh prefix, the window hidden, Wine audio off, `HW_Data` | the export into `C:\users\steamuser\Documents\Homeworld Infection\Assets` in 20.9 s, `modequittest ... PASS`; EQUAL to the Python export (the OBJ numbers through `__mingw_snprintf`); a second start: `22587 files ... active 0`, no export |
+| refresh of a folder made by the tool before 43b9734 (`git archive 43b9734^ tools/assets`: no `assets-models.txt`, the old README, no version line) with `race_sect/sacolyte/rl0/lod0/0aco1.png` repainted (colours inverted), debug ASan build, `--assets-wait` | the scan first: `active 0aco1.png`, `page0.lif is rebuilt`, `active 1`; then `refreshing ... (its export version 0, this game's 1; 25413 files listed)`, `kept your race_sect/sacolyte/rl0/lod0/0aco1.png`, `done in 9.8 s: 25414 files ... (written 2, ...; already there 25411, kept yours 1, ...)`: `assets-models.txt` and the new README written, every other file taken over (no PNG re-encoded); the repainted PNG byte-unchanged, its manifest record the old one; `# export-version 1`; `compare_exports` against the current Python export: the only 2 differences are that PNG's pixels and its (kept) manifest record; `ASan errors: 0`, no leak. Second start (release): no export, `active 0aco1.png`, page0 rebuilt, `active 1` |
+| refresh with a deleted file, a stale file and a stop: the same old-tool folder with `Models/race_sect/sacolyte/sacolyte_lod1.obj` deleted and `colorpicker/race1/race1.png` repainted with its manifest line patched to match (as if an older export had written it) | stopped after 4,803 files (1 written: the stale PNG); next start `an unfinished export`, `manifest 30216` (since then counted once: 25,414 + the journal's new keys), `unchanged 22587, active 0` (the rewritten PNG counts as exported through the journal); stopped again; then `done in 1.7 s ... written 3, of them 1 deleted ones again`: the OBJ back, the journal gone, **EQUAL** to the current Python export; the next start: no export, `active 0` |
+| the current export versions | a fresh first start: `# export-version 1`, EQUAL, `--status` 0/0/0/0; a Python export now writes `# export-version 1` too, and the game starts on it without exporting (`active 0`); `export_assets.py --refresh` keeps the line |
 | builds | `tools/build.sh --release` and `--debug` (ASan/UBSan): 0 warnings; `tools/release_win64.sh`: 0 warnings, the imports check passes |
 
 ## Not done, limits
@@ -98,7 +127,7 @@ colour type and pixels, and that each manifest lists exactly its folder with tru
   Wine), normally during the intros.
 - 90.5 MB instead of the Python tool's 80.2 MB (stb_image_write's deflate). A better deflate would need new code or a
   library.
-- A folder with a manifest is never exported again by itself, also not after an update of the game or of the export
-  (a future version could add a version line to the manifest and re-export what the player did not change).
+- A refresh needs `AE_ExportVersion` / `EXPORT_VERSION` raised by hand when the export's output changes; nothing
+  checks that a change to the output came with a new version.
 - Not run on a real Windows PC or on macOS (the macOS build compiles in CI; the export's paths there are the
   `Documents` folder the game already uses).

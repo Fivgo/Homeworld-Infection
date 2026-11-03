@@ -349,16 +349,38 @@ static sdword afManifestLoad(void)
 
     snprintf(path, sizeof(path), "%s/%s", afFolder, AF_ManifestName);
     afManifestText = afReadText(path);
-    if (afManifestText == NULL)
     {
-        // HWI-FEATURE(assets-autoexport): an unfinished export's journal lists the files it wrote, as exported
+        // HWI-FEATURE(assets-autoexport): an unfinished export's journal lists the files it wrote or took over, as
+        //      exported. A first export: it is the manifest; a refresh: it follows the manifest still in force, and
+        //      its newer records win (afHashPut replaces), so a file the refresh rewrote stays unused
+        char *journal;
+
         snprintf(path, sizeof(path), "%s/%s", afFolder, AE_JournalName);
-        afManifestText = afReadText(path);
+        journal = afReadText(path);
+        if (journal != NULL)
+        {
+            printf("assets: an unfinished export (%s): its files are as exported\n", AE_JournalName);
+            if (afManifestText == NULL)
+            {
+                afManifestText = journal;
+            }
+            else
+            {
+                size_t a = strlen(afManifestText), b = strlen(journal);
+                char *both = malloc(a + b + 2);
+
+                memcpy(both, afManifestText, a);
+                both[a] = '\n';
+                memcpy(both + a + 1, journal, b + 1);
+                free(afManifestText);
+                free(journal);
+                afManifestText = both;
+            }
+        }
         if (afManifestText == NULL)
         {
             return -1;
         }
-        printf("assets: an unfinished export (%s): its files are as exported\n", AE_JournalName);
     }
     for (p = afManifestText; *p; p++)
     {
@@ -415,7 +437,7 @@ static sdword afManifestLoad(void)
         afHashPut(&afManifest, p, &afManifestEntries[n]);
         n++;
     }
-    return n;
+    return (sdword)afManifest.count;                        // HWI-FEATURE(assets-autoexport): a journal's repeats once
 }
 
 static bool32 afSkipped(const char *relLower, bool32 isFolder, bool32 atTop)
@@ -806,11 +828,18 @@ static void afExportMaybe(void)
     char path[PATH_MAX], *archives[8];
     struct stat st;
     udword n;
+    sdword version;
 
     snprintf(path, sizeof(path), "%s/%s", afFolder, AF_ManifestName);
-    if (stat(path, &st) == 0)
+    version = (stat(path, &st) == 0) ? assetsExportManifestVersion(path) : -1;
+    if (version >= AE_ExportVersion)
     {
-        return;
+        return;                                             // as this game exports it
+    }
+    if (version >= 0)
+    {
+        printf("assets: export: the folder's export version is %d (0: none), this game's %d: it is refreshed (your "
+               "changed files are kept)\n", (int)version, AE_ExportVersion);
     }
     if (assetsExportIsOff())
     {
