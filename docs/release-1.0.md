@@ -58,6 +58,30 @@ player README. No step needs a terminal.
   `/catHiddenWindow`, or a headless gamescope (a developer screenshot harness only; never part of a package).
 - GPU measurements only on an idle GPU.
 
+## The published v1.1.0 (2026-11-02)
+
+The user chose to publish 1.1.0 once the shape rule was settled ("Looks only"). Contents since v1.0.0: the Assets folder
+written by the game (HWI-FEATURE(assets-autoexport)), edited Blender models read back, looks only
+(HWI-FEATURE(assets-models)), the menu-frame specks at 150% fixed. Version 1.1.0 in meson.build, release.yml, the macOS
+workflow and script, the installer comment and the smoke test (73b5a85). `release.yml` by workflow_dispatch on 73b5a85:
+all four jobs PASS. Tag v1.1.0 at 73b5a85: the three packages built, the Windows smoke test failed once on
+"purge: install folder removed" (uninstall.exe still there 2 s after the purge: the uninstaller's copy deletes it
+late; a rerun passed; `smoke-test.ps1` now waits up to 30 s), then the draft job stopped on the missing
+`docs/release-notes-1.1.0.md`. The tag was left where it was (moving a pushed tag needs the user): the notes were written
+and the draft made by hand exactly as the job does (`gh run download` of that run's packages, `sha256sum`, `gh release
+create --draft --verify-tag`). Published 2026-11-03 00:46 UTC as Latest: Windows-Setup.exe 3,799,991 bytes, Linux tar.gz
+4,968,408, macOS dmg 9,620,900, SHA256SUMS.txt.
+
+| Package | Run | Result |
+|---|---|---|
+| Linux tar.gz, first start | a throwaway home, the offline installer linked into `~/Downloads`, `/catDataSetupScript unpack /catHiddenWindow /catAssetsExportWait /catModeQuitTest 1280x720:120`, stub dialogs | unpacked (66 files, 404,999,701 bytes), both intros (240/240, 807/807), the Assets export `done in 5.4 s`, 25,414 files, 90.5 MB, during the first intro; `compare_exports` against the Python export (version 2): EQUAL; modequit PASS, rc 0; the menu entry written; no dialog |
+| Linux, second start | the docking bay's OBJ widened 1.5x in `Documents/Homeworld Infection/Assets`; `/catAssetsModelTest` | `models: 1 edited, 4 levels stand in`; the model test 1,479 PASS + the edited one FAIL (pos 344: the edit is read) |
+| Windows Setup.exe | `/S` under Proton Experimental in a headless gamescope, a fresh prefix | rc 0, every file installed (gamescope's headless backend segfaulted at its own exit, a harness fault) |
+| Windows game, first start | GOG's registry key -> a folder of links to the 66 files; a .bat, `/catDataSetupScript quit /disableAVI /catHiddenWindow /catAssetsExportWait /catModeQuitTest 1280x720:120` | found through the registry (both views), saved; the export into `C:\users\steamuser\Documents\Homeworld Infection\Assets` done in 20.4 s, EQUAL; modequit PASS, rc 0 |
+| Windows, second start | the docking bay's OBJ widened; `/catAssetsModelTest` | the saved path used; `models: 1 edited, 4 levels stand in`; 1,479 PASS + the edited one FAIL; nothing written into the GOG copy |
+
+Not verified: a real Windows PC, any Mac (CI's build and smoke checks only), macOS's Documents prompt.
+
 ## The published v1.0.0 (2026-10-31)
 
 The user: "these changes look stable. lets cut a new release", then chose to replace the unpublished draft (tag v1.0.0

@@ -102,6 +102,10 @@ function Test-Installed([string]$what) {
 }
 
 function Test-ProgramGone([string]$what) {
+	# the uninstaller's copy deletes uninstall.exe and the folder after it exits (Windows marks them for deletion):
+	# give that up to 30 s before judging (v1.1.0's tag run saw uninstall.exe still there 2 s after the purge)
+	$deadline = (Get-Date).AddSeconds(30)
+	while ((Test-Path -LiteralPath $inst) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
 	$left = @(Get-ChildItem -LiteralPath $inst -Recurse -Force -ErrorAction SilentlyContinue)
 	foreach ($f in $left) { Write-Host "  left behind: $($f.FullName)" }
 	Check (-not (Test-Path -LiteralPath $inst)) "${what}: install folder removed"
