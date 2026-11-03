@@ -27,17 +27,33 @@ Download the package for your system from the [Releases page](https://github.com
 
 **After the first start** the game remembers where its files are. Pick the resolution, window or fullscreen, and the UI scale under Options, then Video. The GOG files are never changed.
 
-**Your own files** are in your Documents folder, in `Homeworld Infection`: screenshots go in `Screenshots`, and the textures, ship models and menu pictures you change are in `Assets`. At its first start the game fills `Assets` by itself, in the background, with every texture as a PNG and every ship as a model for Blender (`Models`). Repaint a PNG, or open a ship in Blender, change it and export it over the same `.obj`: the game uses your version from its next start. A changed model only changes how the ship looks; the game still plays with the original shape, so multiplayer and replays are not affected. The `README.txt` in `Assets` explains the details (see also `docs/features/assets-folder.md` and `docs/features/assets-models.md`). On a Mac the game asks once for access to Documents.
-
-The game keeps its settings and saved games in its own folder, which you don't need to open:
-
-| System | Folder |
-|---|---|
-| Windows | `%APPDATA%\Homeworld-Infection` |
-| Linux | `~/.homeworld` |
-| macOS | `~/Library/Application Support/Homeworld-Infection` |
-
 The release notes on the Releases page list the known issues.
+
+### Where the game puts its files
+
+| What | Windows | Linux | macOS |
+|---|---|---|---|
+| **Your own files**, to open and change: `Assets` (every texture and ship model) and `Screenshots` | `Documents\Homeworld Infection` | `~/Documents/Homeworld Infection` | `~/Documents/Homeworld Infection` |
+| Settings and saved games (and on Linux the log, `hwi-engine.log`) | `%APPDATA%\Homeworld-Infection` | `~/.homeworld` | `~/Library/Application Support/Homeworld-Infection` |
+| The game files unpacked from GOG's offline installer (about 400 MB) | `%LOCALAPPDATA%\Homeworld-Infection\GameData` | `~/.local/share/homeworld-infection/GameData` | `~/Library/Application Support/Homeworld-Infection/GameData` |
+| The program | `%LOCALAPPDATA%\Programs\Homeworld Infection` | the AppImage, wherever you put it | `/Applications/Homeworld Infection.app` |
+
+Only the first row is meant for you to open. `GameData` holds the game's packed archives as GOG ships them, and exists only if the game unpacked the offline installer; a GOG installation it found is only read, never changed. The ships and textures to edit are the copies in `Assets`. On Windows, `Documents` may be in OneDrive; on Linux it is your desktop's Documents folder. On a Mac the game asks once for access to Documents. Uninstalling never removes `Documents/Homeworld Infection`.
+
+### Changing textures and ships (the Assets folder)
+
+At its first start the game fills `Assets` by itself, in the background while the intro plays (about 25,000 files: 90 MB, up to 160 MB of disk space):
+
+```
+Documents/Homeworld Infection/Assets/
+├── Models/<race>/<ship>/<ship>_lod0.obj    each ship for Blender, with its textures (lod0 = most detail,
+│                                           lod1-4 = the far-away versions, ingame/ = as drawn in battle)
+├── race_kushan/, race_taidan/, feman/ ...  every texture as a PNG, under the game's own folder and name
+├── feman/backgrounds/                      your own pictures behind the menu screens
+└── README.txt                              what you can change, and how
+```
+
+Repaint a PNG, or open a ship's `.obj` in Blender (File, Import, Wavefront), change it and export it over the same file (File, Export, Wavefront, default settings): the game uses your version from its next start. A changed model only changes how the ship looks; the game still plays with the original shape, so multiplayer and replays are not affected. The game never overwrites a file you changed: delete a file to undo your change, or the whole `Assets` folder for a fresh copy at the next start. The `README.txt` in `Assets` explains the details (see also `docs/features/assets-folder.md` and `docs/features/assets-models.md`).
 
 ## Build and play from source (Linux, for developers)
 

@@ -32,17 +32,39 @@ On its first start the game looks for Homeworld: Emergence and, if it finds none
   read, never changed.
 The folder you chose is remembered.
 
-SETTINGS AND SAVED GAMES
-Everything the game writes is in
-    ~/Library/Application Support/Homeworld-Infection
-(in Finder: Go menu, hold the Option key, Library, Application Support). It holds the settings file
-Cataclysm.cfg, keys.cfg, your saved games and screenshots. Delete that folder to start over.
+WHERE THE GAME PUTS ITS FILES
+1. Your own files, to open and change: your Documents folder, in Homeworld Infection
+       ~/Documents/Homeworld Infection/Assets        every texture as a PNG and every ship as a model for Blender
+       ~/Documents/Homeworld Infection/Screenshots   the pictures you take in the game
+   The game asks once for access to your Documents folder: allow it, so the game can write these folders.
+2. Settings, saved games and the unpacked game files:
+       ~/Library/Application Support/Homeworld-Infection
+   (in Finder: Go menu, hold the Option key, Library, Application Support). It holds the settings files
+   Cataclysm.cfg and keys.cfg, your saved games (SavedGames), and GameData: the game files unpacked from GOG's
+   offline installer (about 400 MB). GameData holds the game's packed archives as GOG ships them: nothing in them
+   is meant to be edited. The ships and textures to change are the copies in Assets. A game folder you chose
+   instead is only read, never changed. Delete the Homeworld-Infection folder to start over.
+3. The program: /Applications/Homeworld Infection.app
 Defaults: Smooth motion on, FULL DETAIL on, the UI scale automatic (by the window's height in pixels: 200% from
 2160, 150% from 1440). Options, Video: resolution, fullscreen and UI scale.
 
+CHANGING TEXTURES AND SHIPS (THE ASSETS FOLDER)
+At its first start the game fills ~/Documents/Homeworld Infection/Assets by itself, in the background while the
+intro plays (about 25,000 files: 90 MB, up to 160 MB of disk space). Inside:
+    Models/<race>/<ship>/<ship>_lod0.obj     each ship for Blender, with its textures (lod0 = the most detail)
+    race_kushan/, race_taidan/, feman/ ...   every texture as a PNG, under the game's own folder and name
+    feman/backgrounds/                       your own pictures behind the menu screens
+    README.txt                               what you can change, and how
+Repaint a PNG, or open a ship's .obj in Blender (File, Import, Wavefront), change it and export it over the same
+file (File, Export, Wavefront, with the default settings): the game uses your version from its next start. A
+changed ship only changes how it looks; the game still plays with the original shape, so multiplayer and replays
+are not affected. The game never overwrites a file you changed. To undo a change, delete that file; delete the
+whole Assets folder to get a fresh copy at the next start.
+
 UNINSTALL
-Drag Homeworld Infection from Applications to the Trash, and the folder above if you want your settings and the
-unpacked game files gone too.
+Drag Homeworld Infection from Applications to the Trash. Delete ~/Library/Application Support/Homeworld-Infection
+too if you want your settings and the unpacked game files gone, and ~/Documents/Homeworld Infection for your
+Assets folder and screenshots.
 
 KNOWN ISSUES
 - Not yet tested on a real Mac: this build was made and checked on GitHub's macOS build machines, which have no

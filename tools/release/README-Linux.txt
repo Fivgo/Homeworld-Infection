@@ -39,21 +39,42 @@ is now. If you move the AppImage, start it once from its new place and the menu 
 AppImage, the entry disappears from the menu. To remove its file as well, delete
     ~/.local/share/applications/homeworld-infection-appimage.desktop
 
-SETTINGS, SAVED GAMES AND LOGS
-Everything the game writes goes in the hidden folder ~/.homeworld in your home folder. In the file manager, press
-Ctrl+H to see hidden folders. It holds:
-- the settings file Cataclysm.cfg and keys.cfg;
-- your saved games and screenshots;
-- gamedata-path.txt, the remembered game-files folder;
-- hwi-engine.log, the messages of the last run (hwi-engine.log.old has the run before).
-The GOG game's own saves are not touched.
+WHERE THE GAME PUTS ITS FILES
+1. Your own files, to open and change: your Documents folder, in Homeworld Infection
+       ~/Documents/Homeworld Infection/Assets        every texture as a PNG and every ship as a model for Blender
+       ~/Documents/Homeworld Infection/Screenshots   the pictures you take in the game
+   (Documents is your desktop's Documents folder: ~/Documents on most systems.)
+2. Settings, saved games and the log: the hidden folder ~/.homeworld (in the file manager, Ctrl+H shows hidden
+   folders). It holds the settings files Cataclysm.cfg and keys.cfg, your saved games (SavedGames),
+   gamedata-path.txt (the remembered game-files folder), and hwi-engine.log, the messages of the last run
+   (hwi-engine.log.old has the run before). The GOG game's own saves are not touched.
+3. The game files unpacked from GOG's offline installer (about 400 MB, only if you chose the installer):
+       ~/.local/share/homeworld-infection/GameData
+   These are the game's packed archives as GOG ships them: nothing in them is meant to be edited. The ships and
+   textures to change are the copies in Assets. A GOG installation the game found is only read, never changed.
+4. The program is the AppImage itself, wherever you put it, and the menu entry is
+       ~/.local/share/applications/homeworld-infection-appimage.desktop
 Defaults: Smooth motion on, FULL DETAIL on, UI scale automatic (200% on a 4K screen, 150% at 1440p, 100% below).
+
+CHANGING TEXTURES AND SHIPS (THE ASSETS FOLDER)
+At its first start the game fills ~/Documents/Homeworld Infection/Assets by itself, in the background while the
+intro plays (about 25,000 files: 90 MB, up to 160 MB of disk space). Inside:
+    Models/<race>/<ship>/<ship>_lod0.obj     each ship for Blender, with its textures (lod0 = the most detail)
+    race_kushan/, race_taidan/, feman/ ...   every texture as a PNG, under the game's own folder and name
+    feman/backgrounds/                       your own pictures behind the menu screens
+    README.txt                               what you can change, and how
+Repaint a PNG, or open a ship's .obj in Blender (File -> Import -> Wavefront), change it and export it over the
+same file (File -> Export -> Wavefront, default settings): the game uses your version from its next start. A
+changed ship only changes how it looks; the game still plays with the original shape, so multiplayer and replays
+are not affected. The game never overwrites a file you changed. To undo a change, delete that file; delete the
+whole Assets folder to get a fresh copy at the next start.
 
 USING OTHER GAME FILES, AND UNINSTALLING
 To make the game look for its files again, delete ~/.homeworld/gamedata-path.txt. If the offline installer was
 unpacked, also delete the folder ~/.local/share/homeworld-infection/GameData, because it is checked first.
 To uninstall, delete the AppImage. The menu entry then disappears. The game leaves these behind, for you to delete
 if you want to:
+- ~/Documents/Homeworld Infection: your Assets folder and screenshots;
 - ~/.homeworld: settings and saved games;
 - ~/.local/share/homeworld-infection: the unpacked game files (about 400 MB);
 - ~/.local/share/applications/homeworld-infection-appimage.desktop and the homeworld-infection-appimage.png
