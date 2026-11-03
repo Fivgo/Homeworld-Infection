@@ -62,7 +62,7 @@ DEF_UPDATE = os.path.join(MAIN, 'original', 'game_extracted', 'update')
 MANIFEST = 'assets-manifest.txt'
 # the export's version, the manifest header line '# export-version N' (src/Game/AssetsExport.h AE_ExportVersion): the
 # game refreshes a folder whose manifest has none or an older one. Raise both when the export's output changes.
-EXPORT_VERSION = 1
+EXPORT_VERSION = 2
 PAGES = 'assets-pages.txt'
 MODELS = 'assets-models.txt'
 README = 'README.txt'
@@ -453,8 +453,10 @@ Changing a ship's shape
 
   The game uses your model from its next start. A changed lod0 is drawn at every distance, unless you also change
   the lower levels (lod1, lod2 ...).
-  A new shape does not change the ship's size for collisions, where its guns fire from, its engine glows and trails,
-  or its docking points: they stay where the original model has them.
+  A new shape only changes how the ship looks. The game still plays with the original shape: where shots hit, the
+  ship's size for collisions, where its guns fire from, its engine glows and trails, and its docking points all stay
+  as the original model has them. So a changed model never affects a multiplayer game or a replay.
+  A material can use a new picture: point its texture (map_Kd in the .mtl) at a PNG anywhere in this folder.
 
 Small textures in pages
 -----------------------

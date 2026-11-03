@@ -19,7 +19,7 @@
 
 // the export's version, a manifest header line "# export-version N" (tools/assets/export_assets.py EXPORT_VERSION):
 // a folder whose manifest has none or an older one is refreshed at start-up. Raise it when the export's output changes
-#define AE_ExportVersion    1
+#define AE_ExportVersion    2
 #define AE_VersionTag       "# export-version "
 
 // start the export into folder (no trailing separator) from the archives, highest precedence first; FALSE when not

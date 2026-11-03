@@ -71,17 +71,27 @@ the new shape. Deleting the file (or exporting the folder again) brings the game
 Not changed (they are not in the OBJ): the collision box and sizes in the `.shp`, the `.mex` points (guns, engines,
 docking, nav lights), the engine trails' positions, the animations' keyframes (the objects are found by name).
 
-The simulation **does** read the mesh in three places, so an edited model changes play on that ship:
-- **Hits.** A bullet, beam or missile inside a ship's collision box hits only where its line meets the mesh at level 3
-  (`cat_collMeshHitDistance`, `Collision.c`; `catCollMeshHitBulletLevel` / `...MissileLevel` = 3) for every ship
-  whose `.shp` leaves `bUseRayTriangleIntersectionForHitLocation` on (the default; 24 of the 198 `.shp` files turn it
-  off). With the stand-in rule level 3 is the edited shape: shots hit what is drawn.
-- **The ramming frigate's** contact point (`cat_meshLineIntersect` at level 0, `RammingFrigate.c`).
-- **Repair droids** walk object 0's polygons of level 0 and land on its nearest vertex (`RepairDroid.c`).
-The per-ship vertex state (`cat_univShipMeshStateCreate`) is sized by the loaded mesh, so it follows the edit.
-Consequence: **two machines with different models desync** in multiplayer, and a recorded game replays differently.
-The 6,000-tick Mission01 stream stays IDENTICAL with the docking bay edited (below) because nothing hits it or walks it
-there.
+**Looks only (the user's ruling, 2026-11-02: "Looks only").** The simulation reads the mesh in two functions: hit
+points (`cat_meshLineIntersect`: a bullet, beam or missile inside a ship's collision box hits only where its line meets
+the mesh at level 3, `cat_collMeshHitDistance` / `Collision.c`, for every ship whose `.shp` leaves
+`bUseRayTriangleIntersectionForHitLocation` on, 174 of 198; the ramming frigate's contact point at level 0,
+`RammingFrigate.c`) and the repair droids' hull walk (object 0 of level 0, `RepairDroid.c`). Both now read
+`meshSimulationMesh(mesh)` (`Mesh.c`): when `meshLoad` builds a mesh from an edited model it also loads the game's own
+mesh of the same file beside it (the Assets folder suspended, no textures registered) and pairs the two; `meshFree`
+frees the pair. So an edited model only changes what is drawn: the shots, the droids and every other piece of play
+stay the original's, and multiplayer games and replays never depend on the Assets folder. On screen a much smaller
+or larger model is still hit, and its droids still sit, where the original hull is. The per-ship vertex state for the
+bullet-hit glow (`cat_univShipMeshStateCreate`) is drawing only and follows the drawn mesh. The other mesh reads of
+the simulation side use part names only (the `.mex` nav lights and engine nozzles, the gun bindings), which an
+edited model keeps.
+
+| check (2026-11-02, after the ruling) | result |
+|---|---|
+| Mission01's scripted play-through (`--mode missiontest`, release, 11,424 ticks, with the Turanic raiders' attack) with every main OBJ shrunk to half size (706 edited) | before the change: **diverges at tick 1772** (rng10, the shots' draws); after: **IDENTICAL** to the unedited run (11,426 ticks); objectives 6/6 PASS in all three runs |
+| the same under the debug ASan build | IDENTICAL to the unedited debug run; ASan 0, no leak (the pairs freed). (The debug and release streams of this play-through differ from tick 8739 with or without edits: a build difference, not this feature) |
+| the 6000-tick Mission01 with every ship shrunk / with nothing edited (debug ASan) | both IDENTICAL to `m3r3i-e-mission-a`; ASan 0, no leak |
+| the widened docking bay in the Kuun-Lan scene | the frame byte-identical to before the change (the drawn mesh is the edited one) |
+| `/catAssetsModelTest` on the game's own export | 1,480 / 1,480 PASS, ASan 0 |
 
 ## Blender (5.2.3 LTS, headless, default import and export settings)
 

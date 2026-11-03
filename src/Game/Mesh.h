@@ -411,6 +411,7 @@ void meshShutdown(void);
 
 //load in a mesh file
 meshdata *meshLoad(char *fileName);
+meshdata *meshSimulationMesh(meshdata *mesh);       // HWI-FEATURE(assets-models): looks only
 void meshFree(meshdata *mesh);
 void meshRecolorize(meshdata *mesh);
 void meshFixupUV(meshdata* mesh);

@@ -1039,7 +1039,63 @@ sdword meshLoadAndConvertTo64Bit(char *fileName, void** loadAddress, const ubyte
     Outputs     : Allocates and loads data returned in meshdata structure.
     Return      : Pointer to allocated and fixed-up meshdata structure.
 ----------------------------------------------------------------------------*/
+// HWI-FEATURE(assets-models): edited models are looks only (the user, 2026-11-02: "Looks only"). An edited model's
+// mesh is drawn; the game's own mesh of the same file is loaded beside it without textures, and the simulation's mesh
+// reads (cat_meshLineIntersect: bullet/beam/missile hit points and the ramming frigate's contact; the repair droids'
+// hull walk) take it through meshSimulationMesh, so play, multiplayer and replays never depend on the Assets folder.
+typedef struct { meshdata *drawn; meshdata *sim; } meshsimpair;
+static meshsimpair *meshSimPairs = NULL;
+static sdword meshSimPairCount = 0;
+static sdword meshSimPairAlloc = 0;
+static bool32 meshLoadNoTextures = FALSE;                   // the simulation copy: no textures registered
+
+static meshdata *meshLoadFile(char *inFileName, bool32 *edited);
+
 meshdata *meshLoad(char *inFileName)
+{
+    bool32 edited = FALSE;
+    meshdata *mesh = meshLoadFile(inFileName, &edited);
+    meshdata *sim;
+
+    if (edited)
+    {                                                       // HWI-FEATURE(assets-models): the game's own beside it
+        assetsSuspend(TRUE);
+        meshLoadNoTextures = TRUE;
+        sim = meshLoadFile(inFileName, NULL);
+        meshLoadNoTextures = FALSE;
+        assetsSuspend(FALSE);
+        if (meshSimPairCount == meshSimPairAlloc)
+        {
+            meshSimPairAlloc = meshSimPairAlloc ? meshSimPairAlloc * 2 : 16;
+            meshSimPairs = memRealloc(meshSimPairs, meshSimPairAlloc * (sdword)sizeof(meshsimpair), "meshSimPairs", NonVolatile);
+        }
+        meshSimPairs[meshSimPairCount].drawn = mesh;
+        meshSimPairs[meshSimPairCount].sim = sim;
+        meshSimPairCount++;
+    }
+    return mesh;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : meshSimulationMesh
+    Description : HWI-FEATURE(assets-models): the mesh the simulation reads for a drawn mesh: the game's own when the
+                  drawn one was made from an edited model, else the mesh itself
+----------------------------------------------------------------------------*/
+meshdata *meshSimulationMesh(meshdata *mesh)
+{
+    sdword i;
+
+    for (i = 0; i < meshSimPairCount; i++)
+    {
+        if (meshSimPairs[i].drawn == mesh)
+        {
+            return meshSimPairs[i].sim;
+        }
+    }
+    return mesh;
+}
+
+static meshdata *meshLoadFile(char *inFileName, bool32 *edited)
 {
     GeoFileHeader header;
     meshdata *mesh;
@@ -1076,6 +1132,10 @@ meshdata *meshLoad(char *inFileName)
     if (assetsModelFind(inFileName, &modelImage, &modelLength, modelName, sizeof(modelName)))
     {                                                       // HWI-FEATURE(assets-models): an edited model; its
         fileName = modelName;                               // textures are those of the mesh it was made from
+        if (edited != NULL)
+        {
+            *edited = TRUE;
+        }
     }
     else if (allowPacking && meshPagedVersionExists(inFileName))
     {
@@ -1327,8 +1387,8 @@ meshdata *meshLoad(char *inFileName)
 	} // FIX_ENDIAN:    end of for(index < mesh->nLocalMaterials...) loop
       // everyone else: end of for(index < mesh->nPolygonObjects)    loop
 
-    if (allowPacking && mainOnlyPacking && (fileName != pagedName))
-    {
+    if ((allowPacking && mainOnlyPacking && (fileName != pagedName)) || meshLoadNoTextures)
+    {                                                       // HWI-FEATURE(assets-models): the simulation copy too
         for (index = 0; index < mesh->nLocalMaterials + mesh->nPublicMaterials; index++)
         {
             if (mesh->localMaterial[index].pName != NULL)
@@ -1609,6 +1669,23 @@ doneDeletingAllOldTextures:
 void meshFree(meshdata *mesh)
 {
     sdword index, j;
+
+    for (index = 0; index < meshSimPairCount; index++)
+    {                                                       // HWI-FEATURE(assets-models): its simulation copy goes too
+        if (meshSimPairs[index].drawn == mesh)
+        {
+            meshdata *sim = meshSimPairs[index].sim;
+            meshSimPairs[index] = meshSimPairs[--meshSimPairCount];
+            if (meshSimPairCount == 0)
+            {
+                memFree(meshSimPairs);
+                meshSimPairs = NULL;
+                meshSimPairAlloc = 0;
+            }
+            meshFree(sim);
+            break;
+        }
+    }
 
     for (index = 0; index < mesh->nLocalMaterials + mesh->nPublicMaterials; index++)
     {                                                       //for all materials
@@ -4257,7 +4334,8 @@ sdword cat_meshLineIntersect(Ship *ship, sdword level, vector *start, vector *en
     shipToWorld.m14 = ship->obj.posinfo.position.x;
     shipToWorld.m24 = ship->obj.posinfo.position.y;
     shipToWorld.m34 = ship->obj.posinfo.position.z;
-    for (object = &((meshdata *)lodInfo->level[level].pData)->object[0]; object != NULL; object = object->pSister)
+    // HWI-FEATURE(assets-models): the game's own mesh when the drawn one is an edited model (looks only)
+    for (object = &meshSimulationMesh((meshdata *)lodInfo->level[level].pData)->object[0]; object != NULL; object = object->pSister)
     {
         bestT = 1e21f;
         hmatMultiplyHMatByHMat(&objectToWorld, &shipToWorld, &object->localMatrix);

@@ -454,7 +454,8 @@ void droidUpdateArray(CatRepairDroidArray *array)                               
         }
 
         // flying: the target follows the vertex the droid sits on, the velocity closes 70% of the gap per second
-        object = &((meshdata *)owner->staticinfo->common.LOD->level[0].pData)->object[0];
+        // HWI-FEATURE(assets-models): the game's own mesh when the drawn one is an edited model (looks only)
+        object = &meshSimulationMesh((meshdata *)owner->staticinfo->common.LOD->level[0].pData)->object[0];
         if (entry->vertex == -1)
         {
             vert = NULL;
