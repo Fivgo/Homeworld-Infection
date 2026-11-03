@@ -4,7 +4,10 @@ HWI-FEATURE(assets-folder). Code: `src/Game/AssetsFolder.c` (the index and the l
 team masks and atlas pages turned into `.lif` images), hooks in `src/Game/File.c` (`fileLoadAlloc`, `fileLoad`,
 `fileSizeGet`, `fileOpen`), `src/SDL/texreg.c` (`trLIFFileLoad`, `trMeshSortListLoad`, `trRegistryRefresh`, the
 texture-memory fit), `src/SDL/utility.c` (start-up and shutdown), `src/SDL/main.c` (`/assetsPath`, `/noAssets`). The tool:
-`tools/assets/export_assets.py` (it reuses `hwformats.py` and `export_ships.py`, docs/assets-export.md).
+`tools/assets/export_assets.py` (it reuses `hwformats.py` and `export_ships.py`, docs/assets-export.md). Since
+2026-11-02 the game writes the same export itself at its first start, on a background thread, when the folder has no
+`assets-manifest.txt` (HWI-FEATURE(assets-autoexport), [assets-autoexport.md](assets-autoexport.md)): players need no
+tool.
 
 ## The user's words (verbatim)
 "I want to add a dedicated folder for the textures and assets that are used in the game so that they can be modified in a
@@ -23,7 +26,8 @@ the user's development runs (`tools/play.sh`) use the project's top folder, so `
 `/assetsPath <dir>` points a run at another Assets folder (the tests use it); `/noAssets` ignores the folder (and the
 screen pictures in it).
 
-What the export puts there (`tools/assets/export_assets.py`, below):
+What the export puts there (the game's own export at its first start, or `tools/assets/export_assets.py`, below; the
+same files):
 
 | path | what |
 |---|---|
@@ -34,6 +38,8 @@ What the export puts there (`tools/assets/export_assets.py`, below):
 | `Models/<race>/<ship>/ingame/<ship>_lodN.obj` / `.mtl` | the paged mesh the game draws, textured with its atlas pages |
 | `assets-manifest.txt` | `<size> <mtime> <sha256> <path>` of every exported file |
 | `assets-pages.txt` | where each source texture sits in its atlas page |
+| `assets-models.txt` | which OBJ is which game mesh: ship, level, source mesh and its OBJ, in-game mesh and its OBJ |
+| `assets-manifest.partial` | only while the game's export is unfinished: the files it has written (read as the manifest until it ends) |
 | `README.txt` | for the user: what to edit, Blender / GIMP, what the game picks up, how to undo |
 | `feman/backgrounds/<Screen>.png` | NOT part of the export: the pictures behind front-end screens, with their own loader (HWI-FEATURE(screen-background), [docs/features/screen-background.md](screen-background.md)). The index skips this folder and the exporter never writes, lists or flags it |
 
@@ -96,6 +102,10 @@ paint the source textures with the main OBJ (`Models/<race>/<ship>/<ship>_lod0.o
 `ingame/` OBJ; where a changed source sits it wins over a painted page.
 
 ## The export (`tools/assets/export_assets.py`)
+
+The game runs the same export by itself (src/Game/AssetsExport.c, [assets-autoexport.md](assets-autoexport.md)); the
+tool stays for developers and is the reference: `tools/assets/compare_exports.py` checks that both write the same
+folder, `tools/assets/gen_readme_header.py` puts its README text into the engine.
 
 ```
 python3 tools/assets/export_assets.py                     # into the project's Assets/ (about 11 s)

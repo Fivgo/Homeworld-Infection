@@ -10,6 +10,9 @@ Usage:
 Default --out: Assets at the top of the main checkout (the user folder of tools/play.sh, HWI-FEATURE(user-files)).
 A player's game reads Documents/Homeworld Infection/Assets on Windows, Linux and macOS (a visible folder, never the
 hidden settings folder); the engine switch /userFilesPath <dir> moves it, /assetsPath <dir> points at another.
+The game also writes this export itself, at a start that finds no assets-manifest.txt (HWI-FEATURE(assets-autoexport),
+src/Game/AssetsExport.c, a C port of this tool): keep the two in sync. tools/assets/compare_exports.py checks that they
+write the same folder; tools/assets/gen_readme_header.py copies README_TEXT into the engine.
 
 Default source: the extracted archives original/game_extracted/{cataclysm,update} (update.big first, as the game
 reads them); --game DIR reads cataclysm.big / update.big of a game folder instead (unpacked into a temporary folder,

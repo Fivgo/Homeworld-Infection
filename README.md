@@ -27,7 +27,7 @@ Download the package for your system from the [Releases page](https://github.com
 
 **After the first start** the game remembers where its files are. Pick the resolution, window or fullscreen, and the UI scale under Options, then Video. The GOG files are never changed.
 
-**Your own files** are in your Documents folder, in `Homeworld Infection`: screenshots go in `Screenshots`, and textures or menu pictures you make go in `Assets` (see `docs/features/assets-folder.md`). On a Mac the game asks once for access to Documents.
+**Your own files** are in your Documents folder, in `Homeworld Infection`: screenshots go in `Screenshots`, and textures or menu pictures you make go in `Assets` (see `docs/features/assets-folder.md`). At its first start the game fills `Assets` by itself, in the background, with every texture as a PNG and every ship as a model for Blender; the `README.txt` there says what you can change. On a Mac the game asks once for access to Documents.
 
 The game keeps its settings and saved games in its own folder, which you don't need to open:
 
@@ -52,7 +52,7 @@ The release notes on the Releases page list the known issues.
    It installs the build tools (it asks for your password once), unpacks the game from the installer, builds the engine and adds a **Homeworld Infection** shortcut to your applications menu and your Desktop. Running it again is safe: it skips what is done. If the game is already installed somewhere, for example on a Windows drive, run `bash setup.sh /path/to/the/game/folder` instead.
 4. Click **Homeworld Infection**.
 
-The Sierra and Barking Dog logos play first. Any key skips the one playing. Pick the resolution, a resizable window and the UI scale under Options, then Video. Your settings, saved games and logs are kept in `original/play-home/`, and the GOG files are never changed. Screenshots go in `Screenshots/` at the top of the repository's folder. To repaint the game's textures, run `python3 tools/assets/export_assets.py` once: it fills `Assets/` there with every texture as a PNG and the ships as Blender models, and the game uses any file you change from its next start (`docs/features/assets-folder.md`). Pictures behind the menu screens go in `Assets/feman/backgrounds/` (`docs/features/screen-background.md`). Both folders stay out of git.
+The Sierra and Barking Dog logos play first. Any key skips the one playing. Pick the resolution, a resizable window and the UI scale under Options, then Video. Your settings, saved games and logs are kept in `original/play-home/`, and the GOG files are never changed. Screenshots go in `Screenshots/` at the top of the repository's folder. To repaint the game's textures: the game fills `Assets/` there with every texture as a PNG and the ships as Blender models at a start that finds no `Assets/assets-manifest.txt` (or run `python3 tools/assets/export_assets.py`), and it uses any file you change from its next start (`docs/features/assets-folder.md`, `docs/features/assets-autoexport.md`). Pictures behind the menu screens go in `Assets/feman/backgrounds/` (`docs/features/screen-background.md`). Both folders stay out of git.
 
 If the game cannot start or stops with an error, the shortcut shows a message with the log's location. To watch the messages yourself, run `tools/play.sh` in a terminal. `bash setup.sh --remove-shortcut` removes the shortcut.
 

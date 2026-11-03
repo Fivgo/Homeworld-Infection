@@ -36,7 +36,9 @@ player README. No step needs a terminal.
 4. **Per-user folders.** Settings (options, keys, saves): Windows `%APPDATA%\Homeworld-Infection`
    (exists); Linux `~/.homeworld` (unchanged: play.sh and the harness set HOME); macOS
    `~/Library/Application Support/Homeworld-Infection`. The player's own files, in a visible folder
-   (HWI-FEATURE(user-files), 2026-10-31): `Documents/Homeworld Infection/Assets` (replacement textures, menu pictures)
+   (HWI-FEATURE(user-files), 2026-10-31): `Documents/Homeworld Infection/Assets` (replacement textures, menu pictures;
+   since 2026-11-02 the game fills it at its first start with every texture as a PNG and every ship as a model for
+   Blender, HWI-FEATURE(assets-autoexport), docs/features/assets-autoexport.md)
    and `Documents/Homeworld Infection/Screenshots` on all three systems (`/userFilesPath` moves it). Game data unpacked from the offline installer: Windows
    `%LOCALAPPDATA%\Homeworld-Infection\GameData`; Linux `${XDG_DATA_HOME:-~/.local/share}/homeworld-infection/GameData`;
    macOS `~/Library/Application Support/Homeworld-Infection/GameData`.

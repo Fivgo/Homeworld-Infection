@@ -41,6 +41,7 @@
 
 // the encoder (STB_IMAGE_WRITE_IMPLEMENTATION is in screenshot.c; stbi_write_png_to_mem is not in the header)
 extern unsigned char *stbi_zlib_compress(unsigned char *data, int data_len, int *out_len, int quality);
+#include "stb_image.h"              // the decoder (STB_IMAGE_IMPLEMENTATION is in screenshot.c)
 
 #include "AssetsExport.h"
 
@@ -1769,13 +1770,66 @@ static void aePngChunk(aebuf *b, const char *tag, const ubyte *data, size_t n)
     aeBufAdd(b, head, 4);
 }
 
+// an existing PNG the export did not write but with the export's size, colour type and pixels (e.g. written by
+// tools/assets/export_assets.py, whose deflate differs): taken over as exported
+static bool32 aePngAdopt(aeexport *ae, const char *rel, sdword w, sdword h, sdword comp, const ubyte *pixels)
+{
+    char key[PATH_MAX], path[PATH_MAX], sha[65];
+    uqword size;
+    sqword mtime;
+    ubyte head[26];
+    FILE *fp;
+    int fw, fh, fn;
+    ubyte *px;
+    bool32 same;
+
+    snprintf(key, sizeof(key), "%s", rel);
+    aeLower(key);
+    aeFullPath(ae, rel, path, sizeof(path));
+    if (!aeStat(path, &size, &mtime, NULL) || aeRecordsFind(&ae->journal, key) != NULL)
+    {
+        return FALSE;
+    }
+    fp = fopen(path, "rb");
+    if (fp == NULL)
+    {
+        return FALSE;
+    }
+    same = fread(head, 1, 26, fp) == 26 && memcmp(head, "\x89PNG\r\n\x1a\n", 8) == 0 && head[24] == 8 &&
+           head[25] == ((comp == 4) ? 6 : 0);
+    fclose(fp);
+    if (!same)
+    {
+        return FALSE;
+    }
+    px = stbi_load(path, &fw, &fh, &fn, comp);
+    same = px != NULL && fw == w && fh == h &&
+           memcmp(px, pixels, (size_t)w * (size_t)h * (size_t)comp) == 0;
+    stbi_image_free(px);
+    if (!same || !aeShaFile(path, sha))
+    {
+        return FALSE;
+    }
+    aeRecordsAdd(&ae->entries, key, rel, size, mtime, sha);
+    aeJournal(ae, &ae->entries.r[ae->entries.n - 1]);
+    ae->unchanged++;
+    ae->bytes += size;
+    return TRUE;
+}
+
 static void aePngWrite(aeexport *ae, const char *rel, sdword w, sdword h, sdword comp, const ubyte *pixels)
 {
     size_t stride = (size_t)w * (size_t)comp, y;
-    ubyte *raw = malloc((stride + 1) * (size_t)h + 1), ihdr[13];
+    ubyte *raw, ihdr[13];
     int zlen = 0;
     ubyte *z;
     aebuf b = {NULL, 0, 0};
+
+    if (aePngAdopt(ae, rel, w, h, comp, pixels))
+    {
+        return;
+    }
+    raw = malloc((stride + 1) * (size_t)h + 1);
 
     for (y = 0; y < (size_t)h; y++)
     {
