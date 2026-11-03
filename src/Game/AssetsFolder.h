@@ -85,6 +85,7 @@ bool32 assetsModelFind(char *fileName, const ubyte **image, sdword *length, char
 
 // HWI-TEST /catAssetsModelTest: every OBJ of assets-models.txt built and compared with the game's mesh ("modeltest:")
 extern char catAssetsModelTestOn;
+extern char catAssetsModelDump[];   // /catAssetsModelDump <dir>
 void catAssetsModelRunTest(void);
 
 #endif

@@ -1145,6 +1145,7 @@ bool32 assetsModelFind(char *fileName, const ubyte **image, sdword *length, char
 // HWI-TEST /catAssetsModelTest: every OBJ assets-models.txt names, built from the file as it is and compared with
 //      the game's mesh (the export's own OBJs: the same objects, triangles, positions, UVs, normals, materials, glow)
 char catAssetsModelTestOn = FALSE;
+char catAssetsModelDump[PATH_MAX] = "";     // /catAssetsModelDump <dir>: each built image saved there as <OBJ path>.geo
 
 void catAssetsModelRunTest(void)
 {
@@ -1220,6 +1221,25 @@ void catAssetsModelRunTest(void)
             {
                 image = amObjToMesh(afFolder, objPath, objRel, meshName, tmpl, tmplLength, afNewPicture, afGameFile,
                                     &imageLength, &stats, why, sizeof(why));
+            }
+            if (image != NULL && catAssetsModelDump[0])
+            {
+                char dump[PATH_MAX];
+                FILE *out;
+                size_t j, m;
+
+                m = (size_t)snprintf(dump, sizeof(dump), "%s/", catAssetsModelDump);
+                for (j = 0; objRel[j] && m + 5 < sizeof(dump); j++)
+                {
+                    dump[m++] = (objRel[j] == '/' || objRel[j] == '\\') ? '_' : objRel[j];
+                }
+                snprintf(dump + m, sizeof(dump) - m, ".geo");
+                out = fopen(dump, "wb");
+                if (out != NULL)
+                {
+                    fwrite(image, 1, (size_t)imageLength, out);
+                    fclose(out);
+                }
             }
             if (image != NULL && amCompare(tmpl, tmplLength, image, imageLength, &cmp, why, sizeof(why)))
             {
